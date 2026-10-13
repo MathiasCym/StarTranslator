@@ -19,6 +19,8 @@
 
 团队词库为 [glossary/team.json](glossary/team.json)。仅该文件会由软件的团队同步功能提交；模型配置、文档、报告、日志与个人记录保持本地。已有共享文件方式和 JSON / Excel 导入导出仍可使用。
 
+仓库所有者可使用仅选择 StarTranslator、授予 Contents 读写权限的细粒度授权。其他个人仓库协作者需在 [GitHub 的经典授权页面](https://github.com/settings/tokens/new) 创建具有 `public_repo` 权限的授权，再粘贴到软件的维护授权输入框。GitHub 当前不支持协作者通过细粒度授权写入他人的个人仓库，参见 [GitHub 授权说明](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens)。授权不提供额外的仓库权限，维护者必须先接受本仓库的协作邀请。
+
 ## 局域网协作与文档对照
 
 一台电脑配置模型后开启“局域网协作”，同事可以通过浏览器或已安装的软件连接，共享电脑同时处理两项任务，其余排队。无需注册或登录。翻译后的校对建议先展示，由使用者确认后保存；原稿保留。
