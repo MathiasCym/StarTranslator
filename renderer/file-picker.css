@@ -1,0 +1,78 @@
+.picker-body { margin: 0; height: 100vh; min-height: 0; display: flex; flex-direction: column; background: radial-gradient(ellipse at top left, #1c3d59, #0d1c30 70%); border: 1px solid #34607e; overflow: hidden; }
+.picker-head { display: flex; align-items: center; gap: 14px; padding: 18px 24px; -webkit-app-region: drag; flex-shrink: 0; }
+.picker-head img { width: 52px; height: 52px; object-fit: contain; }
+.picker-head h2 { margin: 0 0 4px; font-size: 22px; }
+.picker-head span { color: var(--fg2); font-size: 14px; }
+.picker-head button { margin-left: auto; -webkit-app-region: no-drag; }
+.picker-toolbar { padding: 0 24px 16px; display: flex; gap: 8px; flex-shrink: 0; }
+.picker-toolbar form { flex: 1; min-width: 0; }
+.picker-toolbar input { width: 100%; }
+.picker-content { flex: 1; min-height: 0; display: grid; grid-template-columns: 180px minmax(0, 1fr); border-block: 1px solid var(--line); }
+#pickerLocations { padding: 16px 12px; overflow: auto; background: #0c1d3080; display: flex; flex-direction: column; gap: 7px; }
+#pickerLocations button { text-align: left; padding: 10px 12px; }
+.picker-files { padding: 16px 20px; min-height: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.picker-search, #pickerNewForm { display: flex; gap: 10px; flex-shrink: 0; }
+.picker-search input, #pickerNewForm input { min-width: 0; flex: 1; }
+.picker-sort { display: flex; align-items: center; gap: 10px; flex-shrink: 0; color: var(--fg2); font-size: 15px; }
+.picker-sort select { min-width: 132px; }
+.picker-sort .btn { min-width: 90px; }
+#pickerList { overflow: auto; min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 4px; }
+.picker-entry { display: flex; flex-shrink: 0; align-items: center; gap: 12px; text-align: left; background: transparent; color: var(--fg); border: 1px solid transparent; border-radius: 8px; padding: 11px 12px; width: 100%; font: inherit; cursor: pointer; }
+.picker-entry:hover, .picker-entry:focus-visible { background: #38bdf818; border-color: #38bdf860; }
+.picker-entry.selected { background: #38bdf82b; border-color: var(--cyan); }
+.picker-entry .file-kind { color: var(--cyan); min-width: 48px; font-size: 12px; font-weight: bold; }
+.picker-entry .file-name { overflow-wrap: anywhere; flex: 1; min-width: 0; }
+.picker-entry .file-check { color: var(--cyan); min-width: 18px; }
+.picker-footer { padding: 14px 24px 20px; flex-shrink: 0; }
+#pickerMessage { font-size: 15px; line-height: 20px; margin: 0 0 12px; height: 40px; overflow-wrap: anywhere; overflow: auto; color: var(--fg2); }
+#pickerMessage.error { color: #ff849b; }
+#pickerNameRow { display: flex; align-items: center; gap: 15px; margin-bottom: 12px; }
+#pickerName { flex: 1; min-width: 0; }
+#pickerNameLabel { width: 90px; flex-shrink: 0; font-size: 15px; }
+#pickerSelectedNames { flex: 1; min-width: 0; height: 62px; resize: none; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; line-height: 20px; }
+.picker-bottom { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#pickerType { font-size: 13px; color: var(--fg2); }
+[hidden] { display: none !important; }
+.picker-body .picker-head { padding: 10px 18px; margin-bottom: 8px; }
+.picker-body .picker-head img { width: 44px; height: 44px; }
+.picker-body .picker-head h2 { font-size: 21px; line-height: 26px; margin-bottom: 2px; }
+.picker-body .picker-head span { display: block; font-size: 13px; line-height: 18px; }
+.picker-body .picker-toolbar { padding: 0 18px 10px; align-items: center; }
+.picker-body .picker-toolbar input { padding: 6px 9px; font-size: 16px; }
+.picker-body .picker-content { grid-template-columns: 168px minmax(0, 1fr); }
+.picker-body .picker-files { padding: 12px; gap: 10px; overflow: hidden; }
+.picker-tools { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+.picker-tools .picker-search { flex: 1; min-width: 0; }
+.picker-tools .picker-search input { width: 100%; padding: 6px 9px; font-size: 16px; }
+.picker-body .picker-sort { gap: 7px; font-size: 14px; }
+.picker-body .picker-sort select { min-width: 112px; padding: 6px 9px; font-size: 15px; }
+.picker-body .picker-sort .btn { min-width: 76px; padding: 6px 9px; font-size: 15px; }
+.picker-body #pickerList { gap: 3px; scrollbar-gutter: stable; }
+.picker-body .picker-entry { height: 38px; min-height: 38px; padding: 6px 10px; font-size: 16px; line-height: 24px; gap: 10px; }
+.picker-body .picker-entry .file-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.picker-body .picker-entry .file-kind { min-width: 52px; font-size: 12px; }
+.picker-body .picker-footer { padding: 8px 18px 12px; }
+.picker-body #pickerMessage { height: 20px; margin-bottom: 6px; }
+.picker-body #pickerNameRow { gap: 10px; margin-bottom: 8px; }
+.picker-body #pickerNameLabel { width: 78px; }
+.picker-body #pickerSelectedNames { height: 40px; padding: 3px 9px; }
+.picker-body .picker-footer .btn { padding: 7px 14px; font-size: 16px; }
+.picker-body #pickerLocations { padding: 12px 10px; gap: 5px; }
+.picker-body #pickerLocations button { padding: 8px 10px; font-size: 15px; }
+@media (max-height: 560px) {
+  .picker-body .picker-head { padding: 6px 14px; margin-bottom: 4px; gap: 10px; }
+  .picker-body .picker-head img { width: 40px; height: 40px; }
+  .picker-body .picker-head h2 { font-size: 20px; }
+  .picker-body .picker-head h2 { line-height: 24px; }
+  .picker-body .picker-toolbar { padding: 0 14px 6px; gap: 6px; }
+  .picker-body .picker-toolbar input, .picker-body .picker-search input, .picker-body .picker-sort select { padding: 7px 9px; font-size: 15px; }
+  .picker-body .picker-content { grid-template-columns: 130px minmax(0, 1fr); }
+  .picker-body .picker-files { padding: 8px; gap: 8px; }
+  .picker-body #pickerList { gap: 2px; }
+  .picker-body .picker-entry { height: 32px; min-height: 32px; line-height: 20px; padding-block: 5px; }
+  .picker-body .picker-footer { padding: 8px 14px; }
+  .picker-body #pickerMessage { height: 18px; line-height: 18px; margin-bottom: 4px; font-size: 14px; }
+  .picker-body #pickerNameRow { margin-bottom: 6px; }
+  .picker-body #pickerSelectedNames { height: 36px; font-size: 14px; }
+  .picker-body .picker-footer .btn { line-height: 20px; padding-block: 6px; }
+}

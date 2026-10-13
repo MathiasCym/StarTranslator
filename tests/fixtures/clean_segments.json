@@ -1,0 +1,14 @@
+{
+  "_comment": "人工构造的完全正确文本，用于检验判决器会不会「为了找问题而找问题」。这些必须零报告。",
+  "_source": "2026-09-23 构造，实测 LLM 判决在 8 句上误报 0 处",
+  "segments": [
+    "The pixel pitch of this cabinet is 1.25mm, ideal for fine-pitch applications.",
+    "Each receiving card supports up to 512x512 pixels and handles grayscale processing.",
+    "COB screens offer better protection against collision and moisture.",
+    "Our calibration solution evolved from brightness calibration to multi-bin color calibration.",
+    "The refresh rate reaches 3840Hz, eliminating flicker in broadcast scenarios.",
+    "We provide LED all-in-one devices for conference rooms and home theaters.",
+    "The driver IC supports high refresh rates with low power consumption.",
+    "Seamless large-screen splicing technology enables immersive viewing."
+  ]
+}

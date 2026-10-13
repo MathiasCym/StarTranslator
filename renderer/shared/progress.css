@@ -1,0 +1,16 @@
+/* A steady fill and a separate soft reflection avoid a seam in a looping gradient. */
+.shared-progress {
+  --shared-percent: 0%; position: relative; width: 100%; height: 16px;
+  margin: 10px 0; border-radius: 9px; overflow: hidden; background: #132b41;
+  box-shadow: inset 0 0 0 1px #7bc9f026, 0 0 12px #38bdf81a;
+}
+.shared-progress:has(progress[hidden]) { display: none; }
+.shared-progress progress { appearance: none; display: block; width: 100%; height: 100%; margin: 0; background: transparent; border: 0; border-radius: inherit; }
+.shared-progress progress::-webkit-progress-bar { background: transparent; border-radius: 9px; }
+.shared-progress progress::-webkit-progress-value { border-radius: 9px; background: linear-gradient(100deg,#70b6ff,#3ba8f1 35%,#59e3ef); background-size: 100% 100%; animation: none; }
+.shared-progress progress::-moz-progress-bar { border-radius: 9px; background: linear-gradient(100deg,#70b6ff,#3ba8f1 35%,#59e3ef); }
+.shared-reflection { position: absolute; inset: 0 auto 0 0; width: var(--shared-percent); overflow: hidden; border-radius: inherit; clip-path: inset(0 round 9px); pointer-events: none; }
+.shared-reflection::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg,transparent 28%,#e2fcff15 40%,#e2fcff66 50%,#e2fcff15 60%,transparent 72%); transform: translateX(-100%); }
+.shared-progress.active .shared-reflection::after { animation: shared-reflection 2.4s linear infinite; animation-delay: var(--reflection-delay,0ms); }
+@keyframes shared-reflection { to { transform: translateX(100%); } }
+@media(prefers-reduced-motion:reduce) { .shared-progress.active .shared-reflection::after { animation: none!important; } }

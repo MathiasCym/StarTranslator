@@ -1,0 +1,1482 @@
+[
+ {
+  "zh": "未来客厅",
+  "en": "Future Living Room",
+  "variants": [],
+  "priority": 2,
+  "note": "展示区名称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "家庭影院解决方案",
+  "en": "Home Theater Solution",
+  "variants": [],
+  "priority": 2,
+  "note": "行业方案名称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "COB屏体",
+  "en": "COB LED display",
+  "variants": [],
+  "priority": 2,
+  "note": "COB（Chip on Board）封装形式的LED显示屏",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "4K分辨率",
+  "en": "4K resolution",
+  "variants": [],
+  "priority": 2,
+  "note": "显示分辨率规格",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "控制系统",
+  "en": "control system",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏控制系统",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "5G传输解决方案",
+  "en": "5G transmission solution",
+  "variants": [],
+  "priority": 2,
+  "note": "NovaStar的5G传输方案，指5Gbps带宽传输",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "8K带载控制器",
+  "en": "8K loading controller",
+  "variants": [],
+  "priority": 2,
+  "note": "8K带载能力的控制器设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "接收卡",
+  "en": "receiving card",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏接收卡",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "HDMI2.1",
+  "en": "HDMI 2.1",
+  "variants": [],
+  "priority": 2,
+  "note": "视频接口标准",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "DP1.4",
+  "en": "DP 1.4",
+  "variants": [],
+  "priority": 2,
+  "note": "DisplayPort 1.4视频接口标准",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "8K信号源",
+  "en": "8K signal sources",
+  "variants": [],
+  "priority": 2,
+  "note": "8K信号源设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "网线",
+  "en": "Ethernet cable",
+  "variants": [],
+  "priority": 2,
+  "note": "以太网线缆，用于带载传输",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "带载",
+  "en": "load",
+  "variants": [],
+  "priority": 2,
+  "note": "接收卡/控制器带载像素或箱体的能力",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "位深",
+  "en": "bit",
+  "variants": [],
+  "priority": 2,
+  "note": "信号源位深，如8/10/12-bit",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "无损播放",
+  "en": "lossless playback",
+  "variants": [],
+  "priority": 2,
+  "note": "无损画质播放",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "HDR超高清显示",
+  "en": "HDR ultra-high definition display",
+  "variants": [],
+  "priority": 2,
+  "note": "高动态范围超高清显示",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "灰度",
+  "en": "grayscale",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏灰度等级",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "色域",
+  "en": "color space",
+  "variants": [],
+  "priority": 2,
+  "note": "色彩空间/色域范围",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "DCI-P3",
+  "en": "DCI-P3",
+  "variants": [],
+  "priority": 2,
+  "note": "数字电影色域标准",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "BT.2020",
+  "en": "BT.2020",
+  "variants": [],
+  "priority": 2,
+  "note": "超高清电视色域标准",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "VMP",
+  "en": "Vison Management Platform",
+  "variants": [],
+  "priority": 2,
+  "note": "NovaStar的显示屏控制软件",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "广电传媒",
+  "en": "broadcasting",
+  "variants": [],
+  "priority": 2,
+  "note": "广播电视传媒应用场景",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "8K固装",
+  "en": "8K installations",
+  "variants": [],
+  "priority": 2,
+  "note": "8K固定安装应用场景",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "大屏租赁",
+  "en": "large-screen rentals",
+  "variants": [],
+  "priority": 2,
+  "note": "大型显示屏租赁应用场景",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "LED会议一体机",
+  "en": "LED conference all-in-one device",
+  "variants": [],
+  "priority": 2,
+  "note": "集成显示与会议功能的LED一体机产品",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "投屏",
+  "en": "screen casting",
+  "variants": [],
+  "priority": 2,
+  "note": "将移动设备画面无线传输至大屏的技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "投屏器",
+  "en": "screen casting dongle",
+  "variants": [],
+  "priority": 2,
+  "note": "用于一键投屏的硬件设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "九分屏投屏",
+  "en": "nine-split screen casting",
+  "variants": [],
+  "priority": 2,
+  "note": "支持九个终端同时投屏显示",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "WIFI6芯片",
+  "en": "WIFI 6 chip",
+  "variants": [],
+  "priority": 2,
+  "note": "支持Wi-Fi 6标准的无线通信芯片",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "蓝光危害",
+  "en": "blue light hazards",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏蓝光对人眼的潜在伤害",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "护眼模式",
+  "en": "eye protection mode",
+  "variants": [],
+  "priority": 2,
+  "note": "滤减蓝光保护视力的显示模式",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "画质增强算法",
+  "en": "image quality enhancement algorithm",
+  "variants": [],
+  "priority": 2,
+  "note": "提升LED显示均匀度和色彩的算法",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "系统集成度",
+  "en": "system integration",
+  "variants": [],
+  "priority": 2,
+  "note": "系统各功能模块的集成程度",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "适配性",
+  "en": "compatibility",
+  "variants": [],
+  "priority": 2,
+  "note": "系统对接外部设备和系统的能力",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "OPS",
+  "en": "OPS computer",
+  "variants": [],
+  "priority": 2,
+  "note": "开放式可插拔计算机模块，用于双系统方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "红外边框",
+  "en": "infrared sensor",
+  "variants": [],
+  "priority": 2,
+  "note": "用于触控书写的红外感应边框",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "双系统",
+  "en": "dual-system",
+  "variants": [],
+  "priority": 2,
+  "note": "同时运行Windows和Android两套系统",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "触控书写",
+  "en": "whiteboard annotation",
+  "variants": [],
+  "priority": 2,
+  "note": "在LED大屏上进行触控书写批注",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "场景模式",
+  "en": "scene mode",
+  "variants": [],
+  "priority": 2,
+  "note": "针对不同使用场景优化的显示模式",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "安卓",
+  "en": "Android",
+  "variants": [],
+  "priority": 2,
+  "note": "LED一体机搭载的操作系统平台",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "发送一体化",
+  "en": "integrated Android system and screen casting",
+  "variants": [],
+  "priority": 2,
+  "note": "安卓系统与发送功能集成于一体的设计",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "远程视频会议",
+  "en": "remote video conferencing",
+  "variants": [],
+  "priority": 2,
+  "note": "通过网络进行的异地视频会议",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "待机低功耗",
+  "en": "standby low-power consumption",
+  "variants": [],
+  "priority": 2,
+  "note": "待机状态下低于0.5W的功耗表现",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "蓝牙语音遥控器",
+  "en": "intelligent Bluetooth voice remote control",
+  "variants": [],
+  "priority": 2,
+  "note": "支持语音控制的蓝牙遥控设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "双引擎分布式",
+  "en": "dual-engine distributed system",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦双引擎分布式系统的核心产品名称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "星河可视化",
+  "en": "Star River visualization system",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦可视化软件平台，英文中出现两种写法",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "分布式",
+  "en": "distributed system",
+  "variants": [],
+  "priority": 2,
+  "note": "分布式系统架构",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "发送卡",
+  "en": "sending card",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示控制中的发送卡",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "解码节点",
+  "en": "decoding node",
+  "variants": [],
+  "priority": 2,
+  "note": "分布式系统中的解码节点",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "二合一节点",
+  "en": "two-in-one distributed output node",
+  "variants": [],
+  "priority": 2,
+  "note": "将解码节点和发送卡合二为一的节点",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "4K@60",
+  "en": "4K@60",
+  "variants": [],
+  "priority": 2,
+  "note": "4K分辨率60帧刷新率",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "10bit",
+  "en": "10-bit",
+  "variants": [],
+  "priority": 2,
+  "note": "10位色深",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "YUV4:4:4",
+  "en": "YUV4:4:4",
+  "variants": [],
+  "priority": 2,
+  "note": "色度采样格式，无色彩压缩",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "双时钟同步技术",
+  "en": "dual synchronization technology",
+  "variants": [],
+  "priority": 2,
+  "note": "软硬件结合的双时钟同步方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "深浅压缩双码流",
+  "en": "dual code streams",
+  "variants": [],
+  "priority": 2,
+  "note": "深浅两种压缩码流",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "2ms视觉零延迟",
+  "en": "2ms visual zero latency",
+  "variants": [],
+  "priority": 2,
+  "note": "2毫秒视觉零延迟",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "可视化控制",
+  "en": "visual control",
+  "variants": [],
+  "priority": 2,
+  "note": "可视化管控",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "媒体服务器",
+  "en": "media server",
+  "variants": [],
+  "priority": 2,
+  "note": "媒体服务器设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "中控",
+  "en": "central control system",
+  "variants": [],
+  "priority": 2,
+  "note": "中央控制系统",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "坐席管控",
+  "en": "seat control",
+  "variants": [],
+  "priority": 2,
+  "note": "指挥中心坐席管理",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "编解码",
+  "en": "encoding and decoding",
+  "variants": [],
+  "priority": 2,
+  "note": "信号编解码过程",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "拼接同步性",
+  "en": "splicing synchronization",
+  "variants": [],
+  "priority": 2,
+  "note": "大屏拼接的同步性能",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "点间距",
+  "en": "pixel pitch",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏像素间距",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "HEVC Plus",
+  "en": "HEVC Plus (H.265)",
+  "variants": [],
+  "priority": 2,
+  "note": "视频压缩编码算法",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "天权分布式系统",
+  "en": "Tianquan distributed system",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦天权系列分布式系统",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "可视化管理系统",
+  "en": "distributed visualization management system",
+  "variants": [],
+  "priority": 2,
+  "note": "分布式可视化管理系统",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "一体化",
+  "en": "integrated solution",
+  "variants": [],
+  "priority": 2,
+  "note": "整体解决方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "校正方案",
+  "en": "Calibration Solution",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏校正领域的核心术语",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "数码相机校正",
+  "en": "digital camera-based calibration",
+  "variants": [],
+  "priority": 2,
+  "note": "使用数码相机进行LED显示屏校正的方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "校正技术",
+  "en": "calibration technology",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示校正技术总称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "MiniLED",
+  "en": "MiniLED",
+  "variants": [],
+  "priority": 2,
+  "note": "次毫米发光二极管显示技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "工业相机",
+  "en": "industrial camera",
+  "variants": [],
+  "priority": 2,
+  "note": "用于LED校正的高精度采集设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "C3200",
+  "en": "C3200 camera",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦科学级工业相机型号",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "全像素读取",
+  "en": "full-pixel readout",
+  "variants": [],
+  "priority": 2,
+  "note": "相机传感器全像素数据读取方式",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "COG屏体",
+  "en": "COG screen",
+  "variants": [],
+  "priority": 2,
+  "note": "Chip on Glass封装方式的LED显示屏",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "校正效率",
+  "en": "calibration efficiency",
+  "variants": [],
+  "priority": 2,
+  "note": "校正工作的效率指标",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "XYZ彩色滤光片",
+  "en": "XYZ filter",
+  "variants": [],
+  "priority": 2,
+  "note": "符合人眼视觉特性的彩色滤光片",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "高精度校正",
+  "en": "high-precision calibration",
+  "variants": [],
+  "priority": 2,
+  "note": "高精度LED校正方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "全灰阶校正",
+  "en": "full grayscale calibration",
+  "variants": [],
+  "priority": 2,
+  "note": "覆盖全部灰度等级的校正技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "低灰校正",
+  "en": "low grayscale calibration",
+  "variants": [],
+  "priority": 2,
+  "note": "针对低灰度显示问题的校正方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "热力校正",
+  "en": "thermal calibration",
+  "variants": [],
+  "priority": 2,
+  "note": "针对温度变化引起的显示问题进行的校正",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "CalCube",
+  "en": "CalCube",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦校正软件名称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "色块",
+  "en": "display mura",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏显示不均匀现象",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "麻点",
+  "en": "mura",
+  "variants": [],
+  "priority": 2,
+  "note": "显示屏局部亮度不均的缺陷",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "驱动IC",
+  "en": "driver IC",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏驱动集成电路",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "逐点校正",
+  "en": "point-by-point calibration",
+  "variants": [],
+  "priority": 2,
+  "note": "对每个LED像素点单独进行校正的技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "超像素成像",
+  "en": "Super Pixel Imaging",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦创新的区域采集优化技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "宽bin技术",
+  "en": "wide binning technology",
+  "variants": [],
+  "priority": 2,
+  "note": "扩展LED芯片波长范围以降低成本的方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "自适应校正算法",
+  "en": "adaptive calibration algorithm",
+  "variants": [],
+  "priority": 2,
+  "note": "自动适应不同屏体条件的校正算法",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "XR虚拟拍摄",
+  "en": "XR virtual shooting",
+  "variants": [],
+  "priority": 2,
+  "note": "扩展现实虚拟拍摄应用场景",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "箱体校正",
+  "en": "cabinet calibration",
+  "variants": [],
+  "priority": 2,
+  "note": "针对LED箱体级别的校正",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "整屏校正",
+  "en": "full-screen calibration",
+  "variants": [],
+  "priority": 2,
+  "note": "针对整个显示屏的校正",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "微间距校正",
+  "en": "micro calibration",
+  "variants": [],
+  "priority": 2,
+  "note": "微间距LED显示屏的校正",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "小间距校正",
+  "en": "fine-pitch calibration",
+  "variants": [],
+  "priority": 2,
+  "note": "小间距LED显示屏的校正",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "视频产品",
+  "en": "video product",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示行业产品线名称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "诺瓦云产品线",
+  "en": "Nova cloud product line",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦品牌云产品线",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "舞台租赁",
+  "en": "stage rental",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示行业热门解决方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "画质",
+  "en": "image quality",
+  "variants": [],
+  "priority": 2,
+  "note": "显示效果相关术语",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "视频拼接器",
+  "en": "video splicer",
+  "variants": [],
+  "priority": 2,
+  "note": "视频处理硬件产品",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "多媒体播放盒",
+  "en": "multimedia player box",
+  "variants": [],
+  "priority": 2,
+  "note": "云产品硬件设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "灯杆屏",
+  "en": "light pole screens",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏应用场景",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "广告屏",
+  "en": "advertising display",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏应用场景",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "控台",
+  "en": "control console",
+  "variants": [],
+  "priority": 2,
+  "note": "舞台租赁解决方案核心设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "拼接器",
+  "en": "splicer",
+  "variants": [],
+  "priority": 2,
+  "note": "舞台租赁解决方案明星产品",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "诺瓦云",
+  "en": "Nova Cloud",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦云服务平台品牌名",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "信息发布",
+  "en": "information publishing",
+  "variants": [],
+  "priority": 2,
+  "note": "信息发布平台/系统",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "运维监控",
+  "en": "operation and maintenance",
+  "variants": [],
+  "priority": 2,
+  "note": "运维监控平台",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "屏体",
+  "en": "screen",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏体",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "告警信息",
+  "en": "alarm information",
+  "variants": [],
+  "priority": 2,
+  "note": "屏体故障告警信息",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "车载屏",
+  "en": "vehicle screens",
+  "variants": [],
+  "priority": 2,
+  "note": "车载LED显示屏",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "云服务解决方案",
+  "en": "cloud service solution",
+  "variants": [],
+  "priority": 2,
+  "note": "基于云的LED显示管理方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "远程集群控制",
+  "en": "remote cluster control",
+  "variants": [],
+  "priority": 2,
+  "note": "远程集群管控技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "跨区域",
+  "en": "cross-regional",
+  "variants": [],
+  "priority": 2,
+  "note": "跨区域管理",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "等保3级认证",
+  "en": "three-level certification of equal protection",
+  "variants": [],
+  "priority": 2,
+  "note": "中国信息安全等级保护三级认证",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "网络安全",
+  "en": "network security",
+  "variants": [],
+  "priority": 2,
+  "note": "产品网络安全",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "智慧城市",
+  "en": "smart city",
+  "variants": [],
+  "priority": 2,
+  "note": "智慧城市建设",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "售前方案",
+  "en": "pre-sales solution",
+  "variants": [],
+  "priority": 2,
+  "note": "项目售前方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "售后",
+  "en": "after-sales",
+  "variants": [],
+  "priority": 2,
+  "note": "售后服务",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "短信",
+  "en": "SMS",
+  "variants": [],
+  "priority": 2,
+  "note": "短信通知方式",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "统一管理",
+  "en": "unified management",
+  "variants": [],
+  "priority": 2,
+  "note": "屏体统一管理",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "标准化控制平台",
+  "en": "standardized control platform",
+  "variants": [],
+  "priority": 2,
+  "note": "运维标准化平台",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "xR",
+  "en": "xR",
+  "variants": [],
+  "priority": 2,
+  "note": "扩展现实（Extended Reality），LED虚拟拍摄行业核心概念",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "虚拟拍摄",
+  "en": "Virtual Shooting",
+  "variants": [],
+  "priority": 2,
+  "note": "基于LED背景墙的虚拟拍摄技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "虚拟背景墙",
+  "en": "virtual background walls",
+  "variants": [],
+  "priority": 2,
+  "note": "LED虚拟拍摄中用作背景的LED显示屏",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "光学追踪器",
+  "en": "optical tracker",
+  "variants": [],
+  "priority": 2,
+  "note": "用于实时获取摄像机三维空间坐标的追踪设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "融合服务器",
+  "en": "fusion server",
+  "variants": [],
+  "priority": 2,
+  "note": "用于XR扩展融合的服务器设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "扩展融合",
+  "en": "extended fusion",
+  "variants": [],
+  "priority": 2,
+  "note": "XR中将虚拟内容与实拍画面融合的技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "COEX控制系统",
+  "en": "COEX control system",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦星云LED控制系统品牌",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "COEX系统",
+  "en": "COEX system",
+  "variants": [],
+  "priority": 2,
+  "note": "COEX控制系统的简称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "绿幕后期制作",
+  "en": "green-screen post-production",
+  "variants": [],
+  "priority": 2,
+  "note": "传统影视制作方式，与LED虚拟拍摄相对",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "实时处理技术",
+  "en": "real-time processing technology",
+  "variants": [],
+  "priority": 2,
+  "note": "XR虚拟拍摄的核心技术特征",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "图形卡技术",
+  "en": "graphics card technology",
+  "variants": [],
+  "priority": 2,
+  "note": "驱动实时渲染的显卡技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "虚拟引擎",
+  "en": "virtual engine",
+  "variants": [],
+  "priority": 2,
+  "note": "实时渲染引擎，如Unreal Engine等",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "实时渲染",
+  "en": "real-time rendering",
+  "variants": [],
+  "priority": 2,
+  "note": "虚拟引擎的实时渲染技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "3D扫描",
+  "en": "3D scanning",
+  "variants": [],
+  "priority": 2,
+  "note": "三维扫描建模技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "建模技术",
+  "en": "modeling technology",
+  "variants": [],
+  "priority": 2,
+  "note": "三维建模技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "三维虚拟资产",
+  "en": "three-dimensional virtual assets",
+  "variants": [],
+  "priority": 2,
+  "note": "虚拟引擎中构建的三维数字资产",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "XR扩展现实",
+  "en": "XR extended reality",
+  "variants": [],
+  "priority": 2,
+  "note": "扩展现实全称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "后期前置化",
+  "en": "post-pre-installation",
+  "variants": [],
+  "priority": 2,
+  "note": "将后期制作环节前置到拍摄阶段的流程特点",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "环境光效",
+  "en": "ambient light effect",
+  "variants": [],
+  "priority": 2,
+  "note": "LED背景墙提供的真实环境光照效果",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "成组管理",
+  "en": "group management",
+  "variants": [],
+  "priority": 2,
+  "note": "LED屏分组管理功能",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "画质引擎",
+  "en": "image engine",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示画质处理引擎",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "色彩管理",
+  "en": "color management",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏色彩管理技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "HDR",
+  "en": "HDR",
+  "variants": [],
+  "priority": 2,
+  "note": "高动态范围（High Dynamic Range）",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "14通道色彩校正",
+  "en": "14-channel color correction",
+  "variants": [],
+  "priority": 2,
+  "note": "多通道色彩校正功能",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "3D LUT",
+  "en": "3D LUT",
+  "variants": [],
+  "priority": 2,
+  "note": "三维查找表色彩调整技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "genlock相位锁定",
+  "en": "genlock phase lock",
+  "variants": [],
+  "priority": 2,
+  "note": "同步锁相技术，确保LED屏与摄像机同步",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "genlock相位偏移",
+  "en": "genlock phase offset",
+  "variants": [],
+  "priority": 2,
+  "note": "同步锁相相位偏移调节功能",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "快门适配",
+  "en": "shutter fit",
+  "variants": [],
+  "priority": 2,
+  "note": "LED屏与摄像机快门同步适配技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "黑线",
+  "en": "black lines",
+  "variants": [],
+  "priority": 2,
+  "note": "拍摄LED屏时出现的扫描黑线问题",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "扫描线",
+  "en": "scan lines",
+  "variants": [],
+  "priority": 2,
+  "note": "拍摄LED屏时出现的扫描线问题",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "平台化系统",
+  "en": "platform-based system",
+  "variants": [],
+  "priority": 2,
+  "note": "COEX的平台化架构特征",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "色彩调节",
+  "en": "color adjustment",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏色彩调节功能",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "场景预设",
+  "en": "scene presets",
+  "variants": [],
+  "priority": 2,
+  "note": "可保存和调用的场景预设",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "裸眼3D",
+  "en": "naked-eye 3D",
+  "variants": [],
+  "priority": 2,
+  "note": "无需佩戴眼镜即可观看的3D显示技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "小间距",
+  "en": "fine-pitch",
+  "variants": [],
+  "priority": 2,
+  "note": "LED显示屏像素间距较小的产品类型",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "拼控",
+  "en": "controller",
+  "variants": [],
+  "priority": 2,
+  "note": "拼接控制器，用于LED显示屏的信号拼接与控制",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "播控服务器",
+  "en": "playback control server",
+  "variants": [],
+  "priority": 2,
+  "note": "用于控制视频播放的服务器",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "全链路方案",
+  "en": "complete solution",
+  "variants": [],
+  "priority": 2,
+  "note": "涵盖从控制到内容制作的完整解决方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "沉浸式",
+  "en": "immersive",
+  "variants": [],
+  "priority": 2,
+  "note": "沉浸式视频体验类型",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "全息投影",
+  "en": "holographic projection",
+  "variants": [],
+  "priority": 2,
+  "note": "全息投影技术",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "定制化",
+  "en": "customized",
+  "variants": [],
+  "priority": 2,
+  "note": "视频内容定制服务",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "一站式内容解决方案",
+  "en": "a package service of content solutions",
+  "variants": [],
+  "priority": 2,
+  "note": "从创意到成品的一站式内容服务",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "LED显示智能制造解决方案",
+  "en": "LED Display Smart Manufacturing Solution",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦面向LED显示屏制造环节的整体解决方案名称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "墨色检测机",
+  "en": "MLED ink color test sorting machine",
+  "variants": [],
+  "priority": 2,
+  "note": "检测模组黑屏状态下墨色参数并分选的设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "点亮测试机",
+  "en": "MLED luminance test machine",
+  "variants": [],
+  "priority": 2,
+  "note": "对点亮灯板进行故障检测的设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "单模组校正机",
+  "en": "MLED Demura module correction device",
+  "variants": [],
+  "priority": 2,
+  "note": "以模组为单位进行校正的设备/系统",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "侧视角检测分选机",
+  "en": "MLED side-view luminance sorting machine",
+  "variants": [],
+  "priority": 2,
+  "note": "检测LED模组侧面显示一致性并分选的设备",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "侧视角分选机",
+  "en": "side viewing angle sorting machine",
+  "variants": [],
+  "priority": 2,
+  "note": "侧视角分选设备的简称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "墨色",
+  "en": "ink color",
+  "variants": [],
+  "priority": 2,
+  "note": "模组黑屏状态下灯板表面的颜色一致性参数",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "墨色参数",
+  "en": "ink color parameters",
+  "variants": [],
+  "priority": 2,
+  "note": "用于评价墨色一致性的检测参数",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "灯板",
+  "en": "light board",
+  "variants": [],
+  "priority": 2,
+  "note": "LED模组中承载灯珠的电路板",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "阴阳面",
+  "en": "side-view dark rows",
+  "variants": [],
+  "priority": 2,
+  "note": "灯板点亮后侧面出现的暗区/暗行现象",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "flash",
+  "en": "flash",
+  "variants": [],
+  "priority": 2,
+  "note": "灯板点亮时的闪烁异常",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "模组校正",
+  "en": "module correction",
+  "variants": [],
+  "priority": 2,
+  "note": "以模组为单位的校正方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "COB封装模组",
+  "en": "COB packaging module",
+  "variants": [],
+  "priority": 2,
+  "note": "采用COB封装工艺的LED模组",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "全屏校正",
+  "en": "full-screen correction",
+  "variants": [],
+  "priority": 2,
+  "note": "对整屏进行的校正方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "全灰度校正",
+  "en": "full grayscale correction",
+  "variants": [],
+  "priority": 2,
+  "note": "覆盖全部灰度等级的校正方案",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "良率",
+  "en": "yield",
+  "variants": [],
+  "priority": 2,
+  "note": "生产合格率",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "MLED",
+  "en": "MLED",
+  "variants": [],
+  "priority": 2,
+  "note": "Mini/Micro LED的统称",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "MLED核心检测装备",
+  "en": "MLED core inspection equipment",
+  "variants": [],
+  "priority": 2,
+  "note": "诺瓦面向MLED显示屏的检测装备系列",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "返修",
+  "en": "repair",
+  "variants": [],
+  "priority": 2,
+  "note": "对不良模组的修复流程",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "备品模组",
+  "en": "spare module",
+  "variants": [],
+  "priority": 2,
+  "note": "用于替换故障模组的备用模组",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "拼接",
+  "en": "splicing",
+  "variants": [],
+  "priority": 2,
+  "note": "模组在现场的拼接安装",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ },
+ {
+  "zh": "可视化",
+  "en": "visualization",
+  "variants": [],
+  "priority": 2,
+  "note": "数据/结果的可视化呈现",
+  "source": "展厅讲解稿:讲解稿V3.0"
+ }
+]

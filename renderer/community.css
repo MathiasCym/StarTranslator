@@ -1,0 +1,30 @@
+.community-dialog { width:min(860px,calc(100vw - 40px)); max-width:calc(100vw - 40px); max-height:calc(100dvh - 48px); }
+.community-dialog[open] { display:flex; flex-direction:column; gap:14px; }
+.community-dialog .panel-head { flex-shrink:0; }
+.community-dialog .panel-head h3 { display:flex; align-items:center; gap:12px; }
+.community-dialog .panel-head img { flex-shrink:0; object-fit:contain; }
+.community-body { min-height:0; overflow:auto; padding:0 4px 4px; display:flex; flex-direction:column; gap:14px; }
+.community-body p { margin:0; }
+.community-summary { display:flex; justify-content:space-between; align-items:center; gap:12px; padding:14px; border:1px solid #7bc9f033; border-radius:10px; background:#07142266; }
+.community-footer { display:flex; gap:12px; align-items:center; justify-content:flex-end; flex-wrap:wrap; flex-shrink:0; padding-top:14px; border-top:1px solid #7bc9f033; }
+.community-footer p { flex:1; margin:0; overflow-wrap:anywhere; }
+.community-authorization { border:1px solid #7bc9f033; border-radius:10px; padding:12px; }
+.community-authorization[open] { display:grid; gap:12px; }
+.community-authorization summary { cursor:pointer; color:#b9d4e5; }
+.community-changes { display:flex; gap:8px; flex-wrap:wrap; max-height:120px; overflow:auto; margin-bottom:12px; }
+.community-changes span { border-radius:8px; background:#17456170; padding:4px 8px; font-size:14px; }
+.community-conflict { border:1px solid #72c8e055; border-radius:10px; background:#0a1d2b90; padding:14px; margin-bottom:12px; }
+.community-conflict-values { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; margin:12px 0; }
+.community-conflict-values p { white-space:pre-wrap; overflow-wrap:anywhere; max-height:170px; overflow:auto; padding:10px; background:#06142188; border-radius:8px; }
+.community-conflict select { max-width:260px; }
+.community-history { max-height:180px; overflow:auto; }
+.community-history article { padding:10px 0; border-bottom:1px solid #7bc9f033; }
+.community-history p { overflow-wrap:anywhere; }
+.community-notes { font:inherit; white-space:pre-wrap; overflow-wrap:anywhere; background:#07142288; border:1px solid #7bc9f033; padding:16px; border-radius:10px; margin:0; }
+.community-dialog .error { color:#ff9eac; }
+#updateProgressBox .job-progress-track { height:16px; }
+#updateProgressBox .job-progress-fill { position:relative; overflow:hidden; height:100%; background:linear-gradient(100deg,#70b6ff,#3ba8f1 35%,#59e3ef); border-radius:inherit; }
+#updateProgressBox .job-progress-light { width:100%; }
+#updateProgressBox .job-progress-light::after { animation:job-reflection 2.4s linear infinite; }
+@media(max-width:700px) { .community-dialog { padding:18px; } .community-summary { align-items:flex-start; flex-direction:column; } .community-conflict-values { grid-template-columns:1fr; } }
+@media(prefers-reduced-motion:reduce) { #updateProgressBox .job-progress-light::after { animation:none; } }

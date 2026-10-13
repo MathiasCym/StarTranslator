@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>星译官</title>
+<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="workspace.css">
+<link rel="stylesheet" href="collaboration.css">
+<link rel="stylesheet" href="shared/comparison-view.css">
+<link rel="stylesheet" href="community.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img class="brand-mark" id="aboutOpen" src="assets/app-icon.png" width="40" height="40" alt="" draggable="false" title="关于星译官">
+      <div>
+        <h1 title="发布者：MathiasCym">星译官 <span class="app-version" id="appVersion"></span></h1>
+        <p class="sub">译步到位 · 中英技术文档工作台</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <button class="btn ghost sm" id="openLan">局域网协作</button>
+      <button class="btn ghost sm" id="openHistory">历史记录</button>
+      <button class="btn ghost sm" id="openLexicon">术语库</button>
+      <button class="btn ghost sm" id="openModel">模型设置</button>
+      <button class="btn ghost sm" id="openAbout">关于</button>
+      <div class="status" id="status">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">正在启动服务…</span>
+      </div>
+      <div class="window-controls">
+        <button id="winMin" title="最小化" aria-label="最小化">
+          <svg viewBox="0 0 12 12" width="11" height="11"><path d="M1 6h10" stroke="currentColor" stroke-width="1.2"/></svg>
+        </button>
+        <button id="winMax" title="最大化" aria-label="最大化">
+          <svg class="ico-max" viewBox="0 0 12 12" width="11" height="11"><rect x="1.5" y="1.5" width="9" height="9" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+          <svg class="ico-restore" viewBox="0 0 12 12" width="11" height="11"><rect x="1.5" y="3.5" width="7" height="7" rx="1" stroke="currentColor" stroke-width="1.2" fill="none"/><path d="M4 3.5V2.5a1 1 0 0 1 1-1h4.5a1 1 0 0 1 1 1V7a1 1 0 0 1-1 1H9" stroke="currentColor" stroke-width="1.2" fill="none"/></svg>
+        </button>
+        <button id="winClose" class="close" title="关闭" aria-label="关闭">
+          <svg viewBox="0 0 12 12" width="11" height="11"><path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.2"/></svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="workspace-heading"><div><span class="eyebrow">STARTRANSLATOR</span><h2>文档工作台</h2></div></div>
+    <nav class="workspace-tabs" aria-label="工作模式">
+      <button class="mode" id="modeTranslate" aria-pressed="false">翻译</button>
+      <button class="mode active" id="modeCheck" aria-pressed="true">校对</button>
+      <span id="workspaceHint">校准术语，打磨表达</span>
+    </nav>
+    <div id="workspace">
+      <div class="workspace-documents">
+      <section class="dropzone" id="dropzone">
+        <div class="dz-inner">
+          <img class="welcome-portrait" src="assets/welcome.png" width="128" height="128" alt="星译官翻译与审校助手" draggable="false">
+          <div class="dz-copy"><span class="welcome-label">星译官 · 专业术语，各就其位</span>
+            <h2 id="dropTitle">添加英文译文</h2>
+            <p>拖入 Word / PPT 文档，可一次添加多份</p>
+            <button class="btn ghost" id="pickBtn">选择文档</button>
+          </div>
+        </div>
+      </section>
+      <section class="panel" id="filePanel" hidden>
+        <div class="panel-head"><h3>待处理文档 <span id="fileCount" class="badge">0</span></h3>
+          <div class="actions"><button class="btn ghost sm" id="addMore">添加</button><button class="btn ghost sm" id="clearFiles">清空</button></div></div>
+        <ul id="filelist" class="filelist"></ul>
+      </section>
+      <details class="reference-panel" id="referencesPanel">
+        <summary>中英对照与参考材料 <span id="referenceCount">（可选）</span></summary>
+        <p class="hint">添加中文原文、英文定稿或双语资料；可在文件旁指定对应材料。</p>
+        <div class="actions"><button class="btn ghost sm" id="addReference">添加参考材料</button><button class="btn ghost sm" id="clearReferences">清空参考</button></div>
+        <ul id="referenceList" class="filelist"></ul>
+      </details>
+      </div>
+      <aside class="task-options" aria-labelledby="taskOptionsTitle">
+        <div class="task-heading"><span class="eyebrow">准备就绪，即可开始</span><h3 id="taskOptionsTitle">本次任务</h3></div>
+        <div class="task-option-row"><label class="check" id="llmOption" title="进一步检查译文表达和上下文，需要连接模型；处理时间会增加。"><input type="checkbox" id="useLlm" checked>深度审校</label><span id="glossaryInfo" class="hint">正在读取词库…</span></div>
+        <div class="output-row"><label for="outputDir">输出位置</label><input id="outputDir" readonly placeholder="默认另存到原文件旁"><button class="btn ghost sm" id="pickOutput">选择位置</button></div>
+        <p class="hint" id="scopeHint">修改由你确认，支持另存或覆盖原文件。</p>
+        <label class="check" title="在模型支持同时处理请求时提升速度；关闭后按顺序处理。"><input id="parallelWork" type="checkbox" checked>并发加速</label>
+        <div class="task-start"><button class="btn primary lg" id="runBtn" disabled>开始校对</button><button class="btn ghost lg" id="runCombined" disabled hidden>翻译并校对</button></div>
+      </aside>
+    </div>
+    <section class="job-panel" id="jobPanel" hidden>
+      <div class="panel-head"><h3 id="jobMessage">正在准备…</h3><button id="cancelJob" class="btn ghost sm">取消任务</button></div><img class="mascot" src="assets/normal.png" alt="">
+      <ol id="jobStages" class="job-stages" aria-label="任务阶段" hidden><li data-phase="translate">翻译</li><li data-phase="check">校对</li><li data-phase="export">保存</li></ol>
+      <div id="jobProgressTrack" class="job-progress-track"><progress id="jobProgress" max="100" aria-label="任务进度"></progress><span class="job-progress-light" aria-hidden="true"></span></div><p id="jobDetail" class="hint" role="status"></p>
+      <div id="liveFindings" class="live-findings" hidden></div>
+    </section>
+    <section class="panel task-failure" id="taskFailurePanel" hidden aria-labelledby="taskFailureTitle">
+      <div class="completion-heading"><img class="dialog-mascot" src="assets/sad.png" width="56" height="56" alt="" draggable="false"><div><h3 id="taskFailureTitle" role="status">任务未完成</h3><p id="taskFailureNotice">原文件与待处理列表已保留，可查看原因后重新开始。</p></div></div>
+      <p class="notice task-error" id="taskFailureDetails" role="alert"></p>
+      <div class="actions"><button id="failureExportLog" class="btn primary">导出错误日志</button><button id="failureBack" class="btn ghost">返回文档</button><button id="failureHistory" class="btn ghost">查看历史记录</button></div>
+    </section>
+    <section class="review-complete" id="reviewCompletePanel" hidden aria-labelledby="reviewCompleteTitle">
+      <div class="completion-heading"><img src="assets/happy.png" alt="" draggable="false"><div><h3 id="reviewCompleteTitle" role="status">校对完成</h3><p id="reviewCompleteNotice"></p></div></div>
+      <div id="completionSummary" class="summary"></div><p id="completionDetails" class="hint" hidden></p><p id="completionFiles" class="completion-files"></p><div class="actions"><button id="completionExportLog" class="btn ghost" hidden>导出错误日志</button></div>
+      <div class="completion-footer"><div class="actions"><button id="viewReport" class="btn primary">查看校对报告</button><button id="reviewCompleteBack" class="btn ghost">返回文档</button></div><div class="completion-destination"><select id="completionOutput" aria-label="选择校对输出文件" hidden></select><p id="completionPath" class="fpath"></p><div class="actions"><button id="completionOpenFolder" class="btn ghost">打开所在位置</button><button id="completionOpenFile" class="btn ghost" hidden>打开文件</button></div></div></div>
+    </section>
+    <section class="panel" id="translationPanel" hidden>
+      <div class="panel-head"><div class="dialog-title"><img id="translationFace" class="mascot dialog-mascot" src="assets/happy.png" width="48" height="48" alt="" draggable="false"><h3 id="translationTitle">翻译结果</h3></div><button class="btn ghost sm" id="translationBack">返回文档</button></div>
+      <div class="results-grid"><div class="result-main result-scroll"><p class="notice" id="translationNotice">译文单独保存，原稿保留。</p><ul id="translationFiles" class="filelist"></ul><p id="translationErrors" class="notice"></p><button id="translationExportLog" class="btn ghost" hidden>导出错误日志</button></div>
+        <aside class="result-side" aria-label="译文文件与后续操作"><div class="result-destination"><h4>输出文件</h4><select id="translationOutput" aria-label="选择译文文件" hidden></select><p id="translationOutputPath" class="fpath"></p><button id="translationOpenFolder" class="btn ghost" disabled>打开所在位置</button><button id="translationOpenFile" class="btn ghost" disabled>打开译文</button></div><div class="result-next"><button class="btn primary" id="reviewTranslation">继续校对译文</button><button class="btn ghost" id="finishTranslation">暂不校对</button></div></aside>
+      </div>
+    </section>
+  </main>
+  <div class="modal" id="reportModal" hidden>
+    <section class="modal-card report-card" id="reportPanel" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+      <div class="panel-head"><h3 id="reportTitle"><img class="mascot dialog-mascot" src="assets/normal.png" width="48" height="48" alt="" draggable="false">校对报告</h3><button id="backBtn" class="btn ghost sm">关闭报告</button></div>
+      <div class="results-grid">
+        <div class="result-main">
+          <div class="filters result-toolbar"><select id="reportStatus" aria-label="筛选替换状态"><option value="pending">未替换</option><option value="applied">已替换</option><option value="all">全部状态</option></select><select id="reportFilter" aria-label="筛选建议类型"><option value="all">全部建议</option><option value="rule">术语规范</option><option value="llm">深度审校</option><option value="term">术语相关</option></select><input type="search" id="searchBox" aria-label="搜索校对建议" placeholder="搜索建议…"><label class="check"><input type="checkbox" id="selectAll" aria-label="勾选可见问题">全选</label><button id="selectRules" class="btn ghost sm">选中术语建议</button></div>
+          <div class="result-scroll"><div id="summary" class="summary"></div><details class="report-coverage"><summary>检测范围与提示</summary><div id="reportNotice" class="notice"></div></details><details id="reportManualNotes" class="report-coverage" hidden></details><div id="reportBody" class="suggestion-list"></div></div>
+        </div>
+        <aside class="result-side" aria-label="应用建议与输出文件">
+          <div class="result-destination"><h4>输出文件</h4><select id="reportOutput" aria-label="选择校对输出文件" hidden></select><p id="reportOutputPath" class="fpath">应用修改后，输出文件会出现在这里。</p><button id="reportOpenFolder" class="btn ghost" disabled>打开所在位置</button><button id="reportOpenFile" class="btn ghost" disabled>打开文件</button></div>
+          <div id="exportResults" class="result-export-log" hidden></div>
+          <div class="report-actions"><span id="selInfo">已选 0 项</span><div class="actions"><button class="btn primary" id="applyBtn" disabled>应用所选并另存</button><button class="btn ghost" id="overwriteBtn" disabled>应用所选并覆盖原文件</button><button class="btn ghost" id="saveCurrentBtn" hidden>不应用建议，保存当前译文</button></div></div>
+        </aside>
+      </div>
+    </section>
+  </div>
+  <div class="modal" id="lexiconModal" hidden><section class="modal-card lexicon-card" role="dialog" aria-modal="true" aria-labelledby="lexiconTitle">
+    <div class="lexicon-heading">
+      <div class="lexicon-title"><img class="mascot" src="assets/normal.png" alt=""><div><h3 id="lexiconTitle">术语库 <span class="badge" id="lexiconTotal">0 条</span></h3><p>标准译法，一处维护</p></div></div>
+      <div class="actions lexicon-share-actions"><button class="btn ghost sm" id="importTerms" title="支持 JSON、Excel、CSV 和 TSV；不同译法会列出供核对">导入词库</button><label class="sr-only" for="lexiconExportFormat">导出格式</label><select id="lexiconExportFormat" aria-label="导出格式" title="词库文件适合完整分享；Excel 表格可直接编辑"><option value="json">词库文件 (.json)</option><option value="xlsx">Excel 表格 (.xlsx)</option></select><button class="btn ghost sm" id="exportTerms" title="导出全部词条，包含当前尚未保存的完整修改">导出词库</button><button class="btn ghost sm" id="closeLexicon">关闭</button></div>
+    </div>
+    <div class="lexicon-source"><span class="lexicon-source-kind" id="lexiconKind">当前词库</span><span id="lexiconFile"></span><button class="btn ghost sm" id="openTeamSync" title="先保存当前编辑，再获取团队内容或提交修改">团队同步</button><button class="btn ghost sm" id="revealLexicon">打开位置</button></div>
+    <details class="lexicon-management" id="lexiconManagement">
+      <summary>管理词库 <span>共享 · 切换词库</span></summary>
+      <div class="lexicon-management-body"><p class="hint" id="lexiconPath"></p><div class="actions"><button class="btn ghost sm" id="createShared">创建共享词库</button><button class="btn ghost sm" id="connectShared">连接共享词库</button><button class="btn ghost sm" id="useLocal">切回本机词库</button><button class="btn ghost sm" id="syncReviewed">合并核对结果</button></div><p class="hint">导出词库副本交给同事导入；也可连接同一文件共同维护，同事更新后请重新读取。</p></div>
+    </details>
+    <details id="lexiconImportReport" class="lexicon-import-report" hidden><summary id="lexiconImportSummary">查看导入差异</summary><div id="lexiconImportConflicts"></div></details>
+    <div class="lexicon-toolbar">
+      <input type="search" id="termSearch" aria-label="搜索术语" placeholder="搜索中文、英文、别名或备注…">
+      <div class="lexicon-views" role="group" aria-label="术语显示方式"><button class="active" id="lexiconListView" aria-pressed="true">列表与详情</button><button id="lexiconGridView" aria-pressed="false">表格编辑</button></div>
+      <button id="addTerm" class="btn primary sm">＋ 新增术语</button>
+    </div>
+    <div class="lexicon-content">
+      <div class="lexicon-layout" id="lexiconListPane">
+        <div class="lexicon-list"><div class="lexicon-section-head"><span>中文 / 标准英文</span><span id="lexiconMatches"></span></div><div id="termRows" class="term-rows" role="list" aria-label="术语列表"></div></div>
+        <div class="term-detail">
+          <div class="term-detail-head"><div><span class="lexicon-eyebrow">术语详情</span><h4 id="termHeading">选择一个术语</h4></div><button class="btn ghost sm danger" id="deleteTerm">删除本条</button></div>
+          <p class="lexicon-empty" id="termEmpty">选择左侧条目查看详情，或点击“新增术语”。</p>
+          <div class="term-form" id="termForm" hidden>
+            <div class="term-grid"><label>中文术语<textarea id="termZh" rows="2" placeholder="例如：逐点校正"></textarea></label><label>标准英文<textarea id="termEn" rows="2" placeholder="例如：pixel-level calibration"></textarea></label></div>
+            <label>正确别名 <span class="field-help">允许使用的其他写法，每行一个</span><textarea id="termAliases" rows="2" placeholder="正确别名不会被标记为错译"></textarea></label>
+            <label class="wrong-field">已确认错译 <span class="field-help">需要纠正的写法，每行一个</span><textarea id="termWrong" rows="2" placeholder="只填已确认需要改正的错译"></textarea></label>
+            <label>机翻候选 <span class="field-help">参考写法，不直接判错</span><textarea id="termMachine" rows="2" placeholder="可能出现的机翻写法，每行一个"></textarea></label>
+            <button class="btn ghost sm" id="suggestVariants" title="通过当前模型补充可能出现的机翻写法">补充候选写法</button>
+            <label>解释 / 备注<textarea id="termNote" rows="3" placeholder="术语定义、适用场景或团队约定"></textarea></label>
+          </div>
+        </div>
+      </div>
+      <div class="lexicon-grid-pane" id="lexiconGridPane" hidden>
+        <div class="lexicon-grid-options"><span class="hint">直接编辑单元格；点击“详情”查看全部字段。</span><details class="lexicon-columns" id="lexiconColumns"><summary>显示列</summary><div id="lexiconColumnOptions"></div></details></div>
+        <div class="tablewrap gridwrap"><table class="report grid"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div>
+      </div>
+    </div>
+    <div class="lexicon-pagination"><span id="termCount" class="hint"></span><div class="actions"><button id="termsPrev" class="btn ghost sm">上一页</button><button id="termsNext" class="btn ghost sm">下一页</button></div></div>
+    <div class="lexicon-footer"><div class="lexicon-feedback"><span id="lexiconDirtyBadge" class="lexicon-save-state">已保存</span><span id="lexiconStatus" role="status">正在读取术语库…</span></div><div class="actions"><button class="btn ghost sm" id="reloadLexicon">重新读取</button><button class="btn primary" id="saveLexicon" disabled>保存词库</button></div></div>
+  </section></div>
+  <div class="modal" id="modelModal" hidden><section class="modal-card model-card" role="dialog" aria-modal="true" aria-labelledby="modelTitle">
+    <div class="panel-head"><h3 id="modelTitle"><img class="mascot dialog-mascot" src="assets/normal.png" width="48" height="48" alt="" draggable="false">模型连接</h3><button id="modelClose" class="btn ghost sm">关闭</button></div>
+    <p class="hint">支持本机、公司内网及兼容接口；本机模型请先启动对应服务。</p>
+    <div class="model-body"><div class="profile-block">
+      <div class="profile-head"><span>已保存的配置</span><span class="hint" id="profileLimit"></span></div>
+      <div id="profileList" class="profile-list"></div>
+      <div class="row-actions"><button id="profileNew" class="btn ghost sm">新建配置</button><span class="hint wrap-text" id="profileEncryption"></span></div>
+    </div>
+    <div class="model-editor"><h4>配置详情</h4><div class="form-grid">
+      <label class="form-label">配置名称<input id="modelProfileName" placeholder="例如：公司内网 / 个人 API"></label>
+      <label class="form-label">连接方式<select id="modelPreset"><option value="compatible">其他兼容模型</option><option value="intranet">公司内网模型</option></select></label>
+      <label id="modelFormatField" class="form-label">接口格式<select id="modelFormat"><option value="openai">OpenAI（Chat Completions）</option><option value="anthropic">Anthropic（Claude Messages）</option></select></label>
+      <label id="modelAuthField" class="form-label">密钥发送方式<select id="modelAuth"><option value="auto">按接口格式自动选择</option><option value="bearer">Bearer Token</option><option value="x-api-key">x-api-key</option></select></label>
+      <label class="form-label span-2">接口地址<input id="modelUrl" placeholder="http://127.0.0.1:11434/v1"></label>
+      <label class="form-label">模型名称<input id="modelName" placeholder="填写服务中实际安装的模型名称"></label>
+      <label class="form-label">接口密钥<input id="modelKey" type="password" autocomplete="off" placeholder="兼容或公司内网接口填写；留空表示不修改已存密钥"></label>
+    </div>
+    <p class="hint" id="modelFormatHint">按服务方说明选择接口格式；保存后点击“使用配置”生效。</p></div></div>
+    <div class="model-footer"><p class="hint" id="modelMessage" role="status"></p><div class="actions right"><button id="modelSave" class="btn ghost">保存配置</button><button id="modelUse" class="btn primary" disabled>使用配置</button></div></div>
+  </section></div>
+  <div class="modal" id="combinedOutputModal" hidden><section class="modal-card combined-output-card" role="dialog" aria-modal="true" aria-labelledby="combinedOutputTitle" aria-describedby="combinedOutputHint">
+    <div class="panel-head"><h3 id="combinedOutputTitle"><img class="mascot dialog-mascot" src="assets/normal.png" width="48" height="48" alt="" draggable="false">翻译并校对 · 输出方式</h3><button id="combinedOutputCancel" class="btn ghost sm">取消</button></div>
+    <p id="combinedOutputHint" class="hint">翻译和校对自动完成，建议由你确认后应用。</p>
+    <label class="output-choice"><input type="radio" name="combinedOutput" value="final" checked><span><strong>只输出最终校对文件</strong><small>译文先暂存，确认建议并保存后，目标文件夹只保留一份英文文件。</small></span></label>
+    <label class="output-choice"><input type="radio" name="combinedOutput" value="both"><span><strong>保留翻译文件和校对文件</strong><small>翻译文件单独保留；确认建议后，另外保存校对文件。</small></span></label>
+    <div class="actions"><button id="combinedOutputStart" class="btn primary">开始翻译并校对</button></div>
+  </section></div>
+  <div class="modal" id="aboutModal" hidden><section class="modal-card about-card" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
+    <div class="about-head">
+      <img class="about-icon" src="assets/normal.png" width="56" height="56" alt="" draggable="false">
+      <div class="about-title">
+        <h3 id="aboutTitle">星译官 <span id="aboutVersion" class="app-version"></span></h3>
+        <p class="hint">中英技术文档翻译与审校工作台</p>
+        <p class="hint">发布者：MathiasCym · 诺瓦星云深圳分公司</p>
+      </div>
+      <button class="btn ghost sm" id="closeAbout">关闭</button>
+    </div>
+    <div class="about-toolbar"><p class="hint">各版本更新内容，当前版本已高亮。</p><div class="actions"><button class="btn ghost sm" id="openUpdates">软件更新</button><button class="btn ghost sm" id="openIntegrity">校验完整性</button><button class="btn ghost sm" id="contactAuthor" aria-expanded="false" aria-controls="authorContactDetails">联系作者</button></div></div>
+    <div class="about-contact" id="authorContactDetails" role="region" aria-label="作者联系方式" hidden>
+      <div class="about-contact-address"><span class="hint">邮箱</span><span id="authorEmail">chenym1@novastar.tech</span></div>
+      <button class="btn ghost sm" id="copyAuthorEmail">复制邮箱</button>
+      <span id="authorContactStatus" class="hint" role="status" aria-live="polite"></span>
+    </div>
+    <div class="about-log" id="aboutLog"></div>
+  </section></div>
+  <div class="modal integrity-modal" id="integrityModal" hidden><section class="modal-card integrity-card" role="dialog" aria-modal="true" aria-labelledby="integrityTitle">
+    <div class="panel-head"><h3 id="integrityTitle"><img class="mascot dialog-mascot" src="assets/normal.png" width="48" height="48" alt="" draggable="false">校验与修复</h3><button id="closeIntegrity" class="btn ghost sm">关闭</button></div>
+    <p class="hint">检查程序文件，发现缺失或损坏后自动尝试从本机修复副本恢复。</p>
+    <p class="hint">文档、个人术语库和模型配置会保留。</p>
+    <p id="integrityStatus" role="status" aria-live="polite" tabindex="-1">准备就绪，点击下方按钮开始。</p>
+    <progress id="integrityProgress" aria-label="完整性校验进度" max="100" value="0" hidden></progress>
+    <div id="integrityDetails" class="integrity-details" hidden></div>
+    <div class="actions right"><button id="integrityExportLog" class="btn ghost" hidden>导出诊断日志</button><button id="startIntegrity" class="btn primary">开始校验并自动修复</button></div>
+  </section></div>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <div class="modal" id="historyModal" hidden><section class="modal-card history-card" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+    <div class="panel-head"><h3 id="historyTitle"><img class="mascot dialog-mascot" src="assets/normal.png" width="48" height="48" alt="" draggable="false">历史记录</h3><button id="closeHistory" class="btn ghost sm">关闭</button></div>
+    <div class="history-filters"><select id="historyPreset" aria-label="筛选时间"><option value="today">本日</option><option value="month">本月</option><option value="year">本年</option><option value="custom">指定时间段</option><option value="all">全部时间</option></select><select id="historyKind" aria-label="筛选任务"><option value="">全部任务</option><option value="translate">翻译</option><option value="check">校对</option><option value="translate_review">翻译并校对</option></select><input id="historySearch" type="search" aria-label="搜索历史文件" placeholder="搜索文件或输出位置…"><button id="refreshHistory" class="btn ghost sm">刷新</button></div>
+    <div id="historyDates" class="history-dates" hidden><label>开始日期<input id="historyStart" type="date"></label><label>结束日期<input id="historyEnd" type="date"></label><button id="historyApplyDates" class="btn ghost sm">筛选</button></div>
+    <p id="historyStatus" class="hint" role="status"></p><div id="historyRows" class="history-rows"></div><div class="history-pagination"><button id="historyPrev" class="btn ghost sm">上一页</button><span id="historyPage" class="hint"></span><button id="historyNext" class="btn ghost sm">下一页</button></div>
+  </section></div>
+  <div class="modal confirmation-modal" id="confirmationModal" hidden>
+    <section class="modal-card confirmation-card" role="alertdialog" aria-modal="true" aria-labelledby="confirmationTitle" aria-describedby="confirmationMessage">
+      <div class="confirmation-brand"><img class="mascot" src="assets/normal.png" width="56" height="56" alt="" draggable="false"><span>星译官</span></div>
+      <h3 id="confirmationTitle"></h3>
+      <p id="confirmationMessage"></p>
+      <div class="actions right"><button class="btn ghost" id="confirmationCancel">继续编辑</button><button class="btn primary" id="confirmationAccept">放弃修改</button></div>
+    </section>
+  </div>
+<script src="dialogs.js"></script>
+<dialog id="teamDialog" class="shared-dialog community-dialog" aria-labelledby="teamTitle">
+  <div class="panel-head"><h3 id="teamTitle"><img src="assets/normal.png" width="48" height="48" alt="">团队词库同步</h3><button id="closeTeamSync" class="btn ghost sm">关闭</button></div>
+  <div class="community-body">
+    <p class="hint">共享同一套专业译法。获取最新内容无需登录；维护者可以提交修改，双方改动同一词条时先选择保留内容。</p>
+    <div class="community-summary"><span>StarTranslator 团队词库</span><span id="teamLastSync" class="hint">尚未同步</span></div>
+    <div class="actions"><button id="teamPull" class="btn primary">获取团队最新词库</button><button id="teamPush" class="btn ghost" disabled>提交本机修改</button><button id="teamHistory" class="btn ghost sm">最近维护记录</button></div>
+    <div id="teamHistoryRows" class="community-history" hidden></div>
+    <details class="community-authorization" id="teamAuthorization"><summary>维护授权设置</summary><p class="hint">维护者需拥有仓库写入权限。在 GitHub 创建仅用于 StarTranslator 的授权，开启内容读写权限；授权仅加密保存在本机，不会分享给同事。</p><label>维护授权<input type="password" id="teamToken" autocomplete="off" maxlength="255" placeholder="输入新授权；留空保留已保存的授权"></label><div class="actions"><button id="teamSaveToken" class="btn primary sm">保存授权</button><button id="teamClearToken" class="btn ghost sm">移除授权</button><button id="teamGetToken" class="btn ghost sm">获取维护授权</button></div><p id="teamTokenState" class="hint"></p></details>
+    <label id="teamMessageLabel" hidden>本次维护说明<input id="teamMessage" maxlength="200" placeholder="例如：补充影院方案中的专业译法"></label>
+    <section id="teamPreview" hidden><h4>差异预览</h4><p id="teamSummary" class="hint"></p><div id="teamChanges" class="community-changes"></div><div id="teamConflicts" class="community-conflicts"></div></section>
+  </div>
+  <footer class="community-footer"><p id="teamStatus" class="hint" role="status"></p><button id="teamApply" class="btn primary" hidden>确认同步</button></footer>
+</dialog>
+<dialog id="updateDialog" class="shared-dialog community-dialog" aria-labelledby="updateTitle">
+  <div class="panel-head"><h3 id="updateTitle"><img src="assets/normal.png" width="48" height="48" alt="">软件更新</h3><button id="closeUpdates" class="btn ghost sm">关闭</button></div>
+  <div class="community-body"><div class="community-summary"><strong id="updateVersions"></strong><span class="hint">GitHub 正式发布</span></div><p id="updateMessage" role="status"></p><div id="updateProgressBox" hidden><div class="job-progress-track"><div id="updateProgressFill" class="job-progress-fill"><span class="job-progress-light"></span></div></div><p id="updateDownloadSize" class="hint"></p></div><p class="hint">下载可以在后台继续。安装前将再次核对发布文件，现有模型配置、词库和历史记录会保留。</p><pre id="updateNotes" class="community-notes" hidden></pre></div>
+  <footer class="community-footer"><button id="updateCheck" class="btn ghost">检查更新</button><button id="updateCancel" class="btn ghost" hidden>取消下载</button><button id="updateDownload" class="btn primary" hidden>下载更新</button><button id="updateInstall" class="btn primary" hidden>关闭并安装更新</button></footer>
+</dialog>
+<dialog id="lanDialog" class="shared-dialog" aria-labelledby="lanTitle"><div class="panel-head"><h3 id="lanTitle"><img src="assets/normal.png" width="48" height="48" alt="">局域网协作</h3><button class="btn ghost sm" id="closeLan">关闭</button></div><p class="hint">开启后，同一局域网内的同事可以使用本机的模型与术语库，无需注册或登录。关闭窗口后共享服务继续运行，退出星译官时结束。</p><p id="lanState" role="status"></p><label>共享端口<input id="lanPort" type="number" min="1024" max="65535" value="8765"></label><button id="lanToggle" class="btn primary">开启共享服务</button><div id="lanAddresses"></div><p class="hint">最多同时处理 2 项任务，其余排队；浏览器各自保留任务列表与结果。请通过共享电脑在局域网中的地址访问。</p><div class="shared-section"><h3>连接其他电脑</h3><label>共享地址<input id="lanRemote" type="url" placeholder="http://192.168.1.10:8765"></label><button id="lanConnect" class="btn primary">连接共享工作台</button><p class="hint">在独立窗口中处理共享任务，不影响本机的文档和配置。</p></div></dialog>
+<dialog id="comparisonDialog" class="shared-dialog comparison-dialog" aria-labelledby="comparisonTitle"><div class="panel-head"><h3 id="comparisonTitle"><img src="assets/normal.png" width="48" height="48" alt="">原文与译文</h3><button id="closeComparison" class="btn ghost sm">关闭</button></div><p id="comparisonNote" class="hint"></p><div class="comparison-filters"><input id="compareSearch" type="search" placeholder="搜索原文或译文" aria-label="搜索对照"><select id="comparePage" aria-label="筛选页面"><option value="">全部页面</option></select></div><div class="comparison-scroll"><table class="comparison-table"><thead><tr><th>原文</th><th>译文</th></tr></thead><tbody id="comparisonRows"></tbody></table></div></dialog>
+<script src="term-search.js"></script>
+<script src="lexicon.js"></script>
+<script src="history.js"></script>
+  <script src="document-input.js"></script>
+  <script src="app.js"></script>
+  <script src="shared/comparison-view.js"></script>
+  <script src="collaboration.js"></script>
+  <script src="community.js"></script>
+  <script src="workspace.js"></script>
+</body>
+</html>

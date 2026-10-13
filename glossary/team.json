@@ -1,0 +1,7522 @@
+[
+  {
+    "zh": "未来客厅",
+    "en": "Future Living Room",
+    "variants": [],
+    "priority": 2,
+    "note": "展示区名称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "Future-Living-Room"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "家庭影院解决方案",
+    "en": "Home Theater Solution",
+    "variants": [],
+    "priority": 2,
+    "note": "行业方案名称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "Home-Theater-Solution"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "COB屏体",
+    "en": "COB LED display",
+    "variants": [],
+    "priority": 2,
+    "note": "COB（Chip on Board）封装形式的LED显示屏",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "COB-LED-display"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "4K分辨率",
+    "en": "4K resolution",
+    "variants": [],
+    "priority": 2,
+    "note": "显示分辨率规格",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "4K-resolution"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "控制系统",
+    "en": "control system",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示屏控制系统",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "control-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "5G传输解决方案",
+    "en": "5G transmission solution",
+    "variants": [],
+    "priority": 2,
+    "note": "NovaStar的5G传输方案，指5Gbps带宽传输",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "5G-transmission-solution"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "8K带载控制器",
+    "en": "8K loading controller",
+    "variants": [],
+    "priority": 2,
+    "note": "8K带载能力的控制器设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "8K-loading-controller"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "接收卡",
+    "en": "receiving card",
+    "variants": [
+      "receiver card"
+    ],
+    "priority": 1,
+    "note": "诺瓦标准译法\n规则种子：LED 技术语境下的常见非标准机翻，请按团队规范维护。\n2026-09-29 校订：",
+    "source": "人工修正\n2026-09-29 核对依据：PPT:4,5,20, ARMOR",
+    "machine_variants": [
+      "receiving-card"
+    ],
+    "wrong_variants": [
+      "receiving board card",
+      "reception card"
+    ]
+  },
+  {
+    "zh": "HDMI2.1",
+    "en": "HDMI 2.1",
+    "variants": [],
+    "priority": 2,
+    "note": "视频接口标准",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "HDMI-2.1"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "DP1.4",
+    "en": "DP 1.4",
+    "variants": [],
+    "priority": 2,
+    "note": "DisplayPort 1.4视频接口标准",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "DP-1.4"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "8K信号源",
+    "en": "8K signal sources",
+    "variants": [],
+    "priority": 2,
+    "note": "8K信号源设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "8K-signal-sources"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "网线",
+    "en": "Ethernet cable",
+    "variants": [
+      "network cable",
+      "LAN cable"
+    ],
+    "priority": 1,
+    "note": "人工修正：cable 过于宽泛，不可作为变体",
+    "source": "人工修正",
+    "machine_variants": [
+      "Ethernet-cable"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "带载",
+    "en": "loading capacity",
+    "variants": [],
+    "priority": 1,
+    "note": "接收卡/控制器带载像素或箱体的能力\n2026-09-29 校订：用于参数标题或带载能力；作动词“带载某屏”仍可用 load / drive，不做通用词自动替换。",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：PPT:5,13, ARMOR, COEXCN",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "位深",
+    "en": "bit depth",
+    "variants": [
+      "color depth",
+      "bit-depth"
+    ],
+    "priority": 1,
+    "note": "人工修正：bit 单独出现过于宽泛，不作变体，避免误报\n位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "人工修正\nNovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [
+      "bit-depth"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "无损播放",
+    "en": "lossless playback",
+    "variants": [],
+    "priority": 2,
+    "note": "无损画质播放",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "lossless-playback"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "HDR超高清显示",
+    "en": "HDR ultra-high definition display",
+    "variants": [],
+    "priority": 2,
+    "note": "高动态范围超高清显示",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "HDR ultra high definition display",
+      "HDR-ultra-high-definition-display"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灰度",
+    "en": "grayscale",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示屏灰度等级",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "grey scale"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色域",
+    "en": "color gamut",
+    "variants": [
+      "colour gamut"
+    ],
+    "priority": 1,
+    "note": "人工修正：color space 是色彩空间，与色域不同\n中文定义来自课件；英文为补充建议，待确认。\n色域\n色域就是指某种表色模式所能表达的颜色构成的范围区域。不同行业对显示的色域要求也有不同，在LED显示行业中通常会听到的色域有DCI-P3、BT.709、BT.2020、sRGB等下几种:\nDCI-P3\nBT.709\nBT.2020",
+    "source": "人工修正\n专业术语.pptx / 第29页",
+    "machine_variants": [
+      "color-gamut",
+      "colour gamut"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "DCI-P3",
+    "en": "DCI-P3",
+    "variants": [],
+    "priority": 2,
+    "note": "数字电影色域标准",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "DCI P3"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "BT.2020",
+    "en": "BT.2020",
+    "variants": [],
+    "priority": 2,
+    "note": "超高清电视色域标准",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "VMP",
+    "en": "Vision Management Platform",
+    "variants": [
+      "VMP"
+    ],
+    "priority": 1,
+    "note": "NovaStar的显示屏控制软件\n2026-09-29 校订：产品正式展开为 Vision Management Platform；影院 PPT 第 5 页的 Visual / Managment 与正式名称不一致，产品名以官网为准。",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：VMP, VMPCN",
+    "machine_variants": [
+      "Vison-Management-Platform"
+    ],
+    "wrong_variants": [
+      "Vison Management Platform"
+    ]
+  },
+  {
+    "zh": "广电传媒",
+    "en": "broadcasting",
+    "variants": [],
+    "priority": 2,
+    "note": "广播电视传媒应用场景",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "8K固装",
+    "en": "8K installations",
+    "variants": [],
+    "priority": 2,
+    "note": "8K固定安装应用场景",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "8K-installations"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "大屏租赁",
+    "en": "large-screen rentals",
+    "variants": [],
+    "priority": 2,
+    "note": "大型显示屏租赁应用场景",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "large screen rentals",
+      "large-screen-rentals"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "LED会议一体机",
+    "en": "LED conference all-in-one device",
+    "variants": [],
+    "priority": 2,
+    "note": "集成显示与会议功能的LED一体机产品",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "LED conference all in one device",
+      "LED-conference-all-in-one-device"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "投屏",
+    "en": "screen casting",
+    "variants": [],
+    "priority": 2,
+    "note": "将移动设备画面无线传输至大屏的技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "screen-casting"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "投屏器",
+    "en": "screen casting dongle",
+    "variants": [],
+    "priority": 2,
+    "note": "用于一键投屏的硬件设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "screen-casting-dongle"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "九分屏投屏",
+    "en": "nine-split screen casting",
+    "variants": [],
+    "priority": 2,
+    "note": "支持九个终端同时投屏显示",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "nine split screen casting",
+      "nine-split-screen-casting"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "WIFI6芯片",
+    "en": "WIFI 6 chip",
+    "variants": [],
+    "priority": 2,
+    "note": "支持Wi-Fi 6标准的无线通信芯片",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "WIFI-6-chip"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "蓝光危害",
+    "en": "blue light hazards",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示屏蓝光对人眼的潜在伤害",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "blue-light-hazards"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "护眼模式",
+    "en": "eye protection mode",
+    "variants": [],
+    "priority": 2,
+    "note": "滤减蓝光保护视力的显示模式",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "eye-protection-mode"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "画质增强算法",
+    "en": "image quality enhancement algorithm",
+    "variants": [],
+    "priority": 2,
+    "note": "提升LED显示均匀度和色彩的算法",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "image-quality-enhancement-algorithm"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "系统集成度",
+    "en": "system integration",
+    "variants": [],
+    "priority": 2,
+    "note": "系统各功能模块的集成程度",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "system-integration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "适配性",
+    "en": "compatibility",
+    "variants": [],
+    "priority": 2,
+    "note": "系统对接外部设备和系统的能力",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "OPS",
+    "en": "OPS",
+    "variants": [
+      "OPS computer"
+    ],
+    "priority": 2,
+    "note": "开放式可插拔计算机模块，用于双系统方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "OPS-computer"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "红外边框",
+    "en": "infrared sensor",
+    "variants": [],
+    "priority": 2,
+    "note": "用于触控书写的红外感应边框",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "infrared-sensor"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "双系统",
+    "en": "dual-system",
+    "variants": [],
+    "priority": 2,
+    "note": "同时运行Windows和Android两套系统",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "dual system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "触控书写",
+    "en": "whiteboard annotation",
+    "variants": [],
+    "priority": 2,
+    "note": "在LED大屏上进行触控书写批注",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "whiteboard-annotation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "场景模式",
+    "en": "scene mode",
+    "variants": [],
+    "priority": 2,
+    "note": "针对不同使用场景优化的显示模式",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "scene-mode"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "安卓",
+    "en": "Android",
+    "variants": [],
+    "priority": 2,
+    "note": "LED一体机搭载的操作系统平台",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "发送一体化",
+    "en": "integrated Android system and screen casting",
+    "variants": [],
+    "priority": 2,
+    "note": "安卓系统与发送功能集成于一体的设计",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "integrated-Android-system-and-screen-casting"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "远程视频会议",
+    "en": "remote video conferencing",
+    "variants": [],
+    "priority": 2,
+    "note": "通过网络进行的异地视频会议",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "remote-video-conferencing"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "待机低功耗",
+    "en": "standby low-power consumption",
+    "variants": [],
+    "priority": 2,
+    "note": "待机状态下低于0.5W的功耗表现",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "standby low power consumption",
+      "standby-low-power-consumption"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "蓝牙语音遥控器",
+    "en": "intelligent Bluetooth voice remote control",
+    "variants": [],
+    "priority": 2,
+    "note": "支持语音控制的蓝牙遥控设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "intelligent-Bluetooth-voice-remote-control"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "双引擎分布式",
+    "en": "dual-engine distributed system",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦双引擎分布式系统的核心产品名称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "dual engine distributed system",
+      "dual-engine-distributed-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "星河可视化",
+    "en": "Star River visualization system",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦可视化软件平台，英文中出现两种写法",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "Star-River-visualization-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "分布式",
+    "en": "distributed system",
+    "variants": [],
+    "priority": 2,
+    "note": "分布式系统架构",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "distributed-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "发送卡",
+    "en": "sending card",
+    "variants": [
+      "sender card",
+      "transmitting card"
+    ],
+    "priority": 1,
+    "note": "诺瓦标准译法\n规则种子：LED 技术语境下的常见非标准机翻，请按团队规范维护。\n2026-09-29 校订：",
+    "source": "人工修正\n2026-09-29 核对依据：PPT:20",
+    "machine_variants": [
+      "sending-card"
+    ],
+    "wrong_variants": [
+      "sending board card",
+      "transmission board card"
+    ]
+  },
+  {
+    "zh": "解码节点",
+    "en": "decoding node",
+    "variants": [],
+    "priority": 2,
+    "note": "分布式系统中的解码节点",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "decoding-node"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "二合一节点",
+    "en": "two-in-one distributed output node",
+    "variants": [],
+    "priority": 2,
+    "note": "将解码节点和发送卡合二为一的节点",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "two in one distributed output node",
+      "two-in-one-distributed-output-node"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "4K@60",
+    "en": "4K@60",
+    "variants": [],
+    "priority": 2,
+    "note": "4K分辨率60帧刷新率",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "10bit",
+    "en": "10-bit",
+    "variants": [],
+    "priority": 1,
+    "note": "10位色深\n位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "展厅讲解稿:讲解稿V3.0\nNovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [
+      "10 bit",
+      "10bit"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "YUV4:4:4",
+    "en": "YUV4:4:4",
+    "variants": [],
+    "priority": 2,
+    "note": "色度采样格式，无色彩压缩",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "双时钟同步技术",
+    "en": "dual synchronization technology",
+    "variants": [],
+    "priority": 2,
+    "note": "软硬件结合的双时钟同步方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "dual-synchronization-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "深浅压缩双码流",
+    "en": "dual code streams",
+    "variants": [],
+    "priority": 2,
+    "note": "深浅两种压缩码流",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "dual-code-streams"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "2ms视觉零延迟",
+    "en": "2ms visual zero latency",
+    "variants": [],
+    "priority": 2,
+    "note": "2毫秒视觉零延迟",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "2ms-visual-zero-latency"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "可视化控制",
+    "en": "visual control",
+    "variants": [],
+    "priority": 2,
+    "note": "可视化管控",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "visual-control"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "媒体服务器",
+    "en": "media server",
+    "variants": [],
+    "priority": 2,
+    "note": "媒体服务器设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "media-server"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "中控",
+    "en": "central control system",
+    "variants": [],
+    "priority": 2,
+    "note": "中央控制系统",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "central-control-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "坐席管控",
+    "en": "seat control",
+    "variants": [],
+    "priority": 2,
+    "note": "指挥中心坐席管理",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "seat-control"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "编解码",
+    "en": "encoding and decoding",
+    "variants": [],
+    "priority": 2,
+    "note": "信号编解码过程",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "encoding-and-decoding"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "拼接同步性",
+    "en": "splicing synchronization",
+    "variants": [],
+    "priority": 2,
+    "note": "大屏拼接的同步性能",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "splicing-synchronization"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "点间距",
+    "en": "pixel pitch",
+    "variants": [
+      "dot pitch",
+      "point spacing"
+    ],
+    "priority": 1,
+    "note": "诺瓦标准译法\n\n中文定义来自课件；英文为补充建议，待确认。\n点间距\n指两个像素间的中心距离。\n规则种子：LED 技术语境下的常见非标准机翻，请按团队规范维护。",
+    "source": "人工修正\n未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第19行\n专业术语.pptx / 第13页",
+    "machine_variants": [
+      "pixel-pitch"
+    ],
+    "wrong_variants": [
+      "dot spacing",
+      "point distance"
+    ]
+  },
+  {
+    "zh": "HEVC Plus",
+    "en": "HEVC Plus (H.265)",
+    "variants": [],
+    "priority": 2,
+    "note": "视频压缩编码算法",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "HEVC-Plus-(H.265)"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "天权分布式系统",
+    "en": "Tianquan distributed system",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦天权系列分布式系统",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "Tianquan-distributed-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "可视化管理系统",
+    "en": "distributed visualization management system",
+    "variants": [],
+    "priority": 2,
+    "note": "分布式可视化管理系统",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "distributed-visualization-management-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "一体化",
+    "en": "integrated solution",
+    "variants": [],
+    "priority": 2,
+    "note": "整体解决方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "integrated-solution"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "校正方案",
+    "en": "Calibration Solution",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示屏校正领域的核心术语",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "Calibration-Solution"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "数码相机校正",
+    "en": "digital camera-based calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "使用数码相机进行LED显示屏校正的方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "digital camera based calibration",
+      "digital-camera-based-calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "校正技术",
+    "en": "calibration technology",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示校正技术总称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "calibration-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "MiniLED",
+    "en": "MiniLED",
+    "variants": [],
+    "priority": 2,
+    "note": "次毫米发光二极管显示技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "工业相机",
+    "en": "industrial camera",
+    "variants": [],
+    "priority": 2,
+    "note": "用于LED校正的高精度采集设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "industrial-camera"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "C3200",
+    "en": "C3200 camera",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦科学级工业相机型号",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "C3200-camera"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "全像素读取",
+    "en": "full-pixel readout",
+    "variants": [],
+    "priority": 2,
+    "note": "相机传感器全像素数据读取方式",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "full pixel readout",
+      "full-pixel-readout"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "COG屏体",
+    "en": "COG screen",
+    "variants": [],
+    "priority": 2,
+    "note": "Chip on Glass封装方式的LED显示屏",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "COG-screen"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "校正效率",
+    "en": "calibration efficiency",
+    "variants": [],
+    "priority": 2,
+    "note": "校正工作的效率指标",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "calibration-efficiency"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "XYZ彩色滤光片",
+    "en": "XYZ filter",
+    "variants": [],
+    "priority": 2,
+    "note": "符合人眼视觉特性的彩色滤光片",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "XYZ-filter"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "高精度校正",
+    "en": "high-precision calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "高精度LED校正方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "high precision calibration",
+      "high-precision-calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "全灰阶校正",
+    "en": "Full-Grayscale Calibration",
+    "variants": [
+      "full grayscale calibration"
+    ],
+    "priority": 1,
+    "note": "覆盖全部灰度等级的校正技术\n中文定义来自课件；英文为补充建议，待确认。\n校正\n亮色度校正基础原理：亮度色度校正是根据RGB颜色匹配原理，通过改变RGB三色的色坐标来解决色度偏差的问题。\n校正前显示屏的色域RGB三色的色坐标在一个小区间内离散分布；校正后显示屏色域RGB三色色坐标一致性好，离散区间收敛为单点。\n全灰阶校正技术原理：为解决不同灰阶Mura形态各异的问题，诺瓦提出了全灰阶校正技术，自动定位Mura形态差异的灰阶，分层校正。\n然后结合灰阶算法，实现了全灰阶效果均匀一致。\n2026-09-29 校订：全灰阶校正与多层全灰阶校正分开；连字符差异不判为错误。",
+    "source": "展厅讲解稿:讲解稿V3.0\n专业术语.pptx / 第37页\n2026-09-29 核对依据：A10EN:2, A10CN:2, ARMOR",
+    "machine_variants": [
+      "full-grayscale-calibration",
+      "full grey scale calibration",
+      "full grayscale calibration",
+      "full-grey scale calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "低灰校正",
+    "en": "low grayscale calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "针对低灰度显示问题的校正方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "low-grayscale-calibration",
+      "low grey scale calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "热力校正",
+    "en": "thermal calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "针对温度变化引起的显示问题进行的校正",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "thermal-calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "CalCube",
+    "en": "CalCube",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦校正软件名称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色块",
+    "en": "display mura",
+    "variants": [],
+    "priority": 3,
+    "note": "LED显示屏显示不均匀现象\n待专业确认（2026-09-29）：Color Block 与 display mura 有语境差异，需结合现象图片。",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "display-mura"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "麻点",
+    "en": "mura",
+    "variants": [],
+    "priority": 3,
+    "note": "显示屏局部亮度不均的缺陷\n待专业确认（2026-09-29）：mura 是不均匀类现象泛称，不宜等同所有麻点；规格书也用 mottling。",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "驱动IC",
+    "en": "driver IC",
+    "variants": [
+      "driver chip",
+      "LED driver IC"
+    ],
+    "priority": 1,
+    "note": "诺瓦标准译法\n规则种子：LED 技术语境下的常见非标准机翻，请按团队规范维护。\n2026-09-29 校订：",
+    "source": "人工修正\n2026-09-29 核对依据：PPT:4,5, A10EN:3",
+    "machine_variants": [
+      "driver-IC"
+    ],
+    "wrong_variants": [
+      "driving integrated circuit chip"
+    ]
+  },
+  {
+    "zh": "逐点校正",
+    "en": "pixel-level calibration",
+    "variants": [
+      "per-pixel calibration",
+      "point-by-point correction",
+      "pixel level calibration",
+      "point-by-point calibration"
+    ],
+    "priority": 1,
+    "note": "诺瓦标准译法\n规则种子：LED 技术语境下的常见非标准机翻，请按团队规范维护。\n2026-09-29 校订：一般技术名称首选 pixel-level calibration；若中文明确包含亮色度，应使用独立词条“逐点亮色度校正”的完整译法。旧写法不一概判错。",
+    "source": "人工修正\n2026-09-29 核对依据：CINEMA, ARMOR, PPT:5,6",
+    "machine_variants": [
+      "point by point calibration",
+      "point-by-point-calibration"
+    ],
+    "wrong_variants": [
+      "point by point proofreading"
+    ]
+  },
+  {
+    "zh": "超像素成像",
+    "en": "Super Pixel Imaging",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦创新的区域采集优化技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "Super-Pixel-Imaging"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "宽bin技术",
+    "en": "wide binning technology",
+    "variants": [],
+    "priority": 2,
+    "note": "扩展LED芯片波长范围以降低成本的方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "wide-binning-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "自适应校正算法",
+    "en": "adaptive calibration algorithm",
+    "variants": [],
+    "priority": 2,
+    "note": "自动适应不同屏体条件的校正算法",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "adaptive-calibration-algorithm"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "XR虚拟拍摄",
+    "en": "XR virtual production",
+    "variants": [
+      "XR virtual shooting"
+    ],
+    "priority": 1,
+    "note": "扩展现实虚拟拍摄应用场景\n2026-09-29 校订：行业应用名规范化；xR 是 extended reality，不代表所有 virtual production 都使用 xR。",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：MXSOLUTION, EDITORIAL",
+    "machine_variants": [
+      "XR-virtual-shooting"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "箱体校正",
+    "en": "cabinet calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "针对LED箱体级别的校正",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "cabinet-calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "整屏校正",
+    "en": "full-screen calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "针对整个显示屏的校正",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "full screen calibration",
+      "full-screen-calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "微间距校正",
+    "en": "micro calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "微间距LED显示屏的校正",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "micro-calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "小间距校正",
+    "en": "fine-pitch calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "小间距LED显示屏的校正",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "fine pitch calibration",
+      "fine-pitch-calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "视频产品",
+    "en": "video product",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示行业产品线名称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "video-product"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "诺瓦云产品线",
+    "en": "Nova cloud product line",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦品牌云产品线",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "Nova-cloud-product-line"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "舞台租赁",
+    "en": "stage rental",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示行业热门解决方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "stage-rental"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "画质",
+    "en": "image quality",
+    "variants": [],
+    "priority": 2,
+    "note": "显示效果相关术语",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "image-quality"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "视频拼接器",
+    "en": "video splicer",
+    "variants": [],
+    "priority": 2,
+    "note": "视频处理硬件产品",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "video-splicer"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "多媒体播放盒",
+    "en": "multimedia player box",
+    "variants": [],
+    "priority": 2,
+    "note": "云产品硬件设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "multimedia-player-box"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灯杆屏",
+    "en": "light pole screens",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示屏应用场景",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "light-pole-screens"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "广告屏",
+    "en": "advertising display",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示屏应用场景",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "advertising-display"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "控台",
+    "en": "control console",
+    "variants": [],
+    "priority": 2,
+    "note": "舞台租赁解决方案核心设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "control-console"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "拼接器",
+    "en": "splicer",
+    "variants": [],
+    "priority": 2,
+    "note": "舞台租赁解决方案明星产品",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "诺瓦云",
+    "en": "Nova Cloud",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦云服务平台品牌名",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "Nova-Cloud"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "信息发布",
+    "en": "information publishing",
+    "variants": [],
+    "priority": 2,
+    "note": "信息发布平台/系统",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "information-publishing"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "运维监控",
+    "en": "operation and maintenance",
+    "variants": [],
+    "priority": 2,
+    "note": "运维监控平台",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "operation-and-maintenance"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "屏体",
+    "en": "screen",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示屏体",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "告警信息",
+    "en": "alarm information",
+    "variants": [],
+    "priority": 2,
+    "note": "屏体故障告警信息",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "alarm-information"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "车载屏",
+    "en": "vehicle screens",
+    "variants": [],
+    "priority": 2,
+    "note": "车载LED显示屏",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "vehicle-screens"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "云服务解决方案",
+    "en": "cloud service solution",
+    "variants": [],
+    "priority": 2,
+    "note": "基于云的LED显示管理方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "cloud-service-solution"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "远程集群控制",
+    "en": "remote cluster control",
+    "variants": [],
+    "priority": 2,
+    "note": "远程集群管控技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "remote-cluster-control"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "跨区域",
+    "en": "cross-regional",
+    "variants": [],
+    "priority": 2,
+    "note": "跨区域管理",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "cross regional"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "等保3级认证",
+    "en": "three-level certification of equal protection",
+    "variants": [],
+    "priority": 3,
+    "note": "中国信息安全等级保护三级认证\n待专业确认（2026-09-29）：原英文不自然；需依据正式认证文件确定英文表述，当前材料不覆盖。",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "three level certification of equal protection",
+      "three-level-certification-of-equal-protection"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "网络安全",
+    "en": "network security",
+    "variants": [],
+    "priority": 2,
+    "note": "产品网络安全",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "network-security"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "智慧城市",
+    "en": "smart city",
+    "variants": [],
+    "priority": 2,
+    "note": "智慧城市建设",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "smart-city"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "售前方案",
+    "en": "pre-sales solution",
+    "variants": [],
+    "priority": 2,
+    "note": "项目售前方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "pre sales solution",
+      "pre-sales-solution"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "售后",
+    "en": "after-sales",
+    "variants": [],
+    "priority": 2,
+    "note": "售后服务",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "after sales"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "短信",
+    "en": "SMS",
+    "variants": [],
+    "priority": 2,
+    "note": "短信通知方式",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "统一管理",
+    "en": "unified management",
+    "variants": [],
+    "priority": 2,
+    "note": "屏体统一管理",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "unified-management"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "标准化控制平台",
+    "en": "standardized control platform",
+    "variants": [],
+    "priority": 2,
+    "note": "运维标准化平台",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "standardized-control-platform"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "xR",
+    "en": "xR",
+    "variants": [],
+    "priority": 2,
+    "note": "扩展现实（Extended Reality），LED虚拟拍摄行业核心概念",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "虚拟拍摄",
+    "en": "virtual production",
+    "variants": [
+      "virtual shooting"
+    ],
+    "priority": 1,
+    "note": "基于LED背景墙的虚拟拍摄技术\n待确认：源表疑似拼写或对应关系有误；保留原值。\n2026-09-29 校订：诺瓦解决方案与行业应用名称优先 virtual production；virtual shooting 可作历史描述性写法。",
+    "source": "展厅讲解稿:讲解稿V3.0\n未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第9行\n2026-09-29 核对依据：MXSOLUTION",
+    "machine_variants": [
+      "Virtual-Shooting"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "虚拟背景墙",
+    "en": "virtual background walls",
+    "variants": [],
+    "priority": 2,
+    "note": "LED虚拟拍摄中用作背景的LED显示屏",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "virtual-background-walls"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光学追踪器",
+    "en": "optical tracker",
+    "variants": [],
+    "priority": 2,
+    "note": "用于实时获取摄像机三维空间坐标的追踪设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "optical-tracker"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "融合服务器",
+    "en": "fusion server",
+    "variants": [],
+    "priority": 2,
+    "note": "用于XR扩展融合的服务器设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "fusion-server"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "扩展融合",
+    "en": "extended fusion",
+    "variants": [],
+    "priority": 2,
+    "note": "XR中将虚拟内容与实拍画面融合的技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "extended-fusion"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "COEX控制系统",
+    "en": "COEX control system",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦星云LED控制系统品牌",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "COEX-control-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "COEX系统",
+    "en": "COEX system",
+    "variants": [],
+    "priority": 2,
+    "note": "COEX控制系统的简称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "COEX-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "绿幕后期制作",
+    "en": "green-screen post-production",
+    "variants": [],
+    "priority": 2,
+    "note": "传统影视制作方式，与LED虚拟拍摄相对",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "green screen post production",
+      "green-screen-post-production"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "实时处理技术",
+    "en": "real-time processing technology",
+    "variants": [],
+    "priority": 2,
+    "note": "XR虚拟拍摄的核心技术特征",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "real time processing technology",
+      "real-time-processing-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "图形卡技术",
+    "en": "graphics card technology",
+    "variants": [],
+    "priority": 2,
+    "note": "驱动实时渲染的显卡技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "graphics-card-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "虚拟引擎",
+    "en": "virtual engine",
+    "variants": [],
+    "priority": 2,
+    "note": "实时渲染引擎，如Unreal Engine等",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "virtual-engine"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "实时渲染",
+    "en": "real-time rendering",
+    "variants": [],
+    "priority": 2,
+    "note": "虚拟引擎的实时渲染技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "real time rendering",
+      "real-time-rendering"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "3D扫描",
+    "en": "3D scanning",
+    "variants": [],
+    "priority": 2,
+    "note": "三维扫描建模技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "3D-scanning"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "建模技术",
+    "en": "modeling technology",
+    "variants": [],
+    "priority": 2,
+    "note": "三维建模技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "modeling-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "三维虚拟资产",
+    "en": "three-dimensional virtual assets",
+    "variants": [],
+    "priority": 2,
+    "note": "虚拟引擎中构建的三维数字资产",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "three dimensional virtual assets",
+      "three-dimensional-virtual-assets"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "XR扩展现实",
+    "en": "XR extended reality",
+    "variants": [],
+    "priority": 2,
+    "note": "扩展现实全称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "XR-extended-reality"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "后期前置化",
+    "en": "post-pre-installation",
+    "variants": [],
+    "priority": 3,
+    "note": "将后期制作环节前置到拍摄阶段的流程特点\n待专业确认（2026-09-29）：post-pre-installation 不符合影视语境，建议审阅“前置后期制作”等具体流程后定名。",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "post pre installation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "环境光效",
+    "en": "ambient light effect",
+    "variants": [],
+    "priority": 2,
+    "note": "LED背景墙提供的真实环境光照效果",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "ambient-light-effect"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "成组管理",
+    "en": "group management",
+    "variants": [],
+    "priority": 1,
+    "note": "LED屏分组管理功能\n2026-09-29 校订：",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：VMP",
+    "machine_variants": [
+      "group-management"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "画质引擎",
+    "en": "Image Booster",
+    "variants": [],
+    "priority": 1,
+    "note": "LED显示画质处理引擎\n2026-09-29 校订：诺瓦产品功能名；与 Dynamic Booster（动态引擎）分开。",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：PPT:5, A10EN:3, A10CN:2",
+    "machine_variants": [
+      "image-engine"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色彩管理",
+    "en": "Color Management",
+    "variants": [
+      "colour management"
+    ],
+    "priority": 1,
+    "note": "LED显示屏色彩管理技术\n2026-09-29 校订：",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：PPT:5,6, ARMOR, A10CN:2",
+    "machine_variants": [
+      "color-management",
+      "colour management"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "HDR",
+    "en": "HDR",
+    "variants": [],
+    "priority": 2,
+    "note": "高动态范围（High Dynamic Range）",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "14通道色彩校正",
+    "en": "14-channel color correction",
+    "variants": [
+      "14CH Color Correction"
+    ],
+    "priority": 1,
+    "note": "多通道色彩校正功能\n2026-09-29 校订：",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：MX",
+    "machine_variants": [
+      "14 channel color correction",
+      "14-channel-color-correction",
+      "14-channel colour correction"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "3D LUT",
+    "en": "3D LUT",
+    "variants": [],
+    "priority": 2,
+    "note": "三维查找表色彩调整技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "3D-LUT"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "genlock相位锁定",
+    "en": "genlock phase lock",
+    "variants": [],
+    "priority": 2,
+    "note": "同步锁相技术，确保LED屏与摄像机同步",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "genlock-phase-lock"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "genlock相位偏移",
+    "en": "genlock phase offset",
+    "variants": [],
+    "priority": 2,
+    "note": "同步锁相相位偏移调节功能",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "genlock-phase-offset"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "快门适配",
+    "en": "Shutter Fit",
+    "variants": [],
+    "priority": 1,
+    "note": "LED屏与摄像机快门同步适配技术\n2026-09-29 校订：",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：ARMOR, COEXCN",
+    "machine_variants": [
+      "shutter-fit"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "黑线",
+    "en": "black lines",
+    "variants": [],
+    "priority": 2,
+    "note": "拍摄LED屏时出现的扫描黑线问题",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "black-lines"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "扫描线",
+    "en": "scan lines",
+    "variants": [],
+    "priority": 2,
+    "note": "拍摄LED屏时出现的扫描线问题",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "scan-lines"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "平台化系统",
+    "en": "platform-based system",
+    "variants": [],
+    "priority": 2,
+    "note": "COEX的平台化架构特征",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "platform based system",
+      "platform-based-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色彩调节",
+    "en": "color adjustment",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示屏色彩调节功能",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "color-adjustment",
+      "colour adjustment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "场景预设",
+    "en": "scenario presets",
+    "variants": [
+      "scene presets",
+      "scenario preset"
+    ],
+    "priority": 1,
+    "note": "可保存和调用的场景预设\n2026-09-29 校订：",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：VMP",
+    "machine_variants": [
+      "scene-presets"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "裸眼3D",
+    "en": "naked-eye 3D",
+    "variants": [],
+    "priority": 3,
+    "note": "无需佩戴眼镜即可观看的3D显示技术\n待专业确认（2026-09-29）：anamorphic 与 autostereoscopic 是不同实现，原条目不应作为完全互换同义词。",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "naked eye 3D",
+      "naked-eye-3D"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "小间距",
+    "en": "fine-pitch",
+    "variants": [],
+    "priority": 2,
+    "note": "LED显示屏像素间距较小的产品类型",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "fine pitch"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "拼控",
+    "en": "controller",
+    "variants": [],
+    "priority": 2,
+    "note": "拼接控制器，用于LED显示屏的信号拼接与控制",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "播控服务器",
+    "en": "playback control server",
+    "variants": [],
+    "priority": 2,
+    "note": "用于控制视频播放的服务器",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "playback-control-server"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "全链路方案",
+    "en": "complete solution",
+    "variants": [],
+    "priority": 2,
+    "note": "涵盖从控制到内容制作的完整解决方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "complete-solution"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "沉浸式",
+    "en": "immersive",
+    "variants": [],
+    "priority": 2,
+    "note": "沉浸式视频体验类型",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "全息投影",
+    "en": "holographic projection",
+    "variants": [],
+    "priority": 2,
+    "note": "全息投影技术",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "holographic-projection"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "定制化",
+    "en": "customized",
+    "variants": [],
+    "priority": 2,
+    "note": "视频内容定制服务",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "一站式内容解决方案",
+    "en": "a package service of content solutions",
+    "variants": [],
+    "priority": 2,
+    "note": "从创意到成品的一站式内容服务",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "a-package-service-of-content-solutions"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "LED显示智能制造解决方案",
+    "en": "LED Display Smart Manufacturing Solution",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦面向LED显示屏制造环节的整体解决方案名称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "LED-Display-Smart-Manufacturing-Solution"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "墨色检测机",
+    "en": "MLED ink color test sorting machine",
+    "variants": [],
+    "priority": 2,
+    "note": "检测模组黑屏状态下墨色参数并分选的设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "MLED-ink-color-test-sorting-machine",
+      "MLED ink colour test sorting machine"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "点亮测试机",
+    "en": "MLED luminance test machine",
+    "variants": [],
+    "priority": 2,
+    "note": "对点亮灯板进行故障检测的设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "MLED-luminance-test-machine"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "单模组校正机",
+    "en": "MLED Demura module correction device",
+    "variants": [],
+    "priority": 2,
+    "note": "以模组为单位进行校正的设备/系统",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "MLED-Demura-module-correction-device"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "侧视角检测分选机",
+    "en": "MLED side-view luminance sorting machine",
+    "variants": [],
+    "priority": 2,
+    "note": "检测LED模组侧面显示一致性并分选的设备",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "MLED side view luminance sorting machine",
+      "MLED-side-view-luminance-sorting-machine"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "侧视角分选机",
+    "en": "side viewing angle sorting machine",
+    "variants": [],
+    "priority": 2,
+    "note": "侧视角分选设备的简称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "side-viewing-angle-sorting-machine"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "墨色",
+    "en": "ink color",
+    "variants": [],
+    "priority": 3,
+    "note": "模组黑屏状态下灯板表面的颜色一致性参数\n待专业确认（2026-09-29）：ink color 易被理解为油墨颜色；PCB 阻焊膜颜色、屏幕黑态一致性需分别确认。",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "ink-color",
+      "ink colour"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "墨色参数",
+    "en": "ink color parameters",
+    "variants": [],
+    "priority": 2,
+    "note": "用于评价墨色一致性的检测参数",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "ink-color-parameters",
+      "ink colour parameters"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灯板",
+    "en": "light board",
+    "variants": [],
+    "priority": 3,
+    "note": "LED模组中承载灯珠的电路板\n待专业确认（2026-09-29）：light board / lamp board 与 LED module 的边界依产品结构而定，暂不统一。",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "light-board"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "阴阳面",
+    "en": "side-view dark rows",
+    "variants": [],
+    "priority": 2,
+    "note": "灯板点亮后侧面出现的暗区/暗行现象",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "side view dark rows",
+      "side-view-dark-rows"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "flash",
+    "en": "flash",
+    "variants": [],
+    "priority": 2,
+    "note": "灯板点亮时的闪烁异常",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "模组校正",
+    "en": "module correction",
+    "variants": [],
+    "priority": 2,
+    "note": "以模组为单位的校正方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "module-correction"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "COB封装模组",
+    "en": "COB packaging module",
+    "variants": [],
+    "priority": 2,
+    "note": "采用COB封装工艺的LED模组",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "COB-packaging-module"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "全屏校正",
+    "en": "full-screen correction",
+    "variants": [],
+    "priority": 2,
+    "note": "对整屏进行的校正方案",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "full screen correction",
+      "full-screen-correction"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "全灰度校正",
+    "en": "Full-Grayscale Calibration",
+    "variants": [
+      "full grayscale calibration"
+    ],
+    "priority": 1,
+    "note": "覆盖全部灰度等级的校正方案\n2026-09-29 校订：“全灰度”在此为“全灰阶”的同义中文；校正系统技术名称采用 calibration。",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：A10EN:2, A10CN:2",
+    "machine_variants": [
+      "full-grayscale-correction",
+      "full grey scale correction"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "良率",
+    "en": "yield",
+    "variants": [],
+    "priority": 2,
+    "note": "生产合格率",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "MLED",
+    "en": "MLED",
+    "variants": [],
+    "priority": 2,
+    "note": "Mini/Micro LED的统称",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "MLED核心检测装备",
+    "en": "MLED core inspection equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "诺瓦面向MLED显示屏的检测装备系列",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "MLED-core-inspection-equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "返修",
+    "en": "repair",
+    "variants": [],
+    "priority": 2,
+    "note": "对不良模组的修复流程",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "备品模组",
+    "en": "spare module",
+    "variants": [],
+    "priority": 2,
+    "note": "用于替换故障模组的备用模组",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [
+      "spare-module"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "拼接",
+    "en": "splicing",
+    "variants": [],
+    "priority": 2,
+    "note": "模组在现场的拼接安装",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "可视化",
+    "en": "visualization",
+    "variants": [],
+    "priority": 2,
+    "note": "数据/结果的可视化呈现",
+    "source": "展厅讲解稿:讲解稿V3.0",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "箱体",
+    "en": "cabinet",
+    "variants": [
+      "enclosure",
+      "LED cabinet"
+    ],
+    "priority": 1,
+    "note": "诺瓦标准译法\n中文定义来自课件；英文为补充建议，待确认。\nLED箱体（户外箱体）\n散热风扇\n开关电源\n接收卡及HUB卡\n排线\n模组电源线\n模组\n箱体\nLED屏体\n控制系统\n供电系统\n散热系统\n2026-09-29 校订：",
+    "source": "人工修正\n专业术语.pptx / 第7页\n2026-09-29 核对依据：PPT:4,12, A10EN:4",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灰度等级",
+    "en": "grayscale level",
+    "variants": [
+      "grey scale level",
+      "gray level"
+    ],
+    "priority": 1,
+    "note": "诺瓦标准译法\n中文定义来自课件；英文为补充建议，待确认。\n灰度级数\n灰度等级即灰度图像的亮度层次范围，灰度等级越大，画面显示越细腻。",
+    "source": "人工修正\n专业术语.pptx / 第21页",
+    "machine_variants": [
+      "grayscale-level",
+      "grey scale level"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "刷新率",
+    "en": "refresh rate",
+    "variants": [],
+    "priority": 1,
+    "note": "诺瓦标准译法\n\n中文定义来自课件；英文为补充建议，待确认。\n帧频\n3\n6\n1\n刷新率指显示屏画面更新的速率，通常用赫兹（Hz）表示。\n规则种子：LED 技术语境下的常见非标准机翻，请按团队规范维护。",
+    "source": "人工修正\n未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第11行\n专业术语.pptx / 第33页",
+    "machine_variants": [
+      "refresh-rate"
+    ],
+    "wrong_variants": [
+      "refreshing ratio"
+    ]
+  },
+  {
+    "zh": "模组",
+    "en": "module",
+    "variants": [
+      "LED module"
+    ],
+    "priority": 1,
+    "note": "诺瓦标准译法\n2026-09-29 校订：",
+    "source": "人工修正\n2026-09-29 核对依据：PPT:4, A10EN:4",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "原材料",
+    "en": "RAW Materials",
+    "variants": [],
+    "priority": 2,
+    "note": "原材料是指用于制造或生产产品的未经过加工或加工程度较低的物质或资源，半导体行业是沙子",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第3行",
+    "machine_variants": [
+      "RAW-Materials"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "提纯",
+    "en": "Purification",
+    "variants": [],
+    "priority": 2,
+    "note": "指半导体工艺中，沙子在经过高温和处理后进行单晶硅的提纯",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第4行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "单晶硅棒",
+    "en": "Monocrystalline Silicon Rod",
+    "variants": [],
+    "priority": 2,
+    "note": "指半导体生产过程中最初始的单晶硅制作后的产物，经过提拉法或者区熔法，提炼出来的高纯度圆形硅棒。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第5行",
+    "machine_variants": [
+      "Monocrystalline-Silicon-Rod"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "切片",
+    "en": "Wafer Slicing",
+    "variants": [],
+    "priority": 2,
+    "note": "晶圆制作之前需要从硅柱上进行切片，方便下一步化学生长的到外延片",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第6行",
+    "machine_variants": [
+      "Wafer-Slicing"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "晶圆表面抛光",
+    "en": "Polishing",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第7行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "外延生长",
+    "en": "Epitaxial Growth",
+    "variants": [],
+    "priority": 2,
+    "note": "半导体制作工艺中通过掺入不同的化学材料在特定环境下的化学作用过程",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第8行",
+    "machine_variants": [
+      "Epitaxial-Growth"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "气相外延生长",
+    "en": "MOCVD",
+    "variants": [],
+    "priority": 3,
+    "note": "是在气相外延生长(VPE)的基础上发展起来的一种新型气相外延生长技术,常用于LED发光芯片行业\n待专业确认（2026-09-29）：MOCVD 是金属有机化学气相沉积，不能泛指所有气相外延。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第9行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "湿法清洗",
+    "en": "Wet cleaning",
+    "variants": [],
+    "priority": 2,
+    "note": "特定的化学药液和去离子水，对晶圆表面进行无损伤清洗——氧化、蚀刻和溶解晶片表面污染物、有机物及金属离子污染。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第10行",
+    "machine_variants": [
+      "Wet-cleaning"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "干法清洗",
+    "en": "Dry cleaning",
+    "variants": [],
+    "priority": 2,
+    "note": "干法清洗采用气相化学法去除晶片表面污染物。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第11行",
+    "machine_variants": [
+      "Dry-cleaning"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "氧化",
+    "en": "Oxidation",
+    "variants": [],
+    "priority": 2,
+    "note": "氧化过程的作用是在晶圆表面形成保护膜。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第12行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光刻",
+    "en": "Photolithography",
+    "variants": [],
+    "priority": 2,
+    "note": "在晶圆上利用光线来照射带有电路图形的光罩，从而绘制电路。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第13行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "曝光",
+    "en": "exposure",
+    "variants": [],
+    "priority": 1,
+    "note": "待确认：源表疑似拼写或对应关系有误；保留原值。\n2026-09-29 校订：原表 Steper Exposure 含拼写错误且把泛称限缩为步进式曝光；若明确步进式曝光应写 stepper exposure。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第14行\n2026-09-29 核对依据：EDITORIAL",
+    "machine_variants": [
+      "Steper-Exposure"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "台面刻蚀",
+    "en": "Mesa etching",
+    "variants": [],
+    "priority": 2,
+    "note": "刻蚀工艺来去除任何多余的氧化膜且只留下半导体电路。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第15行",
+    "machine_variants": [
+      "Mesa-etching"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "掺杂",
+    "en": "Doping",
+    "variants": [],
+    "priority": 2,
+    "note": "是将特定量的杂质通过薄膜开口引入晶圆表层的工艺过程，其本质是在在晶圆上制作PN结。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第16行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "氮化镓",
+    "en": "Gallium Nitride",
+    "variants": [],
+    "priority": 2,
+    "note": "一种化学物质，在发光芯片中一般作为基底，像蓝光和绿光的发光芯片基底一般是氮化镓",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第17行",
+    "machine_variants": [
+      "Gallium-Nitride"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "砷化镓",
+    "en": "Gallium Arsenide",
+    "variants": [],
+    "priority": 2,
+    "note": "一种化学物质，在发光芯片中一般作为红光的基底，有毒",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第18行",
+    "machine_variants": [
+      "Gallium-Arsenide"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "热扩散",
+    "en": "Thermal diffusion",
+    "variants": [],
+    "priority": 2,
+    "note": "在1000℃左右的高温下发生的反应，气态下的掺杂原子通过扩散化学反应迁移到暴露的晶圆表面，形成一层薄膜。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第19行",
+    "machine_variants": [
+      "Thermal-diffusion"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "离子注入",
+    "en": "Ion implantation",
+    "variants": [],
+    "priority": 2,
+    "note": "掺杂体原子被离子化（带有一定的电荷），被电场加到超高速，穿过晶圆表面，注入到晶圆表层中。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第20行",
+    "machine_variants": [
+      "Ion-implantation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "沉积",
+    "en": "Deposition",
+    "variants": [],
+    "priority": 2,
+    "note": "晶圆上加入所需分子或原子单位薄膜的一系列过程",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第21行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "蒸发",
+    "en": "Evaporation",
+    "variants": [],
+    "priority": 2,
+    "note": "薄膜物质加热蒸发,在比蒸发温度低的基本表面上凝结成固体形成薄膜的方法.倒装芯片生产工艺会涉及。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第22行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光电测试",
+    "en": "Photoelectric testing",
+    "variants": [],
+    "priority": 2,
+    "note": "光电性能测试",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第24行",
+    "machine_variants": [
+      "Photoelectric-testing"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "可靠性测试",
+    "en": "reliability testing",
+    "variants": [],
+    "priority": 1,
+    "note": "待确认：源表疑似拼写或对应关系有误；保留原值。\n2026-09-29 校订：fusion 意为融合/熔合，与可靠性测试概念不符。保留为上下文核对线索，不自动替换普通单词 fusion。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第25行\n2026-09-29 核对依据：EDITORIAL",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "衬底减薄",
+    "en": "Substrate thinning",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第26行",
+    "machine_variants": [
+      "Substrate-thinning"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "激光剥离技术",
+    "en": "Laser Lift-off，LLO",
+    "variants": [],
+    "priority": 2,
+    "note": "将芯片转移至暂时性载板上，然后按照客户需求转移到特定的胶膜上",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 上游芯片制备 / 第27行",
+    "machine_variants": [
+      "Laser Lift off，LLO",
+      "Laser-Lift-off，LLO"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "混光",
+    "en": "lighting superposition",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第2行",
+    "machine_variants": [
+      "lighting-superposition"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "固晶机",
+    "en": "die bonder",
+    "variants": [],
+    "priority": 1,
+    "note": "待确认：源表疑似拼写或对应关系有误；保留原值。\n2026-09-29 校订：与原部门表另一条 Die bonder 对照合并；Bounding machine 为拼写/术语错误。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第3行\n未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第44行\n2026-09-29 核对依据：EDITORIAL",
+    "machine_variants": [
+      "Bounding-machine",
+      "Die-bonder"
+    ],
+    "wrong_variants": [
+      "Bounding machine"
+    ]
+  },
+  {
+    "zh": "封胶",
+    "en": "Coating",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第4行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "环氧树脂",
+    "en": "Epoxy resin",
+    "variants": [],
+    "priority": 2,
+    "note": "环氧树脂胶，COB封装胶体种类",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第5行",
+    "machine_variants": [
+      "Epoxy-resin"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "固化",
+    "en": "Curing",
+    "variants": [],
+    "priority": 2,
+    "note": "150°C至250°C的温度条件下使环氧树脂硬化",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第6行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "翘曲",
+    "en": "Warpage",
+    "variants": [],
+    "priority": 2,
+    "note": "环氧树脂的厚度不恒定，因膨胀系数差异而导致模组翘曲",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第7行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "哑光黑膜",
+    "en": "Matte film",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第8行",
+    "machine_variants": [
+      "Matte-film"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "亮光膜",
+    "en": "Glossy film",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第9行",
+    "machine_variants": [
+      "Glossy-film"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "基材",
+    "en": "Substrate",
+    "variants": [],
+    "priority": 2,
+    "note": "PCB基材（COB），玻璃基材（COG），硅基（OLED）",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第10行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "蓝宝石",
+    "en": "Sapphire",
+    "variants": [],
+    "priority": 2,
+    "note": "蓝宝石",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第11行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "巨量转移",
+    "en": "Mass transfer",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第12行\n未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第20行",
+    "machine_variants": [
+      "Mass-transfer"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "自组装",
+    "en": "Self-assembly",
+    "variants": [],
+    "priority": 2,
+    "note": "巨量转移的一种技术路线",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第13行",
+    "machine_variants": [
+      "Self assembly"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "表面张力",
+    "en": "Surface tension",
+    "variants": [],
+    "priority": 2,
+    "note": "流体自组装技术路线中，底层结合原理",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第14行",
+    "machine_variants": [
+      "Surface-tension"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "SMD支架",
+    "en": "Holder",
+    "variants": [],
+    "priority": 2,
+    "note": "SMD封装用支架",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第15行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "焊盘",
+    "en": "Pad",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第16行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "金线",
+    "en": "Gold wire",
+    "variants": [],
+    "priority": 2,
+    "note": "SMD封装用金线",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第17行",
+    "machine_variants": [
+      "Gold-wire"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "铜线",
+    "en": "Copper wire",
+    "variants": [],
+    "priority": 2,
+    "note": "SMD封装用铜线",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第18行",
+    "machine_variants": [
+      "Copper-wire"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "焊锡",
+    "en": "Solder paste",
+    "variants": [],
+    "priority": 3,
+    "note": "待专业确认（2026-09-29）：solder 与 solder paste（锡膏）需要区分原材料形态。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第19行",
+    "machine_variants": [
+      "Solder-paste"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "SMD封胶",
+    "en": "Encapsulation",
+    "variants": [],
+    "priority": 2,
+    "note": "SMD支架中间区域封胶",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第20行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "背面研磨",
+    "en": "Back Grinding",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第21行",
+    "machine_variants": [
+      "Back-Grinding"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "划片",
+    "en": "Dicing",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第22行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "芯片键合",
+    "en": "die bonding",
+    "variants": [],
+    "priority": 1,
+    "note": "待确认：源表疑似拼写或对应关系有误；保留原值。\n2026-09-29 校订：bonding 为键合；bounding 为拼写错误。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第23行\n2026-09-29 核对依据：EDITORIAL",
+    "machine_variants": [
+      "Die-bounding"
+    ],
+    "wrong_variants": [
+      "Die bounding"
+    ]
+  },
+  {
+    "zh": "引线键合",
+    "en": "Wire bonding",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第24行",
+    "machine_variants": [
+      "Wire-bonding"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "缓冲垫键合",
+    "en": "Bumper bonding",
+    "variants": [],
+    "priority": 3,
+    "note": "待专业确认（2026-09-29）：Bumper bonding 疑似应为 bump bonding，但中文本身存疑，须由封装工艺人员确认。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第25行",
+    "machine_variants": [
+      "Bumper-bonding"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "成型",
+    "en": "Molding",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第26行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "切割",
+    "en": "Cutting",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第27行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "挑选",
+    "en": "Sorting",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第28行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "分选",
+    "en": "binning",
+    "variants": [
+      "bin sorting",
+      "sorting"
+    ],
+    "priority": 1,
+    "note": "待确认：源表疑似拼写或对应关系有误；保留原值。分光分色，通过色坐标和波长进行分选。\n2026-09-29 校订：LED 按参数分档分选；sorting 可作一般分选描述。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第29行\n未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第6行\n2026-09-29 核对依据：EDITORIAL",
+    "machine_variants": [
+      "Bin-sorting"
+    ],
+    "wrong_variants": [
+      "Bining"
+    ]
+  },
+  {
+    "zh": "编织",
+    "en": "braiding",
+    "variants": [],
+    "priority": 1,
+    "note": "待确认：源表疑似拼写或对应关系有误；保留原值。将发光芯片编织成卷或者其他包装方式\n2026-09-29 校订：仅纠正原表拼写；是否应收录在 LED 词库仍取决于线缆工艺语境。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第30行\n2026-09-29 核对依据：EDITORIAL",
+    "machine_variants": [],
+    "wrong_variants": [
+      "Briading"
+    ]
+  },
+  {
+    "zh": "回流焊",
+    "en": "Reflow soldering",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第31行\n未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第47行",
+    "machine_variants": [
+      "Reflow-soldering"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灌胶工艺",
+    "en": "Potting",
+    "variants": [],
+    "priority": 2,
+    "note": "SMD封装中环氧树脂胶灌入SMD支架中",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第32行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "电极",
+    "en": "Electrode",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第33行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "正极",
+    "en": "Anode",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第34行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "负极",
+    "en": "Cathode",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第35行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "共阴",
+    "en": "Common Cathode",
+    "variants": [],
+    "priority": 2,
+    "note": "共阴是当某一字段发光二极管的阳极为高电平时，相应字段就点亮，当某一字段的阳极为低电平时，相应字段就不亮。共阴省功耗。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第36行\n未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第19行",
+    "machine_variants": [
+      "Common-Cathode"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "绝缘层",
+    "en": "Dielectric layer",
+    "variants": [],
+    "priority": 2,
+    "note": "封装中的绝缘材质",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第37行",
+    "machine_variants": [
+      "Dielectric-layer"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "倒装",
+    "en": "Flip chip",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第38行",
+    "machine_variants": [
+      "Flip-chip"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "正装",
+    "en": "Face-up",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第39行",
+    "machine_variants": [
+      "Face up"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "叠片结构",
+    "en": "Lamination",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第40行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "冷光",
+    "en": "Luminescent",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第41行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "暖光",
+    "en": "Warm",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第42行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "渗透率",
+    "en": "Permeability",
+    "variants": [],
+    "priority": 2,
+    "note": "环氧树脂胶的光渗透率",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第43行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "映射表",
+    "en": "Mapping Table",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第45行",
+    "machine_variants": [
+      "Mapping-Table"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "切割胶带",
+    "en": "Dicing Tape",
+    "variants": [],
+    "priority": 2,
+    "note": "完成划片工艺之后，芯片将被分割成独立模块并轻轻附着在切割胶带",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第46行",
+    "machine_variants": [
+      "Dicing-Tape"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "芯片顶出",
+    "en": "Ejection",
+    "variants": [],
+    "priority": 2,
+    "note": "通过顶出装置方便真空管拾取芯片",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第47行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "晶片黏结薄膜",
+    "en": "DAF",
+    "variants": [],
+    "priority": 2,
+    "note": "一种附着在晶粒底部的薄膜，用于芯片和基板之间的键合",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第48行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "温度曲线",
+    "en": "Temperature Profile",
+    "variants": [],
+    "priority": 2,
+    "note": "键合技术中用于烘干粘合剂的温度曲线",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第49行",
+    "machine_variants": [
+      "Temperature-Profile"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "拾取放置技术",
+    "en": "Pick & Place /PP",
+    "variants": [],
+    "priority": 2,
+    "note": "固晶机常用的一种发光芯片转移技术",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第50行",
+    "machine_variants": [
+      "Pick-&-Place-/PP"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光致发光测试",
+    "en": "Photo luminescence",
+    "variants": [],
+    "priority": 2,
+    "note": "光致发光测试能在不接触且不损坏 LED 芯片的情况下，对 LED 芯片进行测试",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第51行",
+    "machine_variants": [
+      "Photo-luminescence"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "电致发光测试",
+    "en": "Electro luminescence",
+    "variants": [],
+    "priority": 2,
+    "note": "过对 LED 芯片加以电流来进行测试，能够找出更多缺陷，却可能因与芯粒接触而造成芯片损伤。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第52行",
+    "machine_variants": [
+      "Electro-luminescence"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "激光剥离",
+    "en": "Laser lift off",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第53行",
+    "machine_variants": [
+      "Laser-lift-off"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "芯片电测",
+    "en": "Prober&Tester",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第54行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "激光补晶",
+    "en": "Laser refill",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第55行",
+    "machine_variants": [
+      "Laser-refill"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "息屏/黑屏",
+    "en": "stand-by mode",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 中游封装环节 / 第56行",
+    "machine_variants": [
+      "stand by mode",
+      "stand-by-mode"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "主动式驱动",
+    "en": "active matrix driving",
+    "variants": [
+      "active-matrix driving",
+      "AM driving",
+      "active matrix"
+    ],
+    "priority": 1,
+    "note": "手机，液晶等行业显示驱动模式\n2026-09-29 校订：",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第3行\n2026-09-29 核对依据：MLED",
+    "machine_variants": [
+      "Active-Matrix"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "时序控制器",
+    "en": "T-CON",
+    "variants": [],
+    "priority": 2,
+    "note": "Timing controller简称",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第4行",
+    "machine_variants": [
+      "T CON"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "被动式驱动",
+    "en": "passive matrix driving",
+    "variants": [
+      "passive-matrix driving",
+      "PM driving",
+      "passive matrix"
+    ],
+    "priority": 1,
+    "note": "待确认：源表疑似拼写或对应关系有误；保留原值。诺瓦常规灯板显示驱动模式\n2026-09-29 校订：",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第5行\n2026-09-29 核对依据：MLED",
+    "machine_variants": [
+      "Passive-Mactive"
+    ],
+    "wrong_variants": [
+      "Passive Mactive"
+    ]
+  },
+  {
+    "zh": "防潮",
+    "en": "Moistureproof",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第7行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "防尘",
+    "en": "Dustproof",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第8行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "防水",
+    "en": "Waterproof",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第9行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "防碰撞",
+    "en": "Anti-Collision",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第10行",
+    "machine_variants": [
+      "Anti Collision"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "污斑",
+    "en": "Mura",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第11行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "局部调光",
+    "en": "Local Dimming",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第12行",
+    "machine_variants": [
+      "Local-Dimming"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "自动光学检测",
+    "en": "AOI",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第13行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "焊接",
+    "en": "Welding",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第14行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "荧光剂",
+    "en": "Fluorescent glue",
+    "variants": [],
+    "priority": 2,
+    "note": "COB照明用于产生白色的材料",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第15行",
+    "machine_variants": [
+      "Fluorescent-glue"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "面光源",
+    "en": "Surface light source",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第16行",
+    "machine_variants": [
+      "Surface-light-source"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "点光源",
+    "en": "Point light source",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第17行",
+    "machine_variants": [
+      "Point-light-source"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "直显",
+    "en": "Direct display",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第18行",
+    "machine_variants": [
+      "Direct-display"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "背光",
+    "en": "Backlight",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第19行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "发光芯片小型化",
+    "en": "Chip miniaturization",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第20行",
+    "machine_variants": [
+      "Chip-miniaturization"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "成品率",
+    "en": "Yield",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 其他 / 第21行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "颜色空间",
+    "en": "Color Space",
+    "variants": [],
+    "priority": 2,
+    "note": "也称彩色模型（又称彩色空间或彩色系统）它的用途是在某些标准下用通常可接受的方式对彩色加以说明。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第2行",
+    "machine_variants": [
+      "Color-Space",
+      "Colour Space"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "无缝拼接",
+    "en": "Seamless Splice",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第3行",
+    "machine_variants": [
+      "Seamless-Splice"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "拼接",
+    "en": "Splice",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第4行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "安全监视",
+    "en": "Security Monitoring",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第5行",
+    "machine_variants": [
+      "Security-Monitoring"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "指挥调度",
+    "en": "Command Scheduling",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第6行",
+    "machine_variants": [
+      "Command-Scheduling"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "商业广告",
+    "en": "Commercial Advertising",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第7行",
+    "machine_variants": [
+      "Commercial-Advertising"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "舞台表演",
+    "en": "Stage Performance",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第8行",
+    "machine_variants": [
+      "Stage-Performance"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "发光二极管",
+    "en": "LED",
+    "variants": [
+      "Light-emitting diode"
+    ],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第10行",
+    "machine_variants": [
+      "LED（Light emitting diode）",
+      "LED（Light-emitting-diode）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "双列直插式封装技术",
+    "en": "DIP",
+    "variants": [
+      "Dual In-line Package"
+    ],
+    "priority": 2,
+    "note": "是一种集成电路的封装方式。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第11行",
+    "machine_variants": [
+      "DIP（Dual In line Package）",
+      "DIP（Dual-In-line-Package）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "表面贴装器件",
+    "en": "SMD",
+    "variants": [
+      "Surface Mount Device"
+    ],
+    "priority": 2,
+    "note": "这种封装形式广泛应用于电子产品的制造中，其特点包括小巧轻便、能够减少内部连接和空间占用，从而提高生产效率和电子产品的可靠性。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第12行",
+    "machine_variants": [
+      "SMD（Surface-Mount-Device）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "板上芯片",
+    "en": "COB",
+    "variants": [
+      "Chip on Board"
+    ],
+    "priority": 2,
+    "note": "是一种将芯片直接贴在PCB电路板上的封装方式。这种封装技术通过金线连接芯片和电路板，使得器件尺寸更小、性能更好、可靠性更高。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第13行",
+    "machine_variants": [
+      "COB（Chip-on-Board）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "玻璃上的芯片技术",
+    "en": "COG",
+    "variants": [
+      "Chip on Glass"
+    ],
+    "priority": 2,
+    "note": "它直接通过各向异性导电胶（ACF）将驱动IC封装在液晶玻璃上，实现驱动IC导电凸点与液晶玻璃上的ITO透明导电焊盘互连封装在一起，从而实现点亮屏幕。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第14行",
+    "machine_variants": [
+      "COG（Chip-on-Glass）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "复合年均增长率",
+    "en": "CAGR",
+    "variants": [
+      "Compound Annual Growth Rate"
+    ],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第15行",
+    "machine_variants": [
+      "CAGR（Compound-Annual-Growth-Rate）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "裸眼3D",
+    "en": "Anamorphic / Autostereoscopy / Glasses-free 3D",
+    "variants": [],
+    "priority": 3,
+    "note": "是对不借助偏振光眼镜等外部工具，实现立体视觉效果的技术的统称。该类型技术的代表主要有光屏障技术、柱状透镜技术。\n待专业确认（2026-09-29）：anamorphic 与 autostereoscopic 是不同实现，原条目不应作为完全互换同义词。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第16行",
+    "machine_variants": [
+      "Anamorphic / Autostereoscopy / Glasses free 3D",
+      "Anamorphic-/-Autostereoscopy-/-Glasses-free-3D"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "功能一体机",
+    "en": "AIO",
+    "variants": [
+      "All-in-one"
+    ],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第17行",
+    "machine_variants": [
+      "AIO（All in one）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "玻璃基底",
+    "en": "Glass Substrate",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第18行",
+    "machine_variants": [
+      "Glass-Substrate"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "手工焊接",
+    "en": "Manual Soldering",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第21行",
+    "machine_variants": [
+      "Manual-Soldering"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "波峰焊接",
+    "en": "Wave Soldering",
+    "variants": [],
+    "priority": 2,
+    "note": "一种电子组装技术，用于焊接通过孔组件。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第22行",
+    "machine_variants": [
+      "Wave-Soldering"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "表面贴装或表面安装技术",
+    "en": "SMT",
+    "variants": [
+      "Surface Mounted Technology"
+    ],
+    "priority": 2,
+    "note": "电子电路表面组装技术,它是一种将无引脚或短引线表面组装元器件安装在印制电路板（Printed Circuit Board，PCB）的表面或其它基板的表面上，通过再流焊或浸焊等方法加以焊接组装的电路装连技术。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第23行",
+    "machine_variants": [
+      "SMT（Surface-Mounted-Technology）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "迷你/微型LED封装",
+    "en": "MIP",
+    "variants": [
+      "Mini/Micro LED in Package"
+    ],
+    "priority": 2,
+    "note": "MIP全称Mini/Micro  LED in Package，是一种以Micro LED为基础的新型封装技术。该封装工艺通过巨量转移技术将Micro LED芯片转移到载板上进行封装，切割成小封装体，再将小封装体分光、混光，之后再进行贴片工艺。可以显著降低微间距LED显示屏的制造成本并提高产量。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第24行",
+    "machine_variants": [
+      "MIP（Mini/Micro-LED-in-Package）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "PCB板层",
+    "en": "PCB Plies",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第25行",
+    "machine_variants": [
+      "PCB-Plies"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "线路板/电路板",
+    "en": "PCB",
+    "variants": [
+      "Printed Circuit Board"
+    ],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第26行",
+    "machine_variants": [
+      "Printed-Circuit-Board（PCB）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "可穿戴式显示",
+    "en": "Wearable Display",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第27行",
+    "machine_variants": [
+      "Wearable-Display"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "一致性",
+    "en": "Uniformity",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第28行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "市场渗透率",
+    "en": "Market Penetration Rate",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第29行",
+    "machine_variants": [
+      "Market-Penetration-Rate"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "革新、翻新、整修",
+    "en": "Renovation",
+    "variants": [],
+    "priority": 2,
+    "note": "The average number of renovations for primary, junior, and high schools is 3 rooms\n小/初/高平均改造容量3间；",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第30行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "同比",
+    "en": "year-over-year",
+    "variants": [],
+    "priority": 2,
+    "note": "year-over-year percentage change绩效同比变化",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第31行",
+    "machine_variants": [
+      "year over year"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "友好的用户体验",
+    "en": "Friendly User Experience",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第32行",
+    "machine_variants": [
+      "Friendly-User-Experience"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色偏",
+    "en": "Color Shift/ Color Cast",
+    "variants": [],
+    "priority": 2,
+    "note": "指拍摄的图像中，某种颜色的色相、饱和度与真实的图像有明显的区别，而这种区别通常不是人们所希望的。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第33行",
+    "machine_variants": [
+      "Color-Shift/-Color-Cast",
+      "Colour Shift/ Colour Cast"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色块",
+    "en": "Color Block",
+    "variants": [],
+    "priority": 3,
+    "note": "待专业确认（2026-09-29）：Color Block 与 display mura 有语境差异，需结合现象图片。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第34行",
+    "machine_variants": [
+      "Color-Block",
+      "Colour Block"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "跳灰",
+    "en": "Grayscale Jumping",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第35行",
+    "machine_variants": [
+      "Grayscale-Jumping",
+      "Grey scale Jumping"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色度计（俗称：光枪）",
+    "en": "Colorimeter",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第36行",
+    "machine_variants": [
+      "Colourimeter"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色差",
+    "en": "Color Deviation",
+    "variants": [],
+    "priority": 2,
+    "note": "指物体的颜色与标准颜色之间的差异。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第37行",
+    "machine_variants": [
+      "Color-Deviation",
+      "Colour Deviation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "水墨画（侵蚀样）",
+    "en": "Pitting",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第38行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "跨境（跨国）公司",
+    "en": "Cross-border Company",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第39行",
+    "machine_variants": [
+      "Cross border Company",
+      "Cross-border-Company"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "成本降低",
+    "en": "Cost Reduction",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第40行",
+    "machine_variants": [
+      "Cost-Reduction"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "波长",
+    "en": "Wavelength",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n波长\n波长：指波在一个振动周期内传播的距离。\n红色：620-680nm   绿色：490-570nm   蓝色：420-490nm",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第41行\n专业术语.pptx / 第30页",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "旗舰、一流",
+    "en": "Flagship",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第42行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "网络接口",
+    "en": "Ethernet Port",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第43行",
+    "machine_variants": [
+      "Ethernet-Port"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光纤接口",
+    "en": "Optical Port",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第44行",
+    "machine_variants": [
+      "Optical-Port"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "千兆以太网",
+    "en": "Gigabit Ethernet",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第45行\n未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第26行",
+    "machine_variants": [
+      "Gigabit-Ethernet"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "矩形带载限制",
+    "en": "Rectangle Limitation",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第46行",
+    "machine_variants": [
+      "Rectangle-Limitation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "散热",
+    "en": "heat dissipation",
+    "variants": [],
+    "priority": 1,
+    "note": "将设备或系统产生的热量转移或散发的过程。通常通过传导、对流或辐射将热量从源头移除并释放到周围环境中。\n2026-09-29 校订：屏体热管理语境；radiating 只是散热机制之一，不能作为通用标准译文。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第47行\n未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第30行\n2026-09-29 核对依据：A10EN:2, MLED",
+    "machine_variants": [
+      "Heat-Dissipation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "非线性",
+    "en": "Non-linear",
+    "variants": [],
+    "priority": 2,
+    "note": "The non-linear characteristic of LED display\nLED显示屏的非线性特性",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第48行",
+    "machine_variants": [
+      "Non linear"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "动态引擎",
+    "en": "Dynamic Booster",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：诺瓦产品功能名。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第49行\n2026-09-29 核对依据：ARMOR, A10CN:2",
+    "machine_variants": [
+      "Dynamic-Booster"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "墨色检测机（PCB阻焊膜颜色检测及分选设备）",
+    "en": "PCB Solder Mask Color Inspection and Sorting Equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "又称：PCB Blackness Mosaic Inspection and Sorting Equipment",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第50行",
+    "machine_variants": [
+      "PCB-Solder-Mask-Color-Inspection-and-Sorting-Equipment",
+      "PCB Solder Mask Colour Inspection and Sorting Equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "多角度缺陷检测设备",
+    "en": "Multi-angle Defects Inspection Equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第51行",
+    "machine_variants": [
+      "Multi angle Defects Inspection Equipment",
+      "Multi-angle-Defects-Inspection-Equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "应用程序编程接口",
+    "en": "API",
+    "variants": [
+      "Application Programming Interface"
+    ],
+    "priority": 2,
+    "note": "是一些预先定义的函数，目的是提供应用程序与开发人员基于某软件或硬件得以访问一组例程的能力，而又无需访问源码，或理解内部工作机制的细节。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第52行",
+    "machine_variants": [
+      "API（Application-Programming-Interface）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "差异化的",
+    "en": "Differentiated",
+    "variants": [],
+    "priority": 2,
+    "note": "Differentiated Solutions差异化解决方案",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第53行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "底层的；根本的，潜在的；表面下的，下层的；",
+    "en": "Underlying",
+    "variants": [],
+    "priority": 2,
+    "note": "Underlying Support底层支持",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第54行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "虚拟制片",
+    "en": "virtual production",
+    "variants": [
+      "VP"
+    ],
+    "priority": 1,
+    "note": "待确认：源表疑似拼写或对应关系有误；保留原值。指通过视觉手段来创造出的作品，如电影、电视节目、广告等。\n2026-09-29 校订：原表中文“虚拟纸片”为录入错误；VP 为简称。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第55行\n2026-09-29 核对依据：MXSOLUTION, EDITORIAL",
+    "machine_variants": [
+      "VP（Virtual-Production）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "扩展现实",
+    "en": "XR",
+    "variants": [
+      "Extended Reality"
+    ],
+    "priority": 2,
+    "note": "指通过计算机将真实与虚拟相结合，打造一个可人机交互的虚拟环境，这也是AR、VR、MR等多种技术的统称",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第56行",
+    "machine_variants": [
+      "XR（Extended-Reality）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "低延迟",
+    "en": "Low Latency",
+    "variants": [],
+    "priority": 2,
+    "note": "指数据传输或处理过程中的延迟时间较短，即数据能够以较快的速度传输或处理。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第57行",
+    "machine_variants": [
+      "Low-Latency"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "定位器",
+    "en": "Locator",
+    "variants": [],
+    "priority": 2,
+    "note": "是定位参考和定位方法的组合，对不同的定位参考，用不同的定位方法进行定位操作。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第58行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "动作捕捉",
+    "en": "Motion Capture",
+    "variants": [],
+    "priority": 2,
+    "note": "一种数字记录人物（如演员）特定动作并将其转换为计算机动画图像的技术。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第59行",
+    "machine_variants": [
+      "Motion-Capture"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "滚压线",
+    "en": "Rolling Lines",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第60行",
+    "machine_variants": [
+      "Rolling-Lines"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色相、色调",
+    "en": "Hue",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第62行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "饱和度",
+    "en": "saturation",
+    "variants": [],
+    "priority": 1,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n饱和度\n饱和度是指色彩的鲜艳程度，也称色彩的纯度,饱和度越高颜色越纯，越鲜艳。\n又称纯度，是指颜色中白光的比例\n2026-09-29 校订：色彩属性用 saturation；原表附带音标且使用 Saturability，不能作为标准色彩术语。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第63行\n专业术语.pptx / 第27页\n未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第2行\n2026-09-29 核对依据：MXSOLUTION",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "快门",
+    "en": "Shutter",
+    "variants": [],
+    "priority": 2,
+    "note": "Shutter Fit快门适配",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第64行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "用户自定义",
+    "en": "User-defined",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第65行",
+    "machine_variants": [
+      "User defined"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "增量",
+    "en": "Increment",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第66行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "无损的",
+    "en": "Lossless",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第67行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "拓扑",
+    "en": "Topology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第68行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "可拓展性、可伸缩性",
+    "en": "Scalability",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第69行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "温敏电阻",
+    "en": "Thermistor",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第70行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "MLED",
+    "en": "MLED（Mini-LED和Micro-LED的总称）",
+    "variants": [],
+    "priority": 2,
+    "note": "1.是近几年才出现的新型显示技术，与其他显示技术相比，MLED优势非常明显，既具备OLED自发光及柔性显示属性，又具备高分辨率、高亮度、高可靠性、响应快、色域广、功耗低、寿命长等诸多优势。\n2.Mini-LED：又被称为“亚宝米发光二极管”，芯片间距50-100um，是传统LED背光的改进版本。MiniLED技术被认为是传统LED和Micro LED之间的过渡技术，使用Mini LED能够生产0.5-1.2笔米像素颗粒的显示屏，显示效果大大优于传统LED屏幕。\n3.Micro-LED：Micr0 LED是LED微缩化和矩阵化技术，简单来说，就是将LED背光源进行薄膜化、微小化、阵列化，芯片间距＜50um，与OLED一样能够实现每个图元单独定址，单独驱动发光(自发光)。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第2行",
+    "machine_variants": [
+      "MLED（Mini LED和Micro LED的总称）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "峰值亮度",
+    "en": "Peak Brightness",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第3行",
+    "machine_variants": [
+      "Peak-Brightness"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灰度等级/阶级",
+    "en": "Grayscale Levels",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第4行",
+    "machine_variants": [
+      "Grayscale-Levels",
+      "Grey scale Levels"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "脉冲宽度调制",
+    "en": "PWM",
+    "variants": [
+      "Pulse Width Modulation"
+    ],
+    "priority": 2,
+    "note": "一种模拟控制方式，根据相应载荷的变化来调制晶体管基极或MOS管栅极的偏置，来实现晶体管或MOS管导通时间的改变，从而实现开关稳压电源输出的改变。这种方式能使电源的输出电压在工作条件变化时保持恒定，是利用微处理器的数字信号对模拟电路进行控制的一种非常有效的技术。广泛应用在从测量、通信到功率控制与变换的许多领域中。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第5行",
+    "machine_variants": [
+      "PWM（Pulse-Width-Modulation）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "脉冲幅度调制",
+    "en": "PAM",
+    "variants": [
+      "Pulse Amplitude Modulation"
+    ],
+    "priority": 2,
+    "note": "一种基础脉冲调制方式。PAM信号常用来分析符号同步的问题，此时一般采用PAM信号的理想形式，进而分析理想信号与存在定时偏差的信号之间的关系。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第6行",
+    "machine_variants": [
+      "PAM（Pulse-Amplitude-Modulation）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "智能护眼模式",
+    "en": "Intelligent Eye Protection",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第7行",
+    "machine_variants": [
+      "Intelligent-Eye-Protection"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灰阶渐变",
+    "en": "Grayscale Gradient",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第8行",
+    "machine_variants": [
+      "Grayscale-Gradient",
+      "Grey scale Gradient"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "动态范围",
+    "en": "Dynamic Range",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第9行",
+    "machine_variants": [
+      "Dynamic-Range"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "显示算法",
+    "en": "Display Algorithm",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第10行",
+    "machine_variants": [
+      "Display-Algorithm"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "图像实时分析",
+    "en": "Real-time Image Analysis",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第12行",
+    "machine_variants": [
+      "Real time Image Analysis",
+      "Real-time-Image-Analysis"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "无损重新编码",
+    "en": "Non-destructive Recoding",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第13行",
+    "machine_variants": [
+      "Non destructive Recoding",
+      "Non-destructive-Recoding"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "动态算法处理",
+    "en": "Dynamic Algorithm Processing",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第14行",
+    "machine_variants": [
+      "Dynamic-Algorithm-Processing"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灰度算法处理",
+    "en": "Grayscale Algorithm Processing",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第15行",
+    "machine_variants": [
+      "Grayscale-Algorithm-Processing",
+      "Grey scale Algorithm Processing"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "Gamma转换",
+    "en": "Gamma Convert",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第16行",
+    "machine_variants": [
+      "Gamma-Convert"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "逐像素Bit分离",
+    "en": "Pixel-by-pixel Separation",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第17行",
+    "machine_variants": [
+      "Pixel by pixel Separation",
+      "Pixel-by-pixel-Separation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "耦合",
+    "en": "Coupling",
+    "variants": [],
+    "priority": 2,
+    "note": "两个或两个以上的电路构成一个网络时，若其中某一电路中电流或电压发生变化，能影响到其他电路也发生类似的变化，这种网络叫做耦合电路。耦合的作用就是把某一电路的能量输送（或转换）到其他的电路中去",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第18行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "共阳",
+    "en": "Common Anode",
+    "variants": [],
+    "priority": 2,
+    "note": "共阳是当某一字段发光二极管的阴极为低电平时，相应字段就点亮，当某一字段的阴极为高电平时，相应字段就不亮。共阳省设计。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第20行",
+    "machine_variants": [
+      "Common-Anode"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "低拐点电压",
+    "en": "Low Turning Voltage",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第21行",
+    "machine_variants": [
+      "Low-Turning-Voltage"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "鬼影消除",
+    "en": "Ghosting Elimination",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第22行",
+    "machine_variants": [
+      "Ghosting-Elimination"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "符合RoHS标准的封装形式",
+    "en": "RoHS Compliant Package",
+    "variants": [],
+    "priority": 2,
+    "note": "例如：封装样式建议去百度查询会更形象\n1.SSOP(Shrink Small-Outline Package)即窄间距小外型塑封，是1968～1969年飞利浦公司开发出的小外形封装（SOP）设备。\n2.QFN（Quad Flat No-leads Package，方形扁平无引脚封装），表面贴装型封装之一。值得注意的是，QFN封装与LCC封装完全不同，LCC仍有外延引脚，只是将引脚弯折至底部，而QFN封装则完全没有任何外延引脚。QFN是日本电子机械工业会规定的名称。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第23行",
+    "machine_variants": [
+      "RoHS-Compliant-Package"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "一致性；均匀性",
+    "en": "Uniformity",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第24行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "扫描方式",
+    "en": "Scan Type",
+    "variants": [],
+    "priority": 2,
+    "note": "1.Scan-sharing：行列合一\n2.Typical scan：列管",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第25行",
+    "machine_variants": [
+      "Scan-Type"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "恒流驱动",
+    "en": "Constant Current Drive",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第27行",
+    "machine_variants": [
+      "Constant-Current-Drive"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "视觉刷新率",
+    "en": "Visual Refresh Rate",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n刷新率及视觉刷新率\nLED显示屏的刷新率严格定义为：1秒钟内显示屏图像完整灰阶呈现的次数。\n       LED显示屏为扫描显示屏时，若刷新率严重不足人眼即可觉察。一般在刷新率小于240Hz的时候，人眼即可感受到屏幕的闪烁。当使用高速快门相机或摄像机时，非常容易拍摄到由于显示屏刷新率不足导致的黑线。\n视觉刷新率：针对扫描屏而言，等价于换行频率，其实每行点亮只显示了灰度的一个大概，等于上面提到的刷新率乘上倍率。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第28行\n专业术语.pptx / 第34页",
+    "machine_variants": [
+      "Visual-Refresh-Rate"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "动态亮度调整算法",
+    "en": "Dynamic Brightness Adjustment Algorithm",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第29行",
+    "machine_variants": [
+      "Dynamic-Brightness-Adjustment-Algorithm"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "对比度扩展",
+    "en": "Contrast Extension",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第30行",
+    "machine_variants": [
+      "Contrast-Extension"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "缩放算法",
+    "en": "Scaling Algorithm",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第31行",
+    "machine_variants": [
+      "Scaling-Algorithm"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "低灰增强",
+    "en": "Enhanced Low Grayscale",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第32行",
+    "machine_variants": [
+      "Enhanced-Low-Grayscale",
+      "Enhanced Low Grey scale"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "细节增强",
+    "en": "Detail Enhancement",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第33行",
+    "machine_variants": [
+      "Detail-Enhancement"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "22bit+ 灰阶4倍提升算法",
+    "en": "22bit+ Grayscale 4x Enhancement Algorithm",
+    "variants": [],
+    "priority": 3,
+    "note": "待专业确认（2026-09-29）：官网 A10s Pro 文档描述 64 倍，原中文写 4 倍；可能是版本或功能差异，不能把数值直接统一。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第34行",
+    "machine_variants": [
+      "22bit+-Grayscale-4x-Enhancement-Algorithm",
+      "22bit+ Grey scale 4x Enhancement Algorithm"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "精细灰度算法",
+    "en": "Precise Grayscale",
+    "variants": [
+      "precise grayscale algorithm"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：指诺瓦功能名时用 Precise Grayscale；泛指精细灰度算法可描述为 precise grayscale algorithm。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第35行\n2026-09-29 核对依据：PPT:5,9, A10CN:2",
+    "machine_variants": [
+      "Fine-Grayscale-Algorithm",
+      "Fine Grey scale Algorithm"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "开短路检测",
+    "en": "LED Open&Short Detection",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第36行",
+    "machine_variants": [
+      "LED-Open&Short-Detection"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "低灰闪烁抑制",
+    "en": "Low Grayscale Flicker Suppression",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第37行",
+    "machine_variants": [
+      "Low-Grayscale-Flicker-Suppression",
+      "Low Grey scale Flicker Suppression"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色相",
+    "en": "hue",
+    "variants": [],
+    "priority": 1,
+    "note": "是颜色的类别；比如红色、黄色、绿色、蓝色\n2026-09-29 校订：",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第3行\n2026-09-29 核对依据：MXSOLUTION",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "国际照明委员会",
+    "en": "CIE",
+    "variants": [],
+    "priority": 2,
+    "note": "英语：International Commission on illumination，法语：Commission Internationale de l´Eclairage，采用法语简称为CIE",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第4行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光通量（lm）",
+    "en": "luminous flux",
+    "variants": [],
+    "priority": 2,
+    "note": "光通量描述的是光向四周扩散至球形体所发出的能量总和。（用积分球来测），照明行业多以流明为单位来解释光源",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第5行",
+    "machine_variants": [
+      "luminous-flux"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "照度",
+    "en": "illuminance",
+    "variants": [],
+    "priority": 1,
+    "note": "表示被照表面的单位面积上接收到的光通量，照明行业多以照度为单位来评判\n中文定义来自课件；英文为补充建议，待确认。\n光的计量方式\n落在某一具体物体上的光通量\n照度（Lux）\n观测点1\n观测点2\n人眼观察到的光的强度\n亮度（nit）\n表示被照表面的单位面积上接收到的光通量\n即单位投影面积上的发光强度\n1nit=1cd/m²\n2026-09-29 校订：照度量的英文为 illuminance，单位为 lux（lx）。lux 不作为正确别名，也不自动替换数值单位。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第7行\n专业术语.pptx / 第19页\n2026-09-29 核对依据：SMARTLCT, EDITORIAL",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "亮度",
+    "en": "luminance",
+    "variants": [
+      "brightness"
+    ],
+    "priority": 1,
+    "note": "即单位投影面积上的发光强度，LED显示屏行业多以尼特为单位来评判\n中文定义来自课件；英文为补充建议，待确认。\n灰度级数-图像的细腻度\n2026-09-29 校订：测光量用 luminance（cd/m² 或 nit）；产品亮度设置/描述也常用 brightness。nit 是单位，不是术语的译文；不要把文档中的数值单位自动改写。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第8行\n专业术语.pptx / 第23页\n2026-09-29 核对依据：PPT:6,7,10, SMARTLCT, EDITORIAL",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色坐标",
+    "en": "Color coordinate",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第9行",
+    "machine_variants": [
+      "Color-coordinate",
+      "Colour coordinate"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "亮度一致性",
+    "en": "Brightness consistency",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第10行",
+    "machine_variants": [
+      "Brightness-consistency"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "热衰",
+    "en": "Thermal decay",
+    "variants": [],
+    "priority": 2,
+    "note": "温度上升引起的LED灯珠光学特性变化",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第11行",
+    "machine_variants": [
+      "Thermal-decay"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光衰",
+    "en": "Luminous decay",
+    "variants": [],
+    "priority": 2,
+    "note": "LED发光芯片由于通电后电光转换效率降低而导致的发光强度衰减现象",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第12行",
+    "machine_variants": [
+      "Luminous-decay"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "摩尔纹",
+    "en": "Moiré",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第13行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光圈",
+    "en": "Aperture",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第14行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "微焦",
+    "en": "Focus",
+    "variants": [],
+    "priority": 3,
+    "note": "待专业确认（2026-09-29）：Focus 通常指焦点/对焦；中文概念可能录入有误。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第15行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "多Layer全灰阶校正",
+    "en": "Multi-Layer Full Grayscale Calibration",
+    "variants": [
+      "multi-layer full-grayscale calibration"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：沿用影院 PPT 技术名称；不与单层或普通全灰阶校正混为同一功能。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第16行\n2026-09-29 核对依据：PPT:11, MX",
+    "machine_variants": [
+      "Multi layer Full Grayscale Calibration",
+      "Multi-layer-Full-Grayscale-Calibration",
+      "Multi-layer Full Grey scale Calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "热力补偿算法",
+    "en": "Thermal Compensation",
+    "variants": [
+      "thermal compensation algorithm"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：功能名称采用 Thermal Compensation；明确自适应时使用 Adaptive Thermal Compensation。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第17行\n2026-09-29 核对依据：PPT:6,12, MX",
+    "machine_variants": [
+      "Thermal-Compensation-Algorithm"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光枪",
+    "en": "Colorimeter",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第18行",
+    "machine_variants": [
+      "Colourimeter"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "人眼感知特性",
+    "en": "Human Eye Perception Characteristics",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第19行",
+    "machine_variants": [
+      "Human-Eye-Perception-Characteristics"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "单箱体校正",
+    "en": "Cabinet Calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第20行",
+    "machine_variants": [
+      "Cabinet-Calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "箱体任意拼接",
+    "en": "Randomly Spliced Cabinets",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第21行",
+    "machine_variants": [
+      "Randomly-Spliced-Cabinets"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "租赁场景",
+    "en": "Rental Scenario",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第22行",
+    "machine_variants": [
+      "Rental-Scenario"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "室内固装",
+    "en": "Indoor Installation",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第23行",
+    "machine_variants": [
+      "Indoor-Installation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "户外固装",
+    "en": "Outdoor Installation",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第24行",
+    "machine_variants": [
+      "Outdoor-Installation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "多批次",
+    "en": "Multi-batch",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第25行",
+    "machine_variants": [
+      "Multi batch"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "应用范围广",
+    "en": "Wider Coverage",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第26行",
+    "machine_variants": [
+      "Wider-Coverage"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "超大屏校正",
+    "en": "Super Large Screen Calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第27行",
+    "machine_variants": [
+      "Super-Large-Screen-Calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "异形屏校正",
+    "en": "Special-shaped Screen Calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第28行",
+    "machine_variants": [
+      "Special shaped Screen Calibration",
+      "Special-shaped-Screen-Calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "透明屏",
+    "en": "Transparent Screen",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第29行",
+    "machine_variants": [
+      "Transparent-Screen"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "弧形屏",
+    "en": "Arc-shaped Screen",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第30行",
+    "machine_variants": [
+      "Arc shaped Screen",
+      "Arc-shaped-Screen"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "发光芯片自身亮色度不一致",
+    "en": "Brightness and Chroma Inconsistency of Luminous Chips",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第31行",
+    "machine_variants": [
+      "Brightness-and-Chroma-Inconsistency-of-Luminous-Chips"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光路形态",
+    "en": "Optical Path Form",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第32行",
+    "machine_variants": [
+      "Optical-Path-Form"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "封装差异",
+    "en": "Package Difference",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第33行",
+    "machine_variants": [
+      "Package-Difference"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "量化误差",
+    "en": "Quantization Error",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第34行",
+    "machine_variants": [
+      "Quantization-Error"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "老化",
+    "en": "Aging",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第35行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "发光芯片",
+    "en": "Luminous Chip",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第36行",
+    "machine_variants": [
+      "Luminous-Chip"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "不均匀、不一致",
+    "en": "Mura",
+    "variants": [],
+    "priority": 2,
+    "note": "mura是日本汉字“斑”〔むら〕的罗马音拼写，随着日本的液晶显示器在世界各地的推广，在显示器界，mura就有了指显示器亮度不均匀，造成各种痕迹现象的意思。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第37行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "虚拟像素",
+    "en": "Virtual Pixel",
+    "variants": [],
+    "priority": 2,
+    "note": "RGB排列方式的一种，有时也叫动态子像素",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第2行",
+    "machine_variants": [
+      "Virtual-Pixel"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "动态子像素",
+    "en": "Dynamic Sub Pixel",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第3行",
+    "machine_variants": [
+      "Dynamic-Sub-Pixel"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "钻孔",
+    "en": "Drilling",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第4行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "布线",
+    "en": "Wiring",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第5行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "物理像素",
+    "en": "Physical pixel",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第6行",
+    "machine_variants": [
+      "Physical-pixel"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "三灯亚像素排列",
+    "en": "3 LEDs arrangement",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第7行",
+    "machine_variants": [
+      "3-LEDs-arrangement"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "四灯亚像素排列",
+    "en": "4 LEDs arrangement",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第8行",
+    "machine_variants": [
+      "4-LEDs-arrangement"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "驱动控制技术",
+    "en": "Driving control technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第9行",
+    "machine_variants": [
+      "Driving-control-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "图像渲染引擎",
+    "en": "Image rendering engine",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第10行",
+    "machine_variants": [
+      "Image-rendering-engine"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "会议一体机",
+    "en": "Conference AIO",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第11行",
+    "machine_variants": [
+      "Conference-AIO"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "工程固装",
+    "en": "Fixed installation",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第12行",
+    "machine_variants": [
+      "Fixed-installation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "漏光",
+    "en": "Light leaking",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第13行",
+    "machine_variants": [
+      "Light-leaking"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "平替产品",
+    "en": "Substitute product",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第14行",
+    "machine_variants": [
+      "Substitute-product"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "性价比",
+    "en": "Price/performance ratio",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第15行",
+    "machine_variants": [
+      "Price/performance-ratio"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "像素增强算法",
+    "en": "Pixel enhancement algorithm",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第16行",
+    "machine_variants": [
+      "Pixel-enhancement-algorithm"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "无矩形框带载",
+    "en": "No Rectangle Limitation",
+    "variants": [
+      "no rectangular limitation",
+      "free from rectangular limitation"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：官网 Comparison 功能标签；描述句可用 free from rectangular limitation。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第17行\n2026-09-29 核对依据：MX, MX5G, VMP",
+    "machine_variants": [
+      "No-rectangle-loading-capacity-limit"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "个性化画面缩放",
+    "en": "Free scaling",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第18行",
+    "machine_variants": [
+      "Free-scaling"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "系统监测",
+    "en": "System monitoring",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第19行",
+    "machine_variants": [
+      "System-monitoring"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "独立主控与视频控制器",
+    "en": "Independent control and video controller",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第20行",
+    "machine_variants": [
+      "Independent-control-and-video-controller"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "边缘和细节对比度和清晰度",
+    "en": "Contrast and clarity of the edges and details",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第21行",
+    "machine_variants": [
+      "Contrast-and-clarity-of-the-edges-and-details"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "文字锐化",
+    "en": "Text sharpening",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第22行",
+    "machine_variants": [
+      "Text-sharpening"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "副作用",
+    "en": "Side effect",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第23行",
+    "machine_variants": [
+      "Side-effect"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "纹理",
+    "en": "Texture",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第24行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "脉络",
+    "en": "Vein",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第25行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "性能",
+    "en": "Performance",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第26行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "物理像素密度",
+    "en": "Physical pixel density",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第27行",
+    "machine_variants": [
+      "Physical-pixel-density"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "封装结构",
+    "en": "Package structure",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第28行",
+    "machine_variants": [
+      "Package-structure"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "设计工艺",
+    "en": "Design technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第29行",
+    "machine_variants": [
+      "Design-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "2倍增方案",
+    "en": "2x resolution enhancement solution for virtual pixel",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第31行",
+    "machine_variants": [
+      "2x-resolution-enhancement-solution-for-virtual-pixel"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "4倍增方案",
+    "en": "4x resolution enhancement solution for virtual pixel",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第32行",
+    "machine_variants": [
+      "4x-resolution-enhancement-solution-for-virtual-pixel"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "4倍增虚实方案",
+    "en": "4x resolution enhancement solution for real and virtual pixel",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第33行",
+    "machine_variants": [
+      "4x-resolution-enhancement-solution-for-real-and-virtual-pixel"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "锯齿感",
+    "en": "Sense of zigzag",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第34行",
+    "machine_variants": [
+      "Sense-of-zigzag"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "跨平台，跨设备",
+    "en": "Cross-platform, cross-device",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第35行",
+    "machine_variants": [
+      "Cross platform, cross device",
+      "Cross-platform,-cross-device"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "可视化监控",
+    "en": "Visual monitoring",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第36行",
+    "machine_variants": [
+      "Visual-monitoring"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "智能预警",
+    "en": "Intelligent warning",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第37行",
+    "machine_variants": [
+      "Intelligent-warning"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灵活配置",
+    "en": "Flexible configuration",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第38行",
+    "machine_variants": [
+      "Flexible-configuration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "自由组合",
+    "en": "Free combo",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第39行",
+    "machine_variants": [
+      "Free-combo"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "协议接口",
+    "en": "Protocol interface",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第40行",
+    "machine_variants": [
+      "Protocol-interface"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "功能模块化设计",
+    "en": "Functional modular design",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 动态子像素 / 第41行",
+    "machine_variants": [
+      "Functional-modular-design"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "集成控制板",
+    "en": "Integrated control panel/board",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第2行",
+    "machine_variants": [
+      "Integrated-control-panel/board"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "行业巨头",
+    "en": "Industry giant",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第3行",
+    "machine_variants": [
+      "Industry-giant"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "市场份额",
+    "en": "Market shares",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第4行",
+    "machine_variants": [
+      "Market-shares"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "中小型企业",
+    "en": "SMEs",
+    "variants": [
+      "small and medium-sized enterprises"
+    ],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第5行",
+    "machine_variants": [
+      "SMEs(small and medium sized enterprises)",
+      "SMEs(small-and-medium-sized-enterprises)"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "简化供应链",
+    "en": "Simplify supply chain",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第6行",
+    "machine_variants": [
+      "Simplify-supply-chain"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "装板卡",
+    "en": "Assemble PCB",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第7行",
+    "machine_variants": [
+      "Assemble-PCB"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "上螺丝",
+    "en": "Assemble screw",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第8行",
+    "machine_variants": [
+      "Assemble-screw"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "贴灯板",
+    "en": "Assemble/splice modules",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第9行",
+    "machine_variants": [
+      "Assemble/splice-modules"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "一键休眠",
+    "en": "One-key sleep mode",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第10行",
+    "machine_variants": [
+      "One key sleep mode",
+      "One-key-sleep-mode"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "报废成本高",
+    "en": "High scrap cost",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第11行",
+    "machine_variants": [
+      "High-scrap-cost"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "硬连接",
+    "en": "Hard wiring/hard links",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第12行",
+    "machine_variants": [
+      "Hard-wiring/hard-links"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "综合成本",
+    "en": "Overall cost/comprehensive cost",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第13行",
+    "machine_variants": [
+      "Overall-cost/comprehensive-cost"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "通用性",
+    "en": "Universality",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第14行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "安规",
+    "en": "Safety standard/safety regulation",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第15行",
+    "machine_variants": [
+      "Safety-standard/safety-regulation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "分离式结构",
+    "en": "Separate structure",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第16行",
+    "machine_variants": [
+      "Separate-structure"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "浮动连接器",
+    "en": "Floating connector",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第17行",
+    "machine_variants": [
+      "Floating-connector"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "拼接缝",
+    "en": "Splicing gap",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第18行",
+    "machine_variants": [
+      "Splicing-gap"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "超薄尺寸",
+    "en": "Ultra-thin size",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第19行",
+    "machine_variants": [
+      "Ultra thin size",
+      "Ultra-thin-size"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "兼容性",
+    "en": "Compatibility",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第20行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "零部件",
+    "en": "Components and parts",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第21行",
+    "machine_variants": [
+      "Components-and-parts"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "独立电源",
+    "en": "Independent power supply",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第22行",
+    "machine_variants": [
+      "Independent-power-supply"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "固定螺丝",
+    "en": "Fixed screw",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第23行",
+    "machine_variants": [
+      "Fixed-screw"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "错位",
+    "en": "Misplacement",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第24行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "偏移",
+    "en": "Drift",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第25行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "渠道市场",
+    "en": "Channel market",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第26行",
+    "machine_variants": [
+      "Channel-market"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "强制性",
+    "en": "Compulsory/mandatory",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第27行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "电磁辐射",
+    "en": "Electromagnetic radiation",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第28行",
+    "machine_variants": [
+      "Electromagnetic-radiation"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "功率冗余设计",
+    "en": "Power redundancy design",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第29行",
+    "machine_variants": [
+      "Power-redundancy-design"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "精致选料",
+    "en": "Fine material selection",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 三合一 / 第30行",
+    "machine_variants": [
+      "Fine-material-selection"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "算法",
+    "en": "Algorithm",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第2行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光学",
+    "en": "Optics",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第3行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "电子工程师",
+    "en": "EE",
+    "variants": [
+      "electronics engineer"
+    ],
+    "priority": 2,
+    "note": "台湾地区客户习惯说double e",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第4行",
+    "machine_variants": [
+      "EE(electronics-engineer)"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "知识产权",
+    "en": "Intellectual property rights",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第5行",
+    "machine_variants": [
+      "Intellectual-property-rights"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "国际PCT专利",
+    "en": "Patent cooperation treaty",
+    "variants": [],
+    "priority": 2,
+    "note": "PCT（专利合作条约）是专利领域的一项国际合作条约。它主要涉及专利申请的提交，检索及审查以及其中包括的技术信息的传播的合作性和合理性的一个条约。PCT不对“国际专利授权”，授予专利的任务和责任仍然只能由寻求专利保护的各个国家的专利局或行使其职权的机构掌握（指定局）。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第6行",
+    "machine_variants": [
+      "Patent-cooperation-treaty"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "自动监控补偿技术",
+    "en": "Automatic monitoring and compensation technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第7行",
+    "machine_variants": [
+      "Automatic-monitoring-and-compensation-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "亚像素边缘轮廓提取技术",
+    "en": "Subpixel edge contour extraction technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第8行",
+    "machine_variants": [
+      "Subpixel-edge-contour-extraction-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "AI高精度定位技术",
+    "en": "AI high-precision positioning technology",
+    "variants": [
+      "artificial intelligence high-precision positioning technology"
+    ],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第9行",
+    "machine_variants": [
+      "AI（artificial intelligence）high precision positioning technology",
+      "AI（artificial-intelligence）high-precision-positioning-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "微米级3D测量技术",
+    "en": "Micron-sized 3D measurement technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第10行",
+    "machine_variants": [
+      "Micron sized 3D measurement technology",
+      "Micron-sized-3D-measurement-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "精度补偿校准技术",
+    "en": "Accuracy compensation calibration technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第11行",
+    "machine_variants": [
+      "Accuracy-compensation-calibration-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "设备视觉调试技术",
+    "en": "Equipment visual debugging technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第12行",
+    "machine_variants": [
+      "Equipment-visual-debugging-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "设备运动控制计算调试技术",
+    "en": "Equipment motion control calculation and debugging technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第13行",
+    "machine_variants": [
+      "Equipment-motion-control-calculation-and-debugging-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "相机3A自动采集技术",
+    "en": "Camera 3A automatic acquisition technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第14行",
+    "machine_variants": [
+      "Camera-3A-automatic-acquisition-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "扫描路径规划技术",
+    "en": "Scan path planning technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第15行",
+    "machine_variants": [
+      "Scan-path-planning-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "面阵RGB相机亮色度精准测量",
+    "en": "Area-array RGB camera brightness accurate measurement",
+    "variants": [],
+    "priority": 3,
+    "note": "待专业确认（2026-09-29）：原英文遗漏 chroma，设备功能的正式名称需要制造部门核定。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第16行",
+    "machine_variants": [
+      "Area array RGB camera brightness accurate measurement",
+      "Area-array-RGB-camera-brightness-accurate-measurement"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "亮色度缺陷检测技术",
+    "en": "Brightness and chroma defect detection technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第17行",
+    "machine_variants": [
+      "Brightness-and-chroma-defect-detection-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "墨色测量分选技术",
+    "en": "Blackness mosaic measurement and sorting technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第18行",
+    "machine_variants": [
+      "Blackness-mosaic-measurement-and-sorting-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "亮色度分选技术",
+    "en": "Brightness and chroma sorting technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第19行",
+    "machine_variants": [
+      "Brightness-and-chroma-sorting-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "GPU加速算法并行处理技术",
+    "en": "GPU acceleration algorithm parallel processing technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第20行",
+    "machine_variants": [
+      "GPU-acceleration-algorithm-parallel-processing-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "返修机",
+    "en": "Rework machine",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第21行",
+    "machine_variants": [
+      "Rework-machine"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "分时频闪成像技术",
+    "en": "Fractional stroboscopic imaging technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第22行",
+    "machine_variants": [
+      "Fractional-stroboscopic-imaging-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "数据高速拼接技术",
+    "en": "High speed data splicing technology",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第23行",
+    "machine_variants": [
+      "High-speed-data-splicing-technology"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "恒温老化",
+    "en": "Aging test at constant temperature",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第24行",
+    "machine_variants": [
+      "Aging-test-at-constant-temperature"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "MLED全自动模组校正机",
+    "en": "MLED demura equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第25行",
+    "machine_variants": [
+      "MLED-demura-equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "MLED多角度点亮机",
+    "en": "MLED defect detection equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第26行",
+    "machine_variants": [
+      "MLED-defect-detection-equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "MLED全自动返修机",
+    "en": "MLED automatic rework equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第27行",
+    "machine_variants": [
+      "MLED-automatic-rework-equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "MLED PCB涨缩检测机",
+    "en": "MLED PCB expansion and shrinkage testing equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第28行",
+    "machine_variants": [
+      "MLED-PCB-expansion-and-shrinkage-testing-equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "MLED 墨色检测机",
+    "en": "MLED blackness mosaic inspection and sorting equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第29行",
+    "machine_variants": [
+      "MLED-blackness-mosaic-inspection-and-sorting-equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "人工分拣",
+    "en": "Manual sorting",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第30行",
+    "machine_variants": [
+      "Manual-sorting"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "可控暗光源",
+    "en": "Controlled dark light source",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第31行",
+    "machine_variants": [
+      "Controlled-dark-light-source"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "对光源无要求",
+    "en": "No requirement on light source",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第32行",
+    "machine_variants": [
+      "No-requirement-on-light-source"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "基于控制系统的专业打屏方案",
+    "en": "Professional screen solution based on control system",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第33行",
+    "machine_variants": [
+      "Professional-screen-solution-based-on-control-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "360度无死角高精度图像采集",
+    "en": "360-degree high precision image acquisition",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第34行",
+    "machine_variants": [
+      "360 degree high precision image acquisition",
+      "360-degree-high-precision-image-acquisition"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "逐点亮色度光学参数全面分析",
+    "en": "Comprehensive analysis of optical parameters by brightness and chroma",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第35行",
+    "machine_variants": [
+      "Comprehensive-analysis-of-optical-parameters-by-brightness-and-chroma"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "RGB死灯、亮灯、暗灯",
+    "en": "dead LEDs, bright LEDs, dark LEDs",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第36行",
+    "machine_variants": [
+      "dead-LEDs",
+      "-bright-LEDs",
+      "-dark-LEDs"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "隐蔽性的RGB侧视角暗灯",
+    "en": "Hidden dark LEDs at side viewing",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第37行",
+    "machine_variants": [
+      "Hidden-dark-LEDs-at-side-viewing"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "功能性串灯、IC色块和Flash故障",
+    "en": "Functional string LEDs, color blocks and Flash failures",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第38行",
+    "machine_variants": [
+      "Functional-string-LEDs,-color-blocks-and-Flash-failures",
+      "Functional string LEDs, colour blocks and Flash failures"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "模压",
+    "en": "Compression moulding",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第39行",
+    "machine_variants": [
+      "Compression-moulding"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "剔除",
+    "en": "eliminate/remove/get rid of",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第40行",
+    "machine_variants": [
+      "eliminate/remove/get-rid-of"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "锡膏",
+    "en": "Solder paste",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第41行",
+    "machine_variants": [
+      "Solder-paste"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "激光加热系统",
+    "en": "Laser heating system",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第42行",
+    "machine_variants": [
+      "Laser-heating-system"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "定位故障位置",
+    "en": "Locate the fault",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第43行",
+    "machine_variants": [
+      "Locate-the-fault"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "故障类型",
+    "en": "Fault type",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第44行",
+    "machine_variants": [
+      "Fault-type"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "接驳台",
+    "en": "Connection Dock",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第45行",
+    "machine_variants": [
+      "Connection-Dock"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "NG缓存机",
+    "en": "NG cache machine",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第46行",
+    "machine_variants": [
+      "NG-cache-machine"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "涨缩检测",
+    "en": "Expansion and shrinkage testing",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第48行",
+    "machine_variants": [
+      "Expansion-and-shrinkage-testing"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光学测量",
+    "en": "Optical measurement",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第49行",
+    "machine_variants": [
+      "Optical-measurement"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "PCB锡膏印刷良率",
+    "en": "PCB solder paste printing yield",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第50行",
+    "machine_variants": [
+      "PCB-solder-paste-printing-yield"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "报废率",
+    "en": "Scrap rate",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第51行",
+    "machine_variants": [
+      "Scrap-rate"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "直通率",
+    "en": "FPY",
+    "variants": [
+      "first pass yield"
+    ],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第52行",
+    "machine_variants": [
+      "FPY（first-pass-yield）"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "月产能",
+    "en": "Monthly production capacity",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第53行",
+    "machine_variants": [
+      "Monthly-production-capacity"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "施工周期",
+    "en": "Construction period",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第54行",
+    "machine_variants": [
+      "Construction-period"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "调度",
+    "en": "Dispatch",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第55行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "AI查询分析",
+    "en": "AI query analysis",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第56行",
+    "machine_variants": [
+      "AI-query-analysis"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "系统联动",
+    "en": "System interaction",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第57行",
+    "machine_variants": [
+      "System-interaction"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "生产线",
+    "en": "Production line",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第58行",
+    "machine_variants": [
+      "Production-line"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "上料",
+    "en": "Loading",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第59行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "收料",
+    "en": "Receiving",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第60行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "自动打包",
+    "en": "Automatic packaging",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第61行",
+    "machine_variants": [
+      "Automatic-packaging"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "打带",
+    "en": "Strapping",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第62行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "贴标签",
+    "en": "Labelling",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第63行",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "移载机",
+    "en": "Transfer equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第64行",
+    "machine_variants": [
+      "Transfer-equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "缓存机",
+    "en": "Buffer equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第65行",
+    "machine_variants": [
+      "Buffer-equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "对插件",
+    "en": "Lighting jig",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第66行",
+    "machine_variants": [
+      "Lighting-jig"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "墨色设备",
+    "en": "Blackness mosaic inspection and sorting equipment",
+    "variants": [],
+    "priority": 2,
+    "note": "",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / 自动化 / 第67行",
+    "machine_variants": [
+      "Blackness-mosaic-inspection-and-sorting-equipment"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "LED模组",
+    "en": "LED module",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\nLED模组\nLED模组\n也称灯板、模块、单元板。是LED显示屏最小的可拆卸部分。\n灯板主要由LED灯、PCB线路板、驱动IC、译码IC、电阻、电容和塑料套件等组成。",
+    "source": "专业术语.pptx / 第2页",
+    "machine_variants": [
+      "LED-module"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灯珠",
+    "en": "LED lamp",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\nLED模组\n灯珠\nHUB75\nR\nG\nB\nGND\nR\nG\nB\nGND\nA\nB\nC\nD\nCLK\nLAT\nOE\nGND\n电源输入\n芯片\n套件\nPCB",
+    "source": "专业术语.pptx / 第3页",
+    "machine_variants": [
+      "LED-lamp"
+    ],
+    "wrong_variants": [
+      "lamp bead",
+      "light bead"
+    ]
+  },
+  {
+    "zh": "行驱动管",
+    "en": "row driver transistor",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\nLED模组\n行驱动管\n译码芯片\n功率放大器\n列驱动芯片",
+    "source": "专业术语.pptx / 第4页",
+    "machine_variants": [
+      "row-driver-transistor"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "列驱动芯片",
+    "en": "column driver IC",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\nLED模组\n列驱动芯片ICN2026\n行驱动管4953\n译码芯片：138功率放大器：245\n列驱动芯片\n行驱动管\n译码芯片\n功率放大器\n16通道恒流驱动芯片，控制LED灯珠的亮灭，实现LED显示屏的图像显示，目前使用的驱动芯片一般分为通用驱动芯片、双锁存驱动芯片（MBI5124、ICN2038S、MY9868等）、PWM（脉宽调制）驱动芯片（MBI5153、ICN2053、ICND2055等）。\n行驱动管，功率管，电源开关，由于要驱动灯板一整行的灯，所需要的电流是比较大的，所以需要使用行驱动管来驱动，每片4953可以驱动2个显示行。\n74HC138:八位二进制译码器，作用是用来选择显示行，一个可以选择8行中的一行；\n74HC245:1.信号放大；  2.信号缓冲、提高负载能力；",
+    "source": "专业术语.pptx / 第5页",
+    "machine_variants": [
+      "column-driver-IC"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "直插式",
+    "en": "through-hole (DIP)",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\nLED模组\n直插式DIP\n表贴式表表贴式SMD\nCOBOB",
+    "source": "专业术语.pptx / 第6页",
+    "machine_variants": [
+      "through hole (DIP)",
+      "through-hole-(DIP)"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "开关电源",
+    "en": "switching power supply",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\nLED箱体（室内租赁）\n模组\n箱体\n模组\n开关电源\n220V电源线\nHUB卡\n接收卡\n信号线",
+    "source": "专业术语.pptx / 第8页",
+    "machine_variants": [
+      "switching-power-supply"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灯板",
+    "en": "lamp board",
+    "variants": [],
+    "priority": 3,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\nLED箱体（箱体清单）\n箱体\n灯板\n接收卡\nHUB\n电源\n线材\n待专业确认（2026-09-29）：light board / lamp board 与 LED module 的边界依产品结构而定，暂不统一。",
+    "source": "专业术语.pptx / 第9页",
+    "machine_variants": [
+      "lamp-board"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "封装",
+    "en": "packaging",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n封装\n直插式-DIP\n表贴式-SMD \n板上芯片-COB",
+    "source": "专业术语.pptx / 第10页",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "像素",
+    "en": "pixel",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n像素\n三灯\n四灯\n指LED显示屏中的一个最小单位，称为像素。",
+    "source": "专业术语.pptx / 第11页",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "动态子像素",
+    "en": "dynamic subpixel",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n常见的动态子像素排布\n节省灯珠：1/2\n实像素分辨率：4×2\n虚拟后分辨率：4×4\n节省灯珠（虚拟模式）：3/4\n实像素分辨率：2×2\n虚拟后分辨率：4×4\n节省灯珠：2/3\n实像素分辨率：2×2\n虚拟后分辨率：4×4\n3灯Delta1排布\n4灯RGGB排布\n3灯虚实Delta4排布\n2倍增方案\n4倍增方案\n4倍增虚实方案\n常规实像素排布\n实像素分辨率：4×4\n常规实像素方案",
+    "source": "专业术语.pptx / 第12页",
+    "machine_variants": [
+      "dynamic-subpixel"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "分辨率",
+    "en": "resolution",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n分辨率\n720P 分辨率: 1280×720p@60Hz\n1080P 分辨率: 1920 ×1080@60Hz\n4K分辨率是1080p的4倍 : 3840×2160 @60Hz= 1920×2×1080×2\n8K分辨率是4K的4倍 : 7680×4320 @60Hz = 3840×2×2160×2\n分辨率是指像素阵列中的垂直和水平像素的数量，一般以“像素宽×像素高”的形式来表达。行业中常见的分辨率有以下几种:",
+    "source": "专业术语.pptx / 第14页",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "像素密度",
+    "en": "pixel density",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n像素密度\n指单位面积内的像素个数，通常以1平方米内像素数衡量。",
+    "source": "专业术语.pptx / 第15页",
+    "machine_variants": [
+      "pixel-density"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "水平视角",
+    "en": "horizontal viewing angle",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n水平视角\n从LED显示屏左、右侧能看到清晰图像的夹角，称为水平视角。",
+    "source": "专业术语.pptx / 第16页",
+    "machine_variants": [
+      "horizontal-viewing-angle"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "垂直视角",
+    "en": "vertical viewing angle",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n垂直视角\n从LED显示屏上、下方向能看到清晰图像的夹角，称为垂直视角。",
+    "source": "专业术语.pptx / 第17页",
+    "machine_variants": [
+      "vertical-viewing-angle"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光通量",
+    "en": "luminous flux",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n光的计量方式\n以球形向四周扩散的光\n光通量（lm）\n向单一方向扩散的光\n光强度(cd）\n光通量描述的是光向四周扩散至球形体所发出的能量总和。（用积分球来测）\n光强度指的是光向某一个方向（立体角）辐射发出的光通量的多少",
+    "source": "专业术语.pptx / 第18页",
+    "machine_variants": [
+      "luminous-flux"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "光强度",
+    "en": "luminous intensity",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n光的计量方式\n为什么照明行业一般用流明去表示亮度，LED行业都用nit表示亮度？",
+    "source": "专业术语.pptx / 第20页",
+    "machine_variants": [
+      "luminous-intensity"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "Gamma校准",
+    "en": "gamma calibration",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\nGamma\n均匀分布\nGamma校准： 把灰度更多地用在人眼敏感的低亮段。\n黑色\n白色\nG1\nG2\nG3\n…\nGn-2\nGn-1\n黑色\n白色\nG1\n…\nGn-2\nGn-1\nG2\nG3\nG4\nGamma=1\nGamma=2.8\n灰阶\n亮度\n ：灰阶\n：最高亮度，常量 \nGamma=1\nGamma=2.8",
+    "source": "专业术语.pptx / 第22页",
+    "machine_variants": [
+      "gamma-calibration"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "对比度",
+    "en": "contrast ratio",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n对比度\n图像中最亮部分和最暗部分的差异程度，对比度越大，图像越清晰，细节越丰富。",
+    "source": "专业术语.pptx / 第26页",
+    "machine_variants": [
+      "contrast-ratio"
+    ],
+    "wrong_variants": [
+      "comparison degree"
+    ]
+  },
+  {
+    "zh": "色温",
+    "en": "color temperature",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n色温\n光源发出的颜色与黑体在某温度下显示的颜色相同，黑体的温度称为色温。",
+    "source": "专业术语.pptx / 第28页",
+    "machine_variants": [
+      "color-temperature",
+      "colour temperature"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "白平衡",
+    "en": "white balance",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n白平衡\n3\n6\n1\n白平衡指的红、绿、蓝三基色混合成白色的精确程度，典型比例为3：6：1。",
+    "source": "专业术语.pptx / 第31页",
+    "machine_variants": [
+      "white-balance"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "帧频",
+    "en": "frame rate",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n帧频\n3\n6\n1\n即1每秒内播放多少帧动画或图片数量。",
+    "source": "专业术语.pptx / 第32页",
+    "machine_variants": [
+      "frame-rate"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "余晖",
+    "en": "ghosting",
+    "variants": [],
+    "priority": 3,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n余晖\n扫描屏在实现了高刷新、高灰阶的效果后，有时会出现非常严重的余辉（也成称鬼影、消隐）。在显示屏上打一道高亮斜线，在斜线上方的暗亮点，我们称之为上行余辉；在斜线下方的暗亮点，我们称之为下行余辉:\n待专业确认（2026-09-29）：需区分 afterglow、persistence 与 ghosting；缺少原图/测试场景，不能简单互作别名。",
+    "source": "专业术语.pptx / 第35页",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "摩尔纹",
+    "en": "moiré pattern",
+    "variants": [],
+    "priority": 2,
+    "note": "中文定义来自课件；英文为补充建议，待确认。\n摩尔纹\n摩尔纹是数码照相机或者扫描仪等设备上的感光元件出现的高频干扰，会使图片出现彩色的高频率条纹。由于摩尔纹是不规则的，所以并没有明显的形状规律。对于相机来说，如果设计时在镜头上安装低通滤波器会有很好效果，但会影响照片锐度；对于扫描仪来说，并无很好的方法解决:",
+    "source": "专业术语.pptx / 第36页",
+    "machine_variants": [
+      "moiré-pattern"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "逐点亮色度校正",
+    "en": "Pixel Level Brightness and Chroma Calibration",
+    "variants": [
+      "pixel-level brightness and chroma calibration"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：产品功能名沿用人工校对 PPT；普通句子可小写并使用 pixel-level 连字符。不能简化为仅亮度校正。",
+    "source": "2026-09-29 核对依据：PPT:5,6, ARMOR, COEXCN, A10EN:3",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "精细灰度",
+    "en": "Precise Grayscale",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：产品功能名优先使用 Precise Grayscale。",
+    "source": "2026-09-29 核对依据：PPT:5,6,9, ARMOR, A10CN:2",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "多层全灰阶校正",
+    "en": "Multi-Layer Full Grayscale Calibration",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：“多Layer全灰阶校正”的规范中文写法。",
+    "source": "2026-09-29 核对依据：PPT:11, MX",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "自适应热力补偿",
+    "en": "Adaptive Thermal Compensation",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:12, A10CN:2, MX5G",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "动态热力补偿",
+    "en": "Dynamic Thermal Compensation",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：影院 PPT 中的具体表述，勿与自适应热力补偿直接互换。",
+    "source": "2026-09-29 核对依据：PPT:12",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "带载能力",
+    "en": "loading capacity",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：参数名；数值单位通常为像素，不应与接口带宽混淆。",
+    "source": "2026-09-29 核对依据：ARMOR, COEXCN",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "最大带载能力",
+    "en": "maximum loading capacity",
+    "variants": [
+      "max. loading capacity"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:13, MX",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "单网口带载",
+    "en": "per-port loading capacity",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：由影院 PPT 的 per-cable loading 和带载参数语义规范化；网口能力与整机最大带载分开。",
+    "source": "2026-09-29 核对依据：PPT:13, EDITORIAL",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "LED影院解决方案",
+    "en": "LED Cinema Solution",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:1,4",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "影院控制器",
+    "en": "cinema controller",
+    "variants": [
+      "LED cinema controller"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:4,5",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "集成媒体模块",
+    "en": "Integrated Media Block",
+    "variants": [
+      "IMB"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：影院语境下 IMB 的展开；不是普通 media server 的同义词。",
+    "source": "2026-09-29 核对依据：PPT:15",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "沉浸式音频解码器",
+    "en": "immersive audio decoder",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:4",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "功率放大器系统",
+    "en": "power amplifier system",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:4",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "扬声器系统",
+    "en": "speaker system",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:4",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "安全模块",
+    "en": "security module",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:6,14",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "安全芯片",
+    "en": "security chip",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:5,14",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "数字证书",
+    "en": "digital certificate",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:14",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "防拆检测",
+    "en": "tamper detection",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：影院安全语境。Tamper clearance（清除防拆状态）应单独表述。",
+    "source": "2026-09-29 核对依据：PPT:14",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "箱门状态",
+    "en": "cabinet-door status",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:14",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "模组插拔",
+    "en": "module insertion/removal",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:14",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "显示屏监控",
+    "en": "display monitoring",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:14",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "PWM+PAM混合驱动技术",
+    "en": "PWM+PAM Hybrid Driving Technology",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:7, MLED",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "暗部细节",
+    "en": "shadow detail",
+    "variants": [
+      "details in dark areas"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:7",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色域覆盖率",
+    "en": "gamut coverage",
+    "variants": [
+      "color gamut coverage"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:8",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色彩准确性",
+    "en": "color accuracy",
+    "variants": [
+      "colour accuracy"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:8,19",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色度",
+    "en": "chromaticity",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：色度坐标/容差语境用 chromaticity；诺瓦“亮色度校正”固定功能名使用 chroma，不能全局互换。",
+    "source": "2026-09-29 核对依据：PPT:6,10",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色度容差",
+    "en": "chromaticity tolerance",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:10",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "亮度容差",
+    "en": "luminance tolerance",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:10",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "灰阶过渡",
+    "en": "grayscale transitions",
+    "variants": [
+      "grayscale transition"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:8",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "传递函数",
+    "en": "transfer function",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：SDR/HDR transfer function；不可与电路传输函数等其他上下文机械混用。",
+    "source": "2026-09-29 核对依据：PPT:9",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "分段线性化",
+    "en": "piecewise linearization",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:11",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "校正系数",
+    "en": "calibration coefficients",
+    "variants": [
+      "calibration coefficient"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:11,12, A10EN:4",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "实时监控",
+    "en": "real-time monitoring",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：PPT:5,14",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "亮度超驱动",
+    "en": "Brightness Overdrive",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：MX, A10CN:2",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "多模式",
+    "en": "Multi-Mode",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：MX5G, A10CN:2",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "帧频自适应",
+    "en": "Adaptive Frame Rate",
+    "variants": [
+      "frame rate adaptive"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：Comparison 标签用 Adaptive Frame Rate；A10s Pro 特定版本功能名为 Frame Rate Adaptive 3.0，不抹掉产品版本。",
+    "source": "2026-09-29 核对依据：MX, COEXCN",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "RGB并行数据组",
+    "en": "parallel RGB data groups",
+    "variants": [
+      "RGB parallel data groups"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：ARMOR, COEXCN",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "串行数据组",
+    "en": "serial data groups",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：ARMOR, COEXCN",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "双卡备份",
+    "en": "dual-card backup",
+    "variants": [
+      "dual card backup"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：ARMOR, A10EN:5",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "环路备份",
+    "en": "loop backup",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：A10EN:5",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "固件程序回读",
+    "en": "firmware program readback",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：ARMOR",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "RGB独立Gamma调节",
+    "en": "individual gamma adjustment for RGB",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：ARMOR, A10CN:2",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "温度和电压监测",
+    "en": "temperature and voltage monitoring",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：A10EN:5, COEXCN",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "误码检测",
+    "en": "bit error detection",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：A10EN:5, COEXCN",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色彩替换",
+    "en": "Color Replacement",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：MX, MXSOLUTION",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色彩曲线",
+    "en": "Color Curve",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：MX, MXSOLUTION",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "输入位深",
+    "en": "input bit depth",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：MX",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "控制协议",
+    "en": "control protocol",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：MX",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "图层",
+    "en": "layer",
+    "variants": [
+      "layers"
+    ],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：MX",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "拼缝校正",
+    "en": "seam correction",
+    "variants": [],
+    "priority": 1,
+    "note": "2026-09-29 校订：",
+    "source": "2026-09-29 核对依据：VMP, A10EN:3",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "缩放显示",
+    "en": "Scaling display",
+    "variants": [],
+    "priority": 1,
+    "note": "部门内部测试确认的标准译法。",
+    "source": "MathiasCym / 2026-10-10",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "认证机构",
+    "en": "Certification Institution",
+    "variants": [],
+    "priority": 1,
+    "note": "部门内部测试确认的标准译法。",
+    "source": "MathiasCym / 2026-10-10",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "色深",
+    "en": "color depth",
+    "variants": [],
+    "priority": 1,
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [],
+    "wrong_variants": []
+  },
+  {
+    "zh": "8bit",
+    "en": "8-bit",
+    "variants": [],
+    "priority": 1,
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [
+      "8bit"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "12bit",
+    "en": "12-bit",
+    "variants": [],
+    "priority": 1,
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [
+      "12bit"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "16bit",
+    "en": "16-bit",
+    "variants": [],
+    "priority": 1,
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [
+      "16bit"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "18bit",
+    "en": "18-bit",
+    "variants": [],
+    "priority": 1,
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [
+      "18bit"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "20bit",
+    "en": "20-bit",
+    "variants": [],
+    "priority": 1,
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [
+      "20bit"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "22bit",
+    "en": "22-bit",
+    "variants": [],
+    "priority": 1,
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [
+      "22bit"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "24bit",
+    "en": "24-bit",
+    "variants": [],
+    "priority": 1,
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [
+      "24bit"
+    ],
+    "wrong_variants": []
+  },
+  {
+    "zh": "32bit",
+    "en": "32-bit",
+    "variants": [],
+    "priority": 1,
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "machine_variants": [
+      "32bit"
+    ],
+    "wrong_variants": []
+  }
+]

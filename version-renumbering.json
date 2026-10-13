@@ -1,0 +1,59 @@
+{
+  "changedAt": "2026-09-30T11:21:45.514Z",
+  "scope": "1.4.11 through 1.4.14 only; 1.4.10 and earlier unchanged",
+  "currentVersion": "1.5.3",
+  "records": [
+    {
+      "from": "1.4.11",
+      "to": "1.5.0",
+      "installer": "dist/星译官 Setup 1.5.0.exe",
+      "size": 102162477,
+      "sha256": "3d2002d2a50ce627d03afccf1c8ad46e4ab8ef648908da21f47662649a3b1ded",
+      "archivedOriginal": "dist/archive-before-1.5/星译官 Setup 1.4.11.exe",
+      "originalSha256": "20d701294fb07310e12423dc1e48425750a14fafcee9661a9c88d47904ac6d7c",
+      "applicationFilesCompared": 55,
+      "comparedPayloadFiles": 1781,
+      "integrityVerified": true,
+      "setupBootstrapVerified": true
+    },
+    {
+      "from": "1.4.12",
+      "to": "1.5.1",
+      "installer": "dist/星译官 Setup 1.5.1.exe",
+      "size": 102164994,
+      "sha256": "e38c38e10a47e644aa417fea7ca2677b40a3336ff0d58d522355ac1819c886d9",
+      "archivedOriginal": "dist/archive-before-1.5/星译官 Setup 1.4.12.exe",
+      "originalSha256": "8ef003e2628ccf23aeba05cd34897a36d4906ce846e3aca1e4edc5fd744b5bd4",
+      "applicationFilesCompared": 56,
+      "comparedPayloadFiles": 1782,
+      "integrityVerified": true,
+      "setupBootstrapVerified": true
+    },
+    {
+      "from": "1.4.13",
+      "to": "1.5.2",
+      "installer": "dist/星译官 Setup 1.5.2.exe",
+      "size": 106142267,
+      "sha256": "abc2788a5384db7e621a7d840438947a1a014d5dbcafb229b4a01c5703cfa1f4",
+      "archivedOriginal": "dist/archive-before-1.5/星译官 Setup 1.4.13.exe",
+      "originalSha256": "af1ad31a309bb0309f56f4b8cea6c1161f13be3cbafb08a292c51be397aa88b4",
+      "applicationFilesCompared": 56,
+      "comparedPayloadFiles": 1782,
+      "integrityVerified": true,
+      "setupBootstrapVerified": true
+    },
+    {
+      "from": "1.4.14",
+      "to": "1.5.3",
+      "installer": "dist/星译官 Setup 1.5.3.exe",
+      "size": 106142638,
+      "sha256": "9b1073c4620cf2bbbeea9db22f384bef5c8a13af526589e66eedfeed7d390ea2",
+      "archivedOriginal": "dist/archive-before-1.5/星译官 Setup 1.4.14.exe",
+      "originalSha256": "652e723571ac62e03d7fa04eb6af77b42b9fc671bda5f8a94b13456d3654d298",
+      "applicationFilesCompared": 56,
+      "comparedPayloadFiles": 1780,
+      "integrityVerified": true,
+      "setupBootstrapVerified": true
+    }
+  ]
+}

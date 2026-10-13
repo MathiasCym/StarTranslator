@@ -1,0 +1,39 @@
+{
+  "python": {
+    "version": "3.11.9",
+    "url": "https://www.python.org/ftp/python/3.11.9/python-3.11.9-embed-amd64.zip",
+    "files": {
+      "libcrypto-3.dll": "05fe080eab7fc535c51e10c1bd76a2f3e6217f9c91a25034774588881c3f99de",
+      "libffi-8.dll": "eff52743773eb550fcc6ce3efc37c85724502233b6b002a35496d828bd7b280a",
+      "libssl-3.dll": "2e9fbcd8f7fdc13a5179533239811456554f2b3aa2fb10e1b17be0df81c79006",
+      "pyexpat.pyd": "c7c7564f7f874fb660a46384980a2cf28bc3e245ca83628a197ccf861eab5560",
+      "python.exe": "5f7b89a612c9b8af1d6456cdfcd1dbe5ca630849e79aebced9bee9a6694952ec",
+      "python3.dll": "db84bc052cfb121fe4db36242ba5f1d2c031b600ef5d8d752cf25b7c02b6bac6",
+      "python311.dll": "0817a2a657a24c0d5fbb60df56960f42fc66b3039d522ec952dab83e2d869364",
+      "python311.zip": "7d0f59c930e7d3d9352399ea3c95c0272489b3c09a8e95faaedfa8a23e20e5b1",
+      "pythonw.exe": "d5355e1de2a5195dccb1ba524b146aa7705be71af18d876819756838251b37b3",
+      "select.pyd": "bae0974390945520eb99ab32486c6a964691f8f4a028ac408d98fa8fb0db7d90",
+      "sqlite3.dll": "314bba62f4a1628b986afc94c09dc29cdaf08210eae469440fbf46bcdb86d3fd",
+      "unicodedata.pyd": "37c68617fa02a2cadced17ef724e2d450ef12a8a37215da789a4679fde1c5c02",
+      "vcruntime140.dll": "4d292623516f65c80482081e62d5dadb759dc16e851de5db24c3cbb57b87db83",
+      "vcruntime140_1.dll": "a113f192195f245f17389e6ecbed8005990bcb2476ddad33f7c4c6c86327afe5",
+      "winsound.pyd": "b79c9bd9114b7f243f5a80ffd2de5c5942fc64ceec4a52a048bb4a07848b9239",
+      "_asyncio.pyd": "746bc8fa88282afe19dc60e426cc0a75bea3bd137cca06a0b57a30bd31459403",
+      "_bz2.pyd": "00b8ca9a338d2b47285c9e56d6d893db2a999b47216756f18439997fb80a56e3",
+      "_ctypes.pyd": "c148292328f0aab7863af82f54f613961e7cb95b7215f7a81cafaf45bd4c42b7",
+      "_decimal.pyd": "980a63f2b39cf16910f44384398e25f24482346a482addb00de42555b17d4278",
+      "_elementtree.pyd": "02e30b6a2bee5be5336e40a9c89575603051bde86f9c9cdc78b7fa7d9b7bd1f0",
+      "_hashlib.pyd": "87dd0c858620287454fd6d31d52b6a48eddbb2a08e09e8b2d9fdb0b92200d766",
+      "_lzma.pyd": "f5e01b516c2c23035f7703e23569dec26c5616c05a929b2580ae474a5c6722c5",
+      "_msi.pyd": "0f876c25188d1dde26eb852251439a6ec8edc1bc921be026f819eeb8686db2af",
+      "_multiprocessing.pyd": "975c1947798e3c39898c86675ca1eb68249f77361f41f172f9800275227213b9",
+      "_overlapped.pyd": "ca106e4dfdeafeabf9e98956d3d8d0cb73e109f1a96f1a7e35bc47dbd7c7e164",
+      "_queue.pyd": "3f8e7e6aa13b417acc78b63434fb1144e6319a010a9fc376c54d6e69b638fe4c",
+      "_socket.pyd": "a19e3c7c03ef1b5625790b1c9c42594909311ab6df540fbf43c6aa93300ab166",
+      "_sqlite3.pyd": "ff6a2a2f38b21b7784f97d604c99961d8c07ef455f7908110a4e893835d42b76",
+      "_ssl.pyd": "ba5388d6a6557d431e086734a3323621dc447f63ba299b0a815e5837cf869678",
+      "_uuid.pyd": "e6aa7f1637e211251c9d6f467203b2b6d85e5bc2d901699f2a55af637fa89250",
+      "_zoneinfo.pyd": "7e7b4157e401f8281fd85b68f2e21c828bf739c91416b2824dd22cb385eef819"
+    }
+  }
+}

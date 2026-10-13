@@ -1,0 +1,87 @@
+{
+  "name": "novaterm-checker",
+  "version": "2.0.0",
+  "description": "星译官 —— 中英技术文档翻译与审校工作台",
+  "author": {
+    "name": "MathiasCym"
+  },
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "python tests/test_matcher.py",
+    "dist": "node tools/release.js",
+    "release:patch": "node tools/release.js patch",
+    "release:minor": "node tools/release.js minor",
+    "release:major": "node tools/release.js major",
+    "test:release": "node --test tests/test_release.js",
+    "test:monitor": "node --test tests/test_model_monitor.js",
+    "test:workflow": "python-runtime\\python.exe -B tests/test_workflow.py",
+    "test:audit": "python-runtime\\python.exe -B tests/test_glossary_audit.py",
+    "test:profiles": "python-runtime\\python.exe -B tests/test_model_profiles.py"
+  },
+  "build": {
+    "appId": "tech.novastar.novaterm",
+    "productName": "星译官",
+    "copyright": "Copyright © 2026 MathiasCym",
+    "artifactName": "${productName} Setup ${version}.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "picker-preload.js",
+      "setup-preload.js",
+      "lib/**/*.js",
+      "CHANGELOG.md",
+      "LICENSE",
+      "THIRD_PARTY_NOTICES.md",
+      "renderer/**/*",
+      "backend/**/*",
+      "glossary/**/*"
+    ],
+    "asarUnpack": [
+      "backend/**/*",
+      "glossary/**/*",
+      "renderer/shared/**/*",
+      "renderer/assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "vendor/officecli",
+        "to": "officecli"
+      },
+      {
+        "from": "python-runtime",
+        "to": "python-runtime",
+        "filter": [
+          "**/*",
+          "!**/__pycache__/**",
+          "!**/*.pyc"
+        ]
+      },
+      {
+        "from": "build/icon.png",
+        "to": "icon.png"
+      }
+    ],
+    "afterPack": "tools/afterpack.js",
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": false,
+      "include": "build/installer.nsh",
+      "createDesktopShortcut": true,
+      "shortcutName": "星译官"
+    }
+  },
+  "devDependencies": {
+    "electron": "31.7.7",
+    "electron-builder": "25.1.8"
+  }
+}

@@ -1,0 +1,342 @@
+[
+  {
+    "version": "1.1.0",
+    "builtAt": "2026-09-28T02:39:08.130Z",
+    "installer": "dist/NovaTerm Checker Setup 1.1.0.exe",
+    "size": 100884121,
+    "sha256": "de96d3a2948126e3734bb6ed11da20b9b330eb21af2812d7c34a69535c6ce511"
+  },
+  {
+    "version": "1.2.0",
+    "builtAt": "2026-09-28T03:08:04.680Z",
+    "installer": "dist/星译官 Setup 1.2.0.exe",
+    "size": 100886597,
+    "sha256": "eb174efe4e1db42e35a0e9fbef9c9d363d45d9f5c1ce1aad2782ab86a1a1562f"
+  },
+  {
+    "version": "1.2.1",
+    "builtAt": "2026-09-28T03:32:03.015Z",
+    "installer": "dist/星译官 Setup 1.2.1.exe",
+    "size": 101545546,
+    "sha256": "e95b6711a7d78a09373d8ea5f9f4c8660ff04b6edd8723acd441cb6953fdcefa"
+  },
+  {
+    "version": "1.2.2",
+    "builtAt": "2026-09-28T04:04:34.138Z",
+    "installer": "dist/星译官 Setup 1.2.2.exe",
+    "size": 101545667,
+    "sha256": "6215a1df035bae2c12b8e44aaaf29b7b79b327d9075e9c1e1de910a4f9ae054c"
+  },
+  {
+    "version": "1.4.0",
+    "builtAt": "2026-09-28T08:01:49.000Z",
+    "installer": "dist/星译官 Setup 1.4.0.exe",
+    "size": 101588101,
+    "sha256": "223b6208ca548e1d7bc4d0bb9ab457e56d45ef9acaeecf3e41bebeba850c218d"
+  },
+  {
+    "version": "1.4.1",
+    "builtAt": "2026-09-28T08:59:22.773Z",
+    "installer": "dist/星译官 Setup 1.4.1.exe",
+    "size": 101589467,
+    "sha256": "c184f2b2cdbef23ac821e9ed51e46fdb81950bf57021263ce8cfde30be14fb2a"
+  },
+  {
+    "version": "1.4.2",
+    "builtAt": "2026-09-28T09:26:27.497Z",
+    "installer": "dist/星译官 Setup 1.4.2.exe",
+    "size": 101540442,
+    "sha256": "3d3927f0f575676456c6a85e50fd0a60bf0c8142d362d5fbab10da71bb4ad402"
+  },
+  {
+    "version": "1.4.3",
+    "builtAt": "2026-09-28T10:38:58.809Z",
+    "installer": "dist/星译官 Setup 1.4.3.exe",
+    "size": 101539275,
+    "sha256": "85e3e6862228e9b52b56f6854e16033a342ba7570bab899d80d2ac521b3eab6c"
+  },
+  {
+    "version": "1.4.4",
+    "builtAt": "2026-09-29T01:57:56.931Z",
+    "installer": "dist/星译官 Setup 1.4.4.exe",
+    "size": 101549602,
+    "sha256": "71b7b2b6c282da46388e4ee9b5d2f529313dba13b43babe1db8b3eeeed58cf65"
+  },
+  {
+    "version": "1.4.5",
+    "builtAt": "2026-09-29T02:04:22.693Z",
+    "installer": "dist/星译官 Setup 1.4.5.exe",
+    "size": 101549560,
+    "sha256": "dd15d13e05f5eeaf4f990bbff24b9cb2810ac03e305e3d0b85c933cd1c7bd039"
+  },
+  {
+    "version": "1.4.6",
+    "builtAt": "2026-09-29T02:50:31.117Z",
+    "installer": "dist/星译官 Setup 1.4.6.exe",
+    "size": 101549884,
+    "sha256": "b54e906175e4b657d2e97b61f7a66a324751a85a657bb6d1dceded692c79557e"
+  },
+  {
+    "version": "1.4.7",
+    "builtAt": "2026-09-29T08:40:24.863Z",
+    "installer": "dist/星译官 Setup 1.4.7.exe",
+    "size": 101550985,
+    "sha256": "6c71fd0031d313d5cc70038454cfb11be54ef7ec89a1e33fa0b74f81778b7837"
+  },
+  {
+    "version": "1.4.8",
+    "builtAt": "2026-09-30T04:48:55.893Z",
+    "installer": "dist/星译官 Setup 1.4.8.exe",
+    "size": 101559613,
+    "sha256": "f0f95796cadb4d466e7f8ef96b26a67fe122e1491e1e79a9a988bf5c918ebc4b"
+  },
+  {
+    "version": "1.4.9",
+    "builtAt": "2026-09-30T05:46:30.574Z",
+    "installer": "dist/星译官 Setup 1.4.9.exe",
+    "size": 102163582,
+    "sha256": "11f29070250c6e366b6e7466c19868ecebc7c4b0d2af869407cd8c8839eced61"
+  },
+  {
+    "version": "1.4.10",
+    "builtAt": "2026-09-30T08:28:08.876Z",
+    "installer": "dist/星译官 Setup 1.4.10.exe",
+    "size": 102165573,
+    "sha256": "882ecd04690cefd5a9c6c8030b0ee036430b1e81f0d08aa1529d49418e52dc3d"
+  },
+  {
+    "version": "1.4.12",
+    "builtAt": "2026-09-30T10:05:18.406Z",
+    "installer": "dist/archive-before-1.5/星译官 Setup 1.4.12.exe",
+    "size": 102165026,
+    "sha256": "8ef003e2628ccf23aeba05cd34897a36d4906ce846e3aca1e4edc5fd744b5bd4",
+    "renumberedTo": "1.5.1"
+  },
+  {
+    "version": "1.4.13",
+    "builtAt": "2026-09-30T10:25:32.332Z",
+    "installer": "dist/archive-before-1.5/星译官 Setup 1.4.13.exe",
+    "size": 106142396,
+    "sha256": "af1ad31a309bb0309f56f4b8cea6c1161f13be3cbafb08a292c51be397aa88b4",
+    "renumberedTo": "1.5.2"
+  },
+  {
+    "version": "1.4.14",
+    "builtAt": "2026-09-30T10:43:50.908Z",
+    "installer": "dist/archive-before-1.5/星译官 Setup 1.4.14.exe",
+    "size": 106142220,
+    "sha256": "652e723571ac62e03d7fa04eb6af77b42b9fc671bda5f8a94b13456d3654d298",
+    "renumberedTo": "1.5.3"
+  },
+  {
+    "version": "1.5.0",
+    "builtAt": "2026-09-30T11:08:17.753Z",
+    "installer": "dist/星译官 Setup 1.5.0.exe",
+    "size": 102162477,
+    "sha256": "3d2002d2a50ce627d03afccf1c8ad46e4ab8ef648908da21f47662649a3b1ded",
+    "renumberedFrom": "1.4.11"
+  },
+  {
+    "version": "1.5.1",
+    "builtAt": "2026-09-30T11:08:22.077Z",
+    "installer": "dist/星译官 Setup 1.5.1.exe",
+    "size": 102164994,
+    "sha256": "e38c38e10a47e644aa417fea7ca2677b40a3336ff0d58d522355ac1819c886d9",
+    "renumberedFrom": "1.4.12"
+  },
+  {
+    "version": "1.5.2",
+    "builtAt": "2026-09-30T11:20:41.290Z",
+    "installer": "dist/星译官 Setup 1.5.2.exe",
+    "size": 106142267,
+    "sha256": "abc2788a5384db7e621a7d840438947a1a014d5dbcafb229b4a01c5703cfa1f4",
+    "renumberedFrom": "1.4.13"
+  },
+  {
+    "version": "1.5.3",
+    "builtAt": "2026-09-30T10:50:54.779Z",
+    "installer": "dist/星译官 Setup 1.5.3.exe",
+    "size": 106142638,
+    "sha256": "9b1073c4620cf2bbbeea9db22f384bef5c8a13af526589e66eedfeed7d390ea2",
+    "renumberedFrom": "1.4.14"
+  },
+  {
+    "version": "1.5.4",
+    "builtAt": "2026-10-08T02:09:40.591Z",
+    "installer": "dist/星译官 Setup 1.5.4.exe",
+    "size": 106146208,
+    "sha256": "3f5042a7fcbb2ffd1a707494f4cddced7f5d23a10b4c0f737f351f29b03ac29a"
+  },
+  {
+    "version": "1.5.5",
+    "builtAt": "2026-10-08T02:22:16.123Z",
+    "installer": "dist/星译官 Setup 1.5.5.exe",
+    "size": 106146395,
+    "sha256": "750504b62552f663ada8a7737a467f8bb17fda6134cf7e45531500f5358cf43c"
+  },
+  {
+    "version": "1.5.6",
+    "builtAt": "2026-10-08T03:05:11.021Z",
+    "installer": "dist/星译官 Setup 1.5.6.exe",
+    "size": 106146754,
+    "sha256": "229045270ac9ed701cf370c8f0f8e00e505aaa7e784c33c1012cba3d0b855852"
+  },
+  {
+    "version": "1.5.7",
+    "builtAt": "2026-10-08T03:59:02.140Z",
+    "installer": "dist/archive-before-1.6/星译官 Setup 1.5.7.exe",
+    "size": 115249831,
+    "sha256": "3945c5d540e71cd2617b16cfdb9adb2502419290ec5061fbf5c031fb44233f8e",
+    "renumberedTo": "1.6.0"
+  },
+  {
+    "version": "1.6.0",
+    "builtAt": "2026-10-08T05:08:10.110Z",
+    "installer": "dist/星译官 Setup 1.6.0.exe",
+    "size": 115249798,
+    "sha256": "18ccc49623c46e19cf4c73ca0103215f1c05b0fd606ebf52653437b87434cc05",
+    "renumberedFrom": "1.5.7"
+  },
+  {
+    "version": "1.6.1",
+    "builtAt": "2026-10-08T05:38:50.048Z",
+    "installer": "dist/星译官 Setup 1.6.1.exe",
+    "size": 115265467,
+    "sha256": "2931b1ae54c287c530fd332681500ec4e0f262176c9b8cb49341a5e80d081f70"
+  },
+  {
+    "version": "1.6.2",
+    "builtAt": "2026-10-08T07:58:49.722Z",
+    "installer": "dist/星译官 Setup 1.6.2.exe",
+    "size": 115265285,
+    "sha256": "4e29a080cf0e15e613307435ca6b638acf180a7635aeb4c7d24c1eb2280b3201",
+    "previousBuilds": [
+      {
+        "version": "1.6.2",
+        "builtAt": "2026-10-08T07:08:53.741Z",
+        "installer": "dist/revisions/1.6.2/5541664b99bf/星译官 Setup 1.6.2.exe",
+        "size": 115265371,
+        "sha256": "5541664b99bfdf75a66648cbb93e4e0094085debbc0de05de3d40a91b75ece34"
+      },
+      {
+        "version": "1.6.2",
+        "builtAt": "2026-10-08T07:48:18.216Z",
+        "installer": "dist/revisions/1.6.2/1aee8beadce4/星译官 Setup 1.6.2.exe",
+        "size": 115265239,
+        "sha256": "1aee8beadce4187f68319278e00d5ce41947e2ae2b06a04145c260edf7cc5316"
+      }
+    ]
+  },
+  {
+    "version": "1.6.3",
+    "builtAt": "2026-10-08T08:26:26.639Z",
+    "installer": "dist/星译官 Setup 1.6.3.exe",
+    "size": 115266997,
+    "sha256": "9819e5ff476a753277ba2535c0530502116fc6e07762bfc778eb09733917c112"
+  },
+  {
+    "version": "1.6.4",
+    "builtAt": "2026-10-08T09:18:52.135Z",
+    "installer": "dist/星译官 Setup 1.6.4.exe",
+    "size": 115269138,
+    "sha256": "a5f36382f4bfab91ea26a5a3464191a1c4ab766f4ac876f8eabf60e69d95cefa"
+  },
+  {
+    "version": "1.6.5",
+    "builtAt": "2026-10-08T09:51:29.245Z",
+    "installer": "dist/星译官 Setup 1.6.5.exe",
+    "size": 115272140,
+    "sha256": "0212e4b75cdd60c4fe2c29d39f63b45bae92f0c9d50b3ee9d206e82088f6b13c"
+  },
+  {
+    "version": "1.6.6",
+    "builtAt": "2026-10-09T04:39:59.341Z",
+    "installer": "dist/星译官 Setup 1.6.6.exe",
+    "size": 115430673,
+    "sha256": "c366422ed64f1b82c204060681820f1c42e0e18c67eef16fa713aa062025e773"
+  },
+  {
+    "version": "1.7.0",
+    "builtAt": "2026-10-09T07:20:31.510Z",
+    "installer": "dist/星译官 Setup 1.7.0.exe",
+    "size": 115291027,
+    "sha256": "50acf23cdf8095144e67a5f8334df37e4c2a40d21c1745fb60dd647e23994067"
+  },
+  {
+    "version": "1.7.1",
+    "builtAt": "2026-10-09T08:09:10.656Z",
+    "installer": "dist/星译官 Setup 1.7.1.exe",
+    "size": 115295581,
+    "sha256": "b7e8328f153926f472ef52ff42f78902f27addffbab2218ecb3e4d4b9ce37ffc"
+  },
+  {
+    "version": "1.7.2",
+    "builtAt": "2026-10-09T09:06:40.105Z",
+    "installer": "dist/星译官 Setup 1.7.2.exe",
+    "size": 115297117,
+    "sha256": "8858fea72052812049dfc3879a2ec80641646b0dd0263a28a52e226596a1a205"
+  },
+  {
+    "version": "1.8.0",
+    "builtAt": "2026-10-10T04:12:18.707Z",
+    "installer": "dist/星译官 Setup 1.8.0.exe",
+    "size": 115308194,
+    "sha256": "f3fde6db22764436b2962baa24faea27652275cd2ef59c271360e1a25dbc2771"
+  },
+  {
+    "version": "1.8.1",
+    "builtAt": "2026-10-10T07:04:19.328Z",
+    "installer": "dist/星译官 Setup 1.8.1.exe",
+    "size": 115311288,
+    "sha256": "fbf1e2a9795be897ec5116704eb0d133b9a42be6e0bfb63495ac158c9555138b"
+  },
+  {
+    "version": "1.8.2",
+    "builtAt": "2026-10-10T08:16:55.638Z",
+    "installer": "dist/星译官 Setup 1.8.2.exe",
+    "size": 115315921,
+    "sha256": "7e8e62b6cfc043ab5826ff7edbf69d4a6b722d1df3be5b0061c8aa7da2b7aff8"
+  },
+  {
+    "version": "1.8.3",
+    "builtAt": "2026-10-10T09:12:49.355Z",
+    "installer": "dist/星译官 Setup 1.8.3.exe",
+    "size": 115318051,
+    "sha256": "7b766dbb9a6156085dcb0e4c7114782cb91dcf605b10573df8c2f708ef4711e8"
+  },
+  {
+    "version": "1.8.4",
+    "builtAt": "2026-10-12T02:49:11.223Z",
+    "installer": "dist/星译官 Setup 1.8.4.exe",
+    "size": 115525374,
+    "sha256": "2f1789f179bd1db74e5a9d9f5170abc1909163560e4bb549fa10dbe5f9b359c1"
+  },
+  {
+    "version": "1.8.5",
+    "builtAt": "2026-10-12T04:03:39.507Z",
+    "installer": "dist/星译官 Setup 1.8.5.exe",
+    "size": 115406654,
+    "sha256": "8ce46e4a8a4cba1cf04a5e4c7b71c72da3ce7ddc1559bcff8a0a790063025135"
+  },
+  {
+    "version": "1.8.6",
+    "builtAt": "2026-10-12T09:49:48.183Z",
+    "installer": "dist/星译官 Setup 1.8.6.exe",
+    "size": 152905644,
+    "sha256": "ecd8ddf4432c615598350b1e1a1d347a6f837ca508c8cd9791b04d1be2e93124"
+  },
+  {
+    "version": "1.9.0",
+    "builtAt": "2026-10-13T03:00:29.060Z",
+    "installer": "dist/星译官 Setup 1.9.0.exe",
+    "size": 142662668,
+    "sha256": "168449138a652120ec24d0fe967d36acc7867fb1188960d4779b976b4951cd01"
+  },
+  {
+    "version": "2.0.0",
+    "builtAt": "2026-10-13T05:00:31.091Z",
+    "installer": "dist/星译官 Setup 2.0.0.exe",
+    "size": 142723438,
+    "sha256": "e88d179def919ed8b345df640dcdb3e8387691ce21ad514bfc29ba1a152ffcdf"
+  }
+]

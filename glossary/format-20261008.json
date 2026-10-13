@@ -1,0 +1,151 @@
+{
+  "id": "2026-10-08-acronym-v1",
+  "date": "2026-10-08",
+  "policy": "按现有词库拆分缩写与全称；不更改译法含义、确认状态或来源。",
+  "patches": [
+    {
+      "zh": "发光二极管",
+      "old": "LED（Light-emitting diode）",
+      "en": "LED",
+      "variants": [
+        "Light-emitting diode"
+      ]
+    },
+    {
+      "zh": "双列直插式封装技术",
+      "old": "DIP（Dual In-line Package）",
+      "en": "DIP",
+      "variants": [
+        "Dual In-line Package"
+      ]
+    },
+    {
+      "zh": "表面贴装器件",
+      "old": "SMD（Surface Mount Device）",
+      "en": "SMD",
+      "variants": [
+        "Surface Mount Device"
+      ]
+    },
+    {
+      "zh": "板上芯片",
+      "old": "COB（Chip on Board）",
+      "en": "COB",
+      "variants": [
+        "Chip on Board"
+      ]
+    },
+    {
+      "zh": "玻璃上的芯片技术",
+      "old": "COG（Chip on Glass）",
+      "en": "COG",
+      "variants": [
+        "Chip on Glass"
+      ]
+    },
+    {
+      "zh": "复合年均增长率",
+      "old": "CAGR（Compound Annual Growth Rate）",
+      "en": "CAGR",
+      "variants": [
+        "Compound Annual Growth Rate"
+      ]
+    },
+    {
+      "zh": "功能一体机",
+      "old": "AIO（All-in-one）",
+      "en": "AIO",
+      "variants": [
+        "All-in-one"
+      ]
+    },
+    {
+      "zh": "表面贴装或表面安装技术",
+      "old": "SMT（Surface Mounted Technology）",
+      "en": "SMT",
+      "variants": [
+        "Surface Mounted Technology"
+      ]
+    },
+    {
+      "zh": "迷你/微型LED封装",
+      "old": "MIP（Mini/Micro LED in Package）",
+      "en": "MIP",
+      "variants": [
+        "Mini/Micro LED in Package"
+      ]
+    },
+    {
+      "zh": "线路板/电路板",
+      "old": "Printed Circuit Board（PCB）",
+      "en": "PCB",
+      "variants": [
+        "Printed Circuit Board"
+      ]
+    },
+    {
+      "zh": "应用程序编程接口",
+      "old": "API（Application Programming Interface）",
+      "en": "API",
+      "variants": [
+        "Application Programming Interface"
+      ]
+    },
+    {
+      "zh": "扩展现实",
+      "old": "XR（Extended Reality）",
+      "en": "XR",
+      "variants": [
+        "Extended Reality"
+      ]
+    },
+    {
+      "zh": "脉冲宽度调制",
+      "old": "PWM（Pulse Width Modulation）",
+      "en": "PWM",
+      "variants": [
+        "Pulse Width Modulation"
+      ]
+    },
+    {
+      "zh": "脉冲幅度调制",
+      "old": "PAM（Pulse Amplitude Modulation）",
+      "en": "PAM",
+      "variants": [
+        "Pulse Amplitude Modulation"
+      ]
+    },
+    {
+      "zh": "中小型企业",
+      "old": "SMEs(small and medium-sized enterprises)",
+      "en": "SMEs",
+      "variants": [
+        "small and medium-sized enterprises"
+      ]
+    },
+    {
+      "zh": "电子工程师",
+      "old": "EE(electronics engineer)",
+      "en": "EE",
+      "variants": [
+        "electronics engineer"
+      ]
+    },
+    {
+      "zh": "AI高精度定位技术",
+      "old": "AI（artificial intelligence）high-precision positioning technology",
+      "en": "AI high-precision positioning technology",
+      "variants": [
+        "artificial intelligence high-precision positioning technology"
+      ]
+    },
+    {
+      "zh": "直通率",
+      "old": "FPY（first pass yield）",
+      "en": "FPY",
+      "variants": [
+        "first pass yield"
+      ]
+    }
+  ]
+}

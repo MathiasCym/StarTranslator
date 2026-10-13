@@ -1,0 +1,58 @@
+{
+  "workbook": "未来显示专业词汇（中英对照）收录.xlsx",
+  "sheets": [
+    {
+      "sheet": "上游芯片制备",
+      "pairs": 24
+    },
+    {
+      "sheet": "中游封装环节",
+      "pairs": 55
+    },
+    {
+      "sheet": "其他",
+      "pairs": 19
+    },
+    {
+      "sheet": "LG Tech Fair",
+      "pairs": 68
+    },
+    {
+      "sheet": "驱动IC",
+      "pairs": 36
+    },
+    {
+      "sheet": "校正",
+      "pairs": 35
+    },
+    {
+      "sheet": "动态子像素",
+      "pairs": 40
+    },
+    {
+      "sheet": "三合一",
+      "pairs": 29
+    },
+    {
+      "sheet": "自动化",
+      "pairs": 66
+    }
+  ],
+  "workbook_pairs": 372,
+  "slides": 39,
+  "slide_concepts": 34,
+  "unique_pairs": 397,
+  "incomplete_rows": [
+    {
+      "zh": "",
+      "en": "Fractional Frame Rates",
+      "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第61行"
+    },
+    {
+      "zh": "光强度(cd）",
+      "en": "",
+      "source": "未来显示专业词汇（中英对照）收录.xlsx / 校正 / 第6行"
+    }
+  ],
+  "policy": "保留源值；新增材料默认为待确认，不触发自动替换。"
+}

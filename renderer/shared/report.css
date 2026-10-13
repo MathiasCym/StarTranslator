@@ -1,0 +1,15 @@
+.review-selection { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin: 16px 0; }
+.review-selection label { display: flex; align-items: center; gap: 9px; }
+.review-controls { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; position: sticky; bottom: 0; padding: 14px 0; background: #10273ef2; border-top: 1px solid var(--border); backdrop-filter: blur(12px); z-index: 1; }
+.result-downloads { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border); }
+.result-downloads h3 { margin: 0; font-size: 20px; }
+.result-downloads p { margin: 6px 0 14px; }
+.download-list { display: flex; gap: 12px; flex-wrap: wrap; }
+.result-download { display: flex; align-items: center; gap: 14px; min-height: 70px; max-width: 100%; padding: 12px 18px; border: 1px solid #64dfff80; border-radius: 12px; background: linear-gradient(110deg,#186086b3,#16436fc2); color: #e7f2ff; box-shadow: 0 6px 22px #03132033; }
+.result-download:hover { background: linear-gradient(110deg,#207da9c9,#1c5486cf); text-decoration: none; }
+.result-download svg { flex: none; color: var(--cyan); }
+.result-download span { min-width: 0; }
+.result-download strong { display: block; font-size: 17px; }
+.result-download small { display: block; overflow-wrap: anywhere; font-size: 14px; color: #bbd6e8; }
+#detail,#savedMessage { scroll-margin-top: 18px; }
+@media(max-width:700px) { .result-download { width: 100%; } .review-controls button { flex: 1; } }

@@ -1,0 +1,144 @@
+{
+  "_comment": "实测确认的假阳性。来源：Desktop/深圳展厅英文讲解稿.docx（人工校对过的可信翻译）跑到规则层判决器上的全部输出。这些一条都不应被报出。",
+  "_source": "2026-09-23 实测，规则层在这些语料上报 35 条、真错误 0 条",
+  "cases": [
+    {
+      "found": "splicing",
+      "wrong_suggestion": "tiling",
+      "reason": "视频拼接领域 splicing 与 tiling 均可，属行业常见用法。此条曾被我手工写进 overrides.json 并标为 priority=1，是本次重构的直接触发点。",
+      "context": "video splicing and switching equipment"
+    },
+    {
+      "found": "color depth",
+      "wrong_suggestion": "bit depth",
+      "reason": "两者都是「色深」的标准说法，同义。",
+      "context": "such as wide color gamut, high color depth, and seamless large-screen stitching"
+    },
+    {
+      "found": "home theater solution",
+      "wrong_suggestion": "Home Theater Solution",
+      "reason": "句中普通名词小写是正常英文书写，不是术语错误。",
+      "context": "such as LED home theater solutions, LED conference room solutions"
+    },
+    {
+      "found": "calibration solution",
+      "wrong_suggestion": "Calibration Solution",
+      "reason": "同上，纯大小写。且同一文档中报 4 次，是重复噪音。",
+      "context": "Our calibration solution evolved from brightness calibration to multi-bin color calibration"
+    },
+    {
+      "found": "Cloud service solution",
+      "wrong_suggestion": "cloud service solution",
+      "reason": "句首大写是正确写法，工具反向要求改小写。",
+      "context": "Nova Cloud service solution provides a standardized control platform"
+    },
+    {
+      "found": "virtual shooting",
+      "wrong_suggestion": "Virtual Shooting",
+      "reason": "纯大小写，同一文档中报 4 次。",
+      "context": "a new virtual shooting process has been widely discussed"
+    },
+    {
+      "found": "xR virtual shooting",
+      "wrong_suggestion": "XR virtual shooting",
+      "reason": "产品/技术名的大小写风格，非术语错误。",
+      "context": "this new xR virtual shooting technology"
+    },
+    {
+      "found": "Driver IC",
+      "wrong_suggestion": "driver IC",
+      "reason": "PPT 标题「TBS Driver IC」，标题式大写属正常。",
+      "context": "TBS Driver IC"
+    },
+    {
+      "found": "sms",
+      "wrong_suggestion": "SMS",
+      "reason": "匹配到了 mechanisms 一词的内部（无词边界检查），是纯 bug 型假阳性。",
+      "context": "Supports the security mechanisms used with each server"
+    },
+    {
+      "found": "COB screen",
+      "wrong_suggestion": "COB LED display",
+      "reason": "同义表达，行业内通用。",
+      "context": "For COB screens with 2K resolution, calibration can be completed in just 1 minute"
+    },
+    {
+      "found": "advertising screens",
+      "wrong_suggestion": "advertising display",
+      "reason": "同义，且复数符合「光杆屏、车载屏、广告屏」并列语境。",
+      "context": "scenarios such as light pole screens, vehicle screens, and advertising screens"
+    },
+    {
+      "found": "driver chip",
+      "wrong_suggestion": "driver IC",
+      "reason": "行业里 driver chip 与 driver IC 通用。注意：只测「同义术语不被误报」，故语境须是通顺英文——原文 'the driver chips company' 本身是 awkward phrasing，模型报它是正确的，不该拿来做零容忍基准。",
+      "context": "Nova provides a full range of driver chip products covering the mainstream models used in outdoor LED displays"
+    },
+    {
+      "found": "Tianquan series",
+      "wrong_suggestion": "Tianquan distributed system",
+      "reason": "简称与全称的差异，不算错。",
+      "context": "the Tianquan series supports full-chain 4K@60 display"
+    },
+    {
+      "found": "remote conferencing",
+      "wrong_suggestion": "remote video conferencing",
+      "reason": "同义表达，原译正确。",
+      "context": "the remote conferencing can be easily achieved"
+    },
+    {
+      "found": "visual management",
+      "wrong_suggestion": "visual control",
+      "reason": "两者都说得通，非错误。",
+      "context": "achieve one-stop visual management of the Tianquan series"
+    },
+    {
+      "found": "MLED Demura system",
+      "wrong_suggestion": "MLED Demura module correction device",
+      "reason": "原文更自然，后者是中文「单模组校正机」的直译。",
+      "context": "our MLED Demura system, MLED luminance test machine"
+    },
+    {
+      "found": "module correction system",
+      "wrong_suggestion": "MLED Demura module correction device",
+      "reason": "与上同类，属于同一概念的另一种完整说法。",
+      "context": "manufacturers like Zhaochi, Zhongqi, and Lehman have used our module correction system"
+    },
+    {
+      "found": "side-view dark pixels",
+      "wrong_suggestion": "side-view dark rows",
+      "reason": "危险案例：原文中 pixels 与 rows 并列出现，是两个不同的检测项，报错会把对的改成错的。",
+      "context": "it can also detect side-view dark pixels, side-view dark rows, color deviations"
+    },
+    {
+      "found": "MLED side viewing angle luminance testing and sorting machine",
+      "wrong_suggestion": "MLED side-view luminance sorting machine",
+      "reason": "全称与简称的差异。",
+      "context": "This is our MLED side viewing angle luminance testing and sorting machine"
+    },
+    {
+      "found": "side viewing angle sorting machine",
+      "wrong_suggestion": "MLED side-view luminance sorting machine",
+      "reason": "简称，非错误。",
+      "context": "The side viewing angle sorting machine detects the consistency of side displays"
+    },
+    {
+      "found": "MLED monochrome sorting machine",
+      "wrong_suggestion": "MLED ink color test sorting machine",
+      "reason": "危险案例：monochrome（单色）与 ink color（墨色）可能本就是两个不同的机器。",
+      "context": "This is our MLED monochrome sorting machine"
+    },
+    {
+      "found": "monochrome detection and sorting machine",
+      "wrong_suggestion": "MLED ink color test sorting machine",
+      "reason": "与上同类。术语库里的中文概念「墨色检测机」本身可能有误。",
+      "context": "The monochrome detection and sorting machine developed by Nova"
+    },
+    {
+      "found": "LED all-in-one device",
+      "wrong_suggestion": "LED conference all-in-one device",
+      "reason": "简称与全称。",
+      "context": "LED all-in-one devices are gradually becoming the mainstream"
+    }
+  ]
+}

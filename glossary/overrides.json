@@ -1,0 +1,98 @@
+[
+  {
+    "zh": "位深",
+    "en": "bit depth",
+    "variants": ["color depth", "bit-depth"],
+    "priority": 1,
+    "note": "人工修正：bit 单独出现过于宽泛，不作变体，避免误报",
+    "source": "人工修正"
+  },
+  {
+    "zh": "色域",
+    "en": "color gamut",
+    "variants": ["colour gamut"],
+    "priority": 1,
+    "note": "人工修正：color space 是色彩空间，与色域不同",
+    "source": "人工修正"
+  },
+  {
+    "zh": "网线",
+    "en": "Ethernet cable",
+    "variants": ["network cable", "LAN cable"],
+    "priority": 1,
+    "note": "人工修正：cable 过于宽泛，不可作为变体",
+    "source": "人工修正"
+  },
+  {
+    "zh": "点间距",
+    "en": "pixel pitch",
+    "variants": ["dot pitch", "point spacing"],
+    "priority": 1,
+    "note": "诺瓦标准译法",
+    "source": "人工修正"
+  },
+  {
+    "zh": "逐点校正",
+    "en": "point-by-point calibration",
+    "variants": ["per-pixel calibration", "point-by-point correction"],
+    "priority": 1,
+    "note": "诺瓦标准译法",
+    "source": "人工修正"
+  },
+  {
+    "zh": "接收卡",
+    "en": "receiving card",
+    "variants": ["receiver card"],
+    "priority": 1,
+    "note": "诺瓦标准译法",
+    "source": "人工修正"
+  },
+  {
+    "zh": "发送卡",
+    "en": "sending card",
+    "variants": ["sender card", "transmitting card"],
+    "priority": 1,
+    "note": "诺瓦标准译法",
+    "source": "人工修正"
+  },
+  {
+    "zh": "箱体",
+    "en": "cabinet",
+    "variants": ["enclosure"],
+    "priority": 1,
+    "note": "诺瓦标准译法",
+    "source": "人工修正"
+  },
+  {
+    "zh": "驱动IC",
+    "en": "driver IC",
+    "variants": ["driver chip", "LED driver IC"],
+    "priority": 1,
+    "note": "诺瓦标准译法",
+    "source": "人工修正"
+  },
+  {
+    "zh": "灰度等级",
+    "en": "grayscale level",
+    "variants": ["grey scale level", "gray level"],
+    "priority": 1,
+    "note": "诺瓦标准译法",
+    "source": "人工修正"
+  },
+  {
+    "zh": "刷新率",
+    "en": "refresh rate",
+    "variants": [],
+    "priority": 1,
+    "note": "诺瓦标准译法",
+    "source": "人工修正"
+  },
+  {
+    "zh": "模组",
+    "en": "module",
+    "variants": ["LED module"],
+    "priority": 1,
+    "note": "诺瓦标准译法",
+    "source": "人工修正"
+  }
+]

@@ -1,0 +1,1596 @@
+{
+  "id": "2026-09-29-cinema-v1",
+  "date": "2026-09-29",
+  "sources": {
+    "PPT": {
+      "title": "人工校对：Nova-LED Cinema Solution_10082026_EN.pptx",
+      "location": "用户提供的 21 页英文演示文稿；逐条记录页码"
+    },
+    "ARMOR": {
+      "title": "NovaStar Armor Comparison",
+      "url": "https://www.novastar.tech/product/detail.html?catid=2&id=33"
+    },
+    "A10EN": {
+      "title": "A10s Pro Receiving Card Specifications V1.3.0",
+      "url": "https://oss.novastar.tech/uploads/2024/12/A10s-Pro-Receiving-Card-Specifications-V1.3.0.pdf"
+    },
+    "A10CN": {
+      "title": "A10s Pro 接收卡规格书 V1.3.0（搜索索引可读；下载返回 403）",
+      "url": "https://oss.novastar-led.cn/down/datasheet/jieshouka/A10s%20Pro%20%E6%8E%A5%E6%94%B6%E5%8D%A1%20%E8%A7%84%E6%A0%BC%E4%B9%A6-V1.3.0.pdf"
+    },
+    "COEXCN": {
+      "title": "COEX 控制系统 NCP 说明与应用手册 V1.0.1，第 22 页接收卡规格对比",
+      "url": "https://oss.novastar-led.cn/down/datasheet/tongbu/COEX%E6%8E%A7%E5%88%B6%E7%B3%BB%E7%BB%9F%E8%A7%A3%E5%86%B3%E6%96%B9%E6%A1%88-NCP%E6%96%87%E4%BB%B6%E8%AF%B4%E6%98%8E%E4%B8%8E%E5%BA%94%E7%94%A8%E6%89%8B%E5%86%8C-V1.0.1.pdf"
+    },
+    "MX": {
+      "title": "MX6000 Pro / MX2000 Pro Comparison",
+      "url": "https://www.novastar.tech/product/detail.html?catid=2&id=1"
+    },
+    "MX5G": {
+      "title": "COEX 5G Solution Product Comparison",
+      "url": "https://www.novastar.tech/product/detail.html?catid=2&id=48"
+    },
+    "VMP": {
+      "title": "VMP 官方英文介绍",
+      "url": "https://www.novastar.tech/tpl/VMP.html"
+    },
+    "VMPCN": {
+      "title": "VMP 视觉管理平台中文产品页",
+      "url": "https://www.novastar-led.cn/index/products/index/id/75.html"
+    },
+    "CINEMA": {
+      "title": "COEX Wiki LED Cinema Solution",
+      "url": "https://coex.novastar.wiki/en/Collaboration%26Promotion/LED-Cinema-Solution"
+    },
+    "MXSOLUTION": {
+      "title": "MX Series Solution",
+      "url": "https://www.novastar.tech/tpl/MX_SERIES_SOLUTION.html"
+    },
+    "MLED": {
+      "title": "NovaStar Industry Development Trends",
+      "url": "https://www.novastar.tech/content/detail.html?catid=18&id=100"
+    },
+    "SMARTLCT": {
+      "title": "SmartLCT User Manual V3.5.13，第 52 页",
+      "url": "https://oss.novastar.tech/uploads/2023/05/SmartLCT-Screen-Configuration-Software-User-Manual-V3.5.13.pdf"
+    },
+    "EDITORIAL": {
+      "title": "语言与概念校订",
+      "location": "明确拼写错误、概念/单位混淆；不冒充官网逐字对应，不用于通用词自动替换"
+    }
+  },
+  "patches": [
+    {
+      "zh": "逐点校正",
+      "en": "pixel-level calibration",
+      "variants": [
+        "pixel level calibration",
+        "per-pixel calibration",
+        "point-by-point calibration",
+        "point-by-point correction"
+      ],
+      "wrong_variants": [
+        "point by point proofreading"
+      ],
+      "note": "一般技术名称首选 pixel-level calibration；若中文明确包含亮色度，应使用独立词条“逐点亮色度校正”的完整译法。旧写法不一概判错。",
+      "refs": [
+        "CINEMA",
+        "ARMOR",
+        "PPT:5,6"
+      ],
+      "old": [
+        [
+          "逐点校正",
+          "point-by-point calibration"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "逐点亮色度校正",
+      "en": "Pixel Level Brightness and Chroma Calibration",
+      "variants": [
+        "pixel-level brightness and chroma calibration"
+      ],
+      "wrong_variants": [],
+      "note": "产品功能名沿用人工校对 PPT；普通句子可小写并使用 pixel-level 连字符。不能简化为仅亮度校正。",
+      "refs": [
+        "PPT:5,6",
+        "ARMOR",
+        "COEXCN",
+        "A10EN:3"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "画质引擎",
+      "en": "Image Booster",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "诺瓦产品功能名；与 Dynamic Booster（动态引擎）分开。",
+      "refs": [
+        "PPT:5",
+        "A10EN:3",
+        "A10CN:2"
+      ],
+      "old": [
+        [
+          "画质引擎",
+          "image engine"
+        ]
+      ],
+      "invalid_forms": [
+        "image engine"
+      ]
+    },
+    {
+      "zh": "动态引擎",
+      "en": "Dynamic Booster",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "诺瓦产品功能名。",
+      "refs": [
+        "ARMOR",
+        "A10CN:2"
+      ],
+      "old": [
+        [
+          "动态引擎",
+          "Dynamic Booster"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "精细灰度",
+      "en": "Precise Grayscale",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "产品功能名优先使用 Precise Grayscale。",
+      "refs": [
+        "PPT:5,6,9",
+        "ARMOR",
+        "A10CN:2"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "精细灰度算法",
+      "en": "Precise Grayscale",
+      "variants": [
+        "precise grayscale algorithm"
+      ],
+      "wrong_variants": [],
+      "note": "指诺瓦功能名时用 Precise Grayscale；泛指精细灰度算法可描述为 precise grayscale algorithm。",
+      "refs": [
+        "PPT:5,9",
+        "A10CN:2"
+      ],
+      "old": [
+        [
+          "精细灰度算法",
+          "Fine Grayscale Algorithm"
+        ]
+      ],
+      "invalid_forms": [
+        "Fine Grayscale Algorithm"
+      ]
+    },
+    {
+      "zh": "全灰阶校正",
+      "en": "Full-Grayscale Calibration",
+      "variants": [
+        "full grayscale calibration"
+      ],
+      "wrong_variants": [],
+      "note": "全灰阶校正与多层全灰阶校正分开；连字符差异不判为错误。",
+      "refs": [
+        "A10EN:2",
+        "A10CN:2",
+        "ARMOR"
+      ],
+      "old": [
+        [
+          "全灰阶校正",
+          "full grayscale calibration"
+        ],
+        [
+          "全灰阶校正",
+          "full-grayscale calibration"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "全灰度校正",
+      "en": "Full-Grayscale Calibration",
+      "variants": [
+        "full grayscale calibration"
+      ],
+      "wrong_variants": [],
+      "note": "“全灰度”在此为“全灰阶”的同义中文；校正系统技术名称采用 calibration。",
+      "refs": [
+        "A10EN:2",
+        "A10CN:2"
+      ],
+      "old": [
+        [
+          "全灰度校正",
+          "full grayscale correction"
+        ]
+      ],
+      "invalid_forms": [
+        "full grayscale correction"
+      ]
+    },
+    {
+      "zh": "多Layer全灰阶校正",
+      "en": "Multi-Layer Full Grayscale Calibration",
+      "variants": [
+        "multi-layer full-grayscale calibration"
+      ],
+      "wrong_variants": [],
+      "note": "沿用影院 PPT 技术名称；不与单层或普通全灰阶校正混为同一功能。",
+      "refs": [
+        "PPT:11",
+        "MX"
+      ],
+      "old": [
+        [
+          "多Layer全灰阶校正",
+          "Multi-layer Full Grayscale Calibration"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "多层全灰阶校正",
+      "en": "Multi-Layer Full Grayscale Calibration",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "“多Layer全灰阶校正”的规范中文写法。",
+      "refs": [
+        "PPT:11",
+        "MX"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "自适应热力补偿",
+      "en": "Adaptive Thermal Compensation",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:12",
+        "A10CN:2",
+        "MX5G"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "热力补偿算法",
+      "en": "Thermal Compensation",
+      "variants": [
+        "thermal compensation algorithm"
+      ],
+      "wrong_variants": [],
+      "note": "功能名称采用 Thermal Compensation；明确自适应时使用 Adaptive Thermal Compensation。",
+      "refs": [
+        "PPT:6,12",
+        "MX"
+      ],
+      "old": [
+        [
+          "热力补偿算法",
+          "Thermal Compensation Algorithm"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "动态热力补偿",
+      "en": "Dynamic Thermal Compensation",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "影院 PPT 中的具体表述，勿与自适应热力补偿直接互换。",
+      "refs": [
+        "PPT:12"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "快门适配",
+      "en": "Shutter Fit",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "ARMOR",
+        "COEXCN"
+      ],
+      "old": [
+        [
+          "快门适配",
+          "shutter fit"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "色彩管理",
+      "en": "Color Management",
+      "variants": [
+        "colour management"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:5,6",
+        "ARMOR",
+        "A10CN:2"
+      ],
+      "old": [
+        [
+          "色彩管理",
+          "color management"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "VMP",
+      "en": "Vision Management Platform",
+      "variants": [
+        "VMP"
+      ],
+      "wrong_variants": [
+        "Vison Management Platform"
+      ],
+      "note": "产品正式展开为 Vision Management Platform；影院 PPT 第 5 页的 Visual / Managment 与正式名称不一致，产品名以官网为准。",
+      "refs": [
+        "VMP",
+        "VMPCN"
+      ],
+      "old": [
+        [
+          "VMP",
+          "Vison Management Platform"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "带载",
+      "en": "loading capacity",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "用于参数标题或带载能力；作动词“带载某屏”仍可用 load / drive，不做通用词自动替换。",
+      "refs": [
+        "PPT:5,13",
+        "ARMOR",
+        "COEXCN"
+      ],
+      "old": [
+        [
+          "带载",
+          "load"
+        ]
+      ],
+      "invalid_forms": [
+        "load"
+      ]
+    },
+    {
+      "zh": "带载能力",
+      "en": "loading capacity",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "参数名；数值单位通常为像素，不应与接口带宽混淆。",
+      "refs": [
+        "ARMOR",
+        "COEXCN"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "最大带载能力",
+      "en": "maximum loading capacity",
+      "variants": [
+        "max. loading capacity"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:13",
+        "MX"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "单网口带载",
+      "en": "per-port loading capacity",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "由影院 PPT 的 per-cable loading 和带载参数语义规范化；网口能力与整机最大带载分开。",
+      "refs": [
+        "PPT:13",
+        "EDITORIAL"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "无矩形框带载",
+      "en": "No Rectangle Limitation",
+      "variants": [
+        "no rectangular limitation",
+        "free from rectangular limitation"
+      ],
+      "wrong_variants": [],
+      "note": "官网 Comparison 功能标签；描述句可用 free from rectangular limitation。",
+      "refs": [
+        "MX",
+        "MX5G",
+        "VMP"
+      ],
+      "old": [
+        [
+          "无矩形框带载",
+          "No rectangle loading capacity limit"
+        ]
+      ],
+      "invalid_forms": [
+        "No rectangle loading capacity limit"
+      ]
+    },
+    {
+      "zh": "接收卡",
+      "en": "receiving card",
+      "variants": [
+        "receiver card"
+      ],
+      "wrong_variants": [
+        "receiving board card",
+        "reception card"
+      ],
+      "note": "",
+      "refs": [
+        "PPT:4,5,20",
+        "ARMOR"
+      ],
+      "old": [
+        [
+          "接收卡",
+          "receiving card"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "发送卡",
+      "en": "sending card",
+      "variants": [
+        "sender card",
+        "transmitting card"
+      ],
+      "wrong_variants": [
+        "sending board card",
+        "transmission board card"
+      ],
+      "note": "",
+      "refs": [
+        "PPT:20"
+      ],
+      "old": [
+        [
+          "发送卡",
+          "sending card"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "箱体",
+      "en": "cabinet",
+      "variants": [
+        "LED cabinet"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:4,12",
+        "A10EN:4"
+      ],
+      "old": [
+        [
+          "箱体",
+          "cabinet"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "模组",
+      "en": "module",
+      "variants": [
+        "LED module"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:4",
+        "A10EN:4"
+      ],
+      "old": [
+        [
+          "模组",
+          "module"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "驱动IC",
+      "en": "driver IC",
+      "variants": [
+        "driver chip",
+        "LED driver IC"
+      ],
+      "wrong_variants": [
+        "driving integrated circuit chip"
+      ],
+      "note": "",
+      "refs": [
+        "PPT:4,5",
+        "A10EN:3"
+      ],
+      "old": [
+        [
+          "驱动IC",
+          "driver IC"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "LED影院解决方案",
+      "en": "LED Cinema Solution",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:1,4"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "影院控制器",
+      "en": "cinema controller",
+      "variants": [
+        "LED cinema controller"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:4,5"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "集成媒体模块",
+      "en": "Integrated Media Block",
+      "variants": [
+        "IMB"
+      ],
+      "wrong_variants": [],
+      "note": "影院语境下 IMB 的展开；不是普通 media server 的同义词。",
+      "refs": [
+        "PPT:15"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "沉浸式音频解码器",
+      "en": "immersive audio decoder",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:4"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "功率放大器系统",
+      "en": "power amplifier system",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:4"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "扬声器系统",
+      "en": "speaker system",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:4"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "安全模块",
+      "en": "security module",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:6,14"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "安全芯片",
+      "en": "security chip",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:5,14"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "数字证书",
+      "en": "digital certificate",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:14"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "防拆检测",
+      "en": "tamper detection",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "影院安全语境。Tamper clearance（清除防拆状态）应单独表述。",
+      "refs": [
+        "PPT:14"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "箱门状态",
+      "en": "cabinet-door status",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:14"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "模组插拔",
+      "en": "module insertion/removal",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:14"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "显示屏监控",
+      "en": "display monitoring",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:14"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "PWM+PAM混合驱动技术",
+      "en": "PWM+PAM Hybrid Driving Technology",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:7",
+        "MLED"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "暗部细节",
+      "en": "shadow detail",
+      "variants": [
+        "details in dark areas"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:7"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "色域覆盖率",
+      "en": "gamut coverage",
+      "variants": [
+        "color gamut coverage"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:8"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "色彩准确性",
+      "en": "color accuracy",
+      "variants": [
+        "colour accuracy"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:8,19"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "色度",
+      "en": "chromaticity",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "色度坐标/容差语境用 chromaticity；诺瓦“亮色度校正”固定功能名使用 chroma，不能全局互换。",
+      "refs": [
+        "PPT:6,10"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "色度容差",
+      "en": "chromaticity tolerance",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:10"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "亮度容差",
+      "en": "luminance tolerance",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:10"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "灰阶过渡",
+      "en": "grayscale transitions",
+      "variants": [
+        "grayscale transition"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:8"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "传递函数",
+      "en": "transfer function",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "SDR/HDR transfer function；不可与电路传输函数等其他上下文机械混用。",
+      "refs": [
+        "PPT:9"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "分段线性化",
+      "en": "piecewise linearization",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:11"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "校正系数",
+      "en": "calibration coefficients",
+      "variants": [
+        "calibration coefficient"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:11,12",
+        "A10EN:4"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "实时监控",
+      "en": "real-time monitoring",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "PPT:5,14"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "亮度",
+      "en": "luminance",
+      "variants": [
+        "brightness"
+      ],
+      "wrong_variants": [],
+      "note": "测光量用 luminance（cd/m² 或 nit）；产品亮度设置/描述也常用 brightness。nit 是单位，不是术语的译文；不要把文档中的数值单位自动改写。",
+      "refs": [
+        "PPT:6,7,10",
+        "SMARTLCT",
+        "EDITORIAL"
+      ],
+      "old": [
+        [
+          "亮度",
+          "nit"
+        ],
+        [
+          "亮度",
+          "luminance"
+        ]
+      ],
+      "invalid_forms": [
+        "nit",
+        "nits"
+      ]
+    },
+    {
+      "zh": "照度",
+      "en": "illuminance",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "照度量的英文为 illuminance，单位为 lux（lx）。lux 不作为正确别名，也不自动替换数值单位。",
+      "refs": [
+        "SMARTLCT",
+        "EDITORIAL"
+      ],
+      "old": [
+        [
+          "照度",
+          "Lux"
+        ],
+        [
+          "照度",
+          "illuminance"
+        ]
+      ],
+      "invalid_forms": [
+        "lux"
+      ]
+    },
+    {
+      "zh": "饱和度",
+      "en": "saturation",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "色彩属性用 saturation；原表附带音标且使用 Saturability，不能作为标准色彩术语。",
+      "refs": [
+        "MXSOLUTION"
+      ],
+      "old": [
+        [
+          "饱和度",
+          "Saturation"
+        ],
+        [
+          "饱和度",
+          "Saturability/sætʃərəˈbɪlɪti/"
+        ]
+      ],
+      "invalid_forms": [
+        "Saturability/sætʃərəˈbɪlɪti/",
+        "Saturability"
+      ]
+    },
+    {
+      "zh": "色相",
+      "en": "hue",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "MXSOLUTION"
+      ],
+      "old": [
+        [
+          "色相",
+          "Hue"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "散热",
+      "en": "heat dissipation",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "屏体热管理语境；radiating 只是散热机制之一，不能作为通用标准译文。",
+      "refs": [
+        "A10EN:2",
+        "MLED"
+      ],
+      "old": [
+        [
+          "散热",
+          "Heat Dissipation"
+        ],
+        [
+          "散热",
+          "Radiating"
+        ]
+      ],
+      "invalid_forms": [
+        "Radiating"
+      ]
+    },
+    {
+      "zh": "主动式驱动",
+      "en": "active matrix driving",
+      "variants": [
+        "active-matrix driving",
+        "AM driving",
+        "active matrix"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "MLED"
+      ],
+      "old": [
+        [
+          "主动式驱动",
+          "Active Matrix"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "被动式驱动",
+      "en": "passive matrix driving",
+      "variants": [
+        "passive-matrix driving",
+        "PM driving",
+        "passive matrix"
+      ],
+      "wrong_variants": [
+        "Passive Mactive"
+      ],
+      "note": "",
+      "refs": [
+        "MLED"
+      ],
+      "old": [
+        [
+          "被动式驱动",
+          "Passive Mactive"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "虚拟拍摄",
+      "en": "virtual production",
+      "variants": [
+        "virtual shooting"
+      ],
+      "wrong_variants": [],
+      "note": "诺瓦解决方案与行业应用名称优先 virtual production；virtual shooting 可作历史描述性写法。",
+      "refs": [
+        "MXSOLUTION"
+      ],
+      "old": [
+        [
+          "虚拟拍摄",
+          "Virtual Shooting"
+        ],
+        [
+          "虚拟射拍摄",
+          "Virtual Shooting"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "虚拟制片",
+      "en": "virtual production",
+      "variants": [
+        "VP"
+      ],
+      "wrong_variants": [],
+      "note": "原表中文“虚拟纸片”为录入错误；VP 为简称。",
+      "refs": [
+        "MXSOLUTION",
+        "EDITORIAL"
+      ],
+      "old": [
+        [
+          "虚拟纸片",
+          "VP（Virtual Production）"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "XR虚拟拍摄",
+      "en": "XR virtual production",
+      "variants": [
+        "xR virtual production",
+        "XR virtual shooting"
+      ],
+      "wrong_variants": [],
+      "note": "行业应用名规范化；xR 是 extended reality，不代表所有 virtual production 都使用 xR。",
+      "refs": [
+        "MXSOLUTION",
+        "EDITORIAL"
+      ],
+      "old": [
+        [
+          "XR虚拟拍摄",
+          "XR virtual shooting"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "亮度超驱动",
+      "en": "Brightness Overdrive",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "MX",
+        "A10CN:2"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "多模式",
+      "en": "Multi-Mode",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "MX5G",
+        "A10CN:2"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "帧频自适应",
+      "en": "Adaptive Frame Rate",
+      "variants": [
+        "frame rate adaptive"
+      ],
+      "wrong_variants": [],
+      "note": "Comparison 标签用 Adaptive Frame Rate；A10s Pro 特定版本功能名为 Frame Rate Adaptive 3.0，不抹掉产品版本。",
+      "refs": [
+        "MX",
+        "COEXCN"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "RGB并行数据组",
+      "en": "parallel RGB data groups",
+      "variants": [
+        "RGB parallel data groups"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "ARMOR",
+        "COEXCN"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "串行数据组",
+      "en": "serial data groups",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "ARMOR",
+        "COEXCN"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "双卡备份",
+      "en": "dual-card backup",
+      "variants": [
+        "dual card backup"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "ARMOR",
+        "A10EN:5"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "环路备份",
+      "en": "loop backup",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "A10EN:5"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "固件程序回读",
+      "en": "firmware program readback",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "ARMOR"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "RGB独立Gamma调节",
+      "en": "individual gamma adjustment for RGB",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "ARMOR",
+        "A10CN:2"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "温度和电压监测",
+      "en": "temperature and voltage monitoring",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "A10EN:5",
+        "COEXCN"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "误码检测",
+      "en": "bit error detection",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "A10EN:5",
+        "COEXCN"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "色彩替换",
+      "en": "Color Replacement",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "MX",
+        "MXSOLUTION"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "色彩曲线",
+      "en": "Color Curve",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "MX",
+        "MXSOLUTION"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "14通道色彩校正",
+      "en": "14-channel color correction",
+      "variants": [
+        "14CH Color Correction"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "MX"
+      ],
+      "old": [
+        [
+          "14通道色彩校正",
+          "14-channel color correction"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "输入位深",
+      "en": "input bit depth",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "MX"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "控制协议",
+      "en": "control protocol",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "MX"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "图层",
+      "en": "layer",
+      "variants": [
+        "layers"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "MX"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "成组管理",
+      "en": "group management",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "VMP"
+      ],
+      "old": [
+        [
+          "成组管理",
+          "group management"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "场景预设",
+      "en": "scenario presets",
+      "variants": [
+        "scene presets",
+        "scenario preset"
+      ],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "VMP"
+      ],
+      "old": [
+        [
+          "场景预设",
+          "scene presets"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "拼缝校正",
+      "en": "seam correction",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "",
+      "refs": [
+        "VMP",
+        "A10EN:3"
+      ],
+      "old": [],
+      "invalid_forms": []
+    },
+    {
+      "zh": "曝光",
+      "en": "exposure",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "原表 Steper Exposure 含拼写错误且把泛称限缩为步进式曝光；若明确步进式曝光应写 stepper exposure。",
+      "refs": [
+        "EDITORIAL"
+      ],
+      "old": [
+        [
+          "曝光",
+          "Steper Exposure"
+        ]
+      ],
+      "invalid_forms": [
+        "Steper Exposure"
+      ]
+    },
+    {
+      "zh": "可靠性测试",
+      "en": "reliability testing",
+      "variants": [],
+      "wrong_variants": [],
+      "note": "fusion 意为融合/熔合，与可靠性测试概念不符。保留为上下文核对线索，不自动替换普通单词 fusion。",
+      "refs": [
+        "EDITORIAL"
+      ],
+      "old": [
+        [
+          "可靠性测试",
+          "fusion"
+        ]
+      ],
+      "invalid_forms": [
+        "fusion"
+      ]
+    },
+    {
+      "zh": "固晶机",
+      "en": "die bonder",
+      "variants": [],
+      "wrong_variants": [
+        "Bounding machine"
+      ],
+      "note": "与原部门表另一条 Die bonder 对照合并；Bounding machine 为拼写/术语错误。",
+      "refs": [
+        "EDITORIAL"
+      ],
+      "old": [
+        [
+          "固晶机",
+          "Bounding machine"
+        ],
+        [
+          "固晶机",
+          "Die bonder"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "芯片键合",
+      "en": "die bonding",
+      "variants": [],
+      "wrong_variants": [
+        "Die bounding"
+      ],
+      "note": "bonding 为键合；bounding 为拼写错误。",
+      "refs": [
+        "EDITORIAL"
+      ],
+      "old": [
+        [
+          "芯片键合",
+          "Die bounding"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "分选",
+      "en": "binning",
+      "variants": [
+        "bin sorting",
+        "sorting"
+      ],
+      "wrong_variants": [
+        "Bining"
+      ],
+      "note": "LED 按参数分档分选；sorting 可作一般分选描述。",
+      "refs": [
+        "EDITORIAL"
+      ],
+      "old": [
+        [
+          "分选",
+          "Bining"
+        ],
+        [
+          "分选",
+          "Bin sorting"
+        ]
+      ],
+      "invalid_forms": []
+    },
+    {
+      "zh": "编织",
+      "en": "braiding",
+      "variants": [],
+      "wrong_variants": [
+        "Briading"
+      ],
+      "note": "仅纠正原表拼写；是否应收录在 LED 词库仍取决于线缆工艺语境。",
+      "refs": [
+        "EDITORIAL"
+      ],
+      "old": [
+        [
+          "编织",
+          "Briading"
+        ]
+      ],
+      "invalid_forms": []
+    }
+  ],
+  "pending": {
+    "缓冲垫键合": "Bumper bonding 疑似应为 bump bonding，但中文本身存疑，须由封装工艺人员确认。",
+    "后期前置化": "post-pre-installation 不符合影视语境，建议审阅“前置后期制作”等具体流程后定名。",
+    "微焦": "Focus 通常指焦点/对焦；中文概念可能录入有误。",
+    "余晖": "需区分 afterglow、persistence 与 ghosting；缺少原图/测试场景，不能简单互作别名。",
+    "22bit+ 灰阶4倍提升算法": "官网 A10s Pro 文档描述 64 倍，原中文写 4 倍；可能是版本或功能差异，不能把数值直接统一。",
+    "灯板": "light board / lamp board 与 LED module 的边界依产品结构而定，暂不统一。",
+    "色块": "Color Block 与 display mura 有语境差异，需结合现象图片。",
+    "麻点": "mura 是不均匀类现象泛称，不宜等同所有麻点；规格书也用 mottling。",
+    "墨色": "ink color 易被理解为油墨颜色；PCB 阻焊膜颜色、屏幕黑态一致性需分别确认。",
+    "气相外延生长": "MOCVD 是金属有机化学气相沉积，不能泛指所有气相外延。",
+    "焊锡": "solder 与 solder paste（锡膏）需要区分原材料形态。",
+    "裸眼3D": "anamorphic 与 autostereoscopic 是不同实现，原条目不应作为完全互换同义词。",
+    "等保3级认证": "原英文不自然；需依据正式认证文件确定英文表述，当前材料不覆盖。",
+    "面阵RGB相机亮色度精准测量": "原英文遗漏 chroma，设备功能的正式名称需要制造部门核定。"
+  },
+  "pending_originals": [
+    [
+      "色块",
+      "display mura"
+    ],
+    [
+      "麻点",
+      "mura"
+    ],
+    [
+      "等保3级认证",
+      "three-level certification of equal protection"
+    ],
+    [
+      "后期前置化",
+      "post-pre-installation"
+    ],
+    [
+      "裸眼3D",
+      "naked-eye 3D"
+    ],
+    [
+      "墨色",
+      "ink color"
+    ],
+    [
+      "灯板",
+      "light board"
+    ],
+    [
+      "气相外延生长",
+      "MOCVD"
+    ],
+    [
+      "焊锡",
+      "Solder paste"
+    ],
+    [
+      "缓冲垫键合",
+      "Bumper bonding"
+    ],
+    [
+      "裸眼3D",
+      "Anamorphic / Autostereoscopy / Glasses-free 3D"
+    ],
+    [
+      "色块",
+      "Color Block"
+    ],
+    [
+      "22bit+ 灰阶4倍提升算法",
+      "22bit+ Grayscale 4x Enhancement Algorithm"
+    ],
+    [
+      "微焦",
+      "Focus"
+    ],
+    [
+      "面阵RGB相机亮色度精准测量",
+      "Area-array RGB camera brightness accurate measurement"
+    ],
+    [
+      "灯板",
+      "lamp board"
+    ],
+    [
+      "余晖",
+      "ghosting"
+    ]
+  ]
+}

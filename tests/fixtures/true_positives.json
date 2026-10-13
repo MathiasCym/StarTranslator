@@ -1,0 +1,42 @@
+{
+  "_comment": "实测确认的真错误。来源：LLM 判决器在 Desktop/深圳展厅英文讲解稿.docx 上抓出的问题，经人工核对确实有错。这些必须被报出。",
+  "_source": "2026-09-23 实测，LLM 判决在这些语料上报 10 条，逐条核对全部为真错误",
+  "cases": [
+    {
+      "segment_text": "These four devices support two switching modes: online and offline mode switching. They can be used individually or integrated into a production line alongside other equipment. It is flexibile and convenient.",
+      "must_find": "flexibile",
+      "kind": "typo",
+      "explanation": "拼写错误，应为 flexible。"
+    },
+    {
+      "segment_text": "Nova's luminance test machine can detect and record issues with LED modules. While identifyingLED modules with flaws, it can also analyze production issues based on the defect rates of different stages, improving the quality of customers' light board production.",
+      "must_find": "identifyingLED",
+      "kind": "typo",
+      "explanation": "缺空格，应为 identifying LED。"
+    },
+    {
+      "segment_text": "Our conference systems feature an integrated Android system and screen casting, significantly reducing the system's physical footprint. The system runs on Android 11.0, with4GB RAM and 32GB ROM, along with a WIFI 6 chip, ensuring a smooth operating system.",
+      "must_find": "with4GB",
+      "kind": "typo",
+      "explanation": "缺空格，应为 with 4GB RAM。"
+    },
+    {
+      "segment_text": "The LED industry is continuously developing towards standardization and intelligence. Based on our understanding of LED control systems, Nova has explored and designed products and solutions in collaboration with LED screen manufactory clients. We have launched Nova's 'LED Display Smart Manufacturing Solution' to support the standardized production of modules.",
+      "must_find": "manufactory",
+      "kind": "typo",
+      "explanation": "用词错误，应为 manufacturer（manufactory 指工厂/制造厂，指人不当）。"
+    },
+    {
+      "segment_text": "In the production process of MiniLED modules, faulty modules are inevitably produced. According to our statistics, of the eligible MiniLED for the first-pass yield is less than 90%. With industry development and miniaturization of LED modules, the size of LED chips will further decrease, increasing the failure rate and testing difficulty of light boards.",
+      "must_find": "of the eligible MiniLED for the first-pass yield",
+      "kind": "grammar",
+      "explanation": "语序混乱、介词误用，句意不清。应改为 the first-pass yield of eligible MiniLED is less than 90%。"
+    },
+    {
+      "segment_text": "This is our MLED side viewing angle luminance testing and sorting machine. We used to address the consistency issue of front-facing screen effects through calibration, discrepancies in side viewing angle effects cannot be resolved through calibration. This phenomenon is due to the current process of LED manufacturing, restricting the viewing angle of COB screens and impacting the viewing experience.",
+      "must_find": "We used to address",
+      "kind": "grammar",
+      "explanation": "两个独立句被逗号连缀（comma splice），缺连接词。应改为 ...through calibration, but discrepancies... 或分为两句。"
+    }
+  ]
+}
