@@ -4,8 +4,10 @@ dialog.shared-dialog, dialog#comparison, dialog#contactDialog {
   inset: 0;
   -webkit-app-region: no-drag;
 }
-dialog#lanDialog { max-height: calc(100dvh - 48px); overflow: auto; }
-dialog#lanDialog .panel-head { position: sticky; top: -26px; padding: 8px 0; z-index: 2; background: #10283d; }
+dialog#lanDialog { max-height: calc(100dvh - 48px); overflow: hidden; }
+dialog#lanDialog[open] { display: flex; flex-direction: column; }
+dialog#lanDialog .panel-head { flex-shrink: 0; padding: 8px 0; background: transparent; }
+dialog#lanDialog .lan-dialog-body { min-height: 0; overflow: auto; }
 dialog#lanDialog .btn { -webkit-app-region: no-drag; }
 dialog#comparisonDialog, dialog#comparison {
   width: calc(100vw - 32px); max-width: 2000px;
@@ -44,5 +46,4 @@ dialog#contactDialog { width: min(550px,94vw); height: auto; max-height: 90dvh; 
   .pc-nav button { padding: 4px 7px; min-height: 36px; }
   .pc-toolbar { gap: 6px; }
   .pc-toolbar .pc-sync { font-size: 13px; }
-  dialog#lanDialog .panel-head { top: -16px; }
 }
