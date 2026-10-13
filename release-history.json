@@ -334,9 +334,9 @@
   },
   {
     "version": "2.0.0",
-    "builtAt": "2026-10-13T05:00:31.091Z",
+    "builtAt": "2026-10-13T06:16:45.605Z",
     "installer": "dist/星译官 Setup 2.0.0.exe",
-    "size": 142723438,
-    "sha256": "e88d179def919ed8b345df640dcdb3e8387691ce21ad514bfc29ba1a152ffcdf"
+    "size": 142723447,
+    "sha256": "6b0f09bf456b79265fb1988f99d2995a2b63b26af06ae98207613d125edeec91"
   }
 ]
