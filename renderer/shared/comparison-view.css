@@ -18,8 +18,13 @@ dialog#comparisonDialog, dialog#comparison {
 }
 dialog#comparison[open] { display: flex; flex-direction: column; gap: 8px; }
 .page-comparison { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 10px; }
-.pc-toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.pc-toolbar button, .pc-nav button { min-height: 40px; padding: 6px 12px; }
+.pc-toolbar { display: flex; flex-shrink: 0; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pc-toolbar > button { flex-shrink: 0; }
+dialog#comparisonDialog > .panel-head, dialog#comparison > .section-head,
+dialog#comparisonDialog > #comparisonNote, dialog#comparison > #comparisonNote,
+dialog#comparisonDialog > .comparison-filters, dialog#comparison > .filters { flex-shrink: 0; }
+dialog#comparison > .comparison-scroll { flex: 1; min-height: 0; height: auto; }
+.pc-toolbar button, .pc-toolbar .btn.sm, .pc-nav button { min-height: 40px; padding: 6px 12px; }
 .pc-toolbar button[aria-pressed=true] { border-color: #59def1; color: #59def1; background: #17608865; }
 .pc-toolbar .pc-sync { display: flex; flex-direction: row; align-items: center; gap: 7px; margin: 0; font-size: 15px; }
 .pc-toolbar .pc-zoom { width: auto; max-width: 140px; margin-left: auto; padding: 7px; font-size: 15px; }

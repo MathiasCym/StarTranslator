@@ -40,9 +40,29 @@ def numeric_values(text):
     return Counter(value for value, _, _ in numeric_tokens(text)[1])
 
 
+def translation_numeric_tokens(source, translation):
+    """Calendar shorthand adds a label digit, not a factual quantity.
+
+    Only explicit Chinese calendar labels permit it. Existing source identifiers
+    remain counted, and codes embedded in model names/versions are never removed.
+    """
+    text, tokens = numeric_tokens(translation)
+    ignored = []
+    for labels, forms in [(['上半年'], ['H1', '1H']), (['下半年'], ['H2', '2H']),
+            (['第一季度', '一季度'], ['Q1', '1Q']), (['第二季度', '二季度'], ['Q2', '2Q']),
+            (['第三季度', '三季度'], ['Q3', '3Q']), (['第四季度', '四季度'], ['Q4', '4Q'])]:
+        allowed = len(re.findall('|'.join(sorted(map(re.escape, labels), key=len, reverse=True)), source))
+        if not allowed: continue
+        pattern = re.compile(r'(?<![A-Za-z0-9_.])(?:'+'|'.join(forms)+r')(?![A-Za-z0-9_.])', re.I)
+        matches = list(pattern.finditer(text))
+        extra = max(0, len(matches) - len(list(pattern.finditer(source))))
+        ignored.extend((m.start(), m.end()) for m in matches[:min(allowed, extra)])
+    return text, [(value, start, end) for value, start, end in tokens if not any(start >= a and end <= b for a, b in ignored)]
+
+
 def repair_numeric_translation(source, translation):
     """Correct one unambiguous quantity difference; never rewrite model codes."""
-    text, target = numeric_tokens(translation)
+    text, target = translation_numeric_tokens(source, translation)
     expected = numeric_values(source)
     actual = Counter(value for value, _, _ in target)
     missing, extra = expected - actual, actual - expected
@@ -86,7 +106,7 @@ def validate_translation(source, translation):
     if '```' in translation and '```' not in source:
         raise ValueError('译文包含说明或代码包装，请重新生成正文。')
     # Preserve factual tokens; Chinese units may be translated, values may not change.
-    if numeric_values(source) != numeric_values(translation):
+    if numeric_values(source) != Counter(value for value, _, _ in translation_numeric_tokens(source, translation)[1]):
         raise ValueError('生成的英文与中文原稿存在数值差异，需要核对。')
     tokens = re.findall(r'(?<![A-Za-z0-9])(?:[A-Z]{2,}[A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|'
         r'[A-Za-z]+[0-9][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|[0-9]+[A-Z][A-Za-z0-9]*)(?![A-Za-z0-9])', source)

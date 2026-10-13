@@ -28,7 +28,7 @@ window.PageComparison = (() => {
   }
   function mode(v,mode) {
     v.mode=mode;v.box.querySelector('.pc-panes').hidden=mode!=='pages';v.filters.hidden=v.text.hidden=mode!=='text'
-    v.box.style.flex=mode==='pages'?'1':'0';v.box.querySelector('.pc-sync').hidden=mode!=='pages';v.box.querySelector('select').hidden=mode!=='pages'
+    v.box.style.flex=mode==='pages'?'1 1 0%':'0 0 auto';v.box.querySelector('.pc-sync').hidden=mode!=='pages';v.box.querySelector('select').hidden=mode!=='pages'
     v.box.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mode===mode)))
   }
   function send(p,data) { if(p.ready)p.frame.contentWindow.postMessage({channel:'star-page-preview',token:p.token,...data},'*') }

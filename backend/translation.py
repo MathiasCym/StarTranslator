@@ -161,6 +161,8 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     # Read styles on the owning thread. Workers only return text/style data.
     prepared = {s.locator: style_groups(by_locator[s.locator]) for s in todo}
     groups_by_page = {}
+    from .consistency import DocumentTranslationMemory
+    document_memory = DocumentTranslationMemory(segments, glossary)
     completed_count, progress_lock = [0], threading.Lock()
     for index, seg in enumerate(todo):
         # All text on one slide is sequential; Word uses context-aware blocks.
@@ -196,7 +198,9 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                     if len(piece_groups)==1 and cache_key in memory:
                         runs,local_style=[{'id':piece_groups[0]['id'],'text':memory[cache_key]}],False
                     else:
-                        runs, local_style = mapped_translation(client, prompt, piece, piece_groups, cancel, glossary, page_context, seg)
+                        runs, local_style = document_memory.translate(seg, piece, piece_groups,
+                            lambda: mapped_translation(client, prompt, piece, piece_groups, cancel, glossary, page_context, seg),
+                            lambda: check_cancel(cancel))
                         if len(piece_groups)==1:
                             memory[cache_key]=''.join(r['text'] for r in runs)
                     page_context.remember(seg, piece, ''.join(r['text'] for r in runs))
@@ -298,10 +302,18 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             if destination.exists():
                 destination.unlink()
             raise
+    # The same advisory pass serves single translation and the review workflow.
+    # It never modifies the output or turns a completed translation into a failure.
+    from dataclasses import replace
+    from .consistency import check_consistency
+    translated_segments = [replace(s, text=by_locator[s.locator].text) if s.locator in by_locator else s for s in segments]
+    consistency_items = [f.to_dict() for f in check_consistency(translated_segments, glossary,
+        aligned_sources={s.id:s.text for s in segments})]
     return {'path':str(destination),'source':os.path.abspath(path),'translated':translated,
             'comparison_id':__import__('backend.comparison',fromlist=['safe_create']).safe_create(segments,by_locator,path,destination),
             'total':len(todo), 'untranslated':untranslated, 'needs_review':len(review_items),
             'review_items':review_items, 'status':'needs_review' if review_items else 'complete',
+            'consistency_items':consistency_items, 'consistency_hits':len(consistency_items),
             'remaining_chinese':remaining,'layout_adjustments':layout_adjustments,
             'skipped':len(blocked),'warnings':[{'text':s.text[:100],'reason':s.not_editable_reason,'slide':s.slide} for s in blocked],
             'layout_warnings':layout_warnings + style_warnings, 'layout_checked':is_pptx,

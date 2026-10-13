@@ -35,6 +35,10 @@ class ReferenceIndex:
         paired = self.by_path.get(self.pairs.get(os.path.abspath(segment.file_path), ''))
         return next((s.text for s in (paired or []) if s.locator == segment.locator), '')
 
+    def aligned_sources(self, segments):
+        indexes = {path: {s.locator: s.text for s in values} for path, values in self.by_path.items()}
+        return {seg.id: indexes.get(self.pairs.get(os.path.abspath(seg.file_path), ''), {}).get(seg.locator, '') for seg in segments}
+
     def context(self, segment, ordinal=0):
         related = concepts(segment.text, self.glossary)
         tokens = set(re.findall(r'[a-z0-9]{3,}', segment.text.lower()))

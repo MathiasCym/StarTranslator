@@ -86,8 +86,8 @@ class Candidate:
 class Finding:
     """一条检验发现——报告的基本单元。
 
-    判决权归 LLM，因此 method 恒为 "llm"；kind 区分问题类型，
-    用于 UI 分开关卡展示。confidence 是模型自述的确定度。
+    method 区分术语规则、全文一致性建议与模型审校；kind 区分问题类型，
+    用于 UI 分类筛选。confidence 表示建议的确定度。
     """
     segment_id: str
     file: str

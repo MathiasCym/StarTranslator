@@ -251,7 +251,7 @@ def publish_combined_report(job, reviews, outcome):
     result = job['result']
     local = {'segments':[],'hashes':{},'findings':[], 'output_options':{}}
     stats = {key:sum(r['stats'].get(key,0) for r in reviews) for key in
-             ('segments','rule_hits','llm_hits','judged','errors','unreviewed','truncated','unsupported')}
+             ('segments','rule_hits','consistency_hits','llm_hits','judged','errors','unreviewed','truncated','unsupported')}
     errors = result.get('errors',[]) + [{'path':r['output']['source'],'error':r['output']['review_error']}
         for r in reviews if r['output'].get('review_error')]
     if job.get('error'): errors.append({'error':job['error']})
@@ -366,7 +366,7 @@ def _apply_report(data, report):
                                'reason':'这条建议会重复补入相邻文字已有的数字，已跳过；请结合上下文修改建议。'})
                 continue
             import re
-            pattern = _form_pattern(old) if finding.method=='rule' else re.compile(re.escape(old),re.I)
+            pattern = _form_pattern(old) if finding.method in ('rule', 'consistency') else re.compile(re.escape(old),re.I)
             matches = list(pattern.finditer(segment.text))
             if any(match.start()<b and match.end()>a for match in matches for a,b,_ in spans):
                 failed.append({'segment_id':segment_id,'index':finding_index,'reason':'替换范围重叠，请分别选择改正项'})

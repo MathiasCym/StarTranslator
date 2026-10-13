@@ -52,7 +52,14 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
                    references=None, cancel=None, on_finding=None, workers=3):
     checked = [s for s in segments if s.source not in ('image','group') and s.text.strip()]
     findings = check_rules(checked, glossary)
-    stats = {'segments':len(checked),'rule_hits':len(findings),'llm_hits':0,'judged':0,
+    from ..consistency import check_consistency
+    consistency = check_consistency(checked, glossary, references=references)
+    rule_count = len(findings)
+    findings.extend(consistency)
+    consistency_by_segment = {}
+    for finding in consistency:
+        consistency_by_segment.setdefault(finding.segment_id, []).append(finding)
+    stats = {'segments':len(checked),'rule_hits':rule_count,'consistency_hits':len(consistency),'llm_hits':0,'judged':0,
              'errors':0,'unreviewed':0,'truncated':0,'model_status':'not_requested','warnings':[],
              'unsupported':sum(not s.editable for s in segments), 'discarded_context_hits':0}
     file_totals, file_judged, incomplete_files = {}, {}, set()
@@ -69,12 +76,16 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
         def review_one(seg, ordinal):
             reference = references.context(seg,ordinal) if references else ''
             reference += '\n' + page_context.prompt(seg)
+            advice = consistency_by_segment.get(seg.id, [])
+            if advice:
+                reference += '\n【全文用语统一建议；仅供风格参考，不代表原写法错误】\n' + '\n'.join(f'{f.found_text} → {f.suggested}' for f in advice[:6])[:1800]
             return _judge_with_retry(seg,glossary,client,reference,
                 rules_by_segment.get(seg.id, []),cancel)
         # Build page flow caches before threads start; only the merger writes findings.
         for seg in checked: page_context.prompt(seg)
         rules_by_segment = {}
-        for finding in findings: rules_by_segment.setdefault(finding.segment_id, []).append(finding)
+        for finding in findings:
+            if finding.method == 'rule': rules_by_segment.setdefault(finding.segment_id, []).append(finding)
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='star-review') as pool:
             pending = []
             for seg in checked:
