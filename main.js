@@ -145,7 +145,7 @@ ipcMain.handle('update-state',event=>{updateSender(event);return updater().snaps
 ipcMain.handle('check-updates',event=>{updateSender(event);return updater().check()})
 ipcMain.handle('download-update',event=>{updateSender(event);return updater().download()})
 ipcMain.handle('cancel-update',event=>{updateSender(event);return updater().cancel()})
-ipcMain.handle('open-maintenance-authorization',event=>{updateSender(event);return shell.openExternal('https://github.com/settings/personal-access-tokens/new')})
+ipcMain.handle('open-maintenance-authorization',event=>{updateSender(event);return shell.openExternal('https://github.com/settings/tokens')})
 ipcMain.handle('install-update',async event=>{
   updateSender(event)
   if(!app.isPackaged)throw Error('请在安装后的星译官中使用在线安装更新。')

@@ -46,6 +46,19 @@ node --test tests/test_release.js tests/test_install_integrity.js tests/test_ins
 
 版本按 [发布规则](RELEASING.md) 管理。维护者提交新版本源码到 main 后，GitHub Actions 执行测试、构建、实际安装引导图片验证及完整性校验，通过后发布安装包。单纯提交团队词库不会触发重复构建。已发布版本不会被覆盖。
 
+## 致谢
+
+感谢以下开源项目及其维护者，为星译官提供了组件支持和实现参考：
+
+| 项目 | 在星译官中的使用或参考 |
+| --- | --- |
+| [Humanizer](https://github.com/blader/humanizer) | 参考并适配文本表达规则，帮助翻译与审校减少生硬表达，同时保留技术含义、专业术语和数值。 |
+| [OfficeCLI](https://github.com/iOfficeAI/OfficeCLI) | 集成文档检查组件，用于结构与格式检查，并为完整页面中英对照提供只读预览。 |
+| [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill) | 为界面设计、布局、交互与可读性优化提供参考，沿用星译官已有的蓝色玻璃风格。 |
+| [DocuTranslate](https://github.com/xunbu/docutranslate) | 借鉴异步任务、局域网协作、并发处理和双语对照的设计思路；相关功能结合星译官现有流程独立实现。 |
+
+也感谢 [Electron](https://github.com/electron/electron)、[rcedit](https://github.com/electron/rcedit) 及其他开源依赖的贡献者。引用与适配说明见 [文档组件说明](backend/skills/README.md)、[DocuTranslate 采用范围](docs/docutranslate-adoption.md) 和 [第三方组件](THIRD_PARTY_NOTICES.md)，各项目保留原有许可证与版权声明。
+
 ## 联系与许可
 
 作者邮箱：chenym1@novastar.tech。项目沿用仓库已有的 [BSD 2-Clause License](LICENSE)，第三方组件见 [组件说明](THIRD_PARTY_NOTICES.md)。
