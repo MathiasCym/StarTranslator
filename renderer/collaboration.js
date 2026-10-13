@@ -1,21 +1,48 @@
 // The shared window uses the same portal as browsers; local work stays local.
 let lanStatus = null, comparisonValue = null
+function lanFeedback(message = '', field = '') {
+  const box = $('lanMessage')
+  box.textContent = message; box.hidden = !message; box.dataset.field = field
+  ;(field ? $(field).closest('label') : $('lanState')).insertAdjacentElement('afterend', box)
+  for (const id of ['lanPort', 'lanRemote']) $(id).removeAttribute('aria-invalid')
+  if (field) { $(field).setAttribute('aria-invalid', 'true'); $(field).focus() }
+  if (message) box.scrollIntoView({ block: 'nearest' })
+}
+async function lanRequest(button, operation, field = '') {
+  button.disabled = true; lanFeedback()
+  try { await operation() } catch (error) { lanFeedback(error.message, field) }
+  finally { button.disabled = false }
+}
 async function showLan() {
-  lanStatus = await callApi('GET','/api/lan')
-  $('lanPort').value=lanStatus.port||8765; renderLan(); $('lanDialog').showModal()
+  lanStatus = null; $('lanState').textContent = '正在读取共享状态…'; $('lanAddresses').replaceChildren()
+  $('lanDialog').showModal()
+  await lanRequest($('lanToggle'), async () => {
+    lanStatus = await callApi('GET','/api/lan')
+    $('lanPort').value=lanStatus.port||8765; renderLan()
+  })
+  $('lanToggle').disabled = !lanStatus
 }
 function renderLan(){
   $('lanState').textContent=lanStatus.enabled?'共享服务已开启 · 同事可通过下面的地址使用':'共享服务已关闭'
   $('lanToggle').textContent=lanStatus.enabled?'关闭共享服务':'开启共享服务'
   $('lanAddresses').innerHTML=(lanStatus.addresses||[]).map(address=>`<div class="shared-address"><input readonly value="${esc(address)}" aria-label="共享地址"><button class="btn ghost" data-shared="${esc(address)}">打开</button></div>`).join('')
-  $('lanAddresses').querySelectorAll('[data-shared]').forEach(button=>button.onclick=()=>window.api.openSharedService(button.dataset.shared).catch(e=>toast(e.message,true)))
+  $('lanAddresses').querySelectorAll('[data-shared]').forEach(button=>button.onclick=()=>lanRequest(button,()=>window.api.openSharedService(button.dataset.shared)))
 }
 action('openLan',showLan);action('closeLan',()=>$('lanDialog').close())
 action('lanToggle',async()=>{
-  $('lanToggle').disabled=true
-  try{lanStatus=await callApi('POST','/api/lan',{enabled:!lanStatus.enabled,port:Number($('lanPort').value)});renderLan()}finally{$('lanToggle').disabled=false}
+  if (!lanStatus) return
+  const port = Number($('lanPort').value)
+  if (!lanStatus.enabled && (!$('lanPort').value.trim() || !Number.isInteger(port) || port < 1024 || port > 65535)) {
+    lanFeedback('共享端口请输入 1024–65535 之间的整数。', 'lanPort'); return
+  }
+  await lanRequest($('lanToggle'), async () => {
+    lanStatus=await callApi('POST','/api/lan',{enabled:!lanStatus.enabled,port}); renderLan()
+  })
 })
-action('lanConnect',()=>window.api.openSharedService($('lanRemote').value.trim()))
+action('lanConnect',()=>lanRequest($('lanConnect'),()=>window.api.openSharedService($('lanRemote').value.trim()),'lanRemote'))
+for (const id of ['lanPort', 'lanRemote']) $(id).addEventListener('input', () => {
+  if (!$('lanMessage').dataset.field || $('lanMessage').dataset.field === id) lanFeedback()
+})
 async function showComparison(comparisonId){
   comparisonValue=await callApi('GET','/api/comparisons/'+comparisonId)
   $('comparisonNote').textContent=`${comparisonValue.source_name} → ${comparisonValue.output_name}${comparisonValue.output_changed?' · 页面预览显示当前文件；文字对照保留上次保存的内容。':''}`

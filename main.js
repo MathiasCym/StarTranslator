@@ -1,5 +1,6 @@
 const runtimeLog = require('./lib/runtime-log').createLogger(() =>
   require('path').join(require('electron').app.getPath('userData'), 'logs', 'runtime.log'))
+require('./lib/runtime-log').installDiagnosticConsole(runtimeLog)
 
 if (process.argv.includes('--star-setup') || process.argv.includes('--star-uninstall')) {
   require('./lib/setup-host').startSetup().catch(error => { runtimeLog.error(error); process.exitCode = 1 })
