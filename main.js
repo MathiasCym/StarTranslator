@@ -135,7 +135,7 @@ let githubUpdater,quitAfterDownload=false
 function updater(){
   if(!githubUpdater)githubUpdater=new (require('./lib/github-updates').GitHubUpdates)({
     currentVersion:app.getVersion(),userData:app.getPath('userData'),
-    fetcher:(url,options)=>require('electron').net.fetch(url,options),
+    fetcher:require('./lib/electron-update-transport').createFetcher(require('electron').net),
     onStatus:value=>{if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('update-status',value)},
   })
   return githubUpdater

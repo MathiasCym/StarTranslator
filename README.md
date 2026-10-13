@@ -41,7 +41,7 @@ npm start
 
 ```powershell
 python-runtime\python.exe -B tools/run-regressions.py
-node --test tests/test_release.js tests/test_install_integrity.js tests/test_installation_repair.js tests/test_setup_worker.js tests/test_github_updates.js
+node --test tests/test_release.js tests/test_install_integrity.js tests/test_installation_repair.js tests/test_setup_worker.js tests/test_github_updates.js tests/test_electron_updates.js tests/test_release_repair.js
 ```
 
 版本按 [发布规则](RELEASING.md) 管理。维护者提交新版本源码到 main 后，GitHub Actions 执行测试、构建、实际安装引导图片验证及完整性校验，通过后发布安装包。单纯提交团队词库不会触发重复构建。已发布版本不会被覆盖。

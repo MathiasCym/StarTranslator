@@ -1,0 +1,10 @@
+[
+  {
+    "version": "2.0.0",
+    "releaseId": 411348167,
+    "previousDigest": "sha256:650ed5a80ab47b7b2ed5795eb858918b47fb73537f0f9711c703452fe67721a7",
+    "sourceCommit": "332fd50a944c3c41aa40417b865780d240c51348",
+    "backupTag": "v2.0.0-before-update-download-fix",
+    "reason": "Preserve 2.0.0 and repair Chromium manual-redirect handling before final delivery."
+  }
+]
