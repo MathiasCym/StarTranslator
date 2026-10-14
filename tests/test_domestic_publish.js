@@ -7,7 +7,7 @@ function fixture(provider='gitcode'){
  const bytes=Buffer.alloc(256*1024,27);bytes.write('MZ');bytes.writeUInt32LE(128,60);bytes.set([80,69,0,0],128)
  const tag='v2.0.4',name='StarTranslator-Setup-2.0.4.exe',sha=crypto.createHash('sha256').update(bytes).digest('hex')
  const release={tag_name:tag,prerelease:false,body:'Verified release',assets:[{name,state:'uploaded',size:bytes.length,digest:'sha256:'+sha,browser_download_url:'https://github.com/MathiasCym/StarTranslator/releases/download/'+tag+'/'+name}]}
- const state={remote:null,files:new Map(),calls:[],failName:'',badMetadata:false}
+ const state={remote:null,files:new Map(),calls:[],failName:'',badMetadata:false,badChecksum:false,nonJson:false,register:true}
  const fetcher=async(url,options={})=>{
   state.calls.push({url,options})
   if(url.startsWith(s.api)){
@@ -21,12 +21,13 @@ function fixture(provider='gitcode'){
   if(url.startsWith('https://bucket.obs.')){
    assert.equal(options.method,'PUT');assert.equal(options.redirect,'error');assert.equal(options.headers.Authorization,undefined)
    const filename=new URL(url).pathname.slice(1);if(filename===state.failName)return new Response(null,{status:413})
-   state.files.set(filename,Buffer.from(options.body));state.remote.assets.push({name:filename,browser_download_url:s.web+'/releases/download/'+tag+'/'+filename});return new Response(null,{status:204})
+   state.files.set(filename,Buffer.from(options.body));if(state.register)state.remote.assets.push({name:filename,browser_download_url:s.web+'/releases/download/'+tag+'/'+filename});return state.nonJson?new Response('<Complete/>',{status:200}):new Response(null,{status:204})
   }
   assert.equal(options.headers?.Authorization,undefined)
   const filename=new URL(url).pathname.split('/').at(-1)
   let data=state.files.get(filename)
   if(filename==='update.json'&&state.badMetadata)data=Buffer.from(JSON.stringify({...JSON.parse(data.toString()),sha256:'a'.repeat(64)}))
+  if(filename==='SHA256SUMS.txt'&&state.badChecksum)data=Buffer.from(data.toString().replace(/^[a-f0-9]{64}/,'b'.repeat(64)))
   return data?new Response(data):new Response(null,{status:404})
  }
  return {bytes,release,state,publisher:new GitCodePublisher({source:s,token,fetcher}),args:{release,bytes,userData:'unused-synthetic-path'}}
@@ -65,6 +66,20 @@ test('an upload limit error leaves the original release and stable mirrors uncha
 })
 test('a metadata mismatch is rejected before promoting a release',async()=>{
  const f=fixture();f.state.badMetadata=true;await assert.rejects(f.publisher.publish(f.args),/原发行包不同/)
+ assert.equal(f.state.remote.release_status,'pre');assert(!f.state.calls.some(c=>c.options.method==='PATCH'))
+})
+
+test('non-JSON storage callbacks require registered and anonymously verified attachments',async()=>{
+ const f=fixture();f.state.nonJson=true
+ assert.equal((await f.publisher.publish(f.args)).published,true)
+ const missing=fixture();missing.state.nonJson=true;missing.state.register=false
+ await assert.rejects(missing.publisher.publish(missing.args),/未发现登记/)
+ assert.equal(missing.state.remote.release_status,'pre');assert(!missing.state.calls.some(c=>c.options.method==='PATCH'))
+})
+
+test('a registered checksum attachment with wrong content never becomes a stable release',async()=>{
+ const f=fixture();f.state.nonJson=true;f.state.badChecksum=true
+ await assert.rejects(f.publisher.publish(f.args),/校验附件与原发行包不同/)
  assert.equal(f.state.remote.release_status,'pre');assert(!f.state.calls.some(c=>c.options.method==='PATCH'))
 })
 test('published matching releases are retained without uploading or downloading the installer again',async()=>{

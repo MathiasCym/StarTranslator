@@ -77,8 +77,13 @@ class GitCodePublisher{
   if(!response.ok)throw Error('国内发行附件上传未完成（HTTP '+response.status+'），请检查免费附件限额。')
   // OBS can report an unsuccessful attachment callback in an otherwise 200 body.
   const body=await readBody(response,512*1024)
-  if(body.length){let result;try{result=JSON.parse(body.toString('utf8'))}catch{throw Error('国内附件上传结果无法确认。')}
-   if(result.error||result.success===false||(result.code!==undefined&&![0,200,'0','200'].includes(result.code)))throw Error('国内附件登记未完成，请重新检查发行版。')}
+  if(body.length){let result;try{result=JSON.parse(body.toString('utf8'))}catch{
+    // Some successful storage callbacks return non-JSON bodies. Do not infer
+    // success from their text: require an actual uniquely registered attachment.
+    const registered=await this.call('GET','releases/tags/'+encodeURIComponent(tag))
+    if((registered?.assets||[]).filter(asset=>asset.name===name).length!==1)throw Error('国内附件上传结果无法确认，未发现登记的附件。')
+   }
+   if(result&&(result.error||result.success===false||(result.code!==undefined&&![0,200,'0','200'].includes(result.code))))throw Error('国内附件登记未完成，请重新检查发行版。')}
   this.onProgress({phase:'upload-registered',file:name,bytes:bytes.length})
  }
  async retained(release,userData){
@@ -114,6 +119,9 @@ class GitCodePublisher{
   }
   const ready=await this.call('GET','releases/tags/'+tag)
   if(!ready||!files.every(([name])=>(ready.assets||[]).filter(a=>a.name===name).length===1))throw Error('国内发行版附件登记不完整，保持预发布状态。')
+  const checksumFile=files[0]
+  const checksumResponse=await fetchTrusted(this.fetcher,this.source.assetUrl(ready.assets.find(x=>x.name===checksumFile[0]).browser_download_url,tag,checksumFile[0]),{},this.source.trusted)
+  if(!checksumResponse.ok||!(await readBody(checksumResponse,checksumFile[1].length)).equals(checksumFile[1]))throw Error('国内校验附件与原发行包不同，保持预发布状态。')
   // Read back the installer anonymously before making it a stable update source.
   this.onProgress({phase:'verify-public-installer',bytes:a.size})
   const publicUrl=this.source.assetUrl(ready.assets.find(x=>x.name===a.filename).browser_download_url,tag,a.filename)
