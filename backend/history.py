@@ -23,7 +23,7 @@ def begin(job_id, data, status='running'):
     stamp = time.time()
     row = {'id': job_id, 'kind': data['kind'], 'status': status, 'started_at': datetime.fromtimestamp(stamp).astimezone().isoformat(),
            'finished_at': '', 'paths': list(dict.fromkeys(data.get('paths', []))),
-           'output_dir': data.get('output_dir') or '', 'outputs': [], 'errors': [], 'counts': {}}
+           'output_dir': data.get('output_dir') or '', 'translation_mode':data.get('translation_mode','faithful'), 'outputs': [], 'errors': [], 'counts': {}}
     with connection() as db:
         db.execute('INSERT OR IGNORE INTO tasks VALUES (?,?,?,?,?)', (job_id, stamp, row['kind'], row['status'], json.dumps(row, ensure_ascii=False)))
         if status == 'running':

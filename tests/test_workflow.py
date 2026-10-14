@@ -37,6 +37,9 @@ class FakeModel:
 
 class WorkflowTests(unittest.TestCase):
     def setUp(self):
+        # These tests exercise text/package behavior. Image review has its own suite.
+        for target in ('backend.translation.review_pptx','backend.workflow.review_pptx'):
+            stub=patch(target,return_value=([],[]));stub.start();self.addCleanup(stub.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.environment = patch.dict(os.environ,{'NOVATERM_DATA_DIR':str(self.root/'data')})

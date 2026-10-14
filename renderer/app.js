@@ -53,6 +53,7 @@ function setMode(mode) {
   $('dropTitle').textContent = mode === 'check' ? '添加英文译文' : '添加中文原稿'
   $('workspaceHint').textContent = mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
   $('llmOption').hidden = mode !== 'check'
+  $('translationOptions').hidden = mode !== 'translate' || !state.files.some(path => /\.pptx$/i.test(path))
   $('runBtn').textContent = mode === 'check' ? '开始校对' : '开始翻译'
   $('runCombined').hidden = mode !== 'translate'
   $('scopeHint').textContent = mode === 'check' ? '修改由你确认，支持另存或覆盖原文件。' : '译文单独保存；图片内文字需手动处理。'
@@ -131,6 +132,13 @@ function addFiles(paths, reference = false) {
   renderFiles()
 }
 function renderFiles() {
+  const hasPresentation = state.files.some(path => /\.pptx$/i.test(path))
+  $('translationOptions').hidden = state.mode !== 'translate' || !hasPresentation
+  if (!hasPresentation) {
+    document.querySelector('[name=translationMode][value=faithful]').checked = true
+    $('translationOptions').querySelector('.translation-help-button').setAttribute('aria-expanded', 'false')
+    $('translationOptions').querySelector('.translation-help').hidden = true
+  }
   $('filePanel').hidden = !state.files.length; $('fileCount').textContent = state.files.length
   $('dropzone').classList.toggle('compact', !!state.files.length)
   $('runBtn').disabled = !state.files.length || state.busy
@@ -156,6 +164,7 @@ window.addEventListener('dragover', event => event.preventDefault()); window.add
 
 function busy(value) {
   state.busy = value
+  $('translationOptions').disabled = value
   $('jobProgressTrack').classList.toggle('active', value)
   for (const id of ['modeCheck', 'modeTranslate', 'openLexicon', 'openModel', 'runCombined']) $(id).disabled = value || (id === 'runCombined' && !state.files.length)
   $('jobPanel').hidden = !value; $('runBtn').disabled = value || !state.files.length
@@ -177,7 +186,7 @@ async function runTask(combined = false) {
   $('liveFindings').hidden = true; $('liveFindings').innerHTML = ''
   $('jobStages').hidden = kind !== 'translate_review'; renderJobPhase({ phase: 'preparing' })
   try {
-    state.job = await callApi('POST', '/api/jobs', { kind, ...submitted, combined_output: combinedOutput, use_llm: $('useLlm').checked, workers:$('parallelWork').checked?3:1,output_dir: state.outputDir || null })
+    state.job = await callApi('POST', '/api/jobs', { kind, ...submitted, translation_mode:document.querySelector('[name=translationMode]:checked').value, combined_output: combinedOutput, use_llm: $('useLlm').checked, workers:$('parallelWork').checked?3:1,output_dir: state.outputDir || null })
     let failures = 0
     while (['queued','running'].includes(state.job.status)) {
       await delay(600)

@@ -132,7 +132,7 @@ def _style(run, defaults, slide, document, font_scale):
         return next((s.get(name) for s in sources if s.get(name) is not None), fallback)
     name = next((n.get('typeface') for s in sources for n in [_node(s,'latin')] if n is not None), '+mn-lt')
     return (_font_name(name, slide, document), float(attr('sz',1800))/100 * font_scale,
-            attr('b','0') == '1', attr('i','0') == '1', float(attr('spc',0))/1000)
+            attr('b','0') in {'1','true','on'}, attr('i','0') in {'1','true','on'}, float(attr('spc',0))/100)
 
 
 def _paragraph_data(frame, shape, slide, document):
@@ -223,12 +223,12 @@ def estimate(data, width, metrics, scale=1, wrap=True):
 
 
 def _frames(document, changed):
+    from .pptx_geometry import walk_shapes, dimensions
     def shapes(items,prefix,slide):
-        for index,shape in enumerate(items):
-            key=f'{prefix}/shape{index}'
-            if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
-                yield from shapes(shape.shapes,key,slide)
-            elif shape.has_table:
+        for key,shape,transform in walk_shapes(items,prefix):
+            actual_width,actual_height=dimensions(shape,transform)
+            sx,sy=actual_width/max(1,shape.width),actual_height/max(1,shape.height)
+            if shape.has_table:
                 table=shape.table
                 for r,row in enumerate(table.rows):
                     for c,cell in enumerate(row.cells):
@@ -237,10 +237,10 @@ def _frames(document, changed):
                         width=sum(table.columns[k].width for k in range(c,c+cell.span_width))
                         height=sum(table.rows[k].height for k in range(r,r+cell.span_height))
                         margins=(cell.margin_left,cell.margin_right,cell.margin_top,cell.margin_bottom)
-                        yield loc,cell.text_frame,None,slide,width,height,margins
+                        yield loc,cell.text_frame,None,slide,round(width*sx),round(height*sy),margins
             elif shape.has_text_frame and any(v.startswith(key+'/p') for v in changed):
                 frame=shape.text_frame
-                yield key,frame,shape,slide,shape.width,shape.height,(frame.margin_left,frame.margin_right,frame.margin_top,frame.margin_bottom)
+                yield key,frame,shape,slide,actual_width,actual_height,(frame.margin_left,frame.margin_right,frame.margin_top,frame.margin_bottom)
             elif shape.has_chart:
                 name=str(shape.chart.part.partname).lstrip('/')
                 root=getattr(document,'_star_extra_parts',{}).get(name)
@@ -268,7 +268,7 @@ def _frames(document, changed):
                         w=.9 if title else .78/max(1,count)
                     if not h or not 0<h<=1: h=.19 if title else .14
                     frame=TextFrame(body,Owner(shape.chart.part))
-                    yield loc,frame,shape,slide,round(shape.width*w),round(shape.height*h),(frame.margin_left,frame.margin_right,frame.margin_top,frame.margin_bottom)
+                    yield loc,frame,shape,slide,round(actual_width*w),round(actual_height*h),(frame.margin_left,frame.margin_right,frame.margin_top,frame.margin_bottom)
     for index,slide in enumerate(document.slides,1):
         yield from shapes(slide.shapes,f'slide{index}',slide)
     # Shared template objects are measured once; their geometry is retained.
@@ -285,15 +285,34 @@ def _frames(document, changed):
                 yield key,frame,None,None,int(ext.get('cx')),int(ext.get('cy')),(frame.margin_left,frame.margin_right,frame.margin_top,frame.margin_bottom)
 
 
+def _all_locators(document):
+    from .pptx_geometry import walk_shapes
+    result=[]
+    for index,slide in enumerate(document.slides,1):
+        for key,shape,_ in walk_shapes(slide.shapes,f'slide{index}'):
+            if shape.has_text_frame: result.append(key+'/p0')
+            elif shape.has_table:
+                result.extend(f'{key}/table/{r}/{c}/0' for r,row in enumerate(shape.table.rows)
+                              for c,cell in enumerate(row.cells) if not cell.is_spanned)
+    return result
+
+
 def capture_layout(document, locators):
-    """Snapshot original text and typography before translation/replacement mutates runs."""
+    """Freeze all slide peers so each source style can share a page font size."""
+    from .pptx_geometry import walk_shapes, bounds
     snapshots={}
-    for key,frame,shape,slide,width,height,margins in _frames(document,locators):
+    rects={}
+    for index,slide in enumerate(document.slides,1):
+        for key,shape,transform in walk_shapes(slide.shapes,f'slide{index}'):
+            rects[key]=bounds(shape,transform)
+    for key,frame,shape,slide,width,height,margins in _frames(document,list(dict.fromkeys([*locators,*_all_locators(document)]))):
         data=_paragraph_data(frame,shape,slide,document)
         frozen=[(None,[(SimpleNamespace(text=run.text),style) for run,style in pieces],left,right,indent,dict(spacing),bullet)
                 for _,pieces,left,right,indent,spacing,bullet in data]
+        page=document.slides.index(slide)+1 if slide is not None else key.split('/body')[0]
         snapshots[key]={'data':frozen,'wrap':frame.word_wrap is not False,'auto_size':frame.auto_size,
-                        'width':width,'height':height,'margins':margins}
+                        'width':width,'height':height,'margins':margins,'page':page,'rect':rects.get(key),
+                        'obstacles':[r for k,r in rects.items() if k!=key and k.startswith(f'slide{page}/')]}
     return snapshots
 
 
@@ -314,25 +333,6 @@ def _variant(data, compact=False, font=None):
     return result
 
 
-def _find_scale(data,width,height,metrics,wrap):
-    sizes=Counter()
-    for _,pieces,*_ in data:
-        for run,style in pieces: sizes[style[1]]+=len(run.text.strip()) or 1
-    dominant=max(sizes,key=sizes.get)
-    floor=min(1,max(6,min(9,dominant*.65))/dominant)
-    def fits(scale):
-        h,_,clipped=estimate(data,width,metrics,scale,wrap)
-        return h<=height and not clipped
-    if fits(1): return 1,True,dominant
-    if not fits(floor): return floor,False,dominant
-    lo,hi=floor,1
-    for _ in range(12):
-        mid=(lo+hi)/2
-        if fits(mid): lo=mid
-        else: hi=mid
-    return max(floor,lo-.004),True,dominant
-
-
 def _write_typography(data,scale,font_changed,spacing_changed,padding,baked_scale):
     from pptx.oxml.xmlchemy import OxmlElement
     for paragraph,pieces,_,_,_,spacing,_ in data:
@@ -343,6 +343,7 @@ def _write_typography(data,scale,font_changed,spacing_changed,padding,baked_scal
                 if rpr is None:
                     rpr=OxmlElement('a:rPr'); run._r.insert(0,rpr)
                 rpr.set('sz',str(round(size*100)))
+                rpr.set('spc',str(round(style[4]*100)))
                 if font_changed:
                     latin=_node(rpr,'latin')
                     if latin is None: latin=OxmlElement('a:latin'); rpr.append(latin)
@@ -352,6 +353,8 @@ def _write_typography(data,scale,font_changed,spacing_changed,padding,baked_scal
             if scale<.999 or baked_scale or explicit is not None and abs(explicit-size)>.005:
                 run.font.size=Pt(size)
             if font_changed: run.font.name=style[0]
+            rpr=run.font._rPr
+            rpr.set('spc',str(round(style[4]*100)))
         if spacing_changed or scale<.999:
             if 'lnSpc' in spacing:
                 kind,value=spacing['lnSpc']
@@ -372,86 +375,195 @@ def _write_typography(data,scale,font_changed,spacing_changed,padding,baked_scal
             paragraph._p.remove(ppr); paragraph._p.insert(0,ppr)
 
 
-def fit_document(document, changed, snapshots=None):
-    warnings, adjustments = [], []
+# Newly reduced sizes use clean, editable point sizes. Untouched source sizes stay exact.
+FONT_STEPS=(6,7,8,9,10,11,12,14,16,18,20,22,24,26,28,30,32,36,40,44,48,54,60,64,72,80,88,96)
+
+
+def _cohort(page,style):
+    return (page,style[0].casefold(),round(style[1],2),style[2],style[3])
+
+
+def _step(size,original):
+    floor=min(original,max(6,min(9,original*.65)))
+    return next((v for v in reversed(FONT_STEPS) if floor<=v<size-.005),size)
+
+
+def _sized(data,page,targets):
+    return [(p,[(r,(st[0],targets[_cohort(page,st)],*st[2:])) for r,st in pieces],l,rr,i,sp,b)
+            for p,pieces,l,rr,i,sp,b in data]
+
+
+def _preserve_emphasis(plans,targets):
+    """Keep source size contrast within mixed-size paragraphs, across page peers."""
+    pairs=set()
+    for _,_,_,data,page,*_ in plans:
+        for _,pieces,*_ in data:
+            styles={_cohort(page,st) for r,st in pieces if r.text.strip()}
+            pairs.update((big,small) for big in styles for small in styles if big[2]>small[2]+.5)
+    for _ in range(20):
+        changed=False
+        for big,small in sorted(pairs,key=lambda p:p[0][2]):
+            ratio=big[2]/small[2]*.9
+            if targets[big]+.01>=targets[small]*ratio:continue
+            floor=min(small[2],max(6,min(9,small[2]*.65)))
+            candidates=[v for v in FONT_STEPS if floor<=v<=targets[big]/ratio+.005 and v<targets[small]]
+            if candidates:targets[small]=max(candidates);changed=True
+            else:
+                needed=targets[small]*ratio
+                bigger=next((v for v in FONT_STEPS if needed<=v<=big[2]),big[2])
+                if bigger>targets[big]:targets[big]=bigger;changed=True
+        if not changed:break
+
+
+def fit_document(document, changed, snapshots=None, constraints=None):
+    """Plan fits, reconcile per-page source-style cohorts, then verify final sizes.
+
+    constraints are private visual-review frame requests for one further font step.
+    They can change typography, never content, object geometry or font families.
+    """
+    warnings,adjustments=[],[]
+    snapshots=snapshots or capture_layout(document,changed)
+    requested=list(changed)
+    active_pages={v['page'] for k,v in snapshots.items() if any(c.startswith(k.rstrip('/')+'/') for c in requested)}
+    peers=[k+('0' if k.endswith('/') else '/p0') for k,v in snapshots.items() if v['page'] in active_pages]
+    targets={}
+    plans=[]
+    origins=getattr(document,'_star_cohort_origins',{})
+    document._star_cohort_origins=origins
+    from .pptx_style_manifest import run_key
+    style_origins=getattr(document,'_star_run_styles',{})
+    document._star_run_styles=style_origins
+    rendered_sizes={}
     try:
         with Metrics() as metrics:
-            for key,frame,shape,slide,width,height,margins in _frames(document,changed):
-                if '/table/' in key:
-                    cell=key.split('/table/',1)[1].strip('/').split('/')
-                    label=f'表格第 {int(cell[0])+1} 行、第 {int(cell[1])+1} 列'
-                else:
-                    label=('图表文字' if key.startswith('part:ppt/charts/') else f'文本框 {shape.shape_id}') if shape is not None else '共享版式文字'
-                location={'slide':document.slides.index(slide)+1 if slide is not None else None,'text':label,'locator':key}
+            for key,frame,shape,slide,w,h,margins in _frames(document,list(dict.fromkeys([*requested,*peers]))):
+                original=snapshots.get(key)
+                page=original['page'] if original else document.slides.index(slide)+1 if slide is not None else key.split('/body')[0]
+                data=_paragraph_data(frame,shape,slide,document)
+                touched=any(c.startswith(key.rstrip('/')+'/') for c in requested)
+                if not any(run.text.strip() for _,pieces,*_ in data for run,_ in pieces):continue
+                restored=[]
+                for p,pieces,l,r,i,sp,b in data:
+                    values=[]
+                    for run,style in pieces:
+                        if hasattr(run,'_r'):style_origins.setdefault(run._r,run_key(run))
+                        current_size=style[1]
+                        style=origins.setdefault(run._r,style)
+                        c=_cohort(page,style)
+                        rendered_sizes[c]=min(rendered_sizes.get(c,current_size),current_size)
+                        values.append((run,style))
+                    restored.append((p,values,l,r,i,sp,b))
+                data=restored
+                # Chinese tracking applied unchanged to many more Latin letters
+                # creates artificial overflow. Keep modest spacing in translated
+                # paragraphs before reducing font size; intentional English stays.
+                if original:
+                    adapted=[]
+                    for index,(p,pieces,l,r,i,sp,b) in enumerate(data):
+                        source_text=''.join(run.text for run,_ in original['data'][index][1]) if index<len(original['data']) else ''
+                        translated=re.search(r'[\u3400-\u9fff]',source_text) and not re.search(r'[\u3400-\u9fff]',''.join(run.text for run,_ in pieces))
+                        if translated:
+                            cap=0 if constraints and key in constraints else None
+                            pieces=[(run,(*st[:4],min(st[4],cap if cap is not None else st[1]*.03))) for run,st in pieces]
+                        adapted.append((p,pieces,l,r,i,sp,b))
+                    data=adapted
+                location={'slide':page if isinstance(page,int) else None,'text':f'文本框 {shape.shape_id}' if shape is not None else '表格或共享文字','locator':key}
                 props=frame._txBody.bodyPr
-                if props.get('vert','horz') != 'horz' or int(props.get('numCol','1'))>1:
-                    warnings.append({**location,'reason':'竖排或多栏文本保留原有布局，请检查显示。'}); continue
-                width=(width-margins[0]-margins[1])/EMU_PT*.975
-                height=(height-margins[2]-margins[3])/EMU_PT*.97
-                original=(snapshots or {}).get(key)
-                natural_bounds=False
+                if any(n.tag==f'{{{A}}}fld' for n in frame._txBody.iter()):
+                    continue
+                if props.get('vert','horz')!='horz' or int(props.get('numCol','1'))>1:
+                    if any(c.startswith(key.rstrip('/')+'/') for c in requested):
+                        warnings.append({**location,'reason':'该处文字方向或分栏需要确认。'})
+                    continue
+                for _,pieces,*_ in data:
+                    for _,style in pieces: targets.setdefault(_cohort(page,style),style[1])
+                width=(w-margins[0]-margins[1])/EMU_PT*.975
+                height=(h-margins[2]-margins[3])/EMU_PT*.97
                 wrap=frame.word_wrap is not False
+                natural=False
                 if (width<=0 or height<=0) and original and original['auto_size']==MSO_AUTO_SIZE.SHAPE_TO_FIT_TEXT:
-                    # Zero-size auto-growing source objects use their original ink bounds.
-                    # Retain every coordinate/dimension and the source stretch setting.
-                    natural_bounds=True
+                    natural=True
                     if width<=0:
                         _,width,_=estimate(original['data'],10000,metrics,wrap=False)
                         width+=max((left+right for _,_,left,right,*_ in original['data']),default=0)+.5
                         wrap=False
-                    if height<=0:
-                        height=estimate(original['data'],width,metrics,wrap=wrap)[0]+.5
-                if width <= 0 or height <= 0:
-                    warnings.append({**location,'reason':'原稿文本框尺寸过小，保留原有伸展设置，请检查该处显示。'})
+                    if height<=0: height=estimate(original['data'],width,metrics,wrap=wrap)[0]+.5
+                if width<=0 or height<=0:
+                    if touched:warnings.append({**location,'reason':'原稿文字空间过小，请确认该处显示。'})
                     continue
-                data=_paragraph_data(frame,shape,slide,document)
-                norm=_node(props,'normAutofit')
-                baked_scale=norm is not None and norm.get('fontScale','100000')!='100000'
-                wrapped=False
-                # Preserve explicit no-wrap where possible, especially auto-growing titles.
+                # Text frames may extend below their visible Chinese text into a picture.
+                # Reserve that picture/next object if the source ink did not overlap it.
+                if original and original.get('rect') and props.get('anchor','t')=='t':
+                    x,y,rw,_=original['rect']; source_h=estimate(original['data'],width,metrics,wrap=wrap)[0]
+                    ink_bottom=y/EMU_PT+margins[2]/EMU_PT+source_h
+                    for ox,oy,ow,oh in original.get('obstacles',[]):
+                        overlap=min(x+rw,ox+ow)-max(x,ox)
+                        if ow>0 and oh>0 and overlap>min(rw,ow)*.25 and oy/EMU_PT>=ink_bottom+1:
+                            height=min(height,(oy-y-margins[2])/EMU_PT-2)
+                height=max(.1,height)
                 budgets=None
                 if original and len(original['data'])==len(data) and len(data)>1:
                     budgets=[estimate([item],width,metrics,wrap=wrap)[0] for item in original['data']]
                     total=sum(budgets)
-                    if total>height: budgets=[b*height/total for b in budgets]
+                    if total>height: budgets=[v*height/total for v in budgets]
                     else:
                         last=max((i for i,item in enumerate(original['data']) if any(r.text.strip() for r,_ in item[1])),default=len(data)-1)
                         budgets[last]+=height-total
                 units=[[item] for item in data] if budgets else [data]
+                unit_plans=[]
                 for index,unit in enumerate(units):
                     budget=budgets[index] if budgets else height
-                    scale,ok,dominant=_find_scale(unit,width,budget,metrics,wrap)
-                    chosen,compact,font=unit,False,None
-                    if scale<.82 or not ok:
-                        candidate=_variant(unit,compact=True)
-                        alt,alt_ok,_=_find_scale(candidate,width,budget,metrics,wrap)
-                        if alt>scale+.025 or alt_ok and not ok:
-                            chosen,scale,ok,compact=candidate,alt,alt_ok,True
-                    if scale<.75 or not ok:
-                        for family in ['Arial Narrow','Aptos Narrow','Calibri']:
-                            if not metrics.has_font(family):continue
-                            candidate=_variant(unit,compact=compact,font=family)
-                            alt,alt_ok,_=_find_scale(candidate,width,budget,metrics,wrap)
-                            if alt>scale+.04 or alt_ok and not ok:
-                                chosen,scale,ok,font=candidate,alt,alt_ok,family
-                    # Ordinary no-wrap boxes can use word wrapping if shrinking alone fails.
-                    if not ok and not wrap and not natural_bounds:
-                        wrap=True;wrapped=True;frame.word_wrap=True
-                        chosen=_variant(unit,compact=compact,font=font)
-                        scale,ok,_=_find_scale(chosen,width,budget,metrics,wrap)
-                    measured=estimate(chosen,width,metrics,scale,wrap)[0]
-                    padding=max(0,budget-measured-.1) if budgets and index<len(units)-1 and ok else 0
-                    _write_typography(chosen,scale,bool(font),compact,padding,baked_scale)
-                    if not ok:
-                        warnings.append({**location,'reason':f'第 {index+1} 段已缩小字号；原有空间仍较紧，请检查该处显示。'})
-                    if scale<.999 or wrapped or compact or font:
-                        adjustments.append({**location,'paragraph':index+1,'scale':round(scale,3),'font_size':round(dominant*scale,2),
-                                            'wrapped':wrapped,'font':font,'spacing_compacted':compact,'original_bounds':natural_bounds})
-                if not natural_bounds: frame.auto_size=MSO_AUTO_SIZE.NONE
-                if key.startswith('part:ppt/charts/'):
-                    # Never replace a forecast value with an ellipsis at display time.
-                    # The measured font fits the retained chart-label bounds.
-                    props.set('vertOverflow','overflow'); props.set('horzOverflow','overflow')
+                    chosen=unit; compact=False
+                    if touched:
+                        if estimate(chosen,width,metrics,wrap=wrap)[0]>budget:
+                            chosen=_variant(unit,compact=True);compact=True
+                        cohorts={_cohort(page,st) for _,pieces,*_ in chosen for _,st in pieces}
+                        local={c:targets[c] for c in cohorts}
+                        if constraints and key in constraints:
+                            for c in cohorts: local[c]=min(local[c],_step(rendered_sizes.get(c,local[c]),c[2]))
+                        def fits():
+                            measured=_sized(chosen,page,local)
+                            mh,_,clip=estimate(measured,width,metrics,wrap=wrap)
+                            return mh<=budget and not clip
+                        while not fits():
+                            reduced={c:_step(v,c[2]) for c,v in local.items()}
+                            if reduced==local:break
+                            local=reduced
+                        if not fits() and not wrap and not natural:
+                            wrap=True;frame.word_wrap=True
+                            # With wrapping, retry from current page requirements.
+                            local={c:targets[c] for c in cohorts}
+                            while not fits():
+                                reduced={c:_step(v,c[2]) for c,v in local.items()}
+                                if reduced==local:break
+                                local=reduced
+                        for c,v in local.items(): targets[c]=min(targets[c],v)
+                    unit_plans.append((chosen,budget,compact))
+                plans.append((key,frame,location,data,page,width,height,wrap,natural,budgets,unit_plans,touched))
+            # Reconcile before writing so peers and translated text use exactly one size.
+            _preserve_emphasis(plans,targets)
+            for key,frame,location,data,page,width,height,wrap,natural,budgets,units,touched in plans:
+                any_change=False
+                for index,(unit,budget,compact) in enumerate(units):
+                    chosen=_sized(unit,page,targets)
+                    measured,_,clip=estimate(chosen,width,metrics,wrap=wrap)
+                    reduced=any(targets[_cohort(page,st)]<st[1]-.005 for _,pieces,*_ in unit for _,st in pieces)
+                    ok=measured<=budget+.2 and not clip
+                    padding=max(0,budget-measured-.1) if touched and budgets and index<len(units)-1 and ok else 0
+                    if touched or reduced:
+                        _write_typography(chosen,1,False,compact,padding,True)
+                        any_change=True
+                    if touched and not ok:
+                        warnings.append({**location,'reason':f'第 {index+1} 段空间不足，已保留完整文字，请确认该处排版。'})
+                    if reduced or compact:
+                        sizes=sorted({st[1] for _,pieces,*_ in chosen for _,st in pieces})
+                        adjustments.append({**location,'paragraph':index+1,'font_size':max(sizes),'font_sizes':sizes,
+                                            'font':None,'spacing_compacted':compact,'original_bounds':natural})
+                if any_change:
+                    if not natural: frame.auto_size=MSO_AUTO_SIZE.NONE
+                    # Include untouched English peers in the minimal-part saver.
+                    locator=key+('0' if key.endswith('/') else '/p0')
+                    if locator not in changed:changed.append(locator)
     except OSError as error:
-        warnings.append({'slide':None,'text':'','reason':'文字测量未完成，保留原有字号：'+str(error)})
+        warnings.append({'slide':None,'text':'','reason':'部分文字排版检查未完成，请确认文档显示。'})
     return adjustments,warnings

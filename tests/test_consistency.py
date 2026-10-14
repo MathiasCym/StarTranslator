@@ -31,6 +31,8 @@ def segment(i, text, file='deck.pptx', **extra):
 
 class ConsistencyTests(unittest.TestCase):
     def setUp(self):
+        for target in ('backend.translation.review_pptx','backend.workflow.review_pptx'):
+            stub=patch(target,return_value=([],[]));stub.start();self.addCleanup(stub.stop)
         self.g = Glossary([])
 
     def test_user_period_example_is_advisory_with_and_without_originals(self):
@@ -184,6 +186,8 @@ class ConsistencyTests(unittest.TestCase):
 
 class ConsistencyWorkflowTests(unittest.TestCase):
     def setUp(self):
+        for target in ('backend.translation.review_pptx','backend.workflow.review_pptx'):
+            stub=patch(target,return_value=([],[]));stub.start();self.addCleanup(stub.stop)
         self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
         self.environment=patch.dict(os.environ,{'NOVATERM_DATA_DIR':str(self.root/'profile')});self.environment.start()
     def tearDown(self): self.environment.stop();self.temp.cleanup()

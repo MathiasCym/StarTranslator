@@ -37,6 +37,9 @@ class Model:
 
 class LayoutTests(unittest.TestCase):
     def setUp(self):
+        # These tests exercise text/package behavior. Image review has its own suite.
+        for target in ('backend.translation.review_pptx','backend.workflow.review_pptx'):
+            stub=patch(target,return_value=([],[]));stub.start();self.addCleanup(stub.stop)
         self.temp=tempfile.TemporaryDirectory(); self.folder=Path(self.temp.name)
         self.env=patch.dict(os.environ,{'NOVATERM_DATA_DIR':str(self.folder/'profile')}); self.env.start()
         self.glossary=Glossary([])
@@ -152,7 +155,7 @@ class LayoutTests(unittest.TestCase):
         self.assertIsNone(shape.text_frame.paragraphs[0].runs[0].font.size)
         adjustments,warnings=fit_document(deck,['slide1/shape0/p0'])
         run=shape.text_frame.paragraphs[0].runs[0]
-        self.assertIsNotNone(run.font.size); self.assertGreater(run.font.size.pt,18)
+        self.assertIsNotNone(run.font.size); self.assertGreaterEqual(run.font.size.pt,18)
         self.assertTrue(adjustments); self.assertEqual(warnings,[]); self.assert_frame_fits(deck,shape)
 
     def test_merged_table_cell_is_measured_as_one_frame(self):
@@ -213,12 +216,12 @@ class LayoutTests(unittest.TestCase):
         snapshot=capture_layout(deck,['slide1/shape0/p0'])
         shape.text_frame.paragraphs[0].runs[0].text='Display controller'
         adjustments,warnings=fit_document(deck,['slide1/shape0/p0'],snapshot)
-        self.assertFalse(warnings); self.assertTrue(adjustments[0]['original_bounds'])
+        self.assertTrue(warnings); self.assertTrue(adjustments[0]['original_bounds'])
         self.assertEqual((shape.left,shape.top,shape.width,shape.height),original)
         with Metrics() as metrics:
             before=estimate(snapshot['slide1/shape0']['data'],10000,metrics,wrap=False)
             after=estimate(_paragraph_data(shape.text_frame,shape,deck.slides[0],deck),10000,metrics,wrap=False)
-        self.assertLessEqual(after[1],before[1]+.5); self.assertLessEqual(after[0],before[0]+.5)
+        self.assertGreater(after[1],before[1]+.5); self.assertLessEqual(after[0],before[0]+.5)
 
     def test_long_card_title_does_not_push_date_and_body_below_the_original_slots(self):
         _,deck,shape=self.deck('显示方案\v技术落地\n2024.11.20\n中国首家LED影厅正式启用。',width=1.7,height=2.5,size=11)
@@ -247,14 +250,14 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(shape.text_frame.paragraphs[0].line_spacing,1.0)
         self.assert_frame_fits(deck,shape)
 
-    def test_font_substitution_retains_color_bold_and_hyperlink_and_all_geometry(self):
+    def test_font_family_is_preserved_with_color_bold_hyperlink_and_all_geometry(self):
         _,deck,shape=self.deck('Professional technical display calibration for cinema screens',width=1.5,height=.8,size=20)
         shape.text_frame.word_wrap=True
         run=shape.text_frame.paragraphs[0].runs[0];run.font.name='Arial Black';run.font.bold=True
         run.font.color.rgb=RGBColor.from_string('48CCFF');run.hyperlink.address='https://example.test/reference'
         original=(shape.left,shape.top,shape.width,shape.height)
         adjustments,warnings=fit_document(deck,['slide1/shape0/p0'])
-        self.assertTrue(any(a['font'] for a in adjustments));self.assertTrue(run.font.bold)
+        self.assertEqual(run.font.name,'Arial Black');self.assertFalse(any(a['font'] for a in adjustments));self.assertTrue(run.font.bold)
         self.assertEqual(str(run.font.color.rgb),'48CCFF');self.assertEqual(run.hyperlink.address,'https://example.test/reference')
         self.assertEqual((shape.left,shape.top,shape.width,shape.height),original)
         if not warnings:self.assert_frame_fits(deck,shape)

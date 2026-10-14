@@ -20,15 +20,19 @@ function setProgress(progress,value,active) {
 }
 function showError(error) { $('error').textContent = error.message; $('error').hidden = false }
 function action(id, fn) { $(id).onclick = async () => { try { await fn() } catch(e) { showError(e) } } }
-function mode() { $('outputField').hidden = document.querySelector('[name=kind]:checked').value !== 'translate_review' }
+function mode() {
+  const kind=document.querySelector('[name=kind]:checked').value,hasPresentation=[...$('files').files].some(file=>/\.pptx$/i.test(file.name))
+  $('outputField').hidden=kind!=='translate_review'; $('translationOptions').hidden=kind==='check'||!hasPresentation
+  if(!hasPresentation){document.querySelector('[name=translationMode][value=faithful]').checked=true;$('translationOptions').querySelector('.translation-help-button').setAttribute('aria-expanded','false');$('translationOptions').querySelector('.translation-help').hidden=true}
+}
 document.querySelectorAll('[name=kind]').forEach(el => el.onchange = mode); mode()
-for (const [id,label] of [['files','fileNames'],['references','referenceNames']]) $(id).onchange = () => { $(label).textContent = [...$(id).files].map(f=>f.name).join('、') || (id === 'files' ? '支持 Office、PDF、文本、电子书和字幕，每份不超过 150 MB。PDF 文字层输出为 Word。' : '') }
+for (const [id,label] of [['files','fileNames'],['references','referenceNames']]) $(id).onchange = () => { $(label).textContent = [...$(id).files].map(f=>f.name).join('、') || (id === 'files' ? '支持 Office、PDF、文本、电子书和字幕，每份不超过 150 MB。PDF 文字层输出为 Word。' : ''); mode() }
 $('form').onsubmit = async event => {
   event.preventDefault(); $('error').hidden = true
   const form = new FormData(), kind = document.querySelector('[name=kind]:checked').value
   for (const file of $('files').files) form.append('files',file)
   for (const file of $('references').files) form.append('references',file)
-  form.append('options',JSON.stringify({kind,combined_output:$('outputMode').value,use_llm:$('useLlm').checked,workers:$('parallelWork').checked?3:1}))
+  form.append('options',JSON.stringify({kind,translation_mode:document.querySelector('[name=translationMode]:checked').value,combined_output:$('outputMode').value,use_llm:$('useLlm').checked,workers:$('parallelWork').checked?3:1}))
   $('submit').disabled = true; $('uploadProgress').hidden = false; setProgress($('uploadProgress'),0,true)
   try {
     const job = await new Promise((resolve,reject) => {

@@ -80,7 +80,33 @@ def response_runs(result, text, groups):
     used = {by_id[r['id']].get('key', r['id']) for r in runs if any(c.isalnum() for c in r['text'])}
     if not meaningful <= used:
         raise StyleMappingError('译文中的局部强调样式尚未对应。')
+    labels=[r['id'] for r in runs for _ in r['text']]
+    for a,b,label in _numeric_style_spans(text,groups):
+        expected=by_id[label].get('key',label)
+        if any(by_id[v].get('key',v)!=expected for v in labels[a:b]):
+            raise StyleMappingError('换算后的数字必须保留原数字的字体、字号与强调样式。')
     return runs
+
+
+def _numeric_style_spans(text,groups):
+    """Only unambiguous numeric-only groups; Chinese scales compare by value."""
+    from ..writing_policy import numeric_tokens
+    normalized,target=numeric_tokens(text)
+    if len(normalized)!=len(text):return []
+    spans=[]
+    for group in groups:
+        source,values=numeric_tokens(group['text'])
+        if not values:continue
+        residue=source
+        for _,a,b in reversed(values):residue=residue[:a]+residue[b:]
+        if residue.strip(' \t\r\n\v,，.。%％+-–—()（）'):continue
+        for value,_,_ in values:
+            matches=[(a,b) for v,a,b in target if v==value]
+            # A duplicated value in either language cannot safely identify emphasis.
+            source_count=sum(v==value for g in groups for v,_,_ in numeric_tokens(g['text'])[1])
+            if len(matches)==1 and source_count==1:
+                a,b=matches[0];spans.append((a,b,group['id']))
+    return spans
 
 
 def _align_runs(runs, text):
@@ -127,6 +153,7 @@ def anchored_runs(text, groups, glossary=None):
     base = dominant_runs(text, groups)[0]['id']
     base_key = next(g.get('key', g['id']) for g in groups if g['id'] == base)
     labels, unresolved = [base] * len(text), False
+    numeric_spans=_numeric_style_spans(text,groups)
     entries = getattr(glossary, 'entries', []) if glossary else []
     for group in groups:
         if group.get('key', group['id']) == base_key or not any(c.isalnum() for c in group['text']):
@@ -137,6 +164,10 @@ def anchored_runs(text, groups, glossary=None):
             if entry.priority == 1 and entry.zh and entry.zh in source:
                 anchors.extend([entry.en, *entry.variants])
         found = False
+        for a,b,label in numeric_spans:
+            if label==group['id'] and not any(v!=base for v in labels[a:b]):
+                labels[a:b]=[label]*(b-a);found=True
+        if found:continue
         for anchor in sorted(set(anchors), key=len, reverse=True):
             matches = list(re.finditer(r'(?<![A-Za-z0-9])' + re.escape(anchor) + r'(?![A-Za-z0-9])', text, re.I))
             if len(matches) != 1:
@@ -155,6 +186,36 @@ def anchored_runs(text, groups, glossary=None):
         else:
             result.append({'id':label, 'text':char})
     return result, unresolved
+
+
+def best_effort_runs(text,groups,glossary=None):
+    """Keep anchors first, then retain unplaced source styles on whole word spans.
+
+    This final fallback never drops text, fonts, emphasis prototypes or numbers.
+    Semantic mapping remains preferred; uncertain placement is recorded privately.
+    """
+    runs,unresolved=anchored_runs(text,groups,glossary)
+    if not unresolved:return runs,False
+    labels=[r['id'] for r in runs for _ in r['text']]
+    by_id={g['id']:g for g in groups}
+    base=dominant_runs(text,groups)[0]['id']
+    used={by_id[v].get('key',v) for v,c in zip(labels,text) if c.isalnum()}
+    source_total=sum(len(g['text']) for g in groups) or 1
+    offset=0
+    words=list(re.finditer(r'[A-Za-z]+(?:[-\u2019\'][A-Za-z]+)*',text))
+    for group in groups:
+        key=group.get('key',group['id']);length=len(group['text'])
+        center=(offset+length/2)/source_total*len(text);offset+=length
+        if key in used or not any(c.isalnum() for c in group['text']):continue
+        available=[m for m in words if all(v==base for v in labels[m.start():m.end()])]
+        if not available:continue
+        word=min(available,key=lambda m:abs((m.start()+m.end())/2-center))
+        labels[word.start():word.end()]=[group['id']]*(word.end()-word.start());used.add(key)
+    result=[]
+    for label,char in zip(labels,text):
+        if result and result[-1]['id']==label:result[-1]['text']+=char
+        else:result.append({'id':label,'text':char})
+    return result,True
 
 
 def write_styled(paragraph, groups, runs):

@@ -1,0 +1,38 @@
+/* Keep real form controls and their keyboard semantics, with the blue glass finish. */
+:root {
+  --control-border: var(--fg2, var(--muted, #a8bfd4));
+  --control-focus: var(--teal, var(--cyan, #59def1));
+  --control-fill: var(--accent2, var(--accent, #29a9e8));
+  --control-base: var(--bg3, var(--bg, #081524));
+}
+input:is([type="checkbox"], [type="radio"]) {
+  appearance: none; -webkit-appearance: none;
+  box-sizing: border-box; flex: 0 0 auto;
+  width: 19px; height: 19px; min-width: 19px; min-height: 19px; max-width: 19px;
+  margin: 0; padding: 0; border: 1.5px solid var(--control-border); border-radius: 6px;
+  background: linear-gradient(135deg, transparent, rgb(126 197 240 / 9%)), var(--control-base);
+  box-shadow: inset 0 1px 1px rgb(255 255 255 / 9%);
+  vertical-align: middle; cursor: pointer;
+  transition: border-color 140ms ease, box-shadow 140ms ease, opacity 140ms ease;
+}
+input[type="radio"] { border-radius: 50%; }
+input:is([type="checkbox"], [type="radio"]):hover:not(:disabled) { border-color: var(--control-focus); }
+input[type="checkbox"]:checked {
+  border-color: var(--control-focus);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m4.5 10 3.5 3.5 7.5-7.5' fill='none' stroke='%23071524' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"), linear-gradient(135deg,var(--control-focus),var(--control-fill));
+  background-size: 100% 100%; box-shadow: inset 0 1px 0 rgb(255 255 255 / 35%);
+}
+input[type="checkbox"]:indeterminate {
+  border-color: var(--control-focus);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5 10h10' stroke='%23071524' stroke-width='2.6' stroke-linecap='round'/%3E%3C/svg%3E"), linear-gradient(135deg,var(--control-focus),var(--control-fill));
+}
+input[type="radio"]:checked { border-color: var(--control-focus); background-image: radial-gradient(circle,#071524 0 30%,transparent 34%),linear-gradient(135deg,var(--control-focus),var(--control-fill)); }
+input:is([type="checkbox"], [type="radio"]):focus-visible { outline: 2px solid var(--control-focus); outline-offset: 3px; }
+input:is([type="checkbox"], [type="radio"]):disabled { opacity: .45; cursor: not-allowed; }
+.check { min-height: 32px; }
+.check:has(input:disabled), .translation-choice:has(input:disabled) { cursor: not-allowed; }
+.translation-options, .translation-help { position: static; min-width: 0; max-width: 100%; }
+.translation-choice > span { min-width: 0; overflow-wrap: anywhere; }
+@media (pointer: coarse) { .check, .translation-choice { min-height: 44px; } }
+@media (prefers-reduced-motion: reduce) { input:is([type="checkbox"], [type="radio"]) { transition: none; } }
+@media (forced-colors: active) { input:is([type="checkbox"], [type="radio"]) { appearance: auto; background: none; box-shadow: none; } }

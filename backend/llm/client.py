@@ -234,10 +234,25 @@ class LLMClient:
         return base + resource
 
     def chat(self, prompt: str, system: str | None = None, max_tokens: int = 2000,
-             thinking: bool = False) -> str:
+             thinking: bool = False, images=None) -> str:
         """单轮对话。thinking 默认关闭——翻译类任务无需思维链，可省一个数量级的 token。"""
+        content=prompt
+        if images:
+            import base64
+            from pathlib import Path
+            if not 1<=len(images)<=2: raise ValueError('页面检查一次只能读取一组页面。')
+            content=[{'type':'text','text':prompt}]
+            for image in images:
+                raw=Path(image).read_bytes()
+                if len(raw)>12*1024*1024 or not raw.startswith(b'\x89PNG\r\n\x1a\n'):
+                    raise ValueError('页面图像格式或大小不正确。')
+                encoded=base64.b64encode(raw).decode('ascii')
+                if self.api_format=='anthropic':
+                    content.append({'type':'image','source':{'type':'base64','media_type':'image/png','data':encoded}})
+                else:
+                    content.append({'type':'image_url','image_url':{'url':'data:image/png;base64,'+encoded}})
         if self.api_format == 'anthropic':
-            body = {'model': self.model, 'messages': [{'role': 'user', 'content': prompt}],
+            body = {'model': self.model, 'messages': [{'role': 'user', 'content': content}],
                     'max_tokens': max_tokens, 'stream': False}
             if system: body['system'] = system
             result = self._post('/messages', body)
@@ -256,7 +271,7 @@ class LLMClient:
         messages = []
         if system:
             messages.append({"role": "system", "content": system})
-        messages.append({"role": "user", "content": prompt})
+        messages.append({"role": "user", "content": content})
         body = {
             "model": self.model,
             "messages": messages,
@@ -293,6 +308,13 @@ class LLMClient:
         result = _extract_json(text)
         if not isinstance(result, (dict, list)):
             raise LLMResponseInvalid("模型返回的结果格式无效，请重新生成。")
+        return result
+
+    def chat_images_json(self, prompt, images, system=None, max_tokens=1600):
+        """Private page comparison; invalid or unsupported vision must fail explicitly."""
+        result=_extract_json(self.chat(prompt,system=system,max_tokens=max_tokens,images=images))
+        if not isinstance(result,dict):
+            raise LLMResponseInvalid('页面检查响应无效。')
         return result
 
     def chat_json_recoverable(self, prompt: str, system: str | None = None,

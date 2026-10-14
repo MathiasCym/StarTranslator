@@ -49,7 +49,7 @@ def _describe_unreviewed(unreviewed):
 
 
 def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
-                   references=None, cancel=None, on_finding=None, workers=3):
+                   references=None, cancel=None, on_finding=None, workers=3, expect_english=False):
     checked = [s for s in segments if s.source not in ('image','group') and s.text.strip()]
     findings = check_rules(checked, glossary)
     from ..consistency import check_consistency
@@ -148,6 +148,24 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
             if unreviewed:
                 summary += f'未复核段落：{_describe_unreviewed(unreviewed)}。请对上述段落人工复核。'
             stats['warnings'].insert(0,summary)
+    if expect_english:
+        from .residual import residual_findings
+        from ..translation_residual import CHINESE
+        candidates=[seg for seg in checked if CHINESE.search(seg.text)]
+        active=client if use_llm and stats['model_status'] not in ('unavailable','cancelled') else None
+        with ThreadPoolExecutor(max_workers=workers,thread_name_prefix='star-residual') as pool:
+            pending=[pool.submit(residual_findings,seg,glossary,active,
+                [f for f in findings if f.segment_id==seg.id],cancel) for seg in candidates]
+            for seg,future in zip(candidates,pending):
+                items,incomplete=future.result()
+                findings.extend(items)
+                stats['llm_hits']+=sum(f.method=='llm' for f in items)
+                if on_finding and items:on_finding([f.to_dict() for f in items])
+                if incomplete:
+                    incomplete_files.add(seg.file_path)
+                    if use_llm and stats['model_status']=='complete':stats['model_status']='partial'
+                    stats['warnings'].append(f'{seg.file}：仍有未译中文，补译未完成，不能视为完整英文。')
+        stats['residual_chinese']=sum(CHINESE.search(f.found_text) is not None for f in findings)
     stats['findings'] = len(findings)
     stats['completed_files'] = [path for path, count in file_totals.items()
         if not use_llm or (file_judged.get(path, 0) == count and path not in incomplete_files)]

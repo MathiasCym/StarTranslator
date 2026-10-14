@@ -46,3 +46,6 @@ website/verification.json
 website/upload-manifest.json
 .DS_Store
 Thumbs.db
+
+# Private render QA and fixture work
+.pptx-format-qa/

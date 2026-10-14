@@ -66,6 +66,19 @@ test('download fallback only accepts the identical version, size and checksum fr
  assert.equal((await f.engine.download()).phase,'ready');assert.equal(f.engine.snapshot().sourceName,'GitHub');await f.engine.prepareInstall()
  assert(! (await fs.readdir(path.join(f.dir,'updates'))).some(n=>n.endsWith('.part')))
 })
+
+test('a interrupted domestic direct stream retries the same verified source without GitHub or partial leftovers',async t=>{
+ const f=await fixture(t,'atomgit');await f.engine.check();const original=f.engine.fetcher,modes=[]
+ f.engine.fetcher=async(url,opts)=>{
+  if(!url.endsWith('.exe'))return original(url,opts)
+  modes.push(opts.networkMode)
+  if(opts.networkMode==='direct')return new Response(new ReadableStream({start(c){c.enqueue(f.bytes.subarray(0,1024));queueMicrotask(()=>c.error(Error('connection lost')))}}))
+  return new Response(f.bytes,{headers:{'content-length':String(f.bytes.length)}})
+ }
+ await f.engine.download();assert.deepEqual(modes,['direct','system']);assert.equal(f.engine.snapshot().sourceName,'AtomGit')
+ assert.deepEqual(await fs.readFile(await f.engine.prepareInstall()),f.bytes)
+ assert(!(await fs.readdir(path.join(f.dir,'updates'))).some(n=>n.endsWith('.part')));assert(!f.calls.some(c=>c.url.includes('github.com')))
+})
 test('a changed fallback checksum never starts downloading the unrelated installer',async t=>{
  const f=await fixture(t);await f.engine.check();let downloaded=false
  f.engine.fetcher=async(url)=>{

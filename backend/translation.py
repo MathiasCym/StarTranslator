@@ -10,17 +10,20 @@ from .matcher.retriever import select_relevant_terms
 from .glossary.store import fingerprint
 from .writing_policy import instructions, validate_translation, repair_numeric_translation
 from .document_input import validate_document_input
-from .replacer.styled_text import style_groups, slice_groups, response_runs, write_styled, anchored_runs, StyleMappingError
+from .replacer.styled_text import style_groups, slice_groups, response_runs, write_styled, anchored_runs, best_effort_runs, StyleMappingError
 from .replacer.pptx_package import save_office
 from .replacer.pptx_layout import fit_document, capture_layout
+from .replacer.pptx_style_manifest import capture_styles,verify_styles
 from .translation_residual import repair_residual
 from . import officecli_bridge
+from .pptx_visual_review import review_pptx
 from .bit_depth import replacements as depth_replacements
 from .replacer.text_runs import text_runs
 from .replacer.run_utils import replace_spans
 from .document_context import DocumentContext
 import json
 import threading
+import tempfile
 from concurrent.futures import ThreadPoolExecutor
 
 OUTPUT_LOCK = threading.Lock()
@@ -33,6 +36,16 @@ SYSTEM = '''你是 LED 显示行业的中英技术翻译。将提供的中文完
 只返回 JSON 对象 {"translation":"英文译文"}，不要解释、不要 Markdown。
 若提供原文样式片段，同时返回 runs 数组（每项为原片段 id 和对应英文 text），拼接后等于 translation。完整、准确的 translation 为唯一英文正文。'''
 SYSTEM += '\n\n' + instructions()
+
+
+TRANSLATION_MODES=('faithful','compressed')
+
+
+def translation_system(mode):
+    if mode not in TRANSLATION_MODES:raise ValueError('翻译方式不正确。')
+    if mode=='faithful':
+        return SYSTEM+'\n【忠实翻译】逐项保留原文含义、信息、修饰、条件、限定和逻辑关系。不得为适应版面而概括、删减或压缩文案；英文变长时交由排版处理。'
+    return SYSTEM+'\n【用户选择文案压缩】可合并重复表达、删去不承载事实的宣传套话并使用简洁英文。必须保留所有事实、参数、数字、单位、型号、术语、条件、限定、比较范围和逻辑关系。不得删除整项信息或为排版擅自改写事实；不输出说明。'
 
 
 class Cancelled(Exception):
@@ -93,18 +106,18 @@ def append_runs(styled,runs):
     styled.extend(runs)
 
 
-def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, page_context=None, segment=None):
+def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, page_context=None, segment=None, translation_mode="faithful"):
     """Validate the English once; repair formatting without retranslating it."""
     candidate = None
     for attempt in range(2):
         check_cancel(cancel)
         try:
-            result = client.chat_json(prompt, system=SYSTEM, max_tokens=4000 if not attempt else 8000)
+            result = client.chat_json(prompt, system=translation_system(translation_mode), max_tokens=4000 if not attempt else 8000)
             raw = result.get('translation') if isinstance(result,dict) else None
             if isinstance(raw,str) and raw.strip()!=piece.strip() and re.search(r'[A-Za-z]',raw) and '```' not in raw:
                 candidate={**result,'translation':raw.strip()}
             if isinstance(result,dict):
-                result = repair_residual(client,piece,result,glossary)
+                result = repair_residual(client,piece,result,glossary,check_cancel=lambda:check_cancel(cancel))
             text = result.get('translation') if isinstance(result, dict) else None
             if isinstance(text, str) and text.strip() != piece.strip() and re.search(r'[A-Za-z]', text) and '```' not in text:
                 candidate = {**result, 'translation': text.strip()}
@@ -117,6 +130,8 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
             validate_translation(piece, text)
             break
         except (ValueError, LLMResponseInvalid, LLMTruncated) as error:
+            partial=getattr(error,'partial_result',None)
+            if partial and partial['translation'].strip()!=piece.strip() and re.search(r'[A-Za-z]',partial['translation']):candidate=partial
             if attempt:
                 raise TranslationNeedsReview(str(error), candidate) from error
             prompt += '\n【重新生成要求】\n' + str(error)
@@ -124,6 +139,8 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
                 prompt += '\n【已生成英文，仅修正有差异的位置】\n' + candidate['translation']
             prompt += '\n就地修正数值、单位、型号或未译文字，其余正确内容保持不变。允许将万、亿换算为英文数量。返回完整 JSON 英文正文及样式片段。'
         except LLMUnavailable as error:
+            partial=getattr(error,'partial_result',None)
+            if partial and partial['translation'].strip()!=piece.strip() and re.search(r'[A-Za-z]',partial['translation']):candidate=partial
             if candidate:
                 raise TranslationNeedsReview('已生成英文，局部补译或修正未完成：'+str(error),candidate,service_error=True) from error
             raise
@@ -138,10 +155,12 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
         except (StyleMappingError, LLMUnavailable):
             # Content is still fully validated. Retain the paragraph's main
             # font/style, export it, and disclose the local emphasis to inspect.
-            return anchored_runs(text, groups, glossary)
+            return best_effort_runs(text, groups, glossary)
 
 
-def translate_file(path, glossary, references, output_dir=None, client=None, progress=None, cancel=None, workers=3):
+def translate_file(path, glossary, references, output_dir=None, client=None, progress=None, cancel=None, workers=3, translation_mode="faithful"):
+    translation_system(translation_mode)
+    if Path(path).suffix.lower() != '.pptx': translation_mode = 'faithful'
     validate_document_input(path)
     if Path(path).suffix.lower() == '.pptx':
         check_cancel(cancel)
@@ -157,6 +176,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     client = client or LLMClient()
     is_pptx = Path(path).suffix.lower() == '.pptx'
     original_layout = capture_layout(document,[s.locator for s in segments if s.editable]) if is_pptx else None
+    original_styles=capture_styles(paragraphs) if is_pptx else None
     baseline = officecli_bridge.inspect(path, cancel=cancel) if is_pptx else None
     changed, style_warnings, review_items = [], [], []
     translated, untranslated, service_failures, service_error = 0, 0, 0, ''
@@ -181,7 +201,10 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             groups = prepared[seg.locator]
             styled, offset, paragraph_changed, retained_source = [], 0, False, False
             local_issues = []
-            for piece in translation_chunks(seg.text, limit=900 if len(groups)>1 else 1800):
+            # PDF extraction line breaks are physical wraps, unlike editable
+            # Office soft breaks. Keep complete sentences in the model context.
+            pieces = chunks(seg.text,limit=1800) if Path(path).suffix.lower()=='.pdf' else translation_chunks(seg.text, limit=900 if len(groups)>1 else 1800)
+            for piece in pieces:
                 check_cancel(cancel)
                 piece_groups = slice_groups(groups, offset, offset+len(piece), visual_keys=True)
                 offset += len(piece)
@@ -201,7 +224,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                         runs,local_style=[{'id':piece_groups[0]['id'],'text':memory[cache_key]}],False
                     else:
                         runs, local_style = document_memory.translate(seg, piece, piece_groups,
-                            lambda: mapped_translation(client, prompt, piece, piece_groups, cancel, glossary, page_context, seg),
+                            lambda: mapped_translation(client, prompt, piece, piece_groups, cancel, glossary, page_context, seg, translation_mode),
                             lambda: check_cancel(cancel))
                         if len(piece_groups)==1:
                             memory[cache_key]=''.join(r['text'] for r in runs)
@@ -218,7 +241,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                             runs = response_runs(candidate, text, piece_groups)
                             local_style = False
                         except StyleMappingError:
-                            runs, local_style = anchored_runs(text, piece_groups, glossary)
+                            runs, local_style = best_effort_runs(text, piece_groups, glossary)
                         paragraph_changed = True
                     else:
                         runs, local_style, retained_source = piece_groups, False, True
@@ -263,6 +286,34 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                         'reason': '；'.join(dict.fromkeys(local_issues)), 'retained_source': retained_source})
                 index += 1
     check_cancel(cancel)
+    if Path(path).suffix.lower()=='.pdf':
+        repair_failures=0
+        for seg in todo:
+            check_cancel(cancel)
+            paragraph=by_locator[seg.locator]
+            if not CHINESE.search(paragraph.text):continue
+            if repair_failures>=2:break
+            try:
+                fixed=repair_residual(client,seg.text,{'translation':paragraph.text},glossary,
+                    allow_source=True,check_cancel=lambda:check_cancel(cancel))['translation']
+                if fixed==paragraph.text or CHINESE.search(fixed):continue
+                current_groups=style_groups(paragraph)
+                runs,_=best_effort_runs(fixed,current_groups,glossary)
+                write_styled(paragraph,current_groups,runs)
+                if seg.locator not in changed:changed.append(seg.locator);translated+=1
+                repair_failures=0
+                try:validate_translation(seg.text,fixed)
+                except ValueError:pass
+                else:review_items[:]=[item for item in review_items if item['locator']!=seg.locator]
+            except (ValueError,LLMUnavailable) as error:
+                partial=getattr(error,'partial_result',{}).get('translation')
+                if partial and partial!=paragraph.text:
+                    current_groups=style_groups(paragraph)
+                    runs,_=best_effort_runs(partial,current_groups,glossary)
+                    write_styled(paragraph,current_groups,runs)
+                    if seg.locator not in changed:changed.append(seg.locator);translated+=1
+                repair_failures+=1
+        for item in review_items:item['translation']=by_locator[item['locator']].text
     if not changed:
         detail = review_items[0]['reason'] if review_items else '未获得可用英文。'
         raise LLMUnavailable('没有生成可用英文，原稿保留。' + detail)
@@ -291,19 +342,45 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 'reason':'该处仍有中文：'+(seg.not_editable_reason or '模型未完成补译，已保留内容。'),
                 'retained_source':True})
     untranslated = len(remaining)
-    with OUTPUT_LOCK:
-        destination = output_path(path,output_dir,'English_Draft' if review_items else 'English')
-        layout_adjustments, layout_warnings = fit_document(document,changed,original_layout) if is_pptx else ([],[])
-        try:
-            save_office(path, document, destination, changed)
-            if is_pptx:
-                layout_warnings += officecli_bridge.compare(baseline, officecli_bridge.inspect(destination, cancel=cancel))
-            if fingerprint(path) != before:
-                raise ValueError('翻译过程中原文件被修改，请重新加载再翻译。')
-        except Exception:
-            if destination.exists():
-                destination.unlink()
-            raise
+    layout_adjustments,layout_warnings=fit_document(document,changed,original_layout) if is_pptx else ([],[])
+    # Finish the whole document in private staging before choosing/publishing its name.
+    with tempfile.TemporaryDirectory(prefix='star-translation-private-') as tmp:
+        staged=Path(tmp)/('translated'+Path(path).suffix if is_pptx else 'translated'+__import__('backend.formats',fromlist=['output_extension']).output_extension(path))
+        save_office(path,document,staged,changed)
+        if is_pptx:
+            visual_warnings,visual_adjustments=review_pptx(path,staged,document,changed,original_layout,client,cancel)
+            layout_adjustments+=visual_adjustments
+            # Final measurements may resolve an initial estimate warning.
+            if visual_adjustments:
+                layout_warnings=[]
+            layout_warnings+=visual_warnings
+            layout_warnings+=officecli_bridge.compare(baseline,officecli_bridge.inspect(staged,cancel=cancel))
+            style_warnings+=verify_styles(document,paragraphs,original_styles,changed)
+            if visual_warnings or style_warnings:
+                import logging
+                logging.getLogger(__name__).warning('Private format follow-up: %s',
+                    [(w.get('slide'),w.get('locator')) for w in [*visual_warnings,*style_warnings]])
+            layout_warnings=[]
+        check_cancel(cancel)
+        if fingerprint(path)!=before:raise ValueError('翻译过程中原文件被修改，请重新加载再翻译。')
+        with OUTPUT_LOCK:
+            destination=output_path(path,output_dir,'English_Draft' if review_items else 'English')
+            try:
+                # Staging may be on another volume, so publish through a same-directory temporary file.
+                import shutil
+                fd,publish=tempfile.mkstemp(prefix='.star-translation-',suffix=destination.suffix,dir=destination.parent)
+                os.close(fd)
+                try:
+                    shutil.copyfile(staged,publish)
+                    check_cancel(cancel)
+                    if fingerprint(path)!=before:raise ValueError('翻译过程中原文件被修改，请重新加载再翻译。')
+                    os.replace(publish,destination)
+                finally:
+                    if os.path.exists(publish):os.unlink(publish)
+            except Exception:
+                if destination.exists():destination.unlink()
+                raise
+    pending_count=len(review_items)
     # The same advisory pass serves single translation and the review workflow.
     # It never modifies the output or turns a completed translation into a failure.
     from dataclasses import replace
@@ -313,10 +390,10 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
         aligned_sources={s.id:s.text for s in segments})]
     return {'path':str(destination),'source':os.path.abspath(path),'translated':translated,
             'comparison_id':__import__('backend.comparison',fromlist=['safe_create']).safe_create(segments,by_locator,path,destination),
-            'total':len(todo), 'untranslated':untranslated, 'needs_review':len(review_items),
-            'review_items':review_items, 'status':'needs_review' if review_items else 'complete',
+            'total':len(todo), 'untranslated':untranslated, 'needs_review':pending_count, 'translation_mode':translation_mode,
+            'review_items':review_items, 'status':'needs_review' if pending_count else 'complete',
             'consistency_items':consistency_items, 'consistency_hits':len(consistency_items),
             'remaining_chinese':remaining,'layout_adjustments':layout_adjustments,
             'skipped':len(blocked),'warnings':[{'text':s.text[:100],'reason':s.not_editable_reason,'slide':s.slide} for s in blocked],
-            'layout_warnings':layout_warnings + style_warnings, 'layout_checked':is_pptx,
-            'layout_note':'保留图片与文本框位置、尺寸；按原稿段落空间适配字号、字体和行距，未能适配的位置列在版式提示中。' if is_pptx else getattr(document,'note','保留段落、表格及局部文字样式。')}
+            'layout_warnings':[], 'layout_checked':is_pptx and not visual_warnings if is_pptx else False,
+            'layout_note':'保留图片与对象位置、尺寸和字体；同类样式在每页使用统一字号，需确认的位置列在版式提示中。' if is_pptx else getattr(document,'note','保留段落、表格及局部文字样式。')}

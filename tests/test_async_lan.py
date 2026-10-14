@@ -25,6 +25,8 @@ from backend.glossary import store
 
 class AsyncLanTests(unittest.TestCase):
     def setUp(self):
+        for target in ('backend.translation.review_pptx','backend.workflow.review_pptx'):
+            stub=patch(target,return_value=([],[]));stub.start();self.addCleanup(stub.stop)
         self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
         self.env=patch.dict(os.environ,{'NOVATERM_DATA_DIR':str(self.root/'data')});self.env.start()
         self.g=Glossary([GlossaryEntry('点间距','pixel pitch',wrong_variants=['dot spacing'],priority=1)])

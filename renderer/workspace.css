@@ -393,3 +393,17 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
   .term-card-tags { flex-direction: column; gap: 1px; }
   .term-card-tags > span { font-size: 12px; }
 }
+
+/* Task-local choices use the existing typography, colors and keyboard focus. */
+.translation-options{border:0;padding:0;margin:0;min-width:0;display:grid;gap:8px}
+.translation-options legend{display:flex;align-items:center;gap:8px;padding:0;margin-bottom:8px;font-weight:600}
+.translation-help-button{width:32px;height:32px;border:1px solid var(--line);border-radius:50%;background:transparent;color:var(--fg);cursor:pointer;font-family:inherit;font-size:15px;font-weight:600}
+.translation-help-button:hover{background:var(--bg3)}
+.translation-help-button:focus-visible,.translation-choice:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:3px}
+.translation-choice{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.translation-choice:has(input:checked){border-color:var(--accent);background:var(--bg3)}
+.translation-choice span{display:grid;gap:3px}.translation-choice strong{font-size:13px;font-weight:600}.translation-choice small{color:var(--fg2);font-size:12px;line-height:1.4}
+.translation-help{border:1px solid var(--line);border-radius:10px;padding:10px 12px;color:var(--fg2);font-size:12px;line-height:1.65}
+.translation-help p{margin:0 0 8px}.translation-help p:last-child{margin:0}.translation-options:disabled .translation-choice{opacity:.55;cursor:default}
+
+@media(max-width:900px){.translation-options{grid-column:1/-1}.task-options .output-row{grid-column:1/-1;grid-row:auto}}

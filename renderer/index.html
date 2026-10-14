@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="collaboration.css">
 <link rel="stylesheet" href="shared/comparison-view.css">
 <link rel="stylesheet" href="community.css">
+<link rel="stylesheet" href="shared/form-controls.css">
 </head>
 <body>
   <header class="topbar">
@@ -78,6 +79,12 @@
       <aside class="task-options" aria-labelledby="taskOptionsTitle">
         <div class="task-heading"><span class="eyebrow">准备就绪，即可开始</span><h3 id="taskOptionsTitle">本次任务</h3></div>
         <div class="task-option-row"><label class="check" id="llmOption" title="进一步检查译文表达和上下文，需要连接模型；处理时间会增加。"><input type="checkbox" id="useLlm" checked>深度审校</label><span id="glossaryInfo" class="hint">正在读取词库…</span></div>
+        <fieldset id="translationOptions" class="translation-options" data-translation-options hidden>
+          <legend>翻译方式 <button id="translationHelpButton" class="translation-help-button" type="button" aria-label="了解翻译方式与中英文排版差异" aria-expanded="false" aria-controls="translationHelp">?</button></legend>
+          <label class="translation-choice"><input type="radio" name="translationMode" value="faithful" checked><span><strong>忠实翻译</strong><small>逐项保留原文信息</small></span></label>
+          <label class="translation-choice"><input type="radio" name="translationMode" value="compressed"><span><strong>文案压缩</strong><small>保留事实，精简重复表达</small></span></label>
+          <div id="translationHelp" class="translation-help" hidden><p>中文表达往往更紧凑，英文可能占用更多空间，增加换行或拥挤。</p><p>忠实翻译保留全部信息，必要时适配排版。文案压缩允许精简重复表达和宣传套话，仍保留事实、参数、型号、数字和条件。</p><p>PPT 同类样式在每页使用统一字号，保留原稿的文字位置与强调层级；空间紧张时会自动适配，尽量保留原字号。</p></div>
+        </fieldset>
         <div class="output-row"><label for="outputDir">输出位置</label><input id="outputDir" readonly placeholder="默认另存到原文件旁"><button class="btn ghost sm" id="pickOutput">选择位置</button></div>
         <p class="hint" id="scopeHint">修改由你确认，支持另存或覆盖原文件。</p>
         <label class="check" title="在模型支持同时处理请求时提升速度；关闭后按顺序处理。"><input id="parallelWork" type="checkbox" checked>并发加速</label>
@@ -266,6 +273,7 @@
 <script src="lexicon.js"></script>
 <script src="history.js"></script>
   <script src="document-input.js"></script>
+  <script src="translation-options.js"></script>
   <script src="app.js"></script>
   <script src="shared/comparison-view.js"></script>
   <script src="collaboration.js"></script>

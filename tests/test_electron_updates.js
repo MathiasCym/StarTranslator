@@ -18,3 +18,34 @@ test('Domestic Chromium redirects use the scoped source validator without sharin
  assert.equal(await response.text(),'released bytes');assert.equal(f.state.followed.length,1);assert.equal(f.state.options.useSessionCookies,false)
  const bad=fixture(['https://release-assets.githubusercontent.com/x']);await assert.rejects(fetchTrusted(bad.fetcher,s.web+'/x',{},s.trusted),/可信/);assert.equal(bad.state.followed.length,0)
 })
+
+function routeFixture({directFailure=false,stall=false}={}){
+ const calls=[],configs=[],scoped={setProxy:async value=>configs.push(value)},sessions={fromPartition:(name,options)=>{assert.equal(name,'startranslator-public-updates-direct');assert.equal(options.cache,false);return scoped}}
+ const net={request(options){calls.push(options);const r=new EventEmitter();let stopped=false;r.abort=()=>{stopped=true;r.emit('close')};r.followRedirect=()=>{};r.end=()=>queueMicrotask(()=>{
+  if(stopped)return
+  if(options.session&&stall)return
+  if(options.session&&directFailure){r.emit('error',Error('net::ERR_CONNECTION_REFUSED'));return}
+  const body=new PassThrough();Object.assign(body,{statusCode:200,headers:{}});r.emit('response',body);body.end('public')
+ });return r}}
+ return {calls,configs,scoped,fetcher:createFetcher(net,{session:sessions,directHeaderTimeout:20})}
+}
+test('domestic updates use an isolated direct session while GitHub retains the system route',async()=>{
+ const f=routeFixture(),s=require('../lib/distribution-sources').source('atomgit','synthetic/StarTranslator'),routes=[]
+ assert.equal(await(await fetchTrusted(f.fetcher,s.web+'/x',{onRoute:v=>routes.push(v)},s.trusted)).text(),'public')
+ await fetchTrusted(f.fetcher,'https://api.github.com/repos/MathiasCym/StarTranslator/releases/latest')
+ assert.deepEqual(f.configs,[{mode:'direct'}]);assert.equal(f.calls[0].session,f.scoped);assert.equal(f.calls[1].session,undefined)
+ assert.deepEqual(routes,[{route:'direct',host:'atomgit.com'}]);assert(f.calls.every(c=>c.credentials==='omit'&&!c.useSessionCookies))
+})
+test('failed direct connections retry the same public source through system networking',async()=>{
+ for(const option of [{directFailure:true},{stall:true}]){
+  const f=routeFixture(option),s=require('../lib/distribution-sources').source('atomgit','synthetic/StarTranslator')
+  assert.equal(await(await fetchTrusted(f.fetcher,s.web+'/x',{},s.trusted)).text(),'public')
+  assert.equal(f.calls.length,2);assert.equal(f.calls[0].session,f.scoped);assert.equal(f.calls[1].session,undefined)
+ }
+})
+test('explicit system route and user cancellation do not attempt another connection',async()=>{
+ const s=require('../lib/distribution-sources').source('atomgit','synthetic/StarTranslator'),f=routeFixture({stall:true})
+ await fetchTrusted(f.fetcher,s.web+'/x',{networkMode:'system'},s.trusted);assert.equal(f.calls[0].session,undefined)
+ const controller=new AbortController(),pending=fetchTrusted(f.fetcher,s.web+'/x',{signal:controller.signal},s.trusted)
+ await new Promise(resolve=>setTimeout(resolve,5));controller.abort();await assert.rejects(pending,/取消/);assert.equal(f.calls.length,2)
+})

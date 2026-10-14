@@ -2,7 +2,9 @@ const runtimeLog = require('./lib/runtime-log').createLogger(() =>
   require('path').join(require('electron').app.getPath('userData'), 'logs', 'runtime.log'))
 require('./lib/runtime-log').installDiagnosticConsole(runtimeLog)
 
-if (process.argv.includes('--star-setup') || process.argv.includes('--star-uninstall')) {
+if (process.argv.includes('--star-render-pages')) {
+  require('./lib/page-renderer').run().catch(() => { require('electron').app.exit(1) })
+} else if (process.argv.includes('--star-setup') || process.argv.includes('--star-uninstall')) {
   require('./lib/setup-host').startSetup().catch(error => { runtimeLog.error(error); process.exitCode = 1 })
 } else {
 const { app, BrowserWindow, ipcMain, shell, screen, clipboard } = require('electron')
@@ -76,7 +78,8 @@ function startBackend() {
 
     const child = backendProc = spawn(python, [script, '--port', '0'], {
       cwd: root,
-      env: { ...process.env, NOVATERM_DATA_DIR: app.getPath('userData'), STAR_RESOURCE_DIR: process.resourcesPath },
+      env: { ...process.env, NOVATERM_DATA_DIR: app.getPath('userData'), STAR_RESOURCE_DIR: process.resourcesPath,
+        STAR_ELECTRON_EXECUTABLE:process.execPath,STAR_ELECTRON_APP:__dirname },
       windowsHide: true,
     })
 
@@ -137,7 +140,7 @@ function updater(){
   if(!githubUpdater)githubUpdater=new (require('./lib/github-updates').GitHubUpdates)({
     currentVersion:app.getVersion(),userData:app.getPath('userData'),
     distribution:JSON.parse(fs.readFileSync(path.join(appRoot(),'backend','distribution.json'),'utf8')),
-    fetcher:require('./lib/electron-update-transport').createFetcher(require('electron').net),
+    fetcher:require('./lib/electron-update-transport').createFetcher(require('electron').net,{session:require('electron').session}),
     onStatus:value=>{if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('update-status',value)},
   })
   return githubUpdater
@@ -455,6 +458,22 @@ app.whenReady().then(async () => {
   try {
     await startBackend()
     modelMonitor.start()
+    if (app.isPackaged) {
+      const cleanUpdates = async () => {
+        let installedCheck
+        const verifyInstalled = () => installedCheck ||= (async () => {
+          const manifest = JSON.parse(await fs.promises.readFile(path.join(process.resourcesPath, 'install-manifest.json'), 'utf8'))
+          return require('./lib/install-integrity').verifyInstallation(path.dirname(process.resourcesPath), manifest, app.getVersion(), undefined, { runtime: true })
+        })()
+        for (let attempt = 0; attempt < 30; attempt++) {
+          const result = await require('./lib/update-cache-cleanup').cleanupInstalledUpdate({ userData: app.getPath('userData'), currentVersion: app.getVersion(), verifyInstalled })
+          if (result.unverified) { runtimeLog.info('Incomplete installation; update cache retained for retry'); return }
+          if (!result.deferred) { if (result.removed) runtimeLog.info('Installed update cache removed', { version: result.version }); return }
+          await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+      }
+      cleanUpdates().catch(error => runtimeLog.error('Update cache cleanup deferred', error))
+    }
     if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('backend-ready', backendPort)
   } catch (e) {
     modelMonitor.backendUnavailable('后端启动失败，请重新启动软件。')

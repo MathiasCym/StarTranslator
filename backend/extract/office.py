@@ -49,12 +49,10 @@ def open_office(path):
             blocked.append(('drawings', f'[{images} 个图片/绘图对象]', 'image', None, '图片内文字未做 OCR，需人工检查。'))
     else:
         document = Presentation(path)
+        from ..replacer.pptx_geometry import walk_shapes, bounds
         def shapes(items, prefix, slide):
-            for i,shape in enumerate(items):
-                key = f'{prefix}/shape{i}'
-                if shape.shape_type == MSO_SHAPE_TYPE.GROUP:
-                    shapes(shape.shapes,key,slide)
-                elif shape.has_table:
+            for key,shape,transform in walk_shapes(items,prefix):
+                if shape.has_table:
                     for r,row in enumerate(shape.table.rows):
                         for c,cell in enumerate(row.cells):
                             if cell.is_spanned:
@@ -65,8 +63,9 @@ def open_office(path):
                     for p,para in enumerate(shape.text_frame.paragraphs):
                         locator = f'{key}/p{p}'
                         paragraphs.append((locator,para,'text',slide,p+1))
-                        layouts[locator] = dict(container=prefix, x=shape.left/12700, y=shape.top/12700,
-                                               width=shape.width/12700, height=shape.height/12700)
+                        x,y,w,h = bounds(shape,transform)
+                        layouts[locator] = dict(container=key.rsplit('/',1)[0], x=x/12700, y=y/12700,
+                                               width=w/12700, height=h/12700)
                 elif shape.has_chart:
                     blocked.append((key,'[图表对象]','image',slide,'可编辑的图表文字已纳入检查，图形内其他标注需人工检查。'))
                 elif shape.shape_type == MSO_SHAPE_TYPE.PICTURE:

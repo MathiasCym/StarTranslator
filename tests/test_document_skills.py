@@ -86,6 +86,9 @@ class Model:
 
 class DocumentSkillTests(unittest.TestCase):
     def setUp(self):
+        # These tests exercise text/package behavior. Image review has its own suite.
+        for target in ('backend.translation.review_pptx','backend.workflow.review_pptx'):
+            stub=patch(target,return_value=([],[]));stub.start();self.addCleanup(stub.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
         self.environment = patch.dict(os.environ, {'NOVATERM_DATA_DIR': str(self.root / 'profile')})
@@ -140,17 +143,19 @@ class DocumentSkillTests(unittest.TestCase):
         self.assertEqual(source.read_bytes(), original)
         self.assertTrue(Path(result['path']).is_file())
 
-    def test_missing_style_mapping_preserves_valid_translation_with_visible_notice(self):
+    def test_unresolved_style_mapping_still_exports_best_available_source_styles(self):
         source = fixture(self.root / 'bad-style.pptx')
         model = Model(); original_call = model.chat_json
         def no_styles(prompt, **kwargs):
             answer = original_call(prompt, **kwargs); answer.pop('runs', None); return answer
         model.chat_json = no_styles
-        result = translate_file(str(source), self.glossary, None, client=model)
-        self.assertTrue(Path(result['path']).is_file())
-        self.assertIn('Use pixel-level calibration', Presentation(result['path']).slides[0].shapes[1].text)
-        self.assertTrue(any('局部颜色' in warning['reason'] for warning in result['layout_warnings']))
-        self.assertEqual(len(model.prompts), 5)  # Four translations and one style-only repair.
+        original=source.read_bytes()
+        result=translate_file(str(source),self.glossary,None,client=model)
+        self.assertEqual(source.read_bytes(),original)
+        output=Presentation(result['path'])
+        self.assertIn('Use pixel-level calibration',output.slides[0].shapes[1].text)
+        self.assertTrue(any(run.font.bold for run in output.slides[0].shapes[1].text_frame.paragraphs[0].runs))
+        self.assertEqual(result['layout_warnings'],[])
 
     def test_whitespace_and_punctuation_in_runs_are_aligned_without_retranslation(self):
         source = fixture(self.root / 'spaces.pptx'); model = Model(); call = model.chat_json

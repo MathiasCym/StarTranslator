@@ -206,8 +206,14 @@ def create_app(testing=False):
     @app.get('/shared.js')
     def script(): return send_file(ROOT / 'shared.js')
 
+    @app.get('/translation-options.js')
+    def translation_options_script(): return send_file(ROOT / 'translation-options.js')
+
     @app.get('/shared.css')
     def style(): return send_file(ROOT / 'shared.css')
+
+    @app.get('/form-controls.css')
+    def form_controls_style(): return send_file(ROOT / 'form-controls.css')
 
     @app.get('/progress.css')
     def progress_style(): return send_file(ROOT / 'progress.css')
@@ -252,7 +258,7 @@ def create_app(testing=False):
                 references = [save_upload(f,folder/'reference') for f in refs]
                 job = workflow.start({'kind':data['kind'], 'paths':paths, 'references':references,
                     'output_dir':str(folder/'output'), 'use_llm':data.get('use_llm',True) is True,
-                    'workers':data.get('workers',3),
+                    'workers':data.get('workers',3),'translation_mode':data.get('translation_mode','faithful'),
                     'combined_output':data.get('combined_output','both')})
                 session['jobs'].append(job['id'])
                 session.setdefault('folders',{})[job['id']] = str(folder)
