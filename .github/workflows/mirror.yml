@@ -32,4 +32,17 @@ jobs:
         run: |
           node --test tests/test_domestic_publish.js
           if ($LASTEXITCODE -ne 0) { throw 'Publication checks failed' }
-          node tools/publish-gitcode.cjs
+          @'
+          const originalFetch = globalThis.fetch
+          globalThis.fetch = async (url, options) => {
+            try { return await originalFetch(url, options) }
+            catch (error) {
+              const address = new URL(url)
+              console.error('Transfer failure: ' + JSON.stringify({method:options?.method || 'GET',
+                hostname:address.hostname, code:error.cause?.code || error.name}))
+              throw error
+            }
+          }
+          require('./tools/publish-gitcode.cjs').run().then(value => console.log(JSON.stringify(value)))
+            .catch(error => { console.error(error.message); process.exitCode = 1 })
+          '@ | node -
