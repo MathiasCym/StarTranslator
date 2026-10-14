@@ -232,7 +232,7 @@ GitHub 发布前先同步更新 `package.json`、`package-lock.json` 和 [CHANGE
 
 开发者需配置 GitHub 推送授权，软件内的词库维护授权不自动配置命令行 Git。安装包放在 Releases，不提交到源码历史。仅修改 README、文档或词库不触发打包，已发布版本默认保留。
 
-国内公开镜像的读取与发布接入见 [国内来源接入说明](docs/domestic-distribution.md)。源码已配置 [AtomGit 公开仓库](https://atomgit.com/MathiasCym/StarTranslator)，词库接口已通过匿名验证；安装包镜像仍需发布授权和实际下载验收。带此来源配置的软件可优先从国内仓库获取公开版本与团队词库，失败后尝试 GitHub。维护者提交仍以 GitHub 主仓库为准。是否启用以软件窗口显示的来源为准，普通用户无需配置令牌。
+国内公开来源的接入见 [国内来源接入说明](docs/domestic-distribution.md)。2.0.4 已配置 [AtomGit 公开仓库](https://atomgit.com/MathiasCym/StarTranslator)，发布授权已配置，源码同步、词库和小校验附件的匿名读取已通过验证；完整安装包仍在实际下载验收，国内未完成的发行版保持预发布状态。软件优先尝试国内公开来源，再尝试 GitHub，普通用户无需配置令牌。2.0.4 中的词库提交仍连接 GitHub，需要维护者授权和相应网络；完全免 VPN 的国内提交入口尚未实现。旧版首次切换需安装含国内配置的版本，之后才能使用新的来源。
 
 | 目录 | 用途 |
 | --- | --- |

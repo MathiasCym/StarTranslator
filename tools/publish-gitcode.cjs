@@ -73,7 +73,7 @@ class GitCodePublisher{
  async upload(tag,name,bytes){
   this.onProgress({phase:'upload-start',file:name,bytes:bytes.length})
   const recipe=uploadRecipe(await this.call('GET','releases/'+encodeURIComponent(tag)+'/upload_url?file_name='+encodeURIComponent(name)),this.token)
-  const response=await this.uploader(recipe.url,{method:'PUT',redirect:'error',credentials:'omit',signal:AbortSignal.timeout(bytes.length<1024*1024?60000:10*60*1000),headers:recipe.headers,body:bytes,onProgress:this.onProgress})
+  const response=await this.uploader(recipe.url,{method:'PUT',redirect:'error',credentials:'omit',signal:AbortSignal.timeout(bytes.length<1024*1024?60000:20*60*1000),headers:recipe.headers,body:bytes,onProgress:this.onProgress})
   if(!response.ok)throw Error('国内发行附件上传未完成（HTTP '+response.status+'），请检查免费附件限额。')
   // OBS can report an unsuccessful attachment callback in an otherwise 200 body.
   const body=await readBody(response,512*1024)
