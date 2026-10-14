@@ -10,7 +10,7 @@ async function readBody(response,max=2*1024*1024){
 }
 function uploadRecipe(value,token){
  let url;try{url=new URL(value?.url)}catch{throw Error('发行附件上传地址无效。')}
- const allowed=['file-cdn.gitcode.com','file-cdn.atomgit.com'].includes(url.hostname)||/^[a-z0-9-]+\.obs\.[a-z0-9-]+\.myhuaweicloud\.com$/.test(url.hostname)
+ const allowed=['file.gitcode.com','file-cdn.gitcode.com','file-cdn.atomgit.com'].includes(url.hostname)||/^[a-z0-9-]+\.obs\.[a-z0-9-]+\.myhuaweicloud\.com$/.test(url.hostname)
  if(url.protocol!=='https:'||!allowed||url.username||url.password||url.port||url.href.includes(token))throw Error('发行附件上传地址无效。')
  if(!value.headers||typeof value.headers!=='object'||Array.isArray(value.headers))throw Error('发行附件上传信息无效。')
  for(const [key,header] of Object.entries(value.headers)){

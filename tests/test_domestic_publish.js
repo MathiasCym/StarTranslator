@@ -43,6 +43,12 @@ test('upload recipes cannot forward the personal token, follow redirects or uplo
  assert.equal(uploadRecipe(safe,token).url,safe.url)
  for(const change of [{url:'http://bucket.obs.cn-south-1.myhuaweicloud.com/file'},{url:'https://evil.example/file'},{url:safe.url+'?token='+token},{headers:{Authorization:'Bearer '+token}},{headers:{'PRIVATE-TOKEN':token}}])assert.throws(()=>uploadRecipe({...safe,...change},token))
 })
+
+test('the official AtomGit upload gateway is accepted without broadening subdomain trust',()=>{
+ const recipe={url:'https://file.gitcode.com/synthetic-signed-object',headers:{'x-obs-meta-project-id':'synthetic','x-obs-acl':'public-read','x-obs-callback':'synthetic','Content-Type':'application/octet-stream'}}
+ assert.equal(uploadRecipe(recipe,token).url,recipe.url)
+ for(const url of ['https://evil.file.gitcode.com/object','https://file.gitcode.com.evil.example/object','http://file.gitcode.com/object','https://file.gitcode.com/object?access_token='+token])assert.throws(()=>uploadRecipe({...recipe,url},token))
+})
 test('publishing keeps a release private to the update list until every asset is anonymously verified',async()=>{
  const f=fixture(),result=await f.publisher.publish(f.args)
  assert.equal(result.published,true);assert.equal(f.state.remote.release_status,'latest');assert.equal(f.state.files.size,3)
