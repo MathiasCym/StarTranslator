@@ -23,7 +23,8 @@ function uploadRequest(url,options,requestFactory=https.request){
  // Native HTTPS has no hidden five-minute response-header deadline. The caller's
  // total deadline still applies, and redirects are returned rather than followed.
  return new Promise((resolve,reject)=>{
-  const fail=error=>reject(Error('国内附件上传连接未完成（'+(/^[A-Z0-9_]{1,80}$/.test(error?.code||'')?error.code:'NETWORK_ERROR')+'）。'))
+  let sent=false
+  const fail=error=>reject(Error('国内附件上传连接未完成（'+(/^[A-Z0-9_]{1,80}$/.test(error?.code||'')?error.code:'NETWORK_ERROR')+'；'+(sent?'文件已发送，等待服务响应':'文件发送未完成')+'）。'))
   try{
    const req=requestFactory(url,{method:'PUT',headers:{...options.headers,'Content-Length':options.body.length},signal:options.signal},res=>{
     try{
@@ -33,14 +34,14 @@ function uploadRequest(url,options,requestFactory=https.request){
      resolve(new Response(body,{status,headers:res.headers}))
     }catch(error){res.destroy();fail(error)}
    })
-   req.on('error',fail);req.end(options.body)
+   req.on('error',fail);req.on('finish',()=>{sent=true;options.onProgress?.({phase:'upload-sent',bytes:options.body.length})});req.end(options.body)
   }catch(error){fail(error)}
  })
 }
 class GitCodePublisher{
- constructor({source,token,fetcher=globalThis.fetch,uploader=fetcher}){
+ constructor({source,token,fetcher=globalThis.fetch,uploader=fetcher,onProgress=()=>{}}){
   if(!['atomgit','gitcode'].includes(source.provider)||!token||/\s/.test(token)||token.length>1024||/^(github_pat_|ghp_)/.test(token))throw Error('请在 GITCODE_TOKEN 中配置 AtomGit / GitCode 的访问令牌，不能使用 GitHub 令牌。')
-  this.source=source;this.token=token;this.fetcher=fetcher;this.uploader=uploader
+  this.source=source;this.token=token;this.fetcher=fetcher;this.uploader=uploader;this.onProgress=onProgress
  }
  async call(method,endpoint,body){
   // Credentialed requests never follow redirects, including same-platform ones.
@@ -70,13 +71,15 @@ class GitCodePublisher{
   })
  }
  async upload(tag,name,bytes){
+  this.onProgress({phase:'upload-start',file:name,bytes:bytes.length})
   const recipe=uploadRecipe(await this.call('GET','releases/'+encodeURIComponent(tag)+'/upload_url?file_name='+encodeURIComponent(name)),this.token)
-  const response=await this.uploader(recipe.url,{method:'PUT',redirect:'error',credentials:'omit',signal:AbortSignal.timeout(10*60*1000),headers:recipe.headers,body:bytes})
+  const response=await this.uploader(recipe.url,{method:'PUT',redirect:'error',credentials:'omit',signal:AbortSignal.timeout(bytes.length<1024*1024?60000:10*60*1000),headers:recipe.headers,body:bytes,onProgress:this.onProgress})
   if(!response.ok)throw Error('国内发行附件上传未完成（HTTP '+response.status+'），请检查免费附件限额。')
   // OBS can report an unsuccessful attachment callback in an otherwise 200 body.
   const body=await readBody(response,512*1024)
   if(body.length){let result;try{result=JSON.parse(body.toString('utf8'))}catch{throw Error('国内附件上传结果无法确认。')}
    if(result.error||result.success===false||(result.code!==undefined&&![0,200,'0','200'].includes(result.code)))throw Error('国内附件登记未完成，请重新检查发行版。')}
+  this.onProgress({phase:'upload-registered',file:name,bytes:bytes.length})
  }
  async retained(release,userData){
   const a=candidate(release,'0.0.0'),tag='v'+a.version
@@ -97,8 +100,9 @@ class GitCodePublisher{
   if(!existing)await this.call('POST','releases',{tag_name:tag,name:'星译官 '+tag,body:a.notes,release_status:'pre'})
   const details={schema:1,version:a.version,platform:'win32',architecture:'x64',filename:a.filename,size:a.size,sha256:a.sha256}
   manifest(details,a.version,a.filename)
-  // Verification metadata goes last. Incomplete releases remain prereleases.
-  const files=[[a.filename,bytes],['SHA256SUMS.txt',Buffer.from(a.sha256+'  '+a.filename+'\n')],['update.json',Buffer.from(JSON.stringify(details,null,2)+'\n')]]
+  // Probe the same upload route with the checksum before sending a large file.
+  // The update manifest still goes last; incomplete releases remain prereleases.
+  const files=[['SHA256SUMS.txt',Buffer.from(a.sha256+'  '+a.filename+'\n')],[a.filename,bytes],['update.json',Buffer.from(JSON.stringify(details,null,2)+'\n')]]
   for(const [name,content] of files){
    const old=existing?.assets?.find(asset=>asset.name===name)
    if(old){
@@ -111,6 +115,7 @@ class GitCodePublisher{
   const ready=await this.call('GET','releases/tags/'+tag)
   if(!ready||!files.every(([name])=>(ready.assets||[]).filter(a=>a.name===name).length===1))throw Error('国内发行版附件登记不完整，保持预发布状态。')
   // Read back the installer anonymously before making it a stable update source.
+  this.onProgress({phase:'verify-public-installer',bytes:a.size})
   const publicUrl=this.source.assetUrl(ready.assets.find(x=>x.name===a.filename).browser_download_url,tag,a.filename)
   const response=await fetchTrusted(this.fetcher,publicUrl,{},this.source.trusted)
   if(!response.ok)throw Error('国内安装包尚不能匿名下载，保持预发布状态。')
@@ -130,7 +135,7 @@ async function run(root=path.resolve(__dirname,'..')){
  const config=JSON.parse(await fs.readFile(path.join(root,'backend/distribution.json'),'utf8')),s=mirrors(config).find(s=>['atomgit','gitcode'].includes(s.provider))
  if(!s)return {skipped:true,reason:'国内公开仓库尚未配置。'}
  if(!process.env.GITCODE_TOKEN)return {skipped:true,reason:'GITCODE_TOKEN 尚未配置，原 GitHub 发布流程正常保留。'}
- const publisher=new GitCodePublisher({source:s,token:process.env.GITCODE_TOKEN,uploader:uploadRequest}),pkg=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'))
+ const publisher=new GitCodePublisher({source:s,token:process.env.GITCODE_TOKEN,uploader:uploadRequest,onProgress:value=>console.log(JSON.stringify(value))}),pkg=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'))
  const engine=new GitHubUpdates({currentVersion:'0.0.0',userData:path.join(root,'dist/qa/domestic-publish')})
  const release=await engine.release('v'+pkg.version),a=candidate(release,'0.0.0')
  await publisher.syncGit(root,{tag:a?'v'+a.version:undefined})

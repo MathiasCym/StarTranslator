@@ -56,6 +56,7 @@ test('publishing keeps a release private to the update list until every asset is
  const lastUpload=f.state.calls.findLastIndex(c=>c.options.method==='PUT'),promote=f.state.calls.findIndex(c=>c.options.method==='PATCH')
  assert(lastUpload<promote);assert(f.state.calls.slice(lastUpload+1,promote).some(c=>c.url.endsWith('.exe')&&!c.options.headers?.Authorization))
  assert(f.state.calls.filter(c=>c.options.method==='PUT').at(-1).url.endsWith('/update.json'))
+ assert(f.state.calls.find(c=>c.options.method==='PUT').url.endsWith('/SHA256SUMS.txt'))
 })
 test('an upload limit error leaves the original release and stable mirrors unchanged',async()=>{
  const f=fixture();f.state.failName='update.json';await assert.rejects(f.publisher.publish(f.args),/限额/)
@@ -103,7 +104,7 @@ async function localUpload(handler,check){
 }
 
 test('native upload transfers all bytes with an explicit length and only signed upload headers',async()=>{
- const bytes=Buffer.alloc(256*1024,93),signal=AbortSignal.timeout(3000)
+ const bytes=Buffer.alloc(256*1024,93),signal=AbortSignal.timeout(3000),progress=[]
  await localUpload(async(req,res)=>{
   assert.equal(req.method,'PUT');assert.equal(req.headers['content-length'],String(bytes.length))
   assert.equal(req.headers.authorization,undefined);assert.equal(req.headers['x-obs-callback'],'synthetic')
@@ -112,8 +113,9 @@ test('native upload transfers all bytes with an explicit length and only signed 
   res.writeHead(200,{'Content-Type':'application/json'});res.end('{"success":true}')
  },async requestFactory=>{
   const response=await uploadRequest('https://file.gitcode.com/synthetic-signed-object',
-   {body:bytes,headers:{'Content-Type':'application/octet-stream','x-obs-callback':'synthetic'},signal},requestFactory)
+   {body:bytes,headers:{'Content-Type':'application/octet-stream','x-obs-callback':'synthetic'},signal,onProgress:value=>progress.push(value)},requestFactory)
   assert.equal(response.status,200);assert.deepEqual(JSON.parse((await readBody(response)).toString()),{success:true})
+  assert.deepEqual(progress,[{phase:'upload-sent',bytes:bytes.length}])
  })
 })
 
