@@ -1,0 +1,9 @@
+{
+  "schema": 1,
+  "mirrors": [
+    {
+      "provider": "atomgit",
+      "repository": "MathiasCym/StarTranslator"
+    }
+  ]
+}

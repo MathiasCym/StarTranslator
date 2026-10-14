@@ -125,7 +125,7 @@ function addFiles(paths, reference = false) {
   const list = reference ? state.references : state.files
   for (const path of paths) {
     if (DocumentInput.isTemporaryOfficeFile(path)) { toast(DocumentInput.temporaryFileMessage, true); continue }
-    if (!(reference ? /\.(docx|pptx|txt)$/i : /\.(docx|pptx)$/i).test(path)) { toast('待处理文档支持 Word/PPT；参考资料另支持 UTF-8 文本。', true); continue }
+    if (!DocumentInput.supported(path)) { toast(DocumentInput.formatsMessage, true); continue }
     if (!list.includes(path)) list.push(path)
   }
   renderFiles()
@@ -135,7 +135,7 @@ function renderFiles() {
   $('dropzone').classList.toggle('compact', !!state.files.length)
   $('runBtn').disabled = !state.files.length || state.busy
   $('runCombined').disabled = !state.files.length || state.busy
-  $('filelist').innerHTML = state.files.map((path, i) => `<li><div class="ico ${/\.docx$/i.test(path) ? 'doc' : 'ppt'}">${/\.docx$/i.test(path) ? 'DOCX' : 'PPTX'}</div><div class="file-copy"><div class="fname">${esc(basename(path))}</div><div class="fpath">${esc(path)}</div></div><select data-pair="${i}" aria-label="对应原文或对照稿"><option value="">不指定对应稿</option>${state.references.filter(r => r !== path).map(r => `<option value="${esc(r)}"${state.pairs[path] === r ? ' selected' : ''}>${esc(basename(r))}</option>`).join('')}</select><button class="btn ghost sm" data-remove="${i}" aria-label="移除文件">×</button></li>`).join('')
+  $('filelist').innerHTML = state.files.map((path, i) => `<li><div class="ico ${/\.docx$/i.test(path) ? 'doc' : 'ppt'}">${esc(path.split('.').pop().toUpperCase())}</div><div class="file-copy"><div class="fname">${esc(basename(path))}</div><div class="fpath">${esc(path)}</div></div><select data-pair="${i}" aria-label="对应原文或对照稿"><option value="">不指定对应稿</option>${state.references.filter(r => r !== path).map(r => `<option value="${esc(r)}"${state.pairs[path] === r ? ' selected' : ''}>${esc(basename(r))}</option>`).join('')}</select><button class="btn ghost sm" data-remove="${i}" aria-label="移除文件">×</button></li>`).join('')
   $('filelist').querySelectorAll('[data-remove]').forEach(button => { button.onclick = () => { state.files.splice(Number(button.dataset.remove), 1); renderFiles() } })
   $('filelist').querySelectorAll('[data-pair]').forEach(select => { select.onchange = () => { state.pairs[state.files[Number(select.dataset.pair)]] = select.value } })
   $('referenceCount').textContent = state.references.length ? `（${state.references.length} 份）` : '（可选）'
@@ -333,7 +333,7 @@ function renderReport() {
   const noSuggestions = !r.findings.length
   $('applyBtn').textContent = finalOnly ? '应用所选并保存最终文件' : r.kind === 'translate_review' ? '应用所选并保存校对文件' : '应用所选并另存'
   $('applyBtn').hidden = noSuggestions
-  $('overwriteBtn').hidden = r.kind === 'translate_review' || noSuggestions
+  $('overwriteBtn').hidden = r.kind === 'translate_review' || noSuggestions || r.files.some(file => /\.pdf$/i.test(file.path))
   $('saveCurrentBtn').hidden = r.kind !== 'translate_review' && !noSuggestions
   $('saveCurrentBtn').textContent = noSuggestions ? '保存译文' : '不应用建议，保存当前译文'
   $('overwriteBtn').textContent = r.kind === 'translate_review' ? '应用所选并覆盖译文文件' : '应用所选并覆盖原文件'

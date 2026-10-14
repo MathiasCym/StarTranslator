@@ -136,6 +136,7 @@ let githubUpdater,quitAfterDownload=false
 function updater(){
   if(!githubUpdater)githubUpdater=new (require('./lib/github-updates').GitHubUpdates)({
     currentVersion:app.getVersion(),userData:app.getPath('userData'),
+    distribution:JSON.parse(fs.readFileSync(path.join(appRoot(),'backend','distribution.json'),'utf8')),
     fetcher:require('./lib/electron-update-transport').createFetcher(require('electron').net),
     onStatus:value=>{if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('update-status',value)},
   })
@@ -343,7 +344,7 @@ ipcMain.handle('open-file', async (_evt, filePath) => {
   if (error) throw new Error('无法打开文件：' + error)
 })
 
-ipcMain.handle('pick-files', () => pickCustom({ title: '选择要检验的文档', mode: 'open', multiple: true, extensions: ['docx', 'pptx'] }))
+ipcMain.handle('pick-files', () => pickCustom({ title: '选择要处理的文档', mode: 'open', multiple: true, extensions: require('./renderer/document-input').extensions }))
 ipcMain.handle('pick-glossary', () => pickCustom({ title: '选择术语表', mode: 'open', multiple: true, extensions: ['xlsx', 'xlsm', 'csv', 'tsv', 'json'] }))
 ipcMain.handle('export-glossary-path', async (_evt, format) => {
   if (!['json','xlsx'].includes(format)) throw new Error('请选择词库文件或 Excel 格式。')
@@ -354,7 +355,7 @@ ipcMain.handle('export-glossary-path', async (_evt, format) => {
   catch(error) { if(error.code!=='ENOENT')throw error }
   return {path:paths[0],fingerprint}
 })
-ipcMain.handle('pick-references', () => pickCustom({ title: '选择中文原文或英文参考材料', mode: 'open', multiple: true, extensions: ['docx', 'pptx', 'txt'] }))
+ipcMain.handle('pick-references', () => pickCustom({ title: '选择中文原文或英文参考材料', mode: 'open', multiple: true, extensions: require('./renderer/document-input').extensions }))
 ipcMain.handle('pick-shared-lexicon', async (_evt, create) => {
   const paths = await pickCustom({ title: create ? '创建共享术语库副本' : '连接共享术语库', mode: create ? 'save' : 'open', multiple: false,
     name: create ? 'StarTranslator-Glossary.xlsx' : '', extensions: ['xlsx', 'xlsm', 'csv', 'tsv', 'json'] })

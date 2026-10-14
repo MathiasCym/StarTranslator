@@ -43,7 +43,7 @@ jobs:
           PYTHONDONTWRITEBYTECODE: '1'
         run: .\python-runtime\python.exe -B tools/run-regressions.py
       - name: Installation and update regression checks
-        run: node --test tests/test_release.js tests/test_install_integrity.js tests/test_installation_repair.js tests/test_setup_worker.js tests/test_github_updates.js tests/test_electron_updates.js tests/test_release_repair.js tests/test_runtime_log.js
+        run: node --test tests/test_release.js tests/test_install_integrity.js tests/test_installation_repair.js tests/test_setup_worker.js tests/test_github_updates.js tests/test_electron_updates.js tests/test_public_sources.js tests/test_domestic_publish.js tests/test_release_repair.js tests/test_runtime_log.js
       - name: Build exact source version
         env:
           PYTHONDONTWRITEBYTECODE: '1'
@@ -60,3 +60,7 @@ jobs:
         with:
           name: build-validation
           path: dist/qa/release-200
+  public-mirror:
+    needs: windows
+    uses: ./.github/workflows/mirror.yml
+    secrets: inherit

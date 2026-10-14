@@ -143,8 +143,9 @@ def public(job):
 def save_upload(file, folder):
     name = (file.filename or '').replace('\\','/').split('/')[-1]
     if not name or len(name) > 180 or any(c in name for c in '<>:"|?*') or name.startswith('~$'):
-        raise ValueError('请选择正式的 Word / PPT 文档，不能使用临时锁定文件。')
-    if Path(name).suffix.lower() not in ('.docx','.pptx'): raise ValueError('支持 .docx 和 .pptx 文档。')
+        raise ValueError('请选择正式文档，不能使用临时锁定文件。')
+    from .formats import SUPPORTED, archive_check
+    if Path(name).suffix.lower() not in SUPPORTED: raise ValueError('不支持此文档格式。')
     path = folder / uuid.uuid4().hex / name
     path.parent.mkdir(parents=True,exist_ok=True)
     size = 0
@@ -154,13 +155,11 @@ def save_upload(file, folder):
             if size > MAX_FILE: raise ValueError('单个文档不能超过 150 MB。')
             target.write(chunk)
     validate_document_input(str(path))
-    try:
-        with zipfile.ZipFile(path) as archive:
-            info = archive.infolist()
-            if len(info) > 20000 or sum(i.file_size for i in info) > 1024 * 1024 * 1024:
-                raise ValueError('文档展开后的内容过大，请拆分后上传。')
-    except zipfile.BadZipFile as error:
-        raise ValueError('文档不完整或不是有效的 Office 文件，请确认能够正常打开后再上传。') from error
+    if path.suffix.lower() in {'.docx','.pptx','.xlsx','.epub'}:
+        try:
+            with zipfile.ZipFile(path) as archive: archive_check(archive)
+        except zipfile.BadZipFile as error:
+            raise ValueError('文档不完整，请确认能够正常打开后再上传。') from error
     return str(path)
 
 

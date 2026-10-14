@@ -32,7 +32,8 @@ def create(segments, paragraphs, source, output):
 def snapshot_source(value,source):
     """A private immutable original supports page comparison after moving the input."""
     source=Path(source)
-    if source.suffix.lower() not in ('.docx','.pptx'): raise ValueError('仅支持 Word / PPT 页面预览。')
+    from .formats import SUPPORTED
+    if source.suffix.lower() not in SUPPORTED: raise ValueError('不支持此文档格式。')
     target=folder()/value['id']/('source'+source.suffix.lower())
     target.parent.mkdir(parents=True,exist_ok=True)
     before=store.fingerprint(source)

@@ -18,6 +18,8 @@ def _output_path(src_path: str, output_dir: str | None = None) -> str:
     output_dir 非空 → 输出到该目录，同名冲突时 _checked(2) 递增。
     """
     base, ext = os.path.splitext(os.path.basename(src_path))
+    from ..formats import output_extension
+    ext = output_extension(src_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
         folder = output_dir

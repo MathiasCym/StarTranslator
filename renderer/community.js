@@ -13,6 +13,7 @@
   }
   function renderConfig(value){
     teamConfig=value;$('teamLastSync').textContent=value.last_sync?'上次同步：'+new Date(value.last_sync).toLocaleString():'尚未同步'
+    $('teamReadSource').textContent=value.read_sources?.length>1?'读取来源：'+value.read_sources.join(' → ')+'。提交修改使用 GitHub。':'读取与提交来源：GitHub。'
     $('teamTokenState').textContent=value.has_token?'已保存维护授权。':'未配置维护授权，仍可获取团队词库。'
     $('teamClearToken').hidden=!value.has_token;$('teamMessageLabel').hidden=!value.has_token;teamButtons()
   }
@@ -64,6 +65,7 @@
   },'正在读取维护记录…'))
   function renderUpdate(value){
     updateValue=value;$('updateVersions').textContent='当前 v'+value.currentVersion+(value.newVersion?' → v'+value.newVersion:'')
+    $('updateSource').textContent=(value.sourceName||'GitHub')+' 正式发布'
     $('updateMessage').textContent=value.message;$('updateMessage').classList.toggle('error',value.phase==='error')
     $('updateCheck').disabled=['checking','downloading'].includes(value.phase)
     $('updateDownload').hidden=!value.canDownload||['checking','downloading','ready'].includes(value.phase)

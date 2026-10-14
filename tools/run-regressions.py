@@ -10,7 +10,7 @@ if packaged:
     assert all(str(resources/'app.asar.unpacked') in str(module.__file__) for module in (backend,workflow,translation,officecli_bridge,team_sync,model_profiles,atomic_file))
 else:sys.path.insert(0,str(root))
 sys.path.insert(0,str(root/'tests'))
-names=['test_officecli_runtime','test_document_skills','test_translation_recovery','test_workflow','test_maintenance_status','test_async_lan','test_document_preview','test_bit_depth','test_team_sync','test_model_profiles','test_atomic_file','test_consistency']
+names=['test_officecli_runtime','test_document_skills','test_translation_recovery','test_workflow','test_file_formats','test_maintenance_status','test_async_lan','test_document_preview','test_bit_depth','test_team_sync','test_public_sources','test_model_profiles','test_atomic_file','test_consistency']
 suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromModule(importlib.import_module(name)) for name in names)
 result=unittest.TextTestRunner(verbosity=1).run(suite)
 folder=root/'dist/qa/release-200';folder.mkdir(parents=True,exist_ok=True)

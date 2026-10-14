@@ -48,7 +48,7 @@ def team_apply():
 @api.get('/api/team/history')
 def team_history():
     from . import team_sync
-    return jsonify(records=team_sync.GitHub().history())
+    return jsonify(records=team_sync.history())
 
 
 @api.get('/api/comparisons/<comparison_id>')

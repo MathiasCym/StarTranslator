@@ -52,14 +52,16 @@ def check_cancel(cancel):
         raise Cancelled('任务已取消。已完成的输出文件保留，原文件未修改。')
 
 
-def output_path(path, output_dir, suffix):
+def output_path(path, output_dir, suffix, extension=None):
     src = Path(path)
     folder = Path(output_dir) if output_dir else src.parent
     folder.mkdir(parents=True,exist_ok=True)
-    candidate = folder / f'{src.stem}_{suffix}{src.suffix}'
+    from .formats import output_extension
+    extension = extension or output_extension(path)
+    candidate = folder / f'{src.stem}_{suffix}{extension}'
     number = 2
     while candidate.exists():
-        candidate = folder / f'{src.stem}_{suffix}({number}){src.suffix}'
+        candidate = folder / f'{src.stem}_{suffix}({number}){extension}'
         number += 1
     return candidate
 
@@ -317,4 +319,4 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             'remaining_chinese':remaining,'layout_adjustments':layout_adjustments,
             'skipped':len(blocked),'warnings':[{'text':s.text[:100],'reason':s.not_editable_reason,'slide':s.slide} for s in blocked],
             'layout_warnings':layout_warnings + style_warnings, 'layout_checked':is_pptx,
-            'layout_note':'保留图片与文本框位置、尺寸；按原稿段落空间适配字号、字体和行距，未能适配的位置列在版式提示中。' if is_pptx else '保留段落、表格及局部文字样式。'}
+            'layout_note':'保留图片与文本框位置、尺寸；按原稿段落空间适配字号、字体和行距，未能适配的位置列在版式提示中。' if is_pptx else getattr(document,'note','保留段落、表格及局部文字样式。')}

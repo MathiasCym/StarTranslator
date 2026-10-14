@@ -22,7 +22,7 @@ function showError(error) { $('error').textContent = error.message; $('error').h
 function action(id, fn) { $(id).onclick = async () => { try { await fn() } catch(e) { showError(e) } } }
 function mode() { $('outputField').hidden = document.querySelector('[name=kind]:checked').value !== 'translate_review' }
 document.querySelectorAll('[name=kind]').forEach(el => el.onchange = mode); mode()
-for (const [id,label] of [['files','fileNames'],['references','referenceNames']]) $(id).onchange = () => { $(label).textContent = [...$(id).files].map(f=>f.name).join('、') || (id === 'files' ? '支持 Word / PPT，每份不超过 150 MB。' : '') }
+for (const [id,label] of [['files','fileNames'],['references','referenceNames']]) $(id).onchange = () => { $(label).textContent = [...$(id).files].map(f=>f.name).join('、') || (id === 'files' ? '支持 Office、PDF、文本、电子书和字幕，每份不超过 150 MB。PDF 文字层输出为 Word。' : '') }
 $('form').onsubmit = async event => {
   event.preventDefault(); $('error').hidden = true
   const form = new FormData(), kind = document.querySelector('[name=kind]:checked').value

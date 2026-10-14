@@ -57,7 +57,8 @@
           <img class="welcome-portrait" src="assets/welcome.png" width="128" height="128" alt="星译官翻译与审校助手" draggable="false">
           <div class="dz-copy"><span class="welcome-label">星译官 · 专业术语，各就其位</span>
             <h2 id="dropTitle">添加英文译文</h2>
-            <p>拖入 Word / PPT 文档，可一次添加多份</p>
+            <p>拖入文档，可一次添加多份</p>
+            <p class="hint" title="还支持 HTML、JSON、EPUB、SRT 和 ASS">Word · PPT · PDF · Excel · 文本 · Markdown 等<br>PDF 文字层输出为 Word；扫描件需先识别文字。</p>
             <button class="btn ghost" id="pickBtn">选择文档</button>
           </div>
         </div>
@@ -236,7 +237,7 @@
   <div class="panel-head"><h3 id="teamTitle"><img src="assets/normal.png" width="48" height="48" alt="">团队词库同步</h3><button id="closeTeamSync" class="btn ghost sm">关闭</button></div>
   <div class="community-body">
     <p class="hint">共享同一套专业译法。获取最新内容无需登录；维护者可以提交修改，双方改动同一词条时先选择保留内容。</p>
-    <div class="community-summary"><span>StarTranslator 团队词库</span><span id="teamLastSync" class="hint">尚未同步</span></div>
+    <div class="community-summary"><span>StarTranslator 团队词库</span><span id="teamLastSync" class="hint">尚未同步</span></div><p id="teamReadSource" class="hint"></p>
     <div class="actions"><button id="teamPull" class="btn primary">获取团队最新词库</button><button id="teamPush" class="btn ghost" disabled>提交本机修改</button><button id="teamHistory" class="btn ghost sm">最近维护记录</button></div>
     <div id="teamHistoryRows" class="community-history" hidden></div>
     <details class="community-authorization" id="teamAuthorization"><summary>维护授权设置</summary><p class="hint">维护者需拥有仓库写入权限。仓库所有者可创建仅用于 StarTranslator 的细粒度授权，开启 Contents 读写权限；其他协作者需创建经典授权，勾选 public_repo。授权仅加密保存在本机，不会分享给同事。</p><label>维护授权<input type="password" id="teamToken" autocomplete="off" maxlength="255" placeholder="输入新授权；留空保留已保存的授权"></label><div class="actions"><button id="teamSaveToken" class="btn primary sm">保存授权</button><button id="teamClearToken" class="btn ghost sm">移除授权</button><button id="teamGetToken" class="btn ghost sm">获取维护授权</button></div><p id="teamTokenState" class="hint"></p></details>
@@ -247,7 +248,7 @@
 </dialog>
 <dialog id="updateDialog" class="shared-dialog community-dialog" aria-labelledby="updateTitle">
   <div class="panel-head"><h3 id="updateTitle"><img src="assets/normal.png" width="48" height="48" alt="">软件更新</h3><button id="closeUpdates" class="btn ghost sm">关闭</button></div>
-  <div class="community-body"><div class="community-summary"><strong id="updateVersions"></strong><span class="hint">GitHub 正式发布</span></div><p id="updateMessage" role="status"></p><div id="updateProgressBox" hidden><div class="job-progress-track"><div id="updateProgressFill" class="job-progress-fill"><span class="job-progress-light"></span></div></div><p id="updateDownloadSize" class="hint"></p></div><p class="hint">下载可以在后台继续。安装前将再次核对发布文件，现有模型配置、词库和历史记录会保留。</p><pre id="updateNotes" class="community-notes" hidden></pre></div>
+  <div class="community-body"><div class="community-summary"><strong id="updateVersions"></strong><span id="updateSource" class="hint">正式发布</span></div><p id="updateMessage" role="status"></p><div id="updateProgressBox" hidden><div class="job-progress-track"><div id="updateProgressFill" class="job-progress-fill"><span class="job-progress-light"></span></div></div><p id="updateDownloadSize" class="hint"></p></div><p class="hint">下载可以在后台继续。安装前将再次核对发布文件，现有模型配置、词库和历史记录会保留。</p><pre id="updateNotes" class="community-notes" hidden></pre></div>
   <footer class="community-footer"><button id="updateCheck" class="btn ghost">检查更新</button><button id="updateCancel" class="btn ghost" hidden>取消下载</button><button id="updateDownload" class="btn primary" hidden>下载更新</button><button id="updateInstall" class="btn primary" hidden>关闭并安装更新</button></footer>
 </dialog>
 <dialog id="lanDialog" class="shared-dialog" aria-labelledby="lanTitle">

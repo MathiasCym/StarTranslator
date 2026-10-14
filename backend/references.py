@@ -21,12 +21,7 @@ class ReferenceIndex:
         self.pairs = {os.path.abspath(k): os.path.abspath(v) for k,v in (pairs or {}).items() if v}
         for path in dict.fromkeys(paths or []):
             validate_document_input(path)
-            if Path(path).suffix.lower() == '.txt':
-                text = Path(path).read_text(encoding='utf-8-sig')
-                segments = [Segment(id=str(i), file=Path(path).name, text=t, locator=str(i))
-                            for i,t in enumerate(text.splitlines()) if t.strip()]
-            else:
-                segments = [s for s in extract(path) if s.source not in ('image', 'group')]
+            segments = [s for s in extract(path) if s.source not in ('image', 'group')]
             self.by_path[os.path.abspath(path)] = segments
             for s in segments:
                 self.items.append((s, concepts(s.text, glossary), set(re.findall(r'[a-z0-9]{3,}', s.text.lower()))))

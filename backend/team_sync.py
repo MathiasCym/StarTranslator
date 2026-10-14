@@ -15,6 +15,7 @@ from pathlib import Path
 from urllib import request, error, parse
 from .glossary import store, writer
 from .llm import secret
+from . import public_sources
 
 REPOSITORY='MathiasCym/StarTranslator'
 BRANCH='main'
@@ -45,6 +46,7 @@ def settings():
     value=read_json('settings.json',{});base=read_json('base.json',{})
     return {'repository':REPOSITORY,'url':'https://github.com/'+REPOSITORY,
             'has_token':bool(value.get('token')),'encryption_available':secret.available(),
+            'read_sources':[s['name'] for s in public_sources.configured()]+['GitHub'],
             'last_sync':base.get('saved_at',''),'revision':base.get('sha','')}
 
 
@@ -65,9 +67,10 @@ def configure(data):
 
 
 class GitHub:
-    def __init__(self):
+    def __init__(self,public=False):
         value=read_json('settings.json',{}).get('token','')
-        self.token=secret.decrypt(value) if value else ''
+        self.token=secret.decrypt(value) if value and not public else ''
+        self.last_commit_date='';self.last_commit=''
 
     def call(self,method,path,body=None):
         url='https://api.github.com/repos/'+REPOSITORY+'/'+path
@@ -97,7 +100,14 @@ class GitHub:
             raise ValueError('团队服务返回了无法读取的数据，本机词库保持不变。') from None
 
     def read(self):
-        data=self.call('GET','contents/'+FILE+'?ref='+parse.quote(BRANCH,safe=''))
+        source_info={};ref=BRANCH
+        if public_sources.configured():
+            records=self.call('GET','commits?sha=main&path='+FILE+'&per_page=1')
+            if isinstance(records,list) and records:
+                record=records[0];ref=record.get('sha','');published=record.get('commit',{}).get('committer',{}).get('date')
+                if not re.fullmatch('[a-f0-9]{40}',ref): raise ValueError('团队词库版本信息无效。')
+                public_sources.date(published);source_info={'source':'github','source_date':published,'source_commit':ref}
+        data=self.call('GET','contents/'+FILE+'?ref='+parse.quote(ref,safe=''))
         if data is None: return {'entries':[],'sha':'','missing':True}
         if not isinstance(data,dict) or data.get('type')!='file' or not re.fullmatch('[0-9a-f]{40}',str(data.get('sha',''))):
             raise ValueError('团队词库版本信息无效。')
@@ -109,7 +119,7 @@ class GitHub:
             entries=store.validate(json.loads(raw.decode('utf-8-sig')))
         except (KeyError,TypeError,ValueError,UnicodeError):
             raise ValueError('团队词库格式不正确，本机词库保持不变。') from None
-        return {'entries':entries,'sha':data['sha'],'missing':False}
+        return {'entries':entries,'sha':data['sha'],'missing':False,**source_info}
 
     def commit(self,entries,sha,message):
         if not self.token: raise ValueError('提交修改需要维护授权，可先获取团队最新词库。')
@@ -120,6 +130,8 @@ class GitHub:
         result=self.call('PUT','contents/'+FILE,body)
         if not isinstance(result,dict) or not result.get('content',{}).get('sha'):
             raise ValueError('未能确认提交结果，请重新获取团队词库核对。')
+        self.last_commit_date=result.get('commit',{}).get('committer',{}).get('date','')
+        self.last_commit=result.get('commit',{}).get('sha','')
         return result['content']['sha']
 
     def history(self):
@@ -128,6 +140,26 @@ class GitHub:
         return [{'message':r.get('commit',{}).get('message','')[:1000],
                  'author':r.get('author',{}).get('login','') if r.get('author') else r.get('commit',{}).get('author',{}).get('name',''),
                  'date':r.get('commit',{}).get('author',{}).get('date','')} for r in records]
+
+
+def read_remote(action,base,client,preferred=None):
+    if action=='push': return client.read()
+    sources=public_sources.configured()
+    if preferred=='github' or not sources: return GitHub(public=True).read()
+    candidates=[s for s in sources if not preferred or s['id']==preferred]
+    if preferred and not candidates: raise ValueError('公开来源已变化，请重新获取词库差异。')
+    for source in candidates:
+        try: return public_sources.guard(public_sources.PublicMirror(source).read(),base)
+        except ValueError:
+            if preferred: raise
+    return GitHub(public=True).read()
+
+
+def history():
+    for source in public_sources.configured():
+        try: return public_sources.PublicMirror(source).history()
+        except ValueError: pass
+    return GitHub(public=True).history()
 
 
 def groups(entries):
@@ -176,8 +208,9 @@ def preview(data):
         if data.get('fingerprint')!=local['fingerprint']: raise store.Conflict('本机词库已变化，请保存并重新读取后再同步。')
         client=GitHub()
         if action=='push' and not client.token: raise ValueError('请先保存维护授权，再提交词库修改。')
-        remote=client.read();base=read_json('base.json',{})
+        base=read_json('base.json',{})
         if base.get('path')!=local['path']: base={}
+        remote=read_remote(action,base,client)
         merged,conflicts=merge(base.get('entries',[]),local['entries'],remote['entries'])
         old=groups(remote['entries'] if action=='push' else local['entries']);new=merged
         changes=[{'zh':(new.get(k) or old[k])[0]['zh'],'kind':'added' if k not in old else 'deleted' if k not in new else 'changed'}
@@ -224,7 +257,7 @@ def apply(data):
                 if value is None: merged.pop(key,None)
                 else: merged[key]=value
             else: merged[key][0][conflict['field']]=value
-        entries=store.validate(flatten(merged));client=GitHub();latest=client.read()
+        entries=store.validate(flatten(merged));client=GitHub();latest=read_remote(plan['action'],read_json('base.json',{}),client,plan['remote'].get('source'))
         if latest['sha']!=plan['remote']['sha']:
             raise RemoteChanged('团队词库已被其他人更新，请重新获取差异；本机内容尚未更改。')
         remote_entries=latest['entries'];sha=latest['sha'];committed=False
@@ -240,7 +273,9 @@ def apply(data):
         except (OSError,ValueError) as e:
             if committed: raise store.Conflict('团队提交已成功，但本机保存未完成。请重新获取词库，不要重复提交。') from e
             raise
-        store.atomic_json(folder()/'base.json',{'path':current['path'],'entries':remote_entries,'sha':sha,'saved_at':timestamp()})
+        source_date=getattr(client,'last_commit_date','') if committed else latest.get('source_date','')
+        source_commit=getattr(client,'last_commit','') if committed else latest.get('source_commit','')
+        store.atomic_json(folder()/'base.json',{'path':current['path'],'entries':remote_entries,'sha':sha,'saved_at':timestamp(),'source_date':source_date,'source_commit':source_commit})
         (folder()/'plan.json').unlink(missing_ok=True)
         return {'count':len(result['entries']),'fingerprint':result['fingerprint'],'committed':committed,
                 'pending_upload':groups(entries)!=groups(remote_entries),'revision':sha,'last_sync':timestamp()}

@@ -309,6 +309,8 @@ def apply_report(data):
 def _apply_report(data, report):
     overwrite = data.get('overwrite') is True
     path = os.path.abspath(data.get('path') or '')
+    if overwrite and Path(path).suffix.lower() == '.pdf':
+        raise ValueError('PDF 的处理结果保存为 Word，不能覆盖原 PDF。请使用另存。')
     option = report.get('output_options',{}).get(path,{})
     final_only = option.get('mode') == 'final'
     managed_output = bool(option)
@@ -391,14 +393,15 @@ def _apply_report(data, report):
     if not overwrite or managed_output:
         out = Path(option['output']) if managed_output and option.get('output') else output_path(
             option.get('source',path) if final_only else path,
-            option.get('target_dir') if managed_output else data.get('output_dir'),'English_checked' if final_only else 'checked')
+            option.get('target_dir') if managed_output else data.get('output_dir'),'English_checked' if final_only else 'checked',
+            extension=Path(input_path).suffix if final_only else None)
         existing_hash = store.fingerprint(out) if out.exists() else None
         if existing_hash and store.fingerprint(out) != input_hash:
             raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
         fd, temporary = tempfile.mkstemp(prefix='.star-review-',suffix=out.suffix,dir=out.parent)
         os.close(fd)
         try:
-            if done: save_office(input_path,document,temporary,changed_locators)
+            if done or Path(input_path).suffix.lower() == '.pdf': save_office(input_path,document,temporary,changed_locators)
             else: shutil.copyfile(input_path,temporary)
             layout_warnings = fitting_warnings + (officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else [])
             if store.fingerprint(path) != report['hashes'][path]:

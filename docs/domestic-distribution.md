@@ -1,0 +1,49 @@
+# 国内公开来源接入
+
+GitHub 继续作为源码和团队词库的维护主仓库。软件可以优先读取维护者控制的 AtomGit / GitCode 或 Gitee 公开仓库，失败后尝试 GitHub。普通用户不需要平台账号或令牌。
+
+目前的 `backend/distribution.json` 已指向 [MathiasCym/StarTranslator](https://atomgit.com/MathiasCym/StarTranslator)。该仓库的词库和提交接口已通过匿名读取验证。接入代码和自动发布流程已准备；是否启用以软件更新和团队同步窗口中的来源提示为准。尚未完成自有仓库的 143 MB 安装包实测，也不能将通过系统代理的测试视为大陆普通网络验证。
+
+## 首次配置
+
+1. 在 GitCode 创建公开代码仓库。推荐通过“导入项目 → URL 导入”导入 `https://github.com/MathiasCym/StarTranslator.git`；这是公开仓库，不需要创建 GitHub 个人令牌。也可以使用未初始化 README 的空仓库。不要选择私有仓库或自行改写镜像的 `main` 分支。
+2. 将公开仓库的 HTTPS 网页地址交给维护者，运行 `node tools/configure-distribution.cjs <公开仓库网址>` 写入随包来源配置。该工具拒绝带令牌的网址、未知平台和额外路径；配置文件只记录平台及公开仓库名称。
+3. 在 GitCode“个人设置 → 访问令牌”创建发布用 PAT，授予所需的项目、代码推送和发行版维护权限。令牌不能来自 GitHub，也不要写入仓库、软件配置、安装包或聊天。
+4. 在 GitHub 的 `MathiasCym/StarTranslator` 仓库中打开“Settings → Secrets and variables → Actions → New repository secret”，名称填写 `GITCODE_TOKEN`，Secret 填写 GitCode PAT。使用到期时间；到期后在同一 Secret 中更换令牌即可。
+5. 提交来源配置及代码，并在 Actions 中运行 “Sync owned public mirror”。完成后检查国内仓库、团队词库和发行版附件。实际安装包必须匿名下载成功且大小、SHA-256 与 GitHub 原发行包相同，才允许进入软件更新列表。
+
+若免费附件大小或容量不足，国内发布流程会报告失败，未完成的版本保持预发布状态，原 GitHub 正式版本继续保留。先验证平台限额，不购买服务器、不拆分或改造安装程序来绕过限额。
+
+## 后续维护
+
+- 源码仍提交至 GitHub。原有构建、回归、组件完整性和安装引导图像检查通过并正式发布后，再同步国内仓库和发行附件。
+- `glossary/team.json` 或 README 的提交会触发镜像同步，不触发完整软件打包。已经同步且校验值一致的发行版会保留，不重复上传或下载其安装包。
+- 同步只使用正常的 Git 快进推送，不强制覆盖国内已有分支和标签。若国内仓库包含不同历史，先核对原因，不删除原内容。
+- 国内发行附件使用 GitHub 已正式发布的安装包原始字节。同版本重新构建出不同字节时，仍以原正式发行包为准；已经发布且内容不同的国内版本不会被覆盖。
+- 维护授权仅存在 GitHub Actions Secrets 中。授权请求仅发给 GitCode；上传对象存储使用平台签发的临时上传信息，匿名读取和软件使用不附带维护授权。
+
+## 软件行为
+
+国内来源同时覆盖版本查询、`update.json`、安装包下载以及安装前再次核对发布信息。仅替换安装包链接不能解决版本查询仍依赖 GitHub 的问题。
+
+每个来源使用单独的平台域名校验，拒绝不安全协议、外部跳转、其他仓库的附件、错配版本、缺失元信息和重复附件。下载失败时，备用来源必须与原候选的版本、文件大小及 SHA-256 完全相同；取消任务后清理软件自身的下载临时文件。
+
+词库读取使用国内仓库的不可变提交，核对实际文件的 Git blob SHA，再进入现有差异预览和三方合并流程。比本机已同步版本更早的不同词库不会被采用。确认同步时再次检查预览的来源；来源或内容变化需要重新获取差异，不直接覆盖本机修改。
+
+词库提交始终读取和写入 GitHub 主仓库，需要原有维护者授权。维护者提交仍需能够访问 GitHub。国内仓库只作公开读取镜像，避免两边同时修改造成分歧。个人材料、模型配置、接口密钥、输出文件和日志不参与镜像同步。
+
+Gitee 的匿名读取适配已准备，但自动发布脚本目前只实现 GitCode。HTML 官网的静态页面托管仍单独处理，代码仓库网页不等同于静态网站托管。
+
+## 验收
+
+在自有公开仓库中完成以下验证后再分发包含国内来源的软件：
+
+1. 实际约 143 MB 安装包符合免费附件及容量限额，匿名下载后的 SHA-256 与 GitHub 原发行包相同。
+2. 同事关闭 VPN 后，在大陆普通网络下完成版本查询、下载安装前核对、词库差异预览和确认同步。
+3. 模拟国内源不可用，检查 GitHub 备用来源；模拟错配版本、错误 SHA 或不完整发布时拒绝安装。
+4. 维护者提交新词，观察 GitHub 主仓库提交、国内同步、普通用户获取，确认未覆盖本机独立编辑。
+5. 确认原翻译、校对、对照、历史、安装完整性和局域网协作回归检查通过。
+
+旧安装包不会自行获得新增来源；首次切换需安装含已验证来源配置的版本，之后才能使用新的更新路径。
+
+参考：[GitCode 项目导入](https://docs.gitcode.com/docs/help/home/org_project/project_manage/getting_started/project_creation_and_import/)、[GitCode PAT](https://docs.gitcode.com/docs/help/home/user_center/security_management/user_pat/)、[发行附件上传接口](https://docs.gitcode.com/docs/apis/get-api-v-5-repos-owner-repo-releases-tag-upload-url/)、[公开下载接口](https://docs.gitcode.com/docs/apis/get-api-v-5-repos-owner-repo-releases-attach-files-file-name-download/)。

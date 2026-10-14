@@ -8,7 +8,7 @@ from .pptx_extract import extract_pptx
 from .office import extract_office
 from ..document_input import validate_document_input
 
-SUPPORTED = {".docx", ".pptx"}
+from ..formats import SUPPORTED
 
 
 def extract(path: str) -> list[Segment]:

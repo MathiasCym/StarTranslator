@@ -14,6 +14,9 @@ from ..replacer.text_runs import text_runs, editable_paragraph
 
 def open_office(path):
     validate_document_input(path)
+    if Path(path).suffix.lower() not in {'.docx', '.pptx'}:
+        from ..formats import open_text_document
+        return open_text_document(path)
     paragraphs, blocked, seen, layouts = [], [], set(), {}
     if Path(path).suffix.lower() == '.docx':
         document = Document(path)

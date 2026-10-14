@@ -16,7 +16,7 @@ SLOTS=threading.BoundedSemaphore(2)
 LOCK=threading.RLock()
 RENDER_LOCKS={}
 MAX_HTML=64*1024*1024
-PREVIEW_FORMAT='pages-3'
+PREVIEW_FORMAT='pages-4'
 CSP="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"
 FRAME_SCRIPT=r'''
 (()=>{
@@ -85,6 +85,22 @@ def prepare(raw,kind):
     return '<!doctype html>\n'+html.tostring(dom,encoding='unicode',method='html')
 
 
+def text_preview(source):
+    """A labelled reading view for formats without the Office page renderer."""
+    from .extract import extract
+    segments = [s for s in extract(str(source)) if s.editable]
+    if not segments: raise ValueError('没有可预览的正文。')
+    pages = {}
+    for index,segment in enumerate(segments):
+        pages.setdefault(segment.slide if segment.slide is not None else index//40+1, []).append(segment)
+    content = []
+    for number,values in pages.items():
+        paragraphs = ''.join('<p>'+escaping.escape(s.text)+'</p>' for s in values)
+        content.append(f'<div class="page-wrapper"><div class="page"><small>正文阅读预览 · {number}（不还原原文件版式、图像及代码）</small>{paragraphs}</div></div>')
+    raw = '<html><head><meta charset="utf-8"><style>.page{box-sizing:border-box;width:900px;background:white;color:#182737;padding:36px;min-height:600px;font:18px/1.6 Arial,sans-serif}p{white-space:pre-wrap;overflow-wrap:anywhere}small{color:#657584}</style></head><body>'+''.join(content)+'</body></html>'
+    return prepare(raw,'.pptx')
+
+
 def preview(comparison_id,side):
     if side not in ('source','output'): raise ValueError('页面预览不存在。')
     value=comparison.read(comparison_id)
@@ -95,11 +111,15 @@ def preview(comparison_id,side):
         with render_lock:
             source=comparison.source_for_preview(value) if side=='source' else Path(value['output_path'])
             if not source.is_file(): raise ValueError('处理后的文件已移动或删除，无法显示完整页面。文字对照仍可查看。')
-            if source.suffix.lower() not in ('.docx','.pptx'): raise ValueError('仅支持 Word / PPT 页面预览。')
             digest=store.fingerprint(source);folder=comparison.folder()/comparison_id;folder.mkdir(parents=True,exist_ok=True)
             cached=folder/(side+'.html');stamp=folder/(side+'.sha256')
             cache_key=PREVIEW_FORMAT+'\n'+digest
             if cached.is_file() and stamp.is_file() and stamp.read_text()==cache_key: return cached.read_text(encoding='utf-8')
+            if source.suffix.lower() not in {'.docx','.pptx'}:
+                prepared = text_preview(source)
+                if store.fingerprint(source) != digest: raise ValueError('文件在读取期间发生变化，请重试预览。')
+                cached.write_text(prepared,encoding='utf-8');stamp.write_text(cache_key)
+                return prepared
             with tempfile.TemporaryDirectory(prefix='star-page-preview-') as tmp:
                 snapshot=Path(tmp)/('document'+source.suffix.lower());output=Path(tmp)/'preview.html'
                 shutil.copyfile(source,snapshot)

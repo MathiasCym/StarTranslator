@@ -4,7 +4,7 @@
 
 **译步到位。** 面向中英技术资料的文档翻译与审校工作台，由 **MathiasCym** 维护。
 
-翻译中文 Word / PowerPoint 材料，结合参考原稿与专业术语库校对已有英文，并在保留文档布局的基础上逐条确认修改。既可在自己的电脑上使用，也可通过局域网共享工作台与同事协作。
+翻译中文技术材料，结合参考原稿与专业术语库校对已有英文，逐条确认修改。支持 Office、PDF 文字层、文本、电子书和字幕；既可在自己的电脑上使用，也可通过局域网共享工作台与同事协作。
 
 [下载最新版](https://github.com/MathiasCym/StarTranslator/releases/latest) · [更新记录](CHANGELOG.md) · [公开团队词库](glossary/team.json) · [问题反馈](https://github.com/MathiasCym/StarTranslator/issues)
 
@@ -14,7 +14,7 @@
 
 | 功能 | 可以完成的工作 |
 | --- | --- |
-| 文档翻译 | 翻译 `.docx` / `.pptx` 中的可编辑中文，结合参考材料和术语库生成英文文档。 |
+| 文档翻译 | 翻译 Word、PPT、Excel、PDF 文字层、文本、Markdown、HTML、JSON、EPUB 和字幕，结合参考材料与术语库生成英文。 |
 | 英文校对 | 先进行术语规则检查，再按需调用模型检查拼写、语法、表达和原稿一致性。 |
 | 全文一致性 | 跨页复用重复原文的译法，检查术语和时间标题写法混用，在报告中确认统一。 |
 | 翻译并校对 | 一次启动两个阶段；可仅保存最终文件，也可保留翻译文件和校对文件。 |
@@ -56,7 +56,21 @@
 
 ### 翻译与参考材料
 
-待处理文档支持 `.docx` 和 `.pptx`；参考资料另外支持 UTF-8 `.txt`。可以添加多份文档，并选择其对应中文原稿。
+待处理文档与参考资料支持下表格式，桌面与局域网入口一致。可以添加多份文档，并选择其对应中文原稿。
+
+| 输入格式 | 输出与保留范围 |
+| --- | --- |
+| Word `.docx`、PPT `.pptx` | 沿用原有正文与样式处理；PPT 在原文本框内适配英文。 |
+| Excel `.xlsx` | 输出 Excel，仅改写文字单元格，保留公式、数字、工作表名、单元格样式和其他包内容。图表、图片及文字内部的多种强调样式不重建，长译文需检查行高列宽。 |
+| PDF `.pdf` | 本地读取文字层，按原页顺序重新排入可编辑 `.docx`；不还原原 PDF 版式、图片或复杂表格。扫描页需要先做 OCR；没有文字层或需要密码的文件会给出具体提示。不能将 Word 结果覆盖到 PDF 原稿。 |
+| 文本 `.txt` | 保留编码和换行，支持 UTF-8、带 BOM 的 UTF-16 和 GB18030。 |
+| Markdown `.md` / `.markdown` | 保留标题与列表标记、链接目标、代码块和前置元数据，处理可读正文。 |
+| HTML `.html` / `.htm` | 处理正文文字，保留标签、属性、链接、脚本与样式；代码、SVG 和公式内容跳过。 |
+| JSON `.json` | 处理字符串值，保留键名、数字、布尔值和结构；网址及路径跳过。应使用文本类数据，避免将程序配置当成普通文档。 |
+| EPUB `.epub` | 处理章节正文，保留目录关系、图片、样式及打包结构；不支持受 DRM 保护的正文。 |
+| 字幕 `.srt` / `.ass` | 保留序号、时间轴和样式标记；ASS 绘图事件跳过，仅处理字幕文字。 |
+
+旧版二进制 Office 格式（`.doc` / `.xls` / `.ppt`）、图片文字识别和扫描 PDF OCR 暂不包含在此版本中，可先转换为以上格式。
 
 点击“开始翻译”后，译文单独保存，中文原稿保留；未指定输出目录时通常保存在原文件旁。PPT 会在原文本框内适配字号、字体与行距，尽量保持图片及文本框的位置和尺寸。
 
@@ -88,6 +102,8 @@
 从结果或历史记录打开“原文与译文”：**页面对照**左右显示完整原稿与处理后页面，包含图片、表格与图表，支持同步或独立浏览；**文字对照**用于搜索和定位文字。
 
 预览由 OfficeCLI 生成，不调用模型，也不会修改文档。特殊效果、缺失字体和复杂公式可能与 Word / PowerPoint 显示不同，最终版式以导出文件为准。图片文字及复杂嵌入对象仍可能需要人工处理。
+
+新增格式提供文字对照和明确标注的“正文阅读预览”，不冒充原文件的完整视觉版式。PDF 的英文 Word 可按 Word 页面预览，原 PDF 一侧显示文字层阅读预览。
 
 ### 全文用语统一
 
@@ -207,7 +223,7 @@ npm start
 
 ```powershell
 python-runtime\python.exe -B tools/run-regressions.py
-node --test tests/test_release.js tests/test_install_integrity.js tests/test_installation_repair.js tests/test_setup_worker.js tests/test_github_updates.js tests/test_electron_updates.js tests/test_release_repair.js tests/test_runtime_log.js
+node --test tests/test_release.js tests/test_install_integrity.js tests/test_installation_repair.js tests/test_setup_worker.js tests/test_github_updates.js tests/test_electron_updates.js tests/test_public_sources.js tests/test_domestic_publish.js tests/test_release_repair.js tests/test_runtime_log.js
 ```
 
 本机打包用 `npm run dist`，或按 [发布规则](RELEASING.md) 使用 `release:patch` / `release:minor` / `release:major`。安装包与成功构建记录保存在本机，旧包保留。
@@ -215,6 +231,8 @@ node --test tests/test_release.js tests/test_install_integrity.js tests/test_ins
 GitHub 发布前先同步更新 `package.json`、`package-lock.json` 和 [CHANGELOG.md](CHANGELOG.md)，再推送新版本源码到 `main`。Actions 自动准备环境、测试、打包、核对实际安装引导图片和完整组件，通过后发布到 Releases。**Actions 构建声明的确切版本，不自动递增版本号。**
 
 开发者需配置 GitHub 推送授权，软件内的词库维护授权不自动配置命令行 Git。安装包放在 Releases，不提交到源码历史。仅修改 README、文档或词库不触发打包，已发布版本默认保留。
+
+国内公开镜像的读取与发布接入见 [国内来源接入说明](docs/domestic-distribution.md)。源码已配置 [AtomGit 公开仓库](https://atomgit.com/MathiasCym/StarTranslator)，词库接口已通过匿名验证；安装包镜像仍需发布授权和实际下载验收。带此来源配置的软件可优先从国内仓库获取公开版本与团队词库，失败后尝试 GitHub。维护者提交仍以 GitHub 主仓库为准。是否启用以软件窗口显示的来源为准，普通用户无需配置令牌。
 
 | 目录 | 用途 |
 | --- | --- |

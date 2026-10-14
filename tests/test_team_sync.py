@@ -20,11 +20,12 @@ class TeamSyncTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name);self.path=self.root/'lexicon.json'
         self.env=patch.dict(os.environ,{'NOVATERM_DATA_DIR':str(self.root)});self.env.start()
+        self.sources=patch('backend.public_sources.configured',return_value=[]);self.sources.start()
         self.active=patch('backend.glossary.store.active_path',return_value=self.path);self.active.start()
         self.base=[term('色深','color depth'),term('点间距','pixel pitch',variants=['pixel spacing'])]
         store.atomic_json(self.path,self.base);store.atomic_json(sync.folder()/'base.json',{'path':str(self.path),'entries':self.base,'sha':'a'*40})
         self.remote=Remote(self.base);self.client=patch('backend.team_sync.GitHub',return_value=self.remote);self.client.start()
-    def tearDown(self):self.client.stop();self.active.stop();self.env.stop();self.temp.cleanup()
+    def tearDown(self):self.client.stop();self.active.stop();self.sources.stop();self.env.stop();self.temp.cleanup()
     def preview(self,action='pull'):return sync.preview({'action':action,'fingerprint':store.read()['fingerprint']})
     def test_preview_does_not_write_and_independent_additions_are_merged(self):
         local=self.base+[term('本机新词','local term')];store.atomic_json(self.path,local);before=self.path.read_bytes()
