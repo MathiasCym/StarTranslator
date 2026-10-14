@@ -6,7 +6,7 @@
 
 翻译中文技术材料，结合参考原稿与专业术语库校对已有英文，逐条确认修改。支持 Office、PDF 文字层、文本、电子书和字幕；既可在自己的电脑上使用，也可通过局域网共享工作台与同事协作。
 
-[下载最新版](https://github.com/MathiasCym/StarTranslator/releases/latest) · [更新记录](CHANGELOG.md) · [公开团队词库](glossary/team.json) · [问题反馈](https://github.com/MathiasCym/StarTranslator/issues)
+[国内下载 2.0.4](https://atomgit.com/MathiasCym/StarTranslator/releases/v2.0.4) · [GitHub 下载](https://github.com/MathiasCym/StarTranslator/releases/latest) · [更新记录](CHANGELOG.md) · [公开团队词库](glossary/team.json) · [问题反馈](https://github.com/MathiasCym/StarTranslator/issues)
 
 [快速开始](#快速开始) · [模型配置](#模型配置) · [使用流程](#使用流程) · [团队词库维护](#团队词库维护) · [局域网协作](#局域网协作) · [常见问题](#常见问题) · [开发与发布](#开发与发布) · [致谢](#致谢)
 
@@ -30,7 +30,7 @@
 
 桌面安装包面向 **Windows x64**，随包提供 Python、文档处理库和 OfficeCLI。使用安装版无需另装 Node.js、Python、Git 或 Office；目前未提供 macOS / Linux 桌面安装包。
 
-1. 打开 [Releases](https://github.com/MathiasCym/StarTranslator/releases/latest)，在 **Assets** 中下载 `StarTranslator-Setup-版本号.exe`。`Source code` 压缩包是源码，不是安装包。
+1. 打开 [国内发行版](https://atomgit.com/MathiasCym/StarTranslator/releases/v2.0.4) 下载 `StarTranslator-Setup-2.0.4.exe`，或从 [GitHub Releases](https://github.com/MathiasCym/StarTranslator/releases/latest) 的 **Assets** 下载。`Source code` 压缩包是源码，不是安装包。
 2. 运行安装包，选择位置和安装范围。“所有用户”安装需要管理员授权；升级会识别既有安装，保留配置、词库和历史记录。
 3. 等待安装完整性校验通过，再启动星译官。安装目录默认使用英文名称 `StarTranslator`。
 4. 打开“模型设置”，填写连接信息，先“保存配置”，再“使用配置”。
@@ -232,7 +232,7 @@ GitHub 发布前先同步更新 `package.json`、`package-lock.json` 和 [CHANGE
 
 开发者需配置 GitHub 推送授权，软件内的词库维护授权不自动配置命令行 Git。安装包放在 Releases，不提交到源码历史。仅修改 README、文档或词库不触发打包，已发布版本默认保留。
 
-国内公开来源的接入见 [国内来源接入说明](docs/domestic-distribution.md)。2.0.4 已配置 [AtomGit 公开仓库](https://atomgit.com/MathiasCym/StarTranslator)，发布授权已配置，源码同步、词库和小校验附件的匿名读取已通过验证；完整安装包仍在实际下载验收，国内未完成的发行版保持预发布状态。软件优先尝试国内公开来源，再尝试 GitHub，普通用户无需配置令牌。2.0.4 中的词库提交仍连接 GitHub，需要维护者授权和相应网络；完全免 VPN 的国内提交入口尚未实现。旧版首次切换需安装含国内配置的版本，之后才能使用新的来源。
+国内公开来源的接入见 [国内来源接入说明](docs/domestic-distribution.md)。2.0.4 已在 [AtomGit 公开仓库](https://atomgit.com/MathiasCym/StarTranslator) 正式发布，源码同步、词库及完整安装包的匿名读取已通过验证；安装包与 GitHub 原发行包的大小、SHA-256 一致。软件优先尝试国内公开来源，再尝试 GitHub，普通用户无需配置令牌。本次安装包经发行版页面上传后完成自动校验；CI 大文件自动上传仍需进一步处理。当前测试使用系统代理，大陆普通网络需继续验证。2.0.4 中的词库提交仍连接 GitHub，需要维护者授权和相应网络；国内专用词库分支及维护者审核的提交入口已确定为后续方案，尚未实现。旧版首次切换需安装含国内配置的版本，之后才能使用新的来源。
 
 | 目录 | 用途 |
 | --- | --- |
