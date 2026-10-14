@@ -1,5 +1,6 @@
 // Run only in a trusted maintainer workflow. Tokens stay in Actions Secrets.
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto'),{execFileSync}=require('node:child_process')
+const https=require('node:https'),{Readable}=require('node:stream')
 const {mirrors,GITHUB,manifest}=require('../lib/distribution-sources'),{GitHubUpdates,candidate,fetchTrusted}=require('../lib/github-updates')
 async function readBody(response,max=2*1024*1024){
  if(!response.body)return Buffer.alloc(0)
@@ -18,10 +19,28 @@ function uploadRecipe(value,token){
  }
  return {url:url.href,headers:value.headers}
 }
+function uploadRequest(url,options,requestFactory=https.request){
+ // Native HTTPS has no hidden five-minute response-header deadline. The caller's
+ // total deadline still applies, and redirects are returned rather than followed.
+ return new Promise((resolve,reject)=>{
+  const fail=error=>reject(Error('国内附件上传连接未完成（'+(/^[A-Z0-9_]{1,80}$/.test(error?.code||'')?error.code:'NETWORK_ERROR')+'）。'))
+  try{
+   const req=requestFactory(url,{method:'PUT',headers:{...options.headers,'Content-Length':options.body.length},signal:options.signal},res=>{
+    try{
+     const status=res.statusCode
+     const body=[204,205,304].includes(status)?null:Readable.toWeb(res)
+     if(!body)res.resume()
+     resolve(new Response(body,{status,headers:res.headers}))
+    }catch(error){res.destroy();fail(error)}
+   })
+   req.on('error',fail);req.end(options.body)
+  }catch(error){fail(error)}
+ })
+}
 class GitCodePublisher{
- constructor({source,token,fetcher=globalThis.fetch}){
+ constructor({source,token,fetcher=globalThis.fetch,uploader=fetcher}){
   if(!['atomgit','gitcode'].includes(source.provider)||!token||/\s/.test(token)||token.length>1024||/^(github_pat_|ghp_)/.test(token))throw Error('请在 GITCODE_TOKEN 中配置 AtomGit / GitCode 的访问令牌，不能使用 GitHub 令牌。')
-  this.source=source;this.token=token;this.fetcher=fetcher
+  this.source=source;this.token=token;this.fetcher=fetcher;this.uploader=uploader
  }
  async call(method,endpoint,body){
   // Credentialed requests never follow redirects, including same-platform ones.
@@ -52,7 +71,7 @@ class GitCodePublisher{
  }
  async upload(tag,name,bytes){
   const recipe=uploadRecipe(await this.call('GET','releases/'+encodeURIComponent(tag)+'/upload_url?file_name='+encodeURIComponent(name)),this.token)
-  const response=await this.fetcher(recipe.url,{method:'PUT',redirect:'error',credentials:'omit',signal:AbortSignal.timeout(10*60*1000),headers:recipe.headers,body:bytes})
+  const response=await this.uploader(recipe.url,{method:'PUT',redirect:'error',credentials:'omit',signal:AbortSignal.timeout(10*60*1000),headers:recipe.headers,body:bytes})
   if(!response.ok)throw Error('国内发行附件上传未完成（HTTP '+response.status+'），请检查免费附件限额。')
   // OBS can report an unsuccessful attachment callback in an otherwise 200 body.
   const body=await readBody(response,512*1024)
@@ -111,7 +130,7 @@ async function run(root=path.resolve(__dirname,'..')){
  const config=JSON.parse(await fs.readFile(path.join(root,'backend/distribution.json'),'utf8')),s=mirrors(config).find(s=>['atomgit','gitcode'].includes(s.provider))
  if(!s)return {skipped:true,reason:'国内公开仓库尚未配置。'}
  if(!process.env.GITCODE_TOKEN)return {skipped:true,reason:'GITCODE_TOKEN 尚未配置，原 GitHub 发布流程正常保留。'}
- const publisher=new GitCodePublisher({source:s,token:process.env.GITCODE_TOKEN}),pkg=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'))
+ const publisher=new GitCodePublisher({source:s,token:process.env.GITCODE_TOKEN,uploader:uploadRequest}),pkg=JSON.parse(await fs.readFile(path.join(root,'package.json'),'utf8'))
  const engine=new GitHubUpdates({currentVersion:'0.0.0',userData:path.join(root,'dist/qa/domestic-publish')})
  const release=await engine.release('v'+pkg.version),a=candidate(release,'0.0.0')
  await publisher.syncGit(root,{tag:a?'v'+a.version:undefined})
@@ -126,4 +145,4 @@ async function run(root=path.resolve(__dirname,'..')){
  return publisher.publish({release,bytes,userData:path.join(root,'dist/qa/domestic-publish')})
 }
 if(require.main===module)run().then(result=>console.log(JSON.stringify(result))).catch(error=>{console.error(error.message);process.exitCode=1})
-module.exports={GitCodePublisher,uploadRecipe,readBody,run}
+module.exports={GitCodePublisher,uploadRecipe,uploadRequest,readBody,run}

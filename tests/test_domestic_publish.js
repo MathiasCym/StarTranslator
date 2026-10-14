@@ -1,5 +1,6 @@
 const test=require('node:test'),assert=require('node:assert/strict'),crypto=require('node:crypto')
-const {GitCodePublisher,uploadRecipe}=require('../tools/publish-gitcode.cjs'),{fromUrl}=require('../tools/configure-distribution.cjs'),{source}=require('../lib/distribution-sources')
+const {GitCodePublisher,uploadRecipe,uploadRequest,readBody}=require('../tools/publish-gitcode.cjs'),{fromUrl}=require('../tools/configure-distribution.cjs'),{source}=require('../lib/distribution-sources')
+const http=require('node:http')
 const token='gitcode-synthetic-private',s=source('gitcode','synthetic/StarTranslator')
 function fixture(provider='gitcode'){
  const s=source(provider,'synthetic/StarTranslator')
@@ -88,4 +89,48 @@ test('the AtomGit current-user request never sends a credential to the legacy AP
  const api=source('atomgit','synthetic/StarTranslator'),calls=[]
  const p=new GitCodePublisher({source:api,token,fetcher:async(url,options)=>{calls.push({url,options});return Response.json({login:'synthetic'})}})
  assert.equal((await p.call('GET','user')).login,'synthetic');assert.equal(calls[0].url,'https://api.atomgit.com/api/v5/user');assert.equal(calls[0].options.redirect,'error')
+})
+
+async function localUpload(handler,check){
+ const server=http.createServer(handler)
+ await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve))
+ const target='http://127.0.0.1:'+server.address().port+'/'
+ const requestFactory=(url,options,callback)=>{
+  assert.equal(new URL(url).hostname,'file.gitcode.com')
+  return http.request(target,options,callback)
+ }
+ try{await check(requestFactory)}finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve))}
+}
+
+test('native upload transfers all bytes with an explicit length and only signed upload headers',async()=>{
+ const bytes=Buffer.alloc(256*1024,93),signal=AbortSignal.timeout(3000)
+ await localUpload(async(req,res)=>{
+  assert.equal(req.method,'PUT');assert.equal(req.headers['content-length'],String(bytes.length))
+  assert.equal(req.headers.authorization,undefined);assert.equal(req.headers['x-obs-callback'],'synthetic')
+  const chunks=[];for await(const chunk of req)chunks.push(chunk)
+  assert.deepEqual(Buffer.concat(chunks),bytes)
+  res.writeHead(200,{'Content-Type':'application/json'});res.end('{"success":true}')
+ },async requestFactory=>{
+  const response=await uploadRequest('https://file.gitcode.com/synthetic-signed-object',
+   {body:bytes,headers:{'Content-Type':'application/octet-stream','x-obs-callback':'synthetic'},signal},requestFactory)
+  assert.equal(response.status,200);assert.deepEqual(JSON.parse((await readBody(response)).toString()),{success:true})
+ })
+})
+
+test('native upload returns redirects without forwarding signed headers to another host',async()=>{
+ let requests=0
+ await localUpload((req,res)=>{requests++;req.resume();res.writeHead(307,{Location:'https://evil.example/upload'});res.end()},async requestFactory=>{
+  const response=await uploadRequest('https://file.gitcode.com/object',
+   {body:Buffer.from('sample'),headers:{},signal:AbortSignal.timeout(3000)},requestFactory)
+  assert.equal(response.status,307);await response.body.cancel();assert.equal(requests,1)
+ })
+})
+
+test('native upload obeys cancellation and reports a safe error without signed URLs',async()=>{
+ await localUpload(req=>req.resume(),async requestFactory=>{
+  await assert.rejects(uploadRequest('https://file.gitcode.com/object?signature=private',
+   {body:Buffer.from('sample'),headers:{},signal:AbortSignal.timeout(50)},requestFactory),error=>{
+    assert.match(error.message,/ABORT_ERR/);assert(!error.message.includes('private'));assert(!error.message.includes('file.gitcode.com'));return true
+   })
+ })
 })
