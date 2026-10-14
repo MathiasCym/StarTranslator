@@ -29,21 +29,4 @@ jobs:
       - name: Sync source, glossary and verified public release
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
-        run: |
-          @'
-          const child = require('node:child_process'), execute = child.execFileSync
-          child.execFileSync = function(command, args, options) {
-            try { return execute(command, args, options) }
-            catch (error) {
-              if (command === 'git') {
-                let detail = String(error.stderr || '').replaceAll(process.env.GITCODE_TOKEN || '__unset__', '[redacted]')
-                  .replace(/https?:\/\/[^\s/@]+:[^\s/@]+@/g, 'https://[redacted]@')
-                detail = detail.split(/\r?\n/).filter(line => !/authorization|extraheader|token/i.test(line)).slice(-4).join(' ').slice(0, 800)
-                console.error('Mirror Git stage: ' + args[0] + '; ' + detail)
-              }
-              throw error
-            }
-          }
-          require('./tools/publish-gitcode.cjs').run().then(value => console.log(JSON.stringify(value)))
-            .catch(error => { console.error(error.message); process.exitCode = 1 })
-          '@ | node -
+        run: node tools/publish-gitcode.cjs
