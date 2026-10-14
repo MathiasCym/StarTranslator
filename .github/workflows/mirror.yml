@@ -29,4 +29,21 @@ jobs:
       - name: Sync source, glossary and verified public release
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
-        run: node tools/publish-gitcode.cjs
+        run: |
+          @'
+          const originalFetch = globalThis.fetch
+          globalThis.fetch = async (url, options) => {
+            const response = await originalFetch(url, options)
+            if (String(url).startsWith('https://api.atomgit.com/') && String(url).includes('/upload_url?')) {
+              const value = await response.clone().json(), recipe = value?.data || value
+              let address; try { address = new URL(recipe?.url) } catch {}
+              console.log('Attachment recipe shape: ' + JSON.stringify({status:response.status,
+                fields:['url','headers','data','upload_url'].filter(key => Object.hasOwn(value || {}, key)),
+                protocol:address?.protocol, hostname:address?.hostname, port:address?.port,
+                headerNames:Object.keys(recipe?.headers || {}).filter(key => /^[a-z0-9-]{1,60}$/i.test(key))}))
+            }
+            return response
+          }
+          require('./tools/publish-gitcode.cjs').run().then(value => console.log(JSON.stringify(value)))
+            .catch(error => { console.error(error.message); process.exitCode = 1 })
+          '@ | node -
