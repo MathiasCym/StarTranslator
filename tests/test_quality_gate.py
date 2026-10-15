@@ -96,6 +96,19 @@ class QualityGateTests(unittest.TestCase):
         with patch('backend.workflow.translate_file',return_value=result),patch('backend.workflow.auto_review') as review:
             workflow.run(job,dict(kind='translate_review',paths=[str(source)],use_llm=True))
         review.assert_not_called();self.assertFalse(job['result']['completed_paths']);self.assertEqual(result['review_status'],'translation_incomplete')
+    def test_language_detection_parse_failure_uses_normal_task_error_handling(self):
+        from zipfile import BadZipFile
+        source=self.root/'invalid.pptx';source.write_bytes(b'not an office archive')
+        job=dict(id='quality-invalid-source',kind='check',cancel=threading.Event(),status='running')
+        with patch('backend.workflow.predominantly_chinese',side_effect=BadZipFile('invalid archive')):
+            workflow.run(job,dict(kind='check',paths=[str(source)],use_llm=True))
+        self.assertEqual(job['status'],'failed');self.assertTrue(job['error'])
+    def test_equal_selected_suggestions_are_all_marked_applied(self):
+        source=self.root/'same.docx';doc=Document();doc.add_paragraph('dot spacing');doc.save(source);segment=extract(str(source))[0]
+        findings=[Finding(segment.id,source.name,None,1,'text','dot spacing',suggested='pixel pitch',file_path=str(source),method=method) for method in ('rule','llm')]
+        workflow.REPORTS['quality-duplicate']={'segments':[segment],'hashes':{str(source):fingerprint(source)},'findings':findings}
+        result=workflow.apply_report(dict(report_id='quality-duplicate',path=str(source),edits=[dict(index=i,text='pixel pitch') for i in range(2)]))
+        self.assertEqual(result['failed'],[]);self.assertTrue(all(f.applied for f in findings));self.assertEqual(Document(result['output']).paragraphs[0].text,'pixel pitch')
     def test_chinese_original_in_proofreading_is_translated_first_and_history_matches(self):
         from backend import history
         source=self.root/'source.docx';doc=Document();doc.add_paragraph('这是一份完整的中文技术文档原稿');doc.save(source)

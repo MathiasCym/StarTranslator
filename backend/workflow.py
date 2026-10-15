@@ -129,7 +129,7 @@ def run(job,data):
                     job.update(kind='translate_review',routing_notice='检测到中文原稿，先完成翻译，再进入英文校对。')
                     job.setdefault('_history_data',{})['kind']='translate_review'
         except Cancelled: pass
-        except (OSError,ValueError): pass  # Normal read errors are recorded per file below.
+        except Exception: pass  # Normal read errors are recorded per file below.
     def progress(done,total,message,phase='check',percent=None):
         with LOCK:
             job.update(done=done,total=total,message=message,phase=phase)
@@ -393,7 +393,7 @@ def _apply_report(data, report, progress=None, client=None):
         for old,new in pairs:
             if not old or not isinstance(new,str) or not new:
                 continue
-            choice = next(((i, f) for i, f in enumerate(report['findings']) if f.file_path==path and f.segment_id==segment_id and f.found_text==old and edits.get(i, f.suggested)==new),None)
+            choice = next(((i, f) for i, f in enumerate(report['findings']) if i not in applied_indices and f.file_path==path and f.segment_id==segment_id and f.found_text==old and edits.get(i, f.suggested)==new),None)
             if choice is None:
                 raise ValueError('替换内容不属于当前报告，请重新校对。')
             finding_index, finding = choice
