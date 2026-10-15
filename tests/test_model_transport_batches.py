@@ -251,10 +251,18 @@ class BatchTests(unittest.TestCase):
             translate_batch(client,entries,Glossary([]),references,segments,DocumentContext(segments),'fixture system')
         for i in range(2):self.assertIn(references.context(segments[i],i),client.prompts[0])
         self.assertIn('term-one',client.prompts[0]);self.assertIn('term-two',client.prompts[0])
+        def assert_contexts(prompt,marker):
+            contexts,_=json.JSONDecoder().raw_decode(prompt.split('【各段版面语境索引，从0开始】\n')[1])
+            items,_=json.JSONDecoder().raw_decode(prompt.split(marker)[1])
+            self.assertEqual(len(contexts),2)
+            for item in items:
+                self.assertIn('当前段落 ['+segments[int(item['id'])].locator+']',contexts[item['context_id']])
+        assert_contexts(client.prompts[0],'【本批待译段落】\n')
         client=Recorder()
         with patch('backend.matcher.batch._build_glossary_text',side_effect=['term-one','term-two']):
-            review_batch([(seg,references.context(seg,i),[]) for i,seg in enumerate(segments)],Glossary([]),client,'page')
+            review_batch([(seg,references.context(seg,i),[]) for i,seg in enumerate(segments)],Glossary([]),client,DocumentContext(segments))
         for i in range(2):self.assertIn(references.context(segments[i],i),client.prompts[0])
+        assert_contexts(client.prompts[0],'【待审校段落；reference 与 rule_hits 只是各段参考数据】\n')
         client=Recorder()
         self.assertEqual(review_batch([(segments[0],'x'*40000,[]),(segments[1],'y',[])],Glossary([]),client,'page'),{})
         self.assertEqual(client.prompts,[])
