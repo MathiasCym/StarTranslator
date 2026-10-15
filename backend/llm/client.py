@@ -5,8 +5,11 @@
 模型不可用或响应无效时抛 LLMUnavailable，不生成虚假的零错误报告。
 """
 import json
+import http.client
+import logging
 import os
 import time
+import threading
 from ..task_queue import request_slot
 import urllib.error
 import urllib.request
@@ -38,6 +41,11 @@ class LLMUnavailable(Exception):
 
 class LLMResponseInvalid(LLMUnavailable):
     """The service answered, but its generated body needs regeneration."""
+
+
+class LLMRequestFailed(LLMUnavailable):
+    """The transport already used its retry budget; callers must not retry again."""
+    retry_exhausted = True
 
 
 def _urlopen(request, timeout):
@@ -81,6 +89,7 @@ def _load_api_key() -> str:
 
 
 class LLMClient:
+    supports_document_batches = True
     def __init__(self, base_url: str | None = None, model: str | None = None,
                  api_key: str | None = None, timeout: int = 120, retries: int = 2,
                  *, provider: str | None = None, api_format: str | None = None,
@@ -132,6 +141,8 @@ class LLMClient:
         self.timeout = timeout
         self.retries = retries
         self.last_error = ""
+        self._transport_lock = threading.Lock()
+        self._transport_pause_until = 0
 
     @staticmethod
     def _profile_key(provider: str, base_url: str) -> str:
@@ -192,27 +203,48 @@ class LLMClient:
         )
         error_message = "无法连接模型服务，请检查网络或稍后重试。"
         for attempt in range(self.retries + 1):
+            cancel = getattr(self, 'cancel', None)
+            if cancel and cancel.is_set():
+                raise LLMRequestFailed('任务已取消。')
+            started = time.monotonic()
             try:
-                with request_slot(getattr(self,'cancel',None)), _urlopen(req, timeout=self.timeout) as resp:
-                    result = json.loads(resp.read().decode("utf-8"))
+                with request_slot(cancel):
+                    with self._transport_lock:
+                        paused = time.monotonic() < self._transport_pause_until
+                    if paused: raise LLMRequestFailed('模型连接暂时不可用，已暂停后续请求并保留本机断点，请稍后继续任务。')
+                    with _urlopen(req, timeout=self.timeout) as resp:
+                        result = json.loads(resp.read().decode("utf-8"))
                 if not isinstance(result, dict) or result.get("error"):
                     raise LLMUnavailable("模型服务返回了无效响应，请稍后重试。")
+                with self._transport_lock: self._transport_pause_until = 0
+                logging.getLogger(__name__).info('Model request complete: attempt=%s elapsed=%.2fs', attempt+1, time.monotonic()-started)
                 return result
             except urllib.error.HTTPError as e:
                 error_message = self._http_error(e.code)
                 retryable = e.code in (429, 500, 502, 503, 504)
                 e.close()
                 if not retryable:
-                    raise LLMUnavailable(error_message) from None
+                    raise LLMRequestFailed(error_message) from None
+            except http.client.HTTPException:
+                # Chunked gateways may close without a terminating chunk. Never
+                # accept partial JSON, and never let IncompleteRead kill a file.
+                error_message = '模型响应传输中断，自动重试后仍未完成；已完成内容会保留，请稍后重试未完成部分。'
             except (urllib.error.URLError, TimeoutError, OSError):
                 error_message = "无法连接模型服务，请检查网络或稍后重试。"
                 if self.provider == "intranet":
                     error_message = "无法连接公司内网模型，请确认内网可达，并检查 VPN 是否影响连接。"
             except (json.JSONDecodeError, UnicodeDecodeError):
                 raise LLMUnavailable("模型服务返回的内容无法解析，请稍后重试。") from None
+            logging.getLogger(__name__).warning('Model request incomplete: attempt=%s elapsed=%.2fs retry=%s',
+                attempt+1, time.monotonic()-started, attempt < self.retries)
             if attempt < self.retries:
-                time.sleep(1.5 * (attempt + 1))
-        raise LLMUnavailable(error_message)
+                delay = 1.5 * (attempt + 1)
+                if cancel:
+                    if cancel.wait(delay): raise LLMRequestFailed('任务已取消。')
+                else:
+                    time.sleep(delay)
+        with self._transport_lock: self._transport_pause_until = time.monotonic()+15
+        raise LLMRequestFailed(error_message) from None
 
     def _headers(self) -> dict:
         headers = {}
@@ -232,6 +264,11 @@ class LLMClient:
         if self.api_format == 'anthropic' and not complete and not urlsplit(base).path.rstrip('/').endswith('/v1'):
             base += '/v1'
         return base + resource
+
+    @property
+    def supports_thinking_mode(self):
+        return self.api_format=='openai' and (self.provider in ('intranet','qwen','deepseek') or
+            urlsplit(self.base_url).hostname=='api.deepseek.com')
 
     def chat(self, prompt: str, system: str | None = None, max_tokens: int = 2000,
              thinking: bool = False, images=None) -> str:
@@ -282,7 +319,7 @@ class LLMClient:
             body["chat_template_kwargs"] = {"enable_thinking": thinking}
         elif self.provider == "qwen":
             body["enable_thinking"] = thinking
-        elif self.provider == "deepseek":
+        elif self.provider == "deepseek" or (self.provider == 'compatible' and urlsplit(self.base_url).hostname == 'api.deepseek.com'):
             body["thinking"] = {"type": "enabled" if thinking else "disabled"}
         result = self._post("/chat/completions", body)
         try:
@@ -298,13 +335,13 @@ class LLMClient:
         return text
 
     def chat_json(self, prompt: str, system: str | None = None,
-                  max_tokens: int = 2000) -> dict | list:
+                  max_tokens: int = 2000, *, thinking: bool = False) -> dict | list:
         """解析失败明确报错，不能被调用方当成没有发现问题。
 
         被截断时先尝试抢救：数组里已完整的条目照样返回，只是把截断事实
         附在返回值上（`__truncated__`），由调用方决定如何提示。
         """
-        text = self.chat(prompt, system=system, max_tokens=max_tokens)
+        text = self.chat(prompt, system=system, max_tokens=max_tokens, thinking=thinking)
         result = _extract_json(text)
         if not isinstance(result, (dict, list)):
             raise LLMResponseInvalid("模型返回的结果格式无效，请重新生成。")

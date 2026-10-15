@@ -16,12 +16,17 @@ app.getVersion=()=>JSON.parse(fs.readFileSync(path.join(root,'package.json'))).v
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
 app.on('browser-window-created',(_event,win)=>win.webContents.setBackgroundThrottling(false))
 let notices=0,ignored=[],updateChecks=0
+let sharedJobs=[],sharedResumes=0
 const server=http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost').pathname
  res.setHeader('Content-Type',url.endsWith('.css')?'text/css':url.endsWith('.js')?'text/javascript':url.endsWith('.png')?'image/png':'text/html')
  if(url==='/v1/models')return res.end(JSON.stringify({data:[{id:'ui-only'}]}))
  if(url==='/shared/session')return res.end(JSON.stringify({csrf:'ui-only'}))
- if(url==='/shared/jobs')return res.end(JSON.stringify({jobs:[]}))
+ if(url==='/shared/jobs')return res.end(JSON.stringify({jobs:sharedJobs}))
+ if(url==='/shared/jobs/shared-resume-fixture/resume'){
+  sharedResumes++;const restored={id:'shared-restored-fixture',kind:'translate',status:'running',message:'继续翻译',percent:60,downloads:[]}
+  sharedJobs=[restored];return res.end(JSON.stringify(restored))
+ }
  const file=url==='/'?path.join(root,'renderer/shared/index.html'):url.startsWith('/assets/')?path.join(root,'renderer',url.slice(1)):path.join(root,'renderer/shared',path.basename(url))
  if(fs.existsSync(file))res.end(fs.readFileSync(file));else{res.statusCode=404;res.end('unavailable')}
 })
@@ -72,8 +77,31 @@ server.listen(0,'127.0.0.1',async()=>{
   desktop.setContentSize(1440,900)
   await run("$('openLexicon').click()");await wait(500);await snap('glossary-206');await run("$('closeLexicon').click()");await wait(150)
   await run("$('translationHelpButton').click();state.files=['C:/qa/sample.pdf'];renderFiles()");await wait(150);assert.equal(await run("$('translationHelp').open"),false)
+  const resumeOptions={kind:'check',paths:['C:/qa/unfinished.docx'],references:[],pairs:{},workers:3,use_llm:false,combined_output:'final',translation_mode:'faithful'}
+  let resumedRequest
+  ipcMain.removeHandler('api');ipcMain.handle('api',(_event,{method,path:apiPath,body})=>{
+   if(apiPath.startsWith('/api/history?'))return {records:[{id:'resume-fixture',kind:'check',status:'interrupted',started_at:new Date().toISOString(),paths:resumeOptions.paths,outputs:[],errors:[],counts:{},resume_options:resumeOptions}],total:1,page:0,page_size:30}
+   if(apiPath==='/api/history/resume-fixture/resume')return resumeOptions
+   if(apiPath==='/api/jobs'&&method==='POST'){resumedRequest=body;return {id:'restored-fixture',kind:'check',status:'complete',result:{report_id:'restored-fixture',files:[],findings:[],stats:{model_status:'not_requested',segments:1},errors:[]}}}
+   return {}
+  })
+  await run("$('openHistory').click()");await wait(180)
+  assert.equal(await run("[...$('historyRows').querySelectorAll('button')].some(b=>b.textContent==='继续未完成任务')"),true)
+  await snap('history-resume-207')
+  await run("[...$('historyRows').querySelectorAll('button')].find(b=>b.textContent==='继续未完成任务').click()");await wait(200)
+  assert.deepEqual(resumedRequest,resumeOptions);assert.equal(await run("$('historyModal').hidden"),true);assert.equal(await run('state.job.id'),'restored-fixture')
+  await run("state.report=null;state.job={id:'resume-fixture',status:'failed'};showTaskFailure(new Error('模型连接中断'))")
+  assert.equal(await run("$('failureResume').hidden"),false);await snap('failure-resume-207')
+  await run("state.job={id:'resume-fixture',status:'running'};showTaskFailure(new Error('连接暂时中断'))")
+  assert.equal(await run("$('failureResume').hidden"),true)
+  result.checks.push('history resumes exact saved options; failure action visible; running task cannot duplicate')
+  sharedJobs=[{id:'shared-resume-fixture',kind:'translate',status:'interrupted',message:'任务已中断',downloads:[],can_resume:true,percent:50}]
   const shared=new BrowserWindow({show:false,width:900,height:850,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});await shared.loadURL(`http://127.0.0.1:${port}/`)
   const sr=code=>shared.webContents.executeJavaScript(code)
+  await wait(200);assert.equal(await sr("[...$('jobs').querySelectorAll('button')].some(b=>b.textContent==='继续未完成任务')"),true)
+  await sr("[...$('jobs').querySelectorAll('button')].find(b=>b.textContent==='继续未完成任务').click()");await wait(200)
+  assert.equal(sharedResumes,1);assert.equal(await sr('selected'),'shared-restored-fixture')
+  result.checks.push('shared resume button submits owned task and displays resumed progress')
   await sr("(()=>{const d=new DataTransfer();d.items.add(new File([''],'demo.pptx'));$('files').files=d.files;$('files').dispatchEvent(new Event('change'));$('translationHelpButton').click()})()")
   for(const w of [900,480]){shared.setContentSize(w,850);await wait(100);const rect=await sr("(()=>{const r=$('translationHelp').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth}})()");assert(rect.left>=0&&rect.right<=rect.width&&rect.bottom<=850,JSON.stringify(rect))}
   result.checks.push('floating help geometry; Escape focus; source file changes close modal; shared 480/900px')

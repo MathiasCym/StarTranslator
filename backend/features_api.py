@@ -153,6 +153,15 @@ def history_read():
         request.args.get('end', ''), request.args.get('kind', ''), request.args.get('text', ''), request.args.get('page', 0), active))
 
 
+@api.get('/api/history/<job_id>/resume')
+def history_resume(job_id):
+    with workflow.LOCK:
+        job = workflow.JOBS.get(job_id)
+        if job and job['status'] in ('queued','running'):
+            return jsonify(error='该任务仍在处理中，请先查看当前进度。'),409
+    return jsonify(history.resume_options(job_id))
+
+
 @api.get('/api/lexicon')
 def lexicon_read():
     return jsonify(store.read())

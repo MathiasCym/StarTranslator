@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id)
 const esc = x => String(x ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 let csrf = '', jobs = [], selected = '', comparison = null, lastDetail = '', polling = false, comparisonBase = ''
-const labels = {translate:'翻译',check:'校对',translate_review:'翻译并校对',queued:'排队中',running:'处理中',complete:'已完成',failed:'未完成',cancelled:'已取消'}
+const labels = {translate:'翻译',check:'校对',translate_review:'翻译并校对',queued:'排队中',running:'处理中',complete:'已完成',failed:'未完成',cancelled:'已取消',partial:'部分完成',interrupted:'已中断'}
 async function api(path, options = {}) {
   const response = await fetch(path,{...options,headers:{'X-Star-CSRF':csrf,...options.headers}})
   const data = await response.json()
@@ -53,6 +53,13 @@ async function refresh() {
     $('jobs').innerHTML = jobs.length ? jobs.map(j=>`<article class="job"><div class="section-head"><strong>${esc(labels[j.kind])}</strong><span class="badge">${esc(labels[j.status])}</span></div><p>${esc(j.message)}</p>${['queued','running'].includes(j.status)?progressMarkup(j.percent):''}<div class="row-actions"><button data-show="${j.id}">查看${['queued','running'].includes(j.status)?'进度':'结果'}</button>${['queued','running'].includes(j.status)?`<button data-cancel="${j.id}">取消任务</button>`:''}${!['queued','running'].includes(j.status)?`<a class="download" href="/shared/jobs/${j.id}/diagnostics">导出任务诊断</a><button data-cleanup="${j.id}">删除任务与文件</button>`:''}</div></article>`).join('') : '<p class="empty">提交一份文档，开始你的第一个任务。</p>'
     $('jobs').querySelectorAll('.shared-progress progress').forEach(p=>setProgress(p,p.value,true))
     $('jobs').querySelectorAll('[data-show]').forEach(b=>b.onclick=()=>showJobResult(b.dataset.show))
+    for (const job of jobs.filter(value=>value.can_resume)) {
+      const row=$('jobs').querySelector(`[data-show="${job.id}"]`)?.parentElement
+      if(!row)continue
+      const button=document.createElement('button');button.textContent='继续未完成任务';button.className='primary'
+      button.onclick=async()=>{button.disabled=true;try{const restored=await api(`/shared/jobs/${job.id}/resume`,{method:'POST'});selected=restored.id;lastDetail='';await refresh()}catch(error){showError(error)}finally{button.disabled=false}}
+      row.append(button)
+    }
     $('jobs').querySelectorAll('[data-cancel]').forEach(b=>b.onclick=async()=>{try {await api(`/shared/jobs/${b.dataset.cancel}/cancel`,{method:'POST'});await refresh()}catch(e){showError(e)}})
     $('jobs').querySelectorAll('[data-cleanup]').forEach(button=>button.onclick=()=>{ $('cleanupDialog').dataset.job=button.dataset.cleanup; $('cleanupDialog').showModal() })
     renderDetail()

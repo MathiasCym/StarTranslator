@@ -115,7 +115,7 @@ def _native_issues(source,output,number,objects):
     return issues
 
 
-def review_pptx(source,output,document,changed,snapshots,client,cancel=None,reference=None):
+def review_pptx(source,output,document,changed,snapshots,client,cancel=None,reference=None,workers=1):
     """Review every page, apply one safe cohort step, rerender affected pages once.
 
     Missing rendering/vision is incomplete, never a successful check. Temporary
@@ -134,12 +134,13 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                 return [pending],adjustments
             objects=_objects(document)
             def inspect(manifest,numbers):
-                issues=[]
-                for number in numbers:
+                def inspect_page(number):
+                    issues=[]
                     _cancel(cancel)
                     first,second=original['pages'][number-1],manifest['pages'][number-1]
                     result=client.chat_images_json(f'第 {number} 页；页面尺寸单位为点。译文对象清单：\n'+
                         json.dumps(objects[number-1],ensure_ascii=False),images=[first['image'],second['image']],system=SYSTEM,max_tokens=1600)
+                    _cancel(cancel)
                     if not isinstance(result,dict) or result.get('reviewed') is not True or not isinstance(result.get('issues'),list) or result.get('__truncated__'):
                         raise ValueError('Incomplete image comparison')
                     keys={v['shape_id']:v['locator'] for v in objects[number-1]}
@@ -151,6 +152,13 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                                        'locator':keys.get(sid),'kind':item['kind'],'reason':item['reason'][:200]})
                     if original.get('native') and manifest.get('native'):
                         issues.extend(_native_issues(first,second,number,objects[number-1]))
+                    return issues
+                from concurrent.futures import ThreadPoolExecutor
+                issues=[]
+                # Render/Office writes remain serialized. Independent model page
+                # comparisons use the same bounded acceleration as translation.
+                with ThreadPoolExecutor(max_workers=max(1,min(3,workers)),thread_name_prefix='star-layout') as pool:
+                    for page_issues in pool.map(inspect_page,numbers):issues.extend(page_issues)
                 return issues
             issues=inspect(current,range(1,len(document.slides)+1))
             best=folder/'best.pptx';shutil.copyfile(output,best)

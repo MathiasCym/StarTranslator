@@ -117,7 +117,8 @@ function showTaskFailure(error) {
   $('taskFailurePanel').hidden = false
   const uncertain = ['queued','running'].includes(state.job?.status)
   $('taskFailureTitle').textContent = uncertain ? '暂时无法获取任务状态' : '任务未完成'
-  $('taskFailureNotice').textContent = uncertain ? '连接中断，后台任务可能仍在处理。可导出日志并在历史记录中查看状态。' : '原文件与待处理列表已保留，可查看原因后重新开始。'
+  $('taskFailureNotice').textContent = uncertain ? '连接中断，后台任务可能仍在处理。可导出日志并在历史记录中查看状态。' : '原文件与已保存输出保留。继续任务时会复用本机断点，只处理未完成的部分。'
+  $('failureResume').hidden = uncertain || !state.job?.id
   $('taskFailureDetails').textContent = state.lastFailure
 }
 
@@ -172,15 +173,15 @@ function busy(value) {
   for (const id of ['modeCheck', 'modeTranslate', 'openLexicon', 'openModel', 'runCombined']) $(id).disabled = value || (id === 'runCombined' && !state.files.length)
   $('jobPanel').hidden = !value; $('runBtn').disabled = value || !state.files.length
 }
-async function runTask(combined = false) {
-  if (state.busy || state.choosingOutput || !state.files.length) return
-  const kind = combined && state.mode === 'translate' ? 'translate_review' : state.mode
-  let combinedOutput = 'both'
-  if (kind === 'translate_review') {
+async function runTask(combined = false, restored = null) {
+  if (state.busy || state.choosingOutput || (!restored && !state.files.length)) return
+  const kind = restored?.kind || (combined && state.mode === 'translate' ? 'translate_review' : state.mode)
+  let combinedOutput = restored?.combined_output || 'both'
+  if (kind === 'translate_review' && !restored) {
     combinedOutput = await chooseCombinedOutput()
     if (!combinedOutput) return
   }
-  const submitted = { paths: state.files.slice(), references: state.references.slice(), pairs: { ...state.pairs } }
+  const submitted = restored ? {paths:restored.paths,references:restored.references || [],pairs:restored.pairs || {}} : { paths: state.files.slice(), references: state.references.slice(), pairs: { ...state.pairs } }
   state.job = null; state.lastFailure = ''; state.report = null; state.outputs = []; state.exportRecords = []
   $('taskFailurePanel').hidden = true
   busy(true); $('workspace').hidden = true; $('reportModal').hidden = true; $('reviewCompletePanel').hidden = true; $('translationPanel').hidden = true
@@ -189,7 +190,7 @@ async function runTask(combined = false) {
   $('liveFindings').hidden = true; $('liveFindings').innerHTML = ''
   $('jobStages').hidden = kind !== 'translate_review'; renderJobPhase({ phase: 'preparing' })
   try {
-    state.job = await callApi('POST', '/api/jobs', { kind, ...submitted, translation_mode:document.querySelector('[name=translationMode]:checked').value, combined_output: combinedOutput, use_llm: $('useLlm').checked, workers:$('parallelWork').checked?3:1,output_dir: state.outputDir || null })
+    state.job = await callApi('POST', '/api/jobs', restored || { kind, ...submitted, translation_mode:document.querySelector('[name=translationMode]:checked').value, combined_output: combinedOutput, use_llm: $('useLlm').checked, workers:$('parallelWork').checked?3:1,output_dir: state.outputDir || null })
     let failures = 0
     while (['queued','running'].includes(state.job.status)) {
       await delay(600)
@@ -461,7 +462,16 @@ action('reviewTranslation', async () => {
 
 const lexiconEditor = installLexicon({ $, action, callApi, esc, basename })
 const refreshGlossary = lexiconEditor.refreshGlossary
-const historyEditor = installHistory({ $, action, callApi, esc, basename, openResult })
+async function resumeHistoryTask(row) {
+  if (state.busy || state.exportBusy) { toast('请先等待当前任务结束'); return }
+  if (!await confirmResultNavigation('将从本机断点继续处理这项任务，已保存的输出文件保留。','继续任务')) return
+  const data = await callApi('GET','/api/history/'+encodeURIComponent(row.id)+'/resume')
+  $('historyModal').hidden = true
+  setMode(data.kind === 'check' ? 'check' : 'translate')
+  await runTask(false,data)
+}
+action('failureResume',()=>resumeHistoryTask(state.job))
+const historyEditor = installHistory({ $, action, callApi, esc, basename, openResult, resumeTask:resumeHistoryTask })
 
 /* ---------- 关于星译官 ---------- */
 function parseChangelog(text) {

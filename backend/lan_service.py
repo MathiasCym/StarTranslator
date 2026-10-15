@@ -98,7 +98,14 @@ def owned_job(job_id):
     if job_id not in session['jobs']: raise ValueError('任务不存在。')
     with workflow.LOCK:
         job = workflow.JOBS.get(job_id)
-    if not job: raise ValueError('本次服务已重启或任务已过期，输出文件仍保存在共享电脑。')
+    if not job:
+        from . import history
+        row=history.record(job_id)
+        state='interrupted' if row['status'] in ('running','queued') else row['status']
+        job={'id':job_id,'kind':row['kind'],'status':state,'phase':state,'percent':100 if state=='complete' else 0,
+             'message':'共享服务已重启，本机记录和断点保留。','archived':True,
+             'resume_pending':state in ('interrupted','partial','failed','cancelled') or row.get('awaiting_confirmation',False),
+             'result':{'outputs':row.get('outputs',[]),'errors':row.get('errors',[])},'error':''}
     return job
 
 
@@ -137,6 +144,9 @@ def public(job):
         finding['file_index'] = paths.index(original['file_path']) if original.get('file_path') in paths else -1
     # A saved browser session can revisit any of its retained tasks and reports.
     value['downloads'] = [{'index':i, 'name':Path(p).name} for i,p in enumerate(download_files(job))]
+    value['can_resume'] = job['status'] not in ('queued','running') and (job.get('resume_pending') or job['status'] in ('failed','partial','cancelled') or
+        bool((job.get('result') or {}).get('errors')) or (report_of(job).get('stats') or {}).get('model_status') in ('partial','unavailable','cancelled') or
+        any(o.get('needs_review') for o in (job.get('result') or {}).get('outputs',[])))
     return value
 
 
@@ -237,8 +247,11 @@ def create_app(testing=False):
     @app.get('/shared/jobs')
     def jobs():
         session = session_for_request()
-        with workflow.LOCK:
-            return jsonify(jobs=[public(workflow.JOBS[j]) for j in reversed(session['jobs']) if j in workflow.JOBS])
+        values=[]
+        for ident in reversed(session['jobs']):
+            try:values.append(public(owned_job(ident)))
+            except ValueError:continue
+        return jsonify(jobs=values)
 
     @app.post('/shared/jobs')
     def start():
@@ -278,6 +291,24 @@ def create_app(testing=False):
         owned_job(job_id)
         workflow.cancel(job_id)
         return jsonify(ok=True)
+
+    @app.post('/shared/jobs/<job_id>/resume')
+    def resume(job_id):
+        from . import history
+        session=session_for_request();job=owned_job(job_id)
+        if job['status'] in ('queued','running'):raise ValueError('该任务仍在处理中。')
+        with SERVICE_LOCK:
+            root=(base_dir()/session['id']).resolve()
+            folder=Path(session.get('folders',{}).get(job_id,'')).resolve()
+            if folder==root or not folder.is_relative_to(root) or not folder.is_dir():
+                raise ValueError('原任务材料已清理，请重新上传。')
+            data=history.resume_options(job_id)
+            for path in [*data.get('paths',[]),*data.get('references',[]),*data.get('glossary_imports',[])]:
+                if not Path(path).resolve().is_relative_to(folder):raise ValueError('无法确认原任务材料的位置。')
+            data['output_dir']=str(folder/'output')
+            restored=workflow.start(data)
+            session['jobs'].append(restored['id']);session['folders'][restored['id']]=str(folder);persist(session)
+            return jsonify(public(workflow.JOBS[restored['id']]))
 
     @app.post('/shared/jobs/<job_id>/apply')
     def apply(job_id):
@@ -339,7 +370,12 @@ def create_app(testing=False):
             root = (base_dir()/session['id']).resolve()
             if not path.is_absolute() or not path.resolve().is_relative_to(root) or path.resolve() == root:
                 raise ValueError('无法确认任务文件位置，未删除。')
-            if path.exists(): shutil.rmtree(path)
+            aliases=[ident for ident,location in session.get('folders',{}).items()
+                     if ident!=job_id and Path(location).resolve()==path.resolve()]
+            if not aliases:
+                from .checkpoints import forget_under
+                forget_under(path)
+                if path.exists(): shutil.rmtree(path)
             for output in (job.get('result') or {}).get('outputs',[]):
                 if output.get('comparison_id'):
                     target = comparison.folder()/(output['comparison_id']+'.json')

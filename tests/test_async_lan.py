@@ -173,5 +173,32 @@ class AsyncLanTests(unittest.TestCase):
         self.assertEqual(client.post(f'/shared/jobs/{job_id}/cleanup',headers={'X-Star-CSRF':csrf}).status_code,200)
         self.assertFalse(folder.exists());self.assertTrue(Path(original).is_file());self.assertNotIn(job_id,workflow.REPORTS)
 
+    def test_resume_after_host_restart_keeps_session_ownership_and_shared_uploads(self):
+        from backend import history
+        app=lan_service.create_app(True);client=app.test_client();foreign=app.test_client()
+        csrf=client.get('/shared/session').json['csrf'];other=foreign.get('/shared/session').json['csrf']
+        original=self.doc('resume.docx','dot spacing')
+        with patch('backend.workflow.store.load_glossary',return_value=self.g):
+            response=client.post('/shared/jobs',headers={'X-Star-CSRF':csrf},data={'options':'{"kind":"check","use_llm":false}',
+                'files':(io.BytesIO(Path(original).read_bytes()),'resume.docx')})
+            old=response.json['id'];self.wait(old)
+            # Simulate an interrupted record followed by process-memory loss.
+            with history.connection() as db:
+                raw=db.execute('SELECT payload FROM tasks WHERE id=?',(old,)).fetchone()[0]
+                row=json.loads(raw);row['status']='interrupted'
+                db.execute('UPDATE tasks SET status=?,payload=? WHERE id=?',('interrupted',json.dumps(row),old))
+            with workflow.LOCK:workflow.JOBS.pop(old);workflow.REPORTS.pop(old,None)
+            jobs=client.get('/shared/jobs').json['jobs'];self.assertTrue(jobs[0]['can_resume'])
+            self.assertNotIn(str(self.root),json.dumps(jobs))
+            self.assertEqual(foreign.post(f'/shared/jobs/{old}/resume',headers={'X-Star-CSRF':other}).status_code,400)
+            response=client.post(f'/shared/jobs/{old}/resume',headers={'X-Star-CSRF':csrf})
+            self.assertEqual(response.status_code,200);new=response.json['id'];self.wait(new)
+        session=next(s for s in lan_service.SESSIONS.values() if old in s['jobs']);folder=Path(session['folders'][old])
+        self.assertEqual(Path(session['folders'][old]).resolve(),Path(session['folders'][new]).resolve())
+        self.assertEqual(client.post(f'/shared/jobs/{old}/cleanup',headers={'X-Star-CSRF':csrf}).status_code,200)
+        self.assertTrue(folder.is_dir())
+        self.assertEqual(client.post(f'/shared/jobs/{new}/cleanup',headers={'X-Star-CSRF':csrf}).status_code,200)
+        self.assertFalse(folder.exists());self.assertTrue(Path(original).is_file())
+
 
 if __name__=='__main__':unittest.main()

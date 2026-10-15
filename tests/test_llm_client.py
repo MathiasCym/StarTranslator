@@ -74,6 +74,16 @@ class ModelConnectionTests(unittest.TestCase):
         self.assertIsNone(send.call_args.args[0].get_header("Authorization"))
         self.legacy.assert_not_called()
 
+    def test_compatible_deepseek_keeps_requested_thinking_mode(self):
+        for thinking in (False, True):
+            client=LLMClient(provider='compatible',base_url='https://api.deepseek.com/v1',model='deepseek-flash',api_key='fixture')
+            with patch('backend.llm.client._urlopen',return_value=response()) as send:
+                client.chat('fixture',thinking=thinking)
+            self.assertEqual(json.loads(send.call_args.args[0].data)['thinking'],{'type':'enabled' if thinking else 'disabled'})
+        client=LLMClient(provider='compatible',base_url='https://relay.invalid/v1',model='deepseek-flash',api_key='fixture')
+        with patch('backend.llm.client._urlopen',return_value=response()) as send:client.chat('fixture')
+        self.assertNotIn('thinking',json.loads(send.call_args.args[0].data))
+
     def test_intranet_credentials_cannot_be_redirected_by_configuration(self):
         client = LLMClient(provider="intranet", base_url="https://outside.invalid/v1")
         with patch("backend.llm.client._urlopen") as send, self.assertRaises(LLMUnavailable):

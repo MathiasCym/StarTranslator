@@ -7,6 +7,9 @@ from datetime import date, datetime, timedelta
 from uuid import uuid4
 from .glossary.store import data_dir
 
+RESUME_FIELDS = ('kind','paths','references','pairs','glossary_imports','output_dir',
+                 'translation_mode','combined_output','use_llm','workers')
+
 
 @contextmanager
 def connection():
@@ -24,6 +27,7 @@ def begin(job_id, data, status='running'):
     row = {'id': job_id, 'kind': data['kind'], 'status': status, 'started_at': datetime.fromtimestamp(stamp).astimezone().isoformat(),
            'finished_at': '', 'paths': list(dict.fromkeys(data.get('paths', []))),
            'output_dir': data.get('output_dir') or '', 'translation_mode':data.get('translation_mode','faithful'), 'outputs': [], 'errors': [], 'counts': {}}
+    row['resume_options'] = {key:data[key] for key in RESUME_FIELDS if key in data}
     with connection() as db:
         db.execute('INSERT OR IGNORE INTO tasks VALUES (?,?,?,?,?)', (job_id, stamp, row['kind'], row['status'], json.dumps(row, ensure_ascii=False)))
         if status == 'running':
@@ -44,6 +48,7 @@ def finish(job, data):
                    errors=[*result.get('errors', []), *([{'error': job['error']}] if job.get('error') else []),
                            *[error for item in row.get('exports', []) for error in item.get('errors', [])]],
                    counts={**result.get('stats', {}), 'translated': sum(item.get('translated', 0) for item in outputs),
+                           'resumed_translation':sum(item.get('resumed_segments',0) for item in outputs),
                            'needs_review': sum(item.get('needs_review', 0) for item in outputs),
                            'replaced': sum(item.get('corrected', 0) for item in outputs) + sum(item.get('replaced', 0) for item in row.get('exports', []))})
         row['outputs'] = unique_outputs([*({'path': item['path'], 'source': item.get('source', ''), 'comparison_id':item.get('comparison_id')} for item in outputs if not item.get('staged')), *row.get('outputs', [])])
@@ -148,3 +153,16 @@ def query(preset='all', start='', end='', kind='', text='', page=0, active_ids=(
         page = min(page, max(0, (total - 1) // 30))
         rows = [json.loads(raw[0]) for raw in db.execute('SELECT payload FROM tasks' + where + ' ORDER BY started DESC,id DESC LIMIT 30 OFFSET ?', [*params, page * 30])]
     return {'records': rows, 'total': total, 'page': page, 'page_size': 30}
+
+
+def resume_options(job_id):
+    row = record(job_id)
+    if not row.get('resume_options'): raise ValueError('该早期任务未保存恢复设置，请重新添加原文件；新版任务会自动保存断点。')
+    return {key:value for key,value in row['resume_options'].items() if key in RESUME_FIELDS}
+
+
+def record(job_id):
+    with connection() as db:
+        raw = db.execute('SELECT payload FROM tasks WHERE id=?',(job_id,)).fetchone()
+    if not raw: raise ValueError('未找到该任务的本机历史记录。')
+    return json.loads(raw[0])

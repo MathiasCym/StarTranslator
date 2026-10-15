@@ -31,8 +31,13 @@ def _judge_with_retry(seg, glossary, client, reference, rule_hits, cancel):
             return judge_text_ex(seg.text, glossary, client, reference=reference, rule_hits=rule_hits)
         except LLMUnavailable as error:
             last_error = error
+            if getattr(error, 'retry_exhausted', False):
+                raise
             if attempt < MAX_ATTEMPTS - 1:
-                time.sleep(RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)])
+                delay = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
+                if cancel:
+                    if cancel.wait(delay): raise LLMUnavailable('模型复核已取消。')
+                else: time.sleep(delay)
     raise last_error
 
 
@@ -49,7 +54,7 @@ def _describe_unreviewed(unreviewed):
 
 
 def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
-                   references=None, cancel=None, on_finding=None, workers=3, expect_english=False):
+                   references=None, cancel=None, on_finding=None, workers=3, expect_english=False, checkpoint_origin=None):
     checked = [s for s in segments if s.source not in ('image','group') and s.text.strip()]
     findings = check_rules(checked, glossary)
     from ..consistency import check_consistency
@@ -70,37 +75,95 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
     if use_llm:
         page_context = DocumentContext(segments)
         client = client or LLMClient()
+        from ..checkpoints import open_checkpoint
+        from .judge import _clean_hits
+        checkpoints = {}
+        for segment in checked:
+            if segment.file_path in checkpoints: continue
+            same_file = [s for s in checked if s.file_path==segment.file_path]
+            identity = {'source':checkpoint_origin or segment.file_path or segment.file,
+                'segments':[(s.locator,s.text,s.source,s.layout) for s in same_file],
+                'aligned':[(s.locator,references.aligned_text(s)) for s in same_file] if references and hasattr(references,'aligned_text') else []}
+            checkpoints[segment.file_path] = open_checkpoint('review',identity,glossary,references,client)
+        def cached_review(seg):
+            checkpoint = checkpoints[seg.file_path]
+            value = checkpoint.get([seg.locator,seg.text]) if checkpoint else None
+            if isinstance(value,dict) and value.get('complete') is True and isinstance(value.get('hits'),list):
+                checkpoint.used()
+                return _clean_hits(value['hits'],seg.text),False
+        def remember_review(seg,value):
+            checkpoint = checkpoints[seg.file_path]
+            if checkpoint and not isinstance(value,Exception) and not value[1]:
+                checkpoint.put([seg.locator,seg.text],{'complete':True,'hits':value[0]})
         stats['model_status'] = 'complete'
         file_counts = {}
         unreviewed = []
-        def review_one(seg, ordinal):
+        def review_reference(seg, ordinal, include_page=True):
             reference = references.context(seg,ordinal) if references else ''
-            reference += '\n' + page_context.prompt(seg)
+            if include_page: reference += '\n' + page_context.prompt(seg)
             advice = consistency_by_segment.get(seg.id, [])
             if advice:
                 reference += '\n【全文用语统一建议；仅供风格参考，不代表原写法错误】\n' + '\n'.join(f'{f.found_text} → {f.suggested}' for f in advice[:6])[:1800]
-            return _judge_with_retry(seg,glossary,client,reference,
+            return reference
+        def review_one(seg, ordinal):
+            value = _judge_with_retry(seg,glossary,client,review_reference(seg,ordinal),
                 rules_by_segment.get(seg.id, []),cancel)
+            remember_review(seg,value)
+            return value
+        def review_group(group):
+            from .batch import review_batch
+            if cancel and cancel.is_set(): raise LLMUnavailable('模型复核已取消。')
+            values = review_batch([(seg, review_reference(seg,ordinal,False), rules_by_segment.get(seg.id, []))
+                for seg, ordinal in group],glossary,client,page_context.prompt(group[0][0]))
+            for seg, ordinal in group:
+                if seg.id not in values:
+                    try: values[seg.id] = review_one(seg, ordinal)
+                    except LLMUnavailable as error: values[seg.id] = error
+                else: remember_review(seg,values[seg.id])
+            return values
         # Build page flow caches before threads start; only the merger writes findings.
         for seg in checked: page_context.prompt(seg)
         rules_by_segment = {}
         for finding in findings:
             if finding.method == 'rule': rules_by_segment.setdefault(finding.segment_id, []).append(finding)
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='star-review') as pool:
-            pending = []
+            pending = {}
+            groups, group, size = [], [], 0
             for seg in checked:
                 ordinal = file_counts.get(seg.file_path,0)
                 file_counts[seg.file_path] = ordinal + 1
-                pending.append(pool.submit(review_one, seg, ordinal))
+                cached = cached_review(seg)
+                if cached is not None:
+                    from concurrent.futures import Future
+                    future=Future();future.set_result(cached);pending[seg.id]=(future,False)
+                    continue
+                if workers > 1 and getattr(client,'supports_document_batches',False) is True:
+                    page = (seg.file_path, seg.slide, ordinal//12 if seg.slide is None else None)
+                    previous = (group[-1][0].file_path,group[-1][0].slide,group[-1][1]//12 if group[-1][0].slide is None else None) if group else None
+                    if group and (page != previous or len(group)>=8 or size+len(seg.text)>1800):
+                        groups.append(group);group=[];size=0
+                    group.append((seg,ordinal));size+=len(seg.text)
+                else: pending[seg.id]=(pool.submit(review_one, seg, ordinal), False)
+            if group: groups.append(group)
+            for group in groups:
+                if len(group)==1:
+                    pending[group[0][0].id]=(pool.submit(review_one,*group[0]), False)
+                else:
+                    future=pool.submit(review_group,group)
+                    pending.update({seg.id:(future,True) for seg,_ in group})
             for index,seg in enumerate(checked):
                 if cancel and cancel.is_set():
-                    for future in pending: future.cancel()
+                    for future, _ in pending.values(): future.cancel()
                     stats['model_status'] = 'cancelled'
                     stats['warnings'].append('模型复核已取消；以下仅包含已完成部分。')
                     break
                 new_hits = []
                 try:
-                    hits, truncated = pending[index].result()
+                    future, batched = pending[seg.id]
+                    value = future.result()
+                    if batched: value = value[seg.id]
+                    if isinstance(value, Exception): raise value
+                    hits, truncated = value
                     stats['judged'] += 1
                     file_judged[seg.file_path] = file_judged.get(seg.file_path, 0) + 1
                     if truncated:
@@ -143,6 +206,8 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
                 stats['model_status'] = 'unavailable'
             elif unreviewed or stats['truncated']:
                 stats['model_status'] = 'partial'
+        stats['resumed_segments'] = sum(cp.resumed for cp in checkpoints.values() if cp)
+        stats['warnings'].extend(cp.warning for cp in checkpoints.values() if cp and cp.warning)
         if stats['model_status'] in ('partial','unavailable'):
             summary = '模型复核未完成或部分未完成；已保留术语规则结果与已完成部分，不能视为全文校对通过。'
             if unreviewed:

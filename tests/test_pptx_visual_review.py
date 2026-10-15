@@ -156,6 +156,20 @@ class VisualTests(unittest.TestCase):
         with patch.object(visual,'render_pages',side_effect=self.renderer),self.assertRaises(Cancelled):
             visual.review_pptx(source,out,deck,[],capture_layout(deck,[]),Vision(),cancel)
         self.assertTrue(all(not p.exists() for p in paths))
+    def test_page_model_checks_use_bounded_parallelism_without_parallel_office_writes(self):
+        deck,source=self.deck(6);out=self.folder/'parallel.pptx';save_office(source,deck,out,[])
+        lock=threading.Lock();gate=threading.Event();active=[0];peak=[0];calls=[]
+        class Vision:
+            def chat_images_json(_,prompt,images,**kwargs):
+                with lock:
+                    active[0]+=1;peak[0]=max(peak[0],active[0]);calls.append(prompt)
+                    if active[0]==3:gate.set()
+                if not gate.wait(3):raise ValueError('Page checks did not run in parallel')
+                with lock:active[0]-=1
+                return {'reviewed':True,'issues':[]}
+        with patch.object(visual,'render_pages',side_effect=self.renderer):
+            issues,_=visual.review_pptx(source,out,deck,[],capture_layout(deck,[]),Vision(),workers=3)
+        self.assertEqual(issues,[]);self.assertEqual(len(calls),6);self.assertEqual(peak[0],3)
     def test_incomplete_image_review_still_exports_without_exposing_internal_files(self):
         deck,source=self.deck(1)
         class Model:
@@ -176,7 +190,7 @@ class VisualTests(unittest.TestCase):
         from PIL import Image
         Image.new('RGB',(10,10),'white').save(png)
         for fmt in ('openai','anthropic'):
-            client=LLMClient.__new__(LLMClient);client.api_format=fmt;client.provider='compatible';client.model='fixture'
+            client=LLMClient.__new__(LLMClient);client.api_format=fmt;client.provider='compatible';client.model='fixture';client.base_url='https://fixture.invalid/v1'
             payloads=[]
             def post(endpoint,body):
                 payloads.append(body)

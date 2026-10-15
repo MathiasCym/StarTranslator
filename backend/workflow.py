@@ -151,7 +151,7 @@ def run(job,data):
                         if result['review_status'] == 'complete' and not job['cancel'].is_set():
                             job['result']['completed_paths'].append(path)
                     else:
-                        job['result']['completed_paths'].append(path)
+                        if result['status']=='complete': job['result']['completed_paths'].append(path)
                     check_cancel(job['cancel'])
                     progress(1,1,f'已完成 {index+1}/{len(paths)} 个文件','export',100*(index+1)/len(paths))
                 except Cancelled:
@@ -235,7 +235,7 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
     if store.fingerprint(translated_path) != before:
         raise ValueError('读取期间译文文件发生变化，请重试')
     refs = ReferenceIndex(list(dict.fromkeys([result['source'], *references.by_path])) if references else [result['source']], glossary, {translated_path: result['source']})
-    findings, stats = check_segments(segments, glossary, True, client=client, references=refs, cancel=cancel, progress=progress, on_finding=on_finding,workers=workers,expect_english=True)
+    findings, stats = check_segments(segments, glossary, True, client=client, references=refs, cancel=cancel, progress=progress, on_finding=on_finding,workers=workers,expect_english=True,checkpoint_origin=result['source'])
     result.update(auto_reviewed=True, review_status=stats['model_status'], corrected=0, translation_path=translated_path)
     result['review_exported'] = False
     if on_export and not cancel.is_set(): on_export()
@@ -254,7 +254,7 @@ def publish_combined_report(job, reviews, outcome):
     result = job['result']
     local = {'segments':[],'hashes':{},'findings':[], 'output_options':{}}
     stats = {key:sum(r['stats'].get(key,0) for r in reviews) for key in
-             ('segments','rule_hits','consistency_hits','llm_hits','judged','errors','unreviewed','truncated','unsupported','residual_chinese')}
+             ('segments','rule_hits','consistency_hits','llm_hits','judged','errors','unreviewed','truncated','unsupported','residual_chinese','resumed_segments')}
     errors = result.get('errors',[]) + [{'path':r['output']['source'],'error':r['output']['review_error']}
         for r in reviews if r['output'].get('review_error')]
     if job.get('error'): errors.append({'error':job['error']})
