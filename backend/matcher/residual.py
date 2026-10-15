@@ -27,7 +27,7 @@ def residual_findings(segment, glossary, client=None, existing=(), cancel=None):
             slide=segment.slide,para=segment.para,source=segment.source,found_text=phrase,
             suggested=value,method='llm' if value else 'rule',kind='grammar',confidence='medium',
             reason='未译中文：'+('建议补译为英文，原有英文、数字和型号保持不变。' if value else '补译尚未完成，已保留原文。'),
-            editable=bool(value and segment.editable),
-            not_editable_reason='' if value and segment.editable else segment.not_editable_reason or error[:180] or '连接模型后可补译该处中文。',
+            editable=segment.editable,
+            not_editable_reason='' if segment.editable else segment.not_editable_reason or '该处不能自动改写。',
             context=segment.text))
     return found,any(not f.suggested for f in found)

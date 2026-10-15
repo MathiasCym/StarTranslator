@@ -33,8 +33,9 @@ def begin(job_id, data, status='running'):
         if status == 'running':
             queued = db.execute("SELECT payload FROM tasks WHERE id=? AND status='queued'",(job_id,)).fetchone()
             if queued:
-                row = json.loads(queued[0]); row['status'] = 'running'
-                db.execute('UPDATE tasks SET status=?,payload=? WHERE id=?',('running',json.dumps(row,ensure_ascii=False),job_id))
+                row = json.loads(queued[0]); row['status'] = 'running'; row['kind']=data['kind']
+                row['resume_options']={key:data[key] for key in RESUME_FIELDS if key in data}
+                db.execute('UPDATE tasks SET kind=?,status=?,payload=? WHERE id=?',(row['kind'],'running',json.dumps(row,ensure_ascii=False),job_id))
     return row
 
 

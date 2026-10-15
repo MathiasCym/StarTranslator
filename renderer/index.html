@@ -126,7 +126,7 @@
         <aside class="result-side" aria-label="应用建议与输出文件">
           <div class="result-destination"><h4>输出文件</h4><select id="reportOutput" aria-label="选择校对输出文件" hidden></select><p id="reportOutputPath" class="fpath">应用修改后，输出文件会出现在这里。</p><button id="reportOpenFolder" class="btn ghost" disabled>打开所在位置</button><button id="reportOpenFile" class="btn ghost" disabled>打开文件</button></div>
           <div id="exportResults" class="result-export-log" hidden></div>
-          <div class="report-actions"><span id="selInfo">已选 0 项</span><div class="actions"><button class="btn primary" id="applyBtn" disabled>应用所选并另存</button><button class="btn ghost" id="overwriteBtn" disabled>应用所选并覆盖原文件</button><button class="btn ghost" id="saveCurrentBtn" hidden>不应用建议，保存当前译文</button></div></div>
+            <div class="report-actions"><div id="exportProgressBox" class="export-progress" role="status" aria-live="polite" hidden><p id="exportProgressText">正在准备保存…</p><progress id="exportProgress" max="100"></progress></div><span id="selInfo">已选 0 项</span><div class="actions"><button class="btn primary" id="applyBtn" disabled>应用所选并另存</button><button class="btn ghost" id="overwriteBtn" disabled>应用所选并覆盖原文件</button><button class="btn ghost" id="saveCurrentBtn" hidden>不应用建议，保存当前译文</button></div></div>
         </aside>
       </div>
     </section>

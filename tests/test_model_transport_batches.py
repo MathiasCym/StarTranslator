@@ -152,12 +152,13 @@ class BatchTests(unittest.TestCase):
         source = self.root/'source.docx'; doc.save(source)
         return source, answers
 
-    def test_missing_or_duplicate_batch_id_falls_back_only_for_that_paragraph(self):
+    def test_quality_translation_uses_individually_validated_paragraphs_even_if_batch_is_supported(self):
         source, answers = self.document()
         for option in ({'omit': '2'}, {'duplicate': '2'}):
             model = BatchFixture(**option); model.answers = answers
             result = translate_file(str(source), Glossary([]), None, client=model)
-            self.assertEqual(model.calls, 2)
+            self.assertEqual(model.calls, len(answers))
+            self.assertEqual(model.batch_calls, 0)
             self.assertEqual([p.text for p in Document(result['path']).paragraphs], list(answers.values()))
             self.assertEqual(result['needs_review'], 0)
 
@@ -191,7 +192,7 @@ class BatchTests(unittest.TestCase):
             self.assertEqual(set(serial.namelist()), set(batch.namelist()))
             self.assertTrue(all(serial.read(name) == batch.read(name) for name in serial.namelist()))
         self.assertEqual(source.read_bytes(), original)
-        self.assertLess(calls[1], calls[0])
+        self.assertEqual(calls[1], calls[0])
 
     def test_batch_review_has_explicit_coverage_and_missing_id_is_reviewed_separately(self):
         source, answers = self.document()

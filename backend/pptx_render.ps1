@@ -30,12 +30,15 @@ try {
     $width=1280
     $height=[int][Math]::Round($width*$deck.PageSetup.SlideHeight/$deck.PageSetup.SlideWidth)
     $pages=@()
+    $progressFile=Join-Path $OutputFolder 'progress.json'
+    [IO.File]::WriteAllText($progressFile,(@{done=0;total=$deck.Slides.Count}|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
     for($number=1;$number -le $deck.Slides.Count;$number++) {
         if(Test-Path -LiteralPath (Join-Path $OutputFolder 'cancel')) { throw 'Cancelled' }
         $slide=$deck.Slides.Item($number)
         $file="page-$number.png"
         $slide.Export((Join-Path $OutputFolder $file),'PNG',$width,$height)
         $pages+=@{file=$file;shapes=@(Read-TextShapes $slide.Shapes)}
+        [IO.File]::WriteAllText($progressFile,(@{done=$number;total=$deck.Slides.Count}|ConvertTo-Json -Compress),[Text.UTF8Encoding]::new($false))
     }
     $manifest=@{pages=$pages;native=$true}|ConvertTo-Json -Depth 8 -Compress
     [IO.File]::WriteAllText((Join-Path $OutputFolder 'manifest.json'),$manifest,[Text.UTF8Encoding]::new($false))

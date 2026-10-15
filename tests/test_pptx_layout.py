@@ -97,7 +97,7 @@ class LayoutTests(unittest.TestCase):
         model=Model(['Supports 逐点校正 at 500 nits.',LLMUnavailable('连接超时'),'60 Hz.'])
         result=self.translate(source,model)
         output=Presentation(result['path']).slides[0].shapes[0]
-        self.assertEqual(output.text,'Supports 逐点校正 at 500 nits.\n60 Hz.')
+        self.assertEqual(output.text,'支持逐点校正，亮度500nits。\n60 Hz.')
         self.assertEqual(result['untranslated'],1); self.assertEqual(result['status'],'needs_review')
         self.assertIn('局部补译',result['review_items'][0]['reason'])
 
@@ -274,10 +274,10 @@ class LayoutTests(unittest.TestCase):
             self.assertEqual(chart.xpath('//*[local-name()="numCache"]//*[local-name()="v"]/text()'),['25','44'])
             self.assertEqual(chart.xpath('//*[local-name()="strCache"]//*[local-name()="v"]/text()'),['Quantity','2022','2023'])
             book=next(n for n in after.namelist() if n.startswith('ppt/embeddings/') and n.endswith('.xlsx'))
-            with ZipFile(BytesIO(after.read(book))) as workbook:
-                strings=etree.fromstring(workbook.read('xl/sharedStrings.xml'))
-                text=''.join(strings.xpath('//*[local-name()="t"]/text()'))
-                self.assertFalse(CHINESE.search(text)); self.assertIn('Quantity',text)
+            from openpyxl import load_workbook
+            workbook=load_workbook(BytesIO(after.read(book)))
+            text=' '.join(str(cell.value or '') for row in workbook.active for cell in row)
+            self.assertFalse(CHINESE.search(text)); self.assertIn('Quantity',text)
             changed=[n for n in before.namelist() if before.read(n)!=after.read(n)]
             self.assertEqual(set(changed),{'ppt/charts/chart1.xml',book})
         self.assertEqual(source.read_bytes(),original)

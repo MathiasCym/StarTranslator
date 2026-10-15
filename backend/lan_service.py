@@ -326,6 +326,27 @@ def create_app(testing=False):
         for update in result['finding_updates']: report['findings'][update['index']] = update['finding']
         return jsonify(public(job))
 
+    @app.post('/shared/jobs/<job_id>/exports')
+    def start_export(job_id):
+        from . import report_exports
+        job=owned_job(job_id);data=request.get_json(force=True) or {}
+        files=report_of(job).get('files',[]);index=data.get('file_index')
+        if type(index) is not int or not 0<=index<len(files):raise ValueError('文档不存在。')
+        path=files[index]['path']
+        folder=Path(path).parents[2]/'output' if '/input/' in path.replace('\\','/') else Path(path).parent
+        task=report_exports.start({'report_id':job_id,'path':path,'edits':data.get('edits',[]),
+            'save_unchanged':data.get('save_unchanged') is True,'output_dir':str(folder)})
+        return jsonify({k:task[k] for k in ('id','status','phase','done','total','message','error')})
+
+    @app.get('/shared/jobs/<job_id>/exports/<export_id>')
+    def export_status(job_id,export_id):
+        from . import report_exports
+        job=owned_job(job_id);task=report_exports.read(export_id,job_id)
+        if task['status']=='complete':
+            report=report_of(job)
+            for update in task['result']['finding_updates']:report['findings'][update['index']]=update['finding']
+        return jsonify({k:task[k] for k in ('id','status','phase','done','total','message','error')})
+
     @app.get('/shared/jobs/<job_id>/download/<int:index>')
     def download(job_id,index):
         files = download_files(owned_job(job_id))

@@ -106,11 +106,30 @@ def error_message(error):
     return str(error).strip() or f'任务遇到未提供说明的错误（{type(error).__name__}）。可导出错误日志排查。'
 
 
+def predominantly_chinese(path):
+    import re
+    texts=[s.text for s in extract(path) if s.editable and s.text.strip()]
+    chinese=sum(len(re.findall(r'[\u3400-\u9fff]',text)) for text in texts)
+    latin=sum(len(re.findall('[A-Za-z]',text)) for text in texts)
+    paragraphs=sum(bool(re.search(r'[\u3400-\u9fff]',text)) for text in texts)
+    return chinese >= 8 and chinese > latin*.5 and paragraphs > len(texts)*.5
+
+
 def run(job,data):
     reviews = []
     outcome = 'failed'
     job.setdefault('kind', data['kind'])
     if data.get('_client') is not None: data['_client'].cancel = job['cancel']
+    if data['kind']=='check' and data.get('use_llm',True):
+        try:
+            check_cancel(job['cancel'])
+            if all(predominantly_chinese(path) for path in data['paths']):
+                data={**data,'kind':'translate_review'}
+                with LOCK:
+                    job.update(kind='translate_review',routing_notice='检测到中文原稿，先完成翻译，再进入英文校对。')
+                    job.setdefault('_history_data',{})['kind']='translate_review'
+        except Cancelled: pass
+        except (OSError,ValueError): pass  # Normal read errors are recorded per file below.
     def progress(done,total,message,phase='check',percent=None):
         with LOCK:
             job.update(done=done,total=total,message=message,phase=phase)
@@ -139,7 +158,7 @@ def run(job,data):
                     result.update(staged=final_only, output_mode=data.get('combined_output', 'both'),
                                   target_dir=str(Path(data.get('output_dir') or Path(path).parent).absolute()))
                     outputs.append(result)
-                    if combined:
+                    if combined and result.get('translation_complete',not result.get('untranslated',0)):
                         progress(0,0,f'校对 {index+1}/{len(paths)}：{Path(result["path"]).name}', 'check',100*(index+.45)/len(paths))
                         review = auto_review(result, glossary, references, job['cancel'],
                             lambda n,t,*message:progress(n,t,f'校对 {index+1}/{len(paths)}：{Path(path).name}',
@@ -150,6 +169,9 @@ def run(job,data):
                         reviews.append(review)
                         if result['review_status'] == 'complete' and not job['cancel'].is_set():
                             job['result']['completed_paths'].append(path)
+                    elif combined:
+                        result.update(auto_reviewed=False,review_status='translation_incomplete',status='needs_review')
+                        errors.append({'path':path,'error':'翻译尚未完成，已保存可恢复的进度；未将未译中文交给校对。恢复任务后会继续翻译。'})
                     else:
                         if result['status']=='complete': job['result']['completed_paths'].append(path)
                     check_cancel(job['cancel'])
@@ -269,6 +291,7 @@ def publish_combined_report(job, reviews, outcome):
     for output in result.get('outputs',[]):
         local['hashes'].setdefault(output['path'],store.fingerprint(output['path']))
         local['output_options'][output['path']] = {'mode':output.get('output_mode','both'),
+            'translation_complete':output.get('translation_complete',True),
             'comparison_id':output.get('comparison_id'),
             'source':output['source'], 'target_dir':output['target_dir'], 'staged':output.get('staged',False),
             'translation_mode':output.get('translation_mode','faithful')}
@@ -287,7 +310,7 @@ def publish_combined_report(job, reviews, outcome):
         job['message'] = '翻译并校对已结束，部分内容未完成'
 
 
-def apply_report(data):
+def apply_report(data, progress=None, client=None):
     with LOCK:
         if task_queue.MAINTENANCE: raise ValueError('正在校验安装文件，请稍后保存。')
         report = REPORTS.get(data.get('report_id'))
@@ -300,7 +323,7 @@ def apply_report(data):
         task_queue.ACTIVE_EXPORTS += 1
     try:
         with export_lock, OUTPUT_LOCK:
-            result = _apply_report(data, report)
+            result = _apply_report(data, report, progress=progress, client=client)
             option = report.get('output_options',{}).get(data['path'],{})
             source = option.get('source',data['path'])
             try: history.exported(data['report_id'], source, result['output'], result['applied_count'], result['failed'], result['overwritten'],option.get('comparison_id'))
@@ -310,12 +333,17 @@ def apply_report(data):
         with LOCK: task_queue.ACTIVE_EXPORTS -= 1
 
 
-def _apply_report(data, report):
+def _apply_report(data, report, progress=None, client=None):
+    def notify(phase,done=0,total=0,message=''):
+        if progress: progress(phase,done,total,message)
+    notify('preparing',message='正在核对原文件和替换内容')
     overwrite = data.get('overwrite') is True
     path = os.path.abspath(data.get('path') or '')
     if overwrite and Path(path).suffix.lower() == '.pdf':
         raise ValueError('PDF 的处理结果保存为 Word，不能覆盖原 PDF。请使用另存。')
     option = report.get('output_options',{}).get(path,{})
+    if option.get('translation_complete') is False:
+        raise ValueError('翻译尚未完成，已保留草稿和断点。请先恢复翻译，完成后再保存校对文件。')
     final_only = option.get('mode') == 'final'
     managed_output = bool(option)
     if path not in report['hashes'] or store.fingerprint(path)!=report['hashes'][path]:
@@ -351,13 +379,17 @@ def _apply_report(data, report):
     original_layout = capture_layout(document,[s.locator for s in segments.values()]) if is_pptx else None
     original_styles=capture_styles(paragraphs) if is_pptx else None
     baseline = officecli_bridge.inspect(input_path) if is_pptx else None
-    for segment_id,pairs in selected.items():
+    for position,(segment_id,pairs) in enumerate(selected.items(),1):
+        notify('replace',position-1,len(selected),'正在应用所选建议')
         segment = segments.get(segment_id)
         if not segment or not segment.editable:
             failed.append({'segment_id':segment_id,'reason':'段落不存在或不可自动改写'})
             continue
         paragraph = para_map.get(segment.locator)
-        spans = []
+        if paragraph is None or paragraph.text != segment.text:
+            failed.append({'segment_id':segment_id,'reason':'段落定位或内容发生变化'})
+            continue
+        spans,accepted = [],[]
         for old,new in pairs:
             if not old or not isinstance(new,str) or not new:
                 continue
@@ -375,26 +407,35 @@ def _apply_report(data, report):
             import re
             pattern = _form_pattern(old) if finding.method in ('rule', 'consistency') else re.compile(re.escape(old),re.I)
             matches = list(pattern.finditer(segment.text))
-            if any(match.start()<b and match.end()>a for match in matches for a,b,_ in spans):
-                failed.append({'segment_id':segment_id,'index':finding_index,'reason':'替换范围重叠，请分别选择改正项'})
+            from difflib import SequenceMatcher
+            candidates=[(match.start()+a,match.start()+b,new[c:d]) for match in matches
+                for op,a,b,c,d in SequenceMatcher(None,match.group(),new,autojunk=False).get_opcodes() if op!='equal']
+            def conflicts(first,second):
+                a,b,value=first;c,d,other=second
+                if first==second:return False
+                return (a<d and b>c) or a==b==c==d or a==b and c<a<d or c==d and a<c<b
+            if any(conflicts(candidate,prior) for candidate in candidates for prior in spans):
+                failed.append({'segment_id':segment_id,'index':finding_index,'reason':'该项与另一条已选建议修改同一文字且内容冲突；其他建议已继续处理，该项可编辑后应用。'})
                 continue
             if matches:
-                spans.extend((match.start(),match.end(),new) for match in matches)
+                spans.extend(candidate for candidate in candidates if candidate not in spans)
+                accepted.extend({'segment_id':segment_id,'old':match.group(),'new':new} for match in matches)
                 applied_indices.add(finding_index)
-        if paragraph is None or paragraph.text != segment.text:
-            failed.append({'segment_id':segment_id,'reason':'段落定位或内容发生变化'})
-            continue
         replace_spans(text_runs(paragraph),spans)
         if spans:
             changed_locators.append(segment.locator)
-        done.extend({'segment_id':segment_id,'old':segment.text[a:b],'new':n} for a,b,n in spans)
+        done.extend(accepted)
     if not done and not (data.get('save_unchanged') is True and (option or not report['findings'])):
         raise ValueError(failed[0]['reason'] if failed else '没有可应用的替换，未生成输出文件。')
     if store.fingerprint(path)!=report['hashes'][path]:
         raise ValueError('导出前原文件已变化，请重新校对。')
     if store.fingerprint(input_path) != input_hash:
         raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
+    notify('layout',message='正在调整文字排版并保留原有样式')
     layout_adjustments, fitting_warnings = fit_document(document,changed_locators,original_layout) if is_pptx else ([],[])
+    def visual_progress(message,done=0,total=0): notify('render',done,total,message)
+    visual_options = {'progress':visual_progress} if progress else {}
+    notify('write',message='正在生成文档，原文件保持不变')
     if not overwrite or managed_output:
         out = Path(option['output']) if managed_output and option.get('output') else output_path(
             option.get('source',path) if final_only else path,
@@ -408,12 +449,13 @@ def _apply_report(data, report):
         try:
             if done or Path(input_path).suffix.lower() == '.pdf': save_office(input_path,document,temporary,changed_locators)
             else: shutil.copyfile(input_path,temporary)
-            visual_warnings,visual_adjustments=review_pptx(input_path,temporary,document,changed_locators,original_layout,LLMClient(),reference=option.get('source')) if is_pptx else ([],[])
+            visual_warnings,visual_adjustments=review_pptx(input_path,temporary,document,changed_locators,original_layout,client or LLMClient(),reference=option.get('source'),**visual_options) if is_pptx else ([],[])
             layout_adjustments+=visual_adjustments
             if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators)
             if visual_warnings:logging.getLogger(__name__).warning('Private format follow-up: %s',[(w.get('slide'),w.get('locator')) for w in visual_warnings])
-            if is_pptx:officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary))
-            layout_warnings=[]
+            notify('validate',message='正在检查输出文件完整性')
+            structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
+            layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings else structure_warnings
             if store.fingerprint(path) != report['hashes'][path]:
                 raise ValueError('导出时原文件已变化，请重新校对。')
             if store.fingerprint(input_path) != input_hash:
@@ -422,6 +464,7 @@ def _apply_report(data, report):
                 raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
             if not existing_hash and out.exists():
                 raise ValueError('输出位置已有新文件，请重试。')
+            notify('publish',message='正在保存已校验的文件')
             os.replace(temporary,out)
         finally:
             if os.path.exists(temporary): os.unlink(temporary)
@@ -436,18 +479,20 @@ def _apply_report(data, report):
         os.close(fd)
         try:
             save_office(input_path,document,temporary,changed_locators)
-            visual_warnings,visual_adjustments=review_pptx(input_path,temporary,document,changed_locators,original_layout,LLMClient(),reference=option.get('source')) if is_pptx else ([],[])
+            visual_warnings,visual_adjustments=review_pptx(input_path,temporary,document,changed_locators,original_layout,client or LLMClient(),reference=option.get('source'),**visual_options) if is_pptx else ([],[])
             layout_adjustments+=visual_adjustments
             if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators)
             if visual_warnings:logging.getLogger(__name__).warning('Private format follow-up: %s',[(w.get('slide'),w.get('locator')) for w in visual_warnings])
-            if is_pptx:officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary))
-            layout_warnings=[]
+            notify('validate',message='正在检查输出文件完整性')
+            structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
+            layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings else structure_warnings
             def guard_original():
                 if store.fingerprint(path) != report['hashes'][path]:
                     raise ValueError('覆盖前原文件已变化，请重新校对。')
                 if store.fingerprint(input_path) != input_hash:
                     raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
             from .atomic_file import replace_checked
+            notify('publish',message='正在保存已校验的文件')
             replace_checked(temporary,path,guard_original)
         finally:
             if os.path.exists(temporary): os.unlink(temporary)
@@ -463,7 +508,7 @@ def _apply_report(data, report):
             comparison.update(option['comparison_id'], output)
         except Exception:
             logging.getLogger(__name__).exception('Could not refresh text comparison')
-    changed = {item['segment_id'] for item in done}
+    changed = {segment.id for segment in segments.values() if segment.locator in para_map and para_map[segment.locator].text!=segment.text}
     for segment_id in changed:
         segment = segments[segment_id]
         paragraph = para_map[segment.locator]

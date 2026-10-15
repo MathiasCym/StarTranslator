@@ -131,17 +131,13 @@ class DocumentSkillTests(unittest.TestCase):
         self.assertTrue(all('Write clear, natural technical English' in kwargs['system'] for _, kwargs in model.prompts))
         self.assertIn('【需保留的原文样式片段】', model.prompts[1][0])
 
-    def test_invalid_facts_retry_then_save_visible_draft_and_continue_document(self):
+    def test_persistently_invalid_facts_are_retried_but_never_published_as_english(self):
         source = fixture(self.root / 'bad.pptx'); original = source.read_bytes(); model = Model(bad=True)
-        result = translate_file(str(source), self.glossary, None, client=model)
-        self.assertEqual(result['translated'], 4)
-        self.assertEqual(result['needs_review'], 4)
-        self.assertEqual(result['status'], 'needs_review')
-        self.assertIn('English_Draft', result['path'])
+        with self.assertRaises(LLMUnavailable):translate_file(str(source), self.glossary, None, client=model)
+        self.assertEqual(list(self.root.glob('*English*')),[])
         self.assertGreaterEqual(len(model.prompts), 8)
         self.assertIn('重新生成要求', model.prompts[1][0])
         self.assertEqual(source.read_bytes(), original)
-        self.assertTrue(Path(result['path']).is_file())
 
     def test_unresolved_style_mapping_still_exports_best_available_source_styles(self):
         source = fixture(self.root / 'bad-style.pptx')
@@ -154,8 +150,10 @@ class DocumentSkillTests(unittest.TestCase):
         self.assertEqual(source.read_bytes(),original)
         output=Presentation(result['path'])
         self.assertIn('Use pixel-level calibration',output.slides[0].shapes[1].text)
-        self.assertTrue(any(run.font.bold for run in output.slides[0].shapes[1].text_frame.paragraphs[0].runs))
-        self.assertEqual(result['layout_warnings'],[])
+        # An unmapped Chinese emphasis must not be assigned to an arbitrary
+        # English word simply to make a style-coverage check pass.
+        self.assertTrue(result['layout_warnings'])
+        self.assertTrue(any('强调' in item['reason'] for item in result['layout_warnings']))
 
     def test_whitespace_and_punctuation_in_runs_are_aligned_without_retranslation(self):
         source = fixture(self.root / 'spaces.pptx'); model = Model(); call = model.chat_json

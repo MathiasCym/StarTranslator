@@ -76,17 +76,18 @@ class RecoveryTests(unittest.TestCase):
 
     def test_unresolved_first_paragraph_keeps_draft_and_translates_later_paragraph(self):
         source = self.document('分辨率为3840×2160。', '亮度500nits。'); original = source.read_bytes()
-        model = Model(['1920 x 1080.', '1920 x 1080.', '500 nits.'])
+        model = Model(['1920 x 1080.', '1920 x 1080.', '500 nits.', '1920 x 1080.', '1920 x 1080.'])
         result = self.translate(source, model)
         self.assertEqual(result['status'], 'needs_review')
         self.assertEqual(result['needs_review'], 1)
-        self.assertEqual([p.text for p in Document(result['path']).paragraphs], ['1920 x 1080.', '500 nits.'])
+        self.assertEqual([p.text for p in Document(result['path']).paragraphs], ['分辨率为3840×2160。', '500 nits.'])
+        self.assertFalse(result['translation_complete'])
         self.assertEqual(result['review_items'][0]['source_text'], '分辨率为3840×2160。')
         self.assertEqual(source.read_bytes(), original)
 
     def test_invalid_json_preserves_one_original_paragraph_without_dropping_other_translations(self):
         source = self.document('亮度500nits。', '刷新率60Hz。', '点间距2.5毫米。')
-        model = Model(['500 nits.', LLMResponseInvalid('JSON 无效'), LLMResponseInvalid('JSON 无效'), '2.5 mm.'])
+        model = Model(['500 nits.', LLMResponseInvalid('JSON 无效'), LLMResponseInvalid('JSON 无效'), '2.5 mm.', LLMResponseInvalid('JSON 无效'), LLMResponseInvalid('JSON 无效')])
         result = self.translate(source, model)
         self.assertEqual(result['translated'], 2)
         self.assertEqual(result['untranslated'], 1)

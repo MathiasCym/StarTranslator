@@ -126,10 +126,18 @@ function renderDetail() {
     const fileIndex=Number($('reportFile').value)
     draft.saving=true;draft.savedMessage=''
     const controls=[...$('results').querySelectorAll('button,input,select,textarea')];controls.forEach(el=>el.disabled=true)
+    const indicator=document.createElement('progress');indicator.max=100;indicator.setAttribute('aria-label','保存文件进度');$('savedMessage').after(indicator)
     try {
-      await api(`/shared/jobs/${job.id}/apply`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file_index:fileIndex,edits,save_unchanged:unchanged})})
+      let task=await api(`/shared/jobs/${job.id}/exports`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({file_index:fileIndex,edits,save_unchanged:unchanged})})
+      while(['queued','running'].includes(task.status)) {
+        $('savedMessage').textContent=task.message+(task.total?`（${task.done}/${task.total}）`:'')
+        if(task.total)indicator.value=100*task.done/task.total;else indicator.removeAttribute('value')
+        await new Promise(resolve=>setTimeout(resolve,500))
+        task=await api(`/shared/jobs/${job.id}/exports/${task.id}`)
+      }
+      if(task.status!=='complete')throw Error(task.error||'保存未完成。')
       draft.savedMessage='文件已保存，可在下方下载。';lastDetail='';await refresh();revealResult($('savedMessage'))
-    } finally {draft.saving=false;if($('saveReview')){lastDetail='';renderDetail();$('savedMessage').textContent=draft.savedMessage||''}}
+    } finally {indicator.remove();draft.saving=false;if($('saveReview')){lastDetail='';renderDetail();$('savedMessage').textContent=draft.savedMessage||''}}
   }
   action('saveReview',()=>save(false));if($('saveUnchanged'))action('saveUnchanged',()=>save(true))
 }

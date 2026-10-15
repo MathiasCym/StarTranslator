@@ -145,6 +145,18 @@ def apply_report():
     return jsonify(workflow.apply_report(request.get_json(force=True) or {}))
 
 
+@api.post('/api/reports/exports')
+def start_report_export():
+    from . import report_exports
+    return jsonify(report_exports.start(request.get_json(force=True) or {}))
+
+
+@api.get('/api/reports/exports/<export_id>')
+def report_export_status(export_id):
+    from . import report_exports
+    return jsonify(report_exports.read(export_id))
+
+
 @api.get('/api/history')
 def history_read():
     with workflow.LOCK:

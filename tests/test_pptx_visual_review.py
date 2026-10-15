@@ -164,6 +164,9 @@ class VisualTests(unittest.TestCase):
                 with lock:
                     active[0]+=1;peak[0]=max(peak[0],active[0]);calls.append(prompt)
                     if active[0]==3:gate.set()
+                    if len(calls)==1:
+                        active[0]-=1
+                        return {'reviewed':True,'issues':[]}
                 if not gate.wait(3):raise ValueError('Page checks did not run in parallel')
                 with lock:active[0]-=1
                 return {'reviewed':True,'issues':[]}
@@ -180,7 +183,7 @@ class VisualTests(unittest.TestCase):
         self.assertTrue(Path(result['path']).is_file())
         self.assertEqual(result['status'],'complete')
         self.assertFalse(result['layout_checked'])
-        self.assertNotIn('.png',json.dumps(result));self.assertEqual(result['layout_warnings'],[])
+        self.assertNotIn('.png',json.dumps(result));self.assertTrue(result['layout_warnings'])
     def test_translation_modes_are_explicit_and_isolated_per_call(self):
         self.assertIn('不得为适应版面',translation_system('faithful'))
         self.assertIn('用户选择文案压缩',translation_system('compressed'))

@@ -77,11 +77,11 @@ class PdfResidualTests(unittest.TestCase):
                 return []
         hits,stats=check_segments(extract(source),self.g,True,client=Offline(),expect_english=True)
         self.assertEqual(stats['model_status'],'partial');self.assertTrue(stats['warnings']);self.assertEqual(stats['completed_files'],[])
-        self.assertEqual(hits[0].found_text,'全景显示');self.assertFalse(hits[0].editable)
+        self.assertEqual(hits[0].found_text,'全景显示');self.assertTrue(hits[0].editable);self.assertEqual(hits[0].suggested,'')
     def test_rules_only_detection_does_not_call_a_model(self):
         source=self.root/'mixed.docx';doc=Document();doc.add_paragraph('A 全景显示.');doc.save(source)
         model=Model();hits,stats=check_segments(extract(source),self.g,False,client=model,expect_english=True)
-        self.assertEqual(model.prompts,[]);self.assertEqual(hits[0].found_text,'全景显示');self.assertFalse(hits[0].editable)
+        self.assertEqual(model.prompts,[]);self.assertEqual(hits[0].found_text,'全景显示');self.assertTrue(hits[0].editable);self.assertEqual(hits[0].suggested,'')
     def test_compression_mode_does_not_apply_to_pdf(self):
         source=self.pdf('主屏直径为87英尺，整体画布为12Kx10K。');model=Model()
         result=translate_file(source,self.g,None,client=model,translation_mode='compressed')

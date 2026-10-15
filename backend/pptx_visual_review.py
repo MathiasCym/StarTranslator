@@ -28,7 +28,7 @@ def _cancel(cancel):
         raise Cancelled('任务已取消。')
 
 
-def _run(args, folder, cancel, timeout=180):
+def _run(args, folder, cancel, timeout=180, progress=None):
     _cancel(cancel)
     # Do not inherit a shell or leak model credentials into another renderer.
     env={k:v for k,v in os.environ.items() if not any(s in k.upper() for s in ('API_KEY','TOKEN','SECRET'))}
@@ -37,8 +37,16 @@ def _run(args, folder, cancel, timeout=180):
     process=subprocess.Popen([str(v) for v in args],cwd=folder,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
         creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0,env=env)
     deadline=time.monotonic()+timeout
+    last_progress=None
     try:
         while process.poll() is None:
+            if progress:
+                try:
+                    value=json.loads((Path(folder)/'progress.json').read_text(encoding='utf-8-sig'))
+                    point=(int(value['done']),int(value['total']))
+                    if point!=last_progress:
+                        progress(*point);last_progress=point
+                except (OSError,ValueError,KeyError):pass
             if (cancel and cancel.is_set()) or time.monotonic()>deadline:
                 (Path(folder)/'cancel').touch()
                 try:process.wait(timeout=10)
@@ -52,15 +60,15 @@ def _run(args, folder, cancel, timeout=180):
         if process.poll() is None:process.kill();process.wait()
 
 
-def render_pages(path, folder, cancel=None):
-    folder=Path(folder);folder.mkdir(parents=True,exist_ok=True)
+def render_pages(path, folder, cancel=None, progress=None):
+    folder=Path(folder).resolve();folder.mkdir(parents=True,exist_ok=True)
     snapshot=folder/'document.pptx';shutil.copyfile(path,snapshot)
     while not RENDER_LOCK.acquire(timeout=.2):_cancel(cancel)
     try:
         try:
             if os.name!='nt':raise RuntimeError('Native renderer unavailable')
             _run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',
-                  Path(__file__).with_name('pptx_render.ps1'),'-InputFile',snapshot,'-OutputFolder',folder],folder,cancel)
+                  Path(__file__).with_name('pptx_render.ps1'),'-InputFile',snapshot,'-OutputFolder',folder],folder,cancel,**({'progress':progress} if progress else {}))
         except RuntimeError:
             binary=officecli_bridge.ensure_component('before_translation')
             raw=folder/'raw.html';safe=folder/'page.html'
@@ -82,6 +90,7 @@ def render_pages(path, folder, cancel=None):
             if image.parent!=folder or not image.is_file() or not image.read_bytes().startswith(b'\x89PNG'):
                 raise RuntimeError('Invalid page image')
             page['image']=image
+        if progress:progress(len(pages),len(pages))
         return manifest
     finally:RENDER_LOCK.release()
 
@@ -115,31 +124,46 @@ def _native_issues(source,output,number,objects):
     return issues
 
 
-def review_pptx(source,output,document,changed,snapshots,client,cancel=None,reference=None,workers=1):
+def review_pptx(source,output,document,changed,snapshots,client,cancel=None,reference=None,workers=1,progress=None):
     """Review every page, apply one safe cohort step, rerender affected pages once.
 
     Missing rendering/vision is incomplete, never a successful check. Temporary
     images disappear on success, failure or cancellation and are never published.
     """
     pending={'slide':None,'text':'','reason':'文档排版处理未完成。'}
+    def notify(message,done=0,total=0):
+        if progress:progress(message,done,total)
     if not callable(getattr(client,'chat_images_json',None)):return [pending],[]
     adjustments=[]
     final_fitting=[]
     with tempfile.TemporaryDirectory(prefix='star-layout-private-') as tmp:
         folder=Path(tmp)
         try:
-            original=render_pages(reference or source,folder/'source',cancel)
-            current=render_pages(output,folder/'output-0',cancel)
+            notify('正在渲染原稿页面')
+            original=render_pages(reference or source,folder/'source',cancel,**({'progress':lambda n,t:notify('正在渲染原稿页面',n,t)} if progress else {}))
+            notify('正在渲染输出页面')
+            current=render_pages(output,folder/'output-0',cancel,**({'progress':lambda n,t:notify('正在渲染输出页面',n,t)} if progress else {}))
             if len(original['pages'])!=len(document.slides) or len(current['pages'])!=len(document.slides):
                 return [pending],adjustments
             objects=_objects(document)
+            vision_unavailable=threading.Event()
             def inspect(manifest,numbers):
+                numbers=list(numbers)
+                notify('正在逐页检查版式',0,len(numbers))
                 def inspect_page(number):
                     issues=[]
                     _cancel(cancel)
                     first,second=original['pages'][number-1],manifest['pages'][number-1]
-                    result=client.chat_images_json(f'第 {number} 页；页面尺寸单位为点。译文对象清单：\n'+
-                        json.dumps(objects[number-1],ensure_ascii=False),images=[first['image'],second['image']],system=SYSTEM,max_tokens=1600)
+                    if original.get('native') and manifest.get('native'):
+                        issues.extend(_native_issues(first,second,number,objects[number-1]))
+                    if vision_unavailable.is_set():return issues
+                    try:
+                        result=client.chat_images_json(f'第 {number} 页；页面尺寸单位为点。译文对象清单：\n'+
+                            json.dumps(objects[number-1],ensure_ascii=False),images=[first['image'],second['image']],system=SYSTEM,max_tokens=1600)
+                    except Exception:
+                        _cancel(cancel)
+                        vision_unavailable.set()
+                        return issues
                     _cancel(cancel)
                     if not isinstance(result,dict) or result.get('reviewed') is not True or not isinstance(result.get('issues'),list) or result.get('__truncated__'):
                         raise ValueError('Incomplete image comparison')
@@ -150,15 +174,19 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                         sid=item.get('shape_id')
                         issues.append({'slide':number,'text':f'文本框 {sid}' if sid in keys else '页面文字',
                                        'locator':keys.get(sid),'kind':item['kind'],'reason':item['reason'][:200]})
-                    if original.get('native') and manifest.get('native'):
-                        issues.extend(_native_issues(first,second,number,objects[number-1]))
                     return issues
                 from concurrent.futures import ThreadPoolExecutor
                 issues=[]
                 # Render/Office writes remain serialized. Independent model page
                 # comparisons use the same bounded acceleration as translation.
                 with ThreadPoolExecutor(max_workers=max(1,min(3,workers)),thread_name_prefix='star-layout') as pool:
-                    for page_issues in pool.map(inspect_page,numbers):issues.extend(page_issues)
+                    # Probe one page first, so a text-only model does not receive
+                    # one doomed image request per page. Native bounds still run.
+                    if numbers:
+                        issues.extend(inspect_page(numbers[0]));notify('正在逐页检查版式',1,len(numbers))
+                    for done,page_issues in enumerate(pool.map(inspect_page,numbers[1:]),2):
+                        issues.extend(page_issues)
+                        notify('正在逐页检查版式',done,len(numbers))
                 return issues
             issues=inspect(current,range(1,len(document.slides)+1))
             best=folder/'best.pptx';shutil.copyfile(output,best)
@@ -171,7 +199,8 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                 fixes,final_fitting=fit_document(document,changed,snapshots,constraints=constraints)
                 adjustments.extend(fixes)
                 save_office(source,document,output,changed)
-                revised=render_pages(output,folder/f'output-{attempt}',cancel)
+                notify('正在重新渲染并检查调整后的页面')
+                revised=render_pages(output,folder/f'output-{attempt}',cancel,**({'progress':lambda n,t:notify('正在重新渲染调整后的页面',n,t)} if progress else {}))
                 if len(revised['pages'])!=len(document.slides):return [*issues,pending],adjustments
                 affected={i['slide'] for i in issues if i.get('locator') in constraints}
                 issues=[i for i in issues if i['slide'] not in affected]+inspect(revised,sorted(affected))
@@ -179,6 +208,8 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                     shutil.copyfile(output,best);best_issues=list(issues);best_adjustments=list(adjustments)
             shutil.copyfile(best,output)
             # Complete page images/native bounds are authoritative over estimates.
+            if vision_unavailable.is_set():
+                best_issues.append({'slide':None,'text':'','reason':'已完成可用的本机版式检查；当前模型未完成图像对照，请核对页面视觉效果。'})
             return best_issues,best_adjustments
         except Exception:
             _cancel(cancel)

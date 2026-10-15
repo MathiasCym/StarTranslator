@@ -343,6 +343,9 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
 .job-progress-light::after { content: ''; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(226,252,255,.5) 50%, transparent 65%); transform: translateX(-100%); }
 .job-progress-track.active .job-progress-light::after { animation: job-reflection 2.4s linear infinite; }
 .job-progress-track.indeterminate { background: rgba(56,189,248,.12); }
+.export-progress { width: 100%; min-width: 0; }
+.export-progress p { margin: 0 0 7px; color: var(--muted); font-size: 14px; overflow-wrap: anywhere; }
+.export-progress progress { height: 12px; border-radius: 8px; overflow: hidden; }
 @keyframes job-reflection { to { transform: translateX(100%); } }
 
 /* Compact controls leave more space for readable, editable terms. */

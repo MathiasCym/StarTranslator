@@ -6,7 +6,7 @@
 
 翻译中文技术材料，结合参考原稿与专业术语库校对已有英文，逐条确认修改。支持 Office、PDF 文字层、文本、电子书和字幕；既可在自己的电脑上使用，也可通过局域网共享工作台与同事协作。
 
-[国内下载 2.0.7](https://atomgit.com/MathiasCym/StarTranslator/releases/v2.0.7) · [GitHub 下载](https://github.com/MathiasCym/StarTranslator/releases/latest) · [更新记录](CHANGELOG.md) · [公开团队词库](glossary/team.json) · [问题反馈](https://github.com/MathiasCym/StarTranslator/issues)
+[国内更新](https://atomgit.com/MathiasCym/StarTranslator/releases) · [完整安装包](https://github.com/MathiasCym/StarTranslator/releases/latest) · [更新记录](CHANGELOG.md) · [公开团队词库](glossary/team.json) · [问题反馈](https://github.com/MathiasCym/StarTranslator/issues)
 
 [快速开始](#快速开始) · [模型配置](#模型配置) · [使用流程](#使用流程) · [团队词库维护](#团队词库维护) · [局域网协作](#局域网协作) · [常见问题](#常见问题) · [开发与发布](#开发与发布) · [致谢](#致谢)
 
@@ -32,7 +32,7 @@
 
 桌面安装包面向 **Windows x64**，随包提供 Python、文档处理库和 OfficeCLI。使用安装版无需另装 Node.js、Python、Git 或 Office；目前未提供 macOS / Linux 桌面安装包。
 
-1. 打开 [国内发行版](https://atomgit.com/MathiasCym/StarTranslator/releases/v2.0.7) 下载 `StarTranslator-Setup-2.0.7.exe`，或从 [GitHub Releases](https://github.com/MathiasCym/StarTranslator/releases/latest) 的 **Assets** 下载。`Source code` 压缩包是源码，不是安装包。
+1. 首次安装从 [GitHub Releases](https://github.com/MathiasCym/StarTranslator/releases/latest) 的 **Assets** 下载 `StarTranslator-Setup-<版本>.exe`。已有 2.0.10 或更新版本时，优先在软件内获取国内小包更新。`.stpatch` 是供软件使用的增量数据，`Source code` 是源码，两者都不能当作首次安装包运行。
 2. 运行安装包，选择位置和安装范围。“所有用户”安装需要管理员授权；升级会识别既有安装，保留配置、词库和历史记录。
 3. 等待安装完整性校验通过，再启动星译官。安装目录默认使用英文名称 `StarTranslator`。
 4. 打开“模型设置”，填写连接信息，先“保存配置”，再“使用配置”。
@@ -217,7 +217,7 @@
 
 **如何更新软件？**
 
-在“关于 → 软件更新”检查和下载正式版本，校验通过后确认安装；也可从 Releases 下载。当前使用完整安装包，尚未提供增量更新。安装前完成任务并保存编辑，现有配置、词库和历史记录会保留。
+在“关于 → 软件更新”检查和下载正式版本，校验通过后确认安装。2.0.10 起，匹配的近期版本使用增量小包；原版本不匹配或准备失败时可改用完整更新。2.0.9 及更早版本需要先完整升级一次。安装前完成任务并保存编辑，现有配置、词库和历史记录会保留。
 
 ## 开发与发布
 
@@ -244,9 +244,9 @@ node --test tests/test_release.js tests/test_install_integrity.js tests/test_ins
 
 开发者需配置 GitHub 推送授权，软件内的词库维护授权不自动配置命令行 Git。安装包放在 Releases，已发布版本默认保留。GitHub 和国内渠道分别验收；国内完整下载及旧客户端检查通过后，才报告国内更新已就绪。具体完成条件和交付记录模板见 [RELEASING.md](RELEASING.md)。
 
-国内公开来源的接入见 [国内来源接入说明](docs/domestic-distribution.md)。2.0.7 已在 [AtomGit 公开仓库](https://atomgit.com/MathiasCym/StarTranslator/releases/v2.0.7) 正式发布，144,022,928 字节的安装包与 GitHub 原发行包的大小、SHA-256 一致。已使用实际安装的 2.0.5 原始更新组件，在独立直连进程中完成检查、完整下载和安装前校验，全程未访问 GitHub；本机全包下载约 25.1 秒，速度以各自网络为准。已经发现 GitHub 更新的用户应取消旧下载，重新检查并确认来源显示 AtomGit。2.0.3 首次接入国内来源仍需手动安装 2.0.4 或之后的版本。
+国内公开来源的接入见 [国内来源接入说明](docs/domestic-distribution.md)。2.0.10 起，国内仓库只同步经过摘要核对的小更新包和清单；完整安装包在 GitHub 保留。发布验证使用匿名直连下载及独立安装副本，核对实际合成结果和更新缓存清理，不能用页面存在或源码同步成功代替验证。
 
-GitHub 测试、打包和正式发布继续自动执行；国内源码与词库同步已通过，国内大文件自动上传仍存在等待响应的问题，本次通过发行版页面补齐后完整验证，不应将 GitHub 发布成功等同于国内安装包已就绪。词库提交仍连接 GitHub，需要维护者授权和相应网络；国内专用词库分支及维护者审核的提交入口尚未实现。
+GitHub 测试、打包和国内增量发布通过后台流程执行。国内附件需要分别完成匿名读取与校验，再设为正式版。词库提交仍连接 GitHub，需要维护者授权和相应网络；国内专用词库分支及维护者审核的提交入口尚未实现。
 
 | 目录 | 用途 |
 | --- | --- |

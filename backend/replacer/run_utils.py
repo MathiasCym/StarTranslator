@@ -16,8 +16,20 @@ def replace_spans(runs, spans):
     """Apply non-overlapping original offsets right-to-left; keep unaffected runs."""
     for start,end,replacement in sorted(spans,reverse=True):
         text, bounds = concat_runs(runs)
-        if start < 0 or end > len(text) or start >= end:
+        if start < 0 or end > len(text) or start > end:
             raise ValueError('替换范围无效')
+        if start==end:
+            if not runs:raise ValueError('段落没有可写文字样式')
+            index=next((i for i,(a,b) in enumerate(bounds) if a<=start<b),len(runs)-1)
+            offset=start-bounds[index][0]
+            runs[index].text=runs[index].text[:offset]+replacement+runs[index].text[offset:]
+            continue
+        # A full-sentence suggestion often changes just a comma or one verb.
+        # Retain the original styled runs for every unchanged word and number.
+        edits=[(start+a,start+b,replacement[c:d]) for op,a,b,c,d in SequenceMatcher(None,text[start:end],replacement,autojunk=False).get_opcodes() if op!='equal']
+        if len(edits)!=1 or edits[0]!=(start,end,replacement):
+            replace_spans(runs,edits)
+            continue
         for i,(a,b) in enumerate(bounds):
             if b <= start or a >= end:
                 continue

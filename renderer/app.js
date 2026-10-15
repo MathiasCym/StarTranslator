@@ -175,7 +175,7 @@ function busy(value) {
 }
 async function runTask(combined = false, restored = null) {
   if (state.busy || state.choosingOutput || (!restored && !state.files.length)) return
-  const kind = restored?.kind || (combined && state.mode === 'translate' ? 'translate_review' : state.mode)
+  let kind = restored?.kind || (combined && state.mode === 'translate' ? 'translate_review' : state.mode)
   let combinedOutput = restored?.combined_output || 'both'
   if (kind === 'translate_review' && !restored) {
     combinedOutput = await chooseCombinedOutput()
@@ -195,10 +195,13 @@ async function runTask(combined = false, restored = null) {
     while (['queued','running'].includes(state.job.status)) {
       await delay(600)
       try { state.job = await callApi('GET', '/api/jobs/' + state.job.id); failures = 0 } catch (error) { if (++failures > 3) throw error; continue }
+      kind = state.job.kind || kind
+      $('jobStages').hidden = kind !== 'translate_review'
       $('jobMessage').textContent = state.job.message.replaceAll('术语规则检查', '术语检查').replaceAll('规则检查', '术语检查').replaceAll('模型复核', '深度审校')
       renderJobPhase(state.job)
       renderLiveFindings(state.job.partial_findings || [])
     }
+    kind = state.job.kind || kind
     consumeCompleted(state.job.result, submitted)
     const resultErrors = state.job.result?.errors || []
     if (state.job.status === 'failed' && !state.job.result?.findings?.length && !state.job.result?.outputs?.length) {
@@ -330,13 +333,20 @@ function openReport() {
   renderReport()
   $('reportModal').hidden = false
 }
+function selectableFinding(f, index) { return !!(f?.editable && !f.applied && String(state.edits[index] ?? f.suggested ?? '').trim()) }
 function updateSelection() {
-  for (const index of [...state.selected]) { const f = state.report?.findings[index]; if (!f?.editable || f.applied || !(state.edits[index] ?? f.suggested).trim()) state.selected.delete(index) }
-  $('selInfo').textContent = `已选 ${state.selected.size} 项`
+  for (const index of [...state.selected]) if (!selectableFinding(state.report?.findings[index], index)) state.selected.delete(index)
+  const eligible = reportRows().filter(({f,index}) => selectableFinding(f,index)), count = eligible.filter(({index}) => state.selected.has(index)).length
+  $('selectAll').checked = eligible.length > 0 && count === eligible.length
+  $('selectAll').indeterminate = count > 0 && count < eligible.length
+  const empty = reportRows().filter(({f,index}) => f.editable && !f.applied && !selectableFinding(f,index)).length
+  $('selectAll').title = `选择当前筛选下全部 ${eligible.length} 项可应用建议` + (empty ? `；另有 ${empty} 项需先填写替换文本` : '')
+  $('selInfo').textContent = `已选 ${state.selected.size} 项` + (empty ? ` · ${empty} 项待填写` : '')
   $('selInfo').title = '同段重复出现的内容会一并处理。'
   $('applyBtn').disabled = $('overwriteBtn').disabled = !!state.exportBusy || !state.selected.size
-  $('saveCurrentBtn').disabled = !!state.exportBusy
+  $('saveCurrentBtn').disabled = !!state.exportBusy || !state.report?.files.some(file => file.review_available !== false)
   for (const id of ['reportStatus', 'reportFilter', 'searchBox', 'selectRules', 'selectAll']) $(id).disabled = !!state.exportBusy
+  $('selectAll').disabled = !!state.exportBusy || !eligible.length
   $('reportBody').querySelectorAll('[data-edit]').forEach(input => { input.disabled = !!state.exportBusy })
   $('reportBody').querySelectorAll('[data-index]').forEach(input => { const i = Number(input.dataset.index), f = state.report.findings[i]; input.disabled = !!state.exportBusy || !f.editable || f.applied || !(state.edits[i] ?? f.suggested).trim() })
 }
@@ -366,24 +376,33 @@ function renderReport() {
     if (!input.value.trim()) { state.selected.delete(index); select.checked = false }
     updateSelection()
   } })
-  $('selectAll').checked = rows.some(({ f }) => f.editable) && rows.filter(({ f }) => f.editable).every(({ index }) => state.selected.has(index))
   updateSelection()
   renderReportOutputs()
   renderCheckCompletion()
 }
 $('reportFilter').onchange = $('reportStatus').onchange = renderReport; $('searchBox').oninput = renderReport
-$('selectAll').onchange = event => { for (const { f, index } of reportRows()) if (f.editable && !f.applied && (state.edits[index] ?? f.suggested).trim()) event.target.checked ? state.selected.add(index) : state.selected.delete(index); renderReport() }
+$('selectAll').onchange = event => { const checked = event.target.checked; for (const { f, index } of reportRows()) if (selectableFinding(f,index)) checked ? state.selected.add(index) : state.selected.delete(index); renderReport() }
 action('selectRules', () => { reportRows().forEach(({f, index}) => { if (['rule', 'consistency'].includes(f.method) && f.editable && !f.applied && (state.edits[index] ?? f.suggested).trim()) state.selected.add(index) }); renderReport() })
 async function exportReport(overwrite = false, saveCurrent = false) {
   if (state.exportBusy || (!state.selected.size && !saveCurrent)) return
   state.exportBusy = true; updateSelection(); $('backBtn').disabled = true
+  $('exportProgressBox').hidden = false
   const groups = new Map(), results = []
   try {
-    if (saveCurrent || state.report.output_mode === 'final') for (const file of state.report.files) if (saveCurrent || file.review_available) groups.set(file.path, { selected: {}, edits: [] })
+    if (saveCurrent || state.report.output_mode === 'final') for (const file of state.report.files) if (file.review_available !== false) groups.set(file.path, { selected: {}, edits: [] })
     if (!saveCurrent) for (const index of state.selected) { const f = state.report.findings[index]; if (!f.editable || f.applied) continue; if (!groups.has(f.file_path)) groups.set(f.file_path, { selected: {}, edits: [] }); const group = groups.get(f.file_path), text = (state.edits[index] ?? f.suggested).trim(); if (!text) throw new Error('替换文本不能为空。'); (group.selected[f.segment_id] ||= []).push([f.found_text, text]); group.edits.push({ index, text }) }
     for (const [path, group] of groups) {
       try {
-        const r = await callApi('POST', '/api/reports/apply', { report_id: state.report.report_id, path, ...group, save_unchanged: saveCurrent || state.report.output_mode === 'final', output_dir: overwrite ? null : state.outputDir || null, overwrite })
+        let task = await callApi('POST', '/api/reports/exports', { report_id: state.report.report_id, path, ...group, save_unchanged: saveCurrent || state.report.output_mode === 'final', output_dir: overwrite ? null : state.outputDir || null, overwrite })
+        while (['queued','running'].includes(task.status)) {
+          $('exportProgressText').textContent = `${basename(path)} · ${task.message}` + (task.total ? `（${task.done}/${task.total}）` : '')
+          if (task.total) $('exportProgress').value = 100 * task.done / task.total
+          else $('exportProgress').removeAttribute('value')
+          await delay(400)
+          task = await callApi('GET', '/api/reports/exports/' + task.id)
+        }
+        if (task.status !== 'complete') throw new Error(task.error || '保存未完成。')
+        const r = task.result
         state.savedReviewFiles.add(path)
         results.push({ path: r.output, layoutWarnings: r.layout_warnings || [], text: (state.report.kind === 'translate_review' ? r.overwritten ? '已更新校对文件，' : '校对文件已保存，' : r.overwritten ? '已覆盖原文件，' : '已另存，') + `替换 ${r.applied_count} 处` + (r.failed.length ? `；${r.failed.length} 项未完成` : '') })
         if (state.report.kind === 'translate_review') state.exportRecords = state.exportRecords.filter(record => (state.report.output_mode !== 'final' || record.path !== path) && record.path !== r.output)
@@ -392,7 +411,7 @@ async function exportReport(overwrite = false, saveCurrent = false) {
       catch (error) { results.push({ text: `${basename(path)}：${error.message}` }) }
     }
     state.exportRecords.push(...results); $('reportOutput').value = ''; $('completionOutput').value = ''; $('reportStatus').value = 'pending'; renderReport()
-  } finally { state.exportBusy = false; $('backBtn').disabled = false; updateSelection() }
+  } finally { state.exportBusy = false; $('exportProgressBox').hidden = true; $('backBtn').disabled = false; updateSelection() }
 }
 action('applyBtn', () => exportReport(false))
 action('overwriteBtn', () => exportReport(true))
