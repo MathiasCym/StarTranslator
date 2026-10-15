@@ -29,6 +29,16 @@ test('high Windows scaling matches the approved physical window and typography',
   assert.equal(16*zoom*dpi,19)
 })
 
+test('the mainstream 1080p, 2240x1400 and 4K desktops keep the approved proportions', () => {
+  for(const [width,height,dpi] of [[1920,1080,1],[2240,1400,1.5],[3840,2160,1],[3840,2160,1.5],[3840,2160,2]]){
+    const area={width:width/dpi,height:(height-48*dpi)/dpi},size=defaultWindowSize(area,dpi),zoom=referenceZoom(dpi,area)
+    assert(size.width*dpi<=1520&&size.height*dpi<=980)
+    assert(width-size.width*dpi>=64&&height-size.height*dpi>=64)
+    assert(Math.abs(size.width/zoom-1280)<2)
+    assert(Math.abs(16*zoom*dpi-19)<.001)
+  }
+})
+
 test('100 to 250 percent Windows DPI keeps the same screen-pixel reference', () => {
   for(const dpi of [1,1.25,1.5,1.875,2,2.5]){
     const area={width:1920/dpi,height:1040/dpi},size=defaultWindowSize(area,dpi),zoom=referenceZoom(dpi,area)

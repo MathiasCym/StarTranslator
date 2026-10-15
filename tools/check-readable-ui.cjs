@@ -66,9 +66,10 @@ server.listen(0,'127.0.0.1',async()=>{
    await run("state.files=[];renderFiles();$('referencesPanel').open=false")
    const empty=await layout();result.checks.push({empty});assert.equal(empty.horizontal,0,JSON.stringify(empty));assert(empty.mainScroll<3,JSON.stringify(empty));assert(empty.topbarScroll<3,JSON.stringify(empty));assert(empty.bodyFont>=16&&empty.bodyFont<=16.5&&empty.buttonFont<=16.5,JSON.stringify(empty));assert(empty.run.bottom<=h,JSON.stringify(empty))
    if(w===1280){
-    const before=await run("getComputedStyle($('dropzone'),'::before').backgroundPosition")
-    await wait(250)
-    assert.notEqual(await run("getComputedStyle($('dropzone'),'::before').backgroundPosition"),before,'Drop-zone sheen must move')
+    const flow=await run("(()=>{const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches,a=document.getAnimations().find(a=>a.animationName==='sheen');return {reduced,name:getComputedStyle($('dropzone'),'::before').animationName,state:a?.playState,duration:a?.effect.getTiming().duration}})()")
+    // Headless Windows runners may request reduced motion or pause rendering.
+    if(flow.reduced)assert.equal(flow.name,'none')
+    else assert(flow.name==='sheen'&&flow.state==='running'&&flow.duration===6000,JSON.stringify(flow))
     assert.equal(await run("$('dropzone').querySelector('img').naturalWidth>0"),true)
     assert.equal(await run("getComputedStyle($('dropzone').querySelector('img')).width"),'144px')
     await run("$('dropzone').dispatchEvent(new Event('dragover',{cancelable:true}))")

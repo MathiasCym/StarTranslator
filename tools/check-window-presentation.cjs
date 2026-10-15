@@ -1,13 +1,21 @@
 // Measure the application's own default window. Never replace it with a test-sized window.
 const runtime=require('electron')
+const scenarios={
+ '1080p':{width:1920,height:1080,dpi:1},
+ '2240-150':{width:2240,height:1400,dpi:1.5},
+ '4k-150':{width:3840,height:2160,dpi:1.5},
+ '4k-200':{width:3840,height:2160,dpi:2}
+}
+const scenarioKey=process.argv.find(a=>a.startsWith('--display='))?.slice(10),scenario=scenarios[scenarioKey]
+if(scenarioKey&&!scenario)throw Error('Unknown display scenario')
 if(typeof runtime==='string'){
  const path=require('node:path'),fs=require('node:fs'),{spawnSync}=require('node:child_process')
  const root=path.resolve(__dirname,'..'),label=process.argv[3]||'source',out=path.join(root,'dist/qa/presentation',label+'-result.json')
  if(!/^[a-z0-9-]+$/.test(label))throw Error('Invalid QA label')
  fs.rmSync(out,{force:true})
- const task=spawnSync(runtime,[__filename,process.argv[2]||root,label,...process.argv.slice(4)],{cwd:root,windowsHide:true,timeout:90000,encoding:'utf8'})
+ const task=spawnSync(runtime,[__filename,process.argv[2]||root,label,...process.argv.slice(4),...(scenario?['--force-device-scale-factor='+scenario.dpi]:[])],{cwd:root,windowsHide:true,timeout:90000,encoding:'utf8'})
  if(fs.existsSync(out)){const r=JSON.parse(fs.readFileSync(out));console.log(r.passed?'Default window presentation passed: '+JSON.stringify(r.default):r.error)}
- else console.error(task.error?.message||'Default window presentation did not finish')
+ else console.error(task.error?.message||'Default window presentation did not finish: '+(task.stderr||'').slice(-1500))
  process.exit(task.status??1)
 }
 const {app,BrowserWindow,screen,ipcMain}=runtime,fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict')
@@ -22,6 +30,13 @@ const timeout=setTimeout(()=>app.exit(2),70000)
 server.listen(0,'127.0.0.1',async()=>{
  try{
   process.env.NOVATERM_LLM_PROVIDER='compatible';process.env.NOVATERM_LLM_BASE_URL=`http://127.0.0.1:${server.address().port}/v1`;process.env.NOVATERM_LLM_MODEL='ui-only';process.env.NOVATERM_LLM_API_KEY=''
+  if(scenario){
+   await app.whenReady()
+   const actual=screen.getPrimaryDisplay(),display={...actual,scaleFactor:scenario.dpi,bounds:{x:0,y:0,width:Math.round(scenario.width/scenario.dpi),height:Math.round(scenario.height/scenario.dpi)},workArea:{x:0,y:0,width:Math.round(scenario.width/scenario.dpi),height:Math.round(scenario.height/scenario.dpi)-48}}
+   display.workAreaSize={width:display.workArea.width,height:display.workArea.height}
+   screen.getDisplayNearestPoint=screen.getDisplayMatching=()=>display
+   result.simulatedDisplay={name:scenarioKey,...scenario}
+  }
   require(path.join(target,'main.js'))
   ipcMain.removeHandler('startup-update-notice');ipcMain.handle('startup-update-notice',()=>null)
   await app.whenReady()

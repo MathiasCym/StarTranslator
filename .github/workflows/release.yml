@@ -49,6 +49,11 @@ jobs:
           node tools/check-readable-ui.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tools/check-window-presentation.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          foreach ($scenario in @('1080p', '2240-150', '4k-150', '4k-200')) {
+            node tools/check-window-presentation.cjs . "display-$scenario" "--display=$scenario"
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
       - name: Build exact source version
         env:
           PYTHONDONTWRITEBYTECODE: '1'
