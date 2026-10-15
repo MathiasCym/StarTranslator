@@ -10,3 +10,5 @@ const stage=path.join(folder,'$PLUGINSDIR/stage'),images=spawnSync(process.execP
 assert.equal(images.status,0,'Installer images failed')
 const verification=spawnSync(path.join(root,'node_modules/electron/dist/electron.exe'),[path.join(root,'tools/verify-payload.cjs'),folder],{cwd:root,windowsHide:true,stdio:'inherit'})
 assert.equal(verification.status,0,'Installer payload failed')
+const presentation=spawnSync(process.execPath,[path.join(root,'tools/check-window-presentation.cjs'),path.join(folder,'resources/app.asar'),'packaged'],{cwd:root,windowsHide:true,stdio:'inherit'})
+assert.equal(presentation.status,0,'Packaged default window presentation failed')

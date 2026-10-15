@@ -1,0 +1,63 @@
+// Measure the application's own default window. Never replace it with a test-sized window.
+const runtime=require('electron')
+if(typeof runtime==='string'){
+ const path=require('node:path'),fs=require('node:fs'),{spawnSync}=require('node:child_process')
+ const root=path.resolve(__dirname,'..'),label=process.argv[3]||'source',out=path.join(root,'dist/qa/presentation',label+'-result.json')
+ if(!/^[a-z0-9-]+$/.test(label))throw Error('Invalid QA label')
+ fs.rmSync(out,{force:true})
+ const task=spawnSync(runtime,[__filename,process.argv[2]||root,label,...process.argv.slice(4)],{cwd:root,windowsHide:true,timeout:90000,encoding:'utf8'})
+ if(fs.existsSync(out)){const r=JSON.parse(fs.readFileSync(out));console.log(r.passed?'Default window presentation passed: '+JSON.stringify(r.default):r.error)}
+ else console.error(task.error?.message||'Default window presentation did not finish')
+ process.exit(task.status??1)
+}
+const {app,BrowserWindow,screen,ipcMain}=runtime,fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict')
+const root=path.resolve(__dirname,'..'),target=path.resolve(process.argv[2]),label=process.argv[3],measure=process.argv.includes('--measure')
+const out=path.join(root,'dist/qa/presentation'),result={passed:false,target,companyDocumentsSent:false,existingInstallationModified:false,screenshots:[]},wait=ms=>new Promise(r=>setTimeout(r,ms))
+fs.mkdirSync(out,{recursive:true});app.setPath('userData',path.join(out,label+'-profile'))
+app.getVersion=()=>JSON.parse(fs.readFileSync(path.join(target,'package.json'))).version
+BrowserWindow.prototype.show=function(){}
+if(target.endsWith('.asar'))process.resourcesPath=path.dirname(target)
+const server=http.createServer((_req,res)=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({data:[{id:'ui-only'}]}))})
+const timeout=setTimeout(()=>app.exit(2),70000)
+server.listen(0,'127.0.0.1',async()=>{
+ try{
+  process.env.NOVATERM_LLM_PROVIDER='compatible';process.env.NOVATERM_LLM_BASE_URL=`http://127.0.0.1:${server.address().port}/v1`;process.env.NOVATERM_LLM_MODEL='ui-only';process.env.NOVATERM_LLM_API_KEY=''
+  require(path.join(target,'main.js'))
+  ipcMain.removeHandler('startup-update-notice');ipcMain.handle('startup-update-notice',()=>null)
+  await app.whenReady()
+  let win
+  for(let i=0;i<250;i++){
+   win=BrowserWindow.getAllWindows().find(w=>w.webContents.getURL().endsWith('/renderer/index.html'))
+   if(win&&!win.webContents.isLoading()&&await win.webContents.executeJavaScript('typeof initialized!=="undefined"&&initialized').catch(()=>false))break
+   await wait(100)
+  }
+  assert(win,'The real main window was not created')
+  win.webContents.setBackgroundThrottling(false)
+  const run=code=>win.webContents.executeJavaScript(code),display=screen.getDisplayMatching(win.getBounds()),dpi=display.scaleFactor,zoom=win.webContents.getZoomFactor(),bounds=win.getBounds()
+  result.version=app.getVersion();result.default={bounds,scaleFactor:dpi,zoomFactor:zoom,screenPixels:{width:bounds.width*dpi,height:bounds.height*dpi},workArea:display.workArea}
+  const layout=()=>run(`(()=>{const main=document.querySelector('body>main'),aside=document.querySelector('.task-options'),button=$('runBtn').getBoundingClientRect();return {width:innerWidth,height:innerHeight,bodyFont:parseFloat(getComputedStyle(document.body).fontSize),buttonFont:parseFloat(getComputedStyle($('runBtn')).fontSize),mainScroll:main.scrollHeight-main.clientHeight,asideScroll:aside.scrollHeight-aside.clientHeight,horizontal:document.documentElement.scrollWidth-innerWidth,buttonBottom:button.bottom}})()`)
+  const capture=async name=>{await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true});await wait(1100);const image=await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true}),bytes=image.toPNG(),file=path.join(out,label+'-'+name+'.png');fs.writeFileSync(file,bytes);result.screenshots.push({file,pixelWidth:bytes.readUInt32BE(16),pixelHeight:bytes.readUInt32BE(20)});assert(bytes.length>15000,'Missing real window image')}
+  await run("state.files=[];state.references=[];setMode('translate');renderFiles()")
+  result.empty=await layout();await capture('empty')
+  result.dropzone=await run(`(()=>{const zone=$('dropzone'),style=getComputedStyle(zone,'::before'),portrait=zone.querySelector('img');return {animation:style.animationName,duration:style.animationDuration,imageLoaded:portrait.complete&&portrait.naturalWidth>0,portrait:portrait.getBoundingClientRect().width,glass:getComputedStyle(zone).backdropFilter,titleDrag:getComputedStyle(document.querySelector('.topbar')).webkitAppRegion}})()`)
+  assert(result.dropzone.imageLoaded&&result.dropzone.titleDrag==='drag',JSON.stringify(result.dropzone))
+  assert(result.dropzone.animation==='sheen'||await run("matchMedia('(prefers-reduced-motion:reduce)').matches"),JSON.stringify(result.dropzone))
+  if(!measure)assert(result.dropzone.portrait>=140,JSON.stringify(result.dropzone))
+  await run("state.files=Array.from({length:12},(_,i)=>'C:/qa/多文件布局测试文档'+(i+1)+'.pptx');state.references=['C:/qa/参考材料.docx'];renderFiles();$('referencesPanel').open=true")
+  result.loaded=await layout();result.default.bodyScreenPixels=result.loaded.bodyFont*zoom*dpi;await capture('home')
+  result.compact=await run(`(()=>{const zone=$('dropzone'),rect=zone.getBoundingClientRect(),portrait=zone.querySelector('img').getBoundingClientRect();return {height:rect.height,portrait:portrait.width,animation:getComputedStyle(zone,'::before').animationName}})()`)
+  if(!measure)assert(result.compact.height<85&&result.compact.portrait>=39,JSON.stringify(result.compact))
+  if(!measure){
+   // Windows can round the outer frame up by two DIP at fractional scaling.
+   assert(result.default.screenPixels.width<=1520+2*dpi&&result.default.screenPixels.height<=980+2*dpi,JSON.stringify(result.default))
+   assert(result.default.bodyScreenPixels>=15.9&&result.default.bodyScreenPixels<=19.01,JSON.stringify(result.default))
+   assert(result.loaded.mainScroll<3&&result.loaded.asideScroll<3&&result.loaded.horizontal===0&&result.loaded.buttonBottom<=result.loaded.height,JSON.stringify(result.loaded))
+   assert(Math.abs(result.screenshots[1].pixelWidth-win.getContentBounds().width*dpi)<=3,'Screenshot must retain actual screen pixels')
+  }
+  await run("$('openModel').click()");await wait(200);await capture('model');await run("$('modelClose').click()")
+  await run("$('openLexicon').click()");await wait(200);await capture('glossary');await run("$('closeLexicon').click()")
+  await run(`loadReport({report_id:'presentation',kind:'check',files:[{path:'C:/qa/sample.pptx',name:'sample.pptx'}],stats:{model_status:'complete',segments:10,judged:10,rule_hits:0,llm_hits:10},findings:Array.from({length:10},(_,i)=>({file:'sample.pptx',file_path:'C:/qa/sample.pptx',slide:i+1,method:'llm',editable:true,found_text:'Second half strategy',suggested:'H2 strategy',reason:'统一全文用语',context:'Example context'}))});openReport()`)
+  await capture('report');result.passed=true
+ }catch(error){result.error=error.stack}
+ finally{fs.writeFileSync(path.join(out,label+'-result.json'),JSON.stringify(result,null,2));clearTimeout(timeout);server.closeAllConnections();server.close();app.emit('will-quit');app.exit(result.passed?0:1)}
+})

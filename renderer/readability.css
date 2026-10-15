@@ -45,11 +45,11 @@ body > main { padding:16px 20px 20px; }
 .translation-choice input { margin-top:4px; }
 .translation-choice strong { font-size:16px; }
 .translation-choice small { font-size:14px; line-height:1.5; }
-.dropzone { padding:20px; min-height:240px; }
+.dropzone { padding:20px; min-height:240px; transition:background-color .18s,border-color .18s,box-shadow .18s; }
 .dz-inner { gap:20px; }
 .dropzone h2 { font-size:22px; }
 .dropzone p, .welcome-label { font-size:15px; }
-.welcome-portrait { width:100px; height:100px; }
+.welcome-portrait { width:144px; height:144px; }
 .dropzone.compact { display:block; padding:10px 14px; flex-shrink:0; }
 .dropzone.compact .dz-inner { justify-content:flex-start; gap:12px; }
 .dropzone.compact .welcome-portrait { width:40px; height:40px; }

@@ -14,7 +14,7 @@ const fs = require('fs')
 const http = require('http')
 const { ModelConnectionMonitor } = require('./lib/model-monitor')
 
-// Respect Windows display scaling. Window bounds use the display's DIP work area.
+// Convert the approved visual reference to each display's DIP coordinates.
 
 const { installFilePicker } = require('./lib/file-picker')
 let mainWindow = null
@@ -303,12 +303,12 @@ ipcMain.handle('open-shared-service', async (event, address) => {
   if (!mainWindow || event.sender.id !== mainWindow.webContents.id) throw new Error('当前窗口无法连接共享服务。')
   const target = require('./lib/shared-address').validateSharedAddress(address)
   const display = screen.getDisplayMatching(mainWindow.getBounds())
-  const size = require('./lib/window-size').defaultWindowSize(display.workArea)
+  const size = require('./lib/window-size').defaultWindowSize(display.workArea, display.scaleFactor)
   const window = new BrowserWindow({ ...size, show:false,
     x:display.workArea.x+Math.round((display.workArea.width-size.width)/2),y:display.workArea.y+Math.round((display.workArea.height-size.height)/2),
     title:'星译官 · 共享工作台', icon:path.join(__dirname,'renderer','assets','app-icon.png'),
     parent:mainWindow, backgroundColor:'#081524', autoHideMenuBar:true,
-    webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,partition:'persist:star-lan-'+new URL(target).host} })
+    webPreferences:{zoomFactor:require('./lib/window-size').referenceZoom(display.scaleFactor,display.workArea),nodeIntegration:false,contextIsolation:true,sandbox:true,partition:'persist:star-lan-'+new URL(target).host} })
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}))
   require('./lib/window-size').installDisplaySizing(window,screen,display)
   window.webContents.on('will-navigate',(evt,url)=>{if(new URL(url).origin!==new URL(target).origin)evt.preventDefault()})
@@ -436,7 +436,7 @@ ipcMain.handle('set-glossary-sources', (_evt, sources) => {
 
 function createWindow() {
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-  const size = require('./lib/window-size').defaultWindowSize(display.workAreaSize)
+  const size = require('./lib/window-size').defaultWindowSize(display.workAreaSize, display.scaleFactor)
   const position = { x:display.workArea.x+Math.round((display.workArea.width-size.width)/2), y:display.workArea.y+Math.round((display.workArea.height-size.height)/2) }
   mainWindow = new BrowserWindow({
     ...size,
@@ -447,6 +447,7 @@ function createWindow() {
     icon: iconPath(),
     backgroundColor: '#0f1720',
     webPreferences: {
+      zoomFactor: require('./lib/window-size').referenceZoom(display.scaleFactor,display.workArea),
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
