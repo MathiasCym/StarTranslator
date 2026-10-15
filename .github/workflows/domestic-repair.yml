@@ -1,0 +1,50 @@
+name: Recover verified domestic release
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'maintenance/domestic-repair.cjs'
+      - 'maintenance/tests/domestic-repair.test.cjs'
+      - '.github/workflows/domestic-repair.yml'
+permissions:
+  contents: read
+concurrency:
+  group: startranslator-domestic-recovery
+  cancel-in-progress: false
+jobs:
+  stop-stale-upload:
+    runs-on: windows-latest
+    timeout-minutes: 6
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify recovery safety
+        run: node --test maintenance/tests/domestic-repair.test.cjs tests/test_domestic_publish.js
+      - name: End only the prior unfinished upload of this formal release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node maintenance/domestic-repair.cjs stop
+  repair:
+    needs: stop-stale-upload
+    runs-on: windows-latest
+    timeout-minutes: 15
+    concurrency:
+      group: startranslator-public-mirror
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Copy original formal assets with alternate HTTP transport
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: node maintenance/domestic-repair.cjs publish
