@@ -57,7 +57,7 @@ body > main { padding:16px 20px 20px; }
 .dropzone.compact h2 { font-size:17px; }
 .dropzone.compact .welcome-label, .dropzone.compact p { display:none; }
 .dropzone.compact .btn { min-height:34px; padding-block:5px; flex-shrink:0; }
-#filePanel { margin-top:12px; padding:12px; min-height:0; }
+#filePanel { margin-top:12px; padding:12px; gap:8px; min-height:0; }
 .filelist { gap:2px; }
 .filelist li { flex-wrap:nowrap; gap:8px; padding:3px 6px; border-radius:6px; background:transparent; box-shadow:none; flex-shrink:0; min-height:36px; }
 .filelist li > div:not(.ico) { flex:1; min-width:0; }
@@ -152,6 +152,9 @@ body > main { padding:16px 20px 20px; }
   .status { max-width:110px; }
   #workspace { grid-template-columns:minmax(0,1fr) 330px; gap:14px; }
   .results-grid { grid-template-columns:minmax(0,1fr) 260px; }
+}
+@media(max-height:620px) and (min-width:920px) {
+  body:has(#workspace:not([hidden])) .workspace-heading { display:none; }
 }
 @media(max-width:919px) {
   .topbar { height:auto; min-height:104px; padding-left:12px; align-items:flex-start; position:relative; }
