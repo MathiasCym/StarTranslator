@@ -84,7 +84,7 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
             identity = {'source':checkpoint_origin or segment.file_path or segment.file,
                 'segments':[(s.locator,s.text,s.source,s.layout) for s in same_file],
                 'aligned':[(s.locator,references.aligned_text(s)) for s in same_file] if references and hasattr(references,'aligned_text') else []}
-            checkpoints[segment.file_path] = open_checkpoint('review',identity,glossary,references,client)
+            checkpoints[segment.file_path] = open_checkpoint('review',identity,glossary,references,client,reference_path=segment.file_path)
         def cached_review(seg):
             checkpoint = checkpoints[seg.file_path]
             value = checkpoint.get([seg.locator,seg.text]) if checkpoint else None

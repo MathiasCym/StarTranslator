@@ -27,12 +27,15 @@ def policy(stage):
     return digest([hashlib.sha256((Path(__file__).parent/name).read_bytes()).hexdigest() for name in names])
 
 
-def context_identity(glossary, references, client):
+def context_identity(glossary, references, client, reference_path=None):
+    def normal(path): return os.path.normcase(os.path.abspath(path))
+    current=normal(reference_path) if reference_path else None
     return {'glossary': digest([asdict(entry) for entry in glossary.entries]),
         'references': sorted((os.path.normcase(os.path.abspath(path)),
             [(seg.locator, seg.text) for seg in segments]) for path, segments in getattr(references, 'by_path', {}).items()),
         'model': {key: getattr(client, key, '') for key in ('provider', 'base_url', 'model', 'api_format')},
-        'pairing': sorted(getattr(references, 'pairs', {}).values())}
+        'pairing': sorted(('@current' if current==normal(key) else normal(key),normal(value))
+                          for key,value in getattr(references, 'pairs', {}).items())}
 
 
 class Checkpoint:
@@ -84,12 +87,12 @@ class Checkpoint:
             except (OSError, sqlite3.Error): self.disable()
 
 
-def open_checkpoint(stage, identity, glossary, references, client):
+def open_checkpoint(stage, identity, glossary, references, client, *, reference_path=None):
     from .llm.client import LLMClient
     # Test/extension clients without a connection identity must opt in; do not
     # reuse an arbitrary provider's results under a different client.
     if not isinstance(client, LLMClient): return None
-    return Checkpoint(stage, {**context_identity(glossary,references,client), **identity})
+    return Checkpoint(stage, {**context_identity(glossary,references,client,reference_path), **identity})
 
 
 def translation_key(segment, piece, groups):

@@ -396,5 +396,16 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(self.source.read_bytes(),before)
         self.assertFalse(list((self.root/'output').glob('*')))  # Final-only remains private until confirmation.
 
+    def test_swapping_reference_pairs_invalidates_cache_but_new_draft_path_does_not(self):
+        from backend.checkpoints import context_identity
+        from types import SimpleNamespace
+        a,b,r1,r2=[str(self.root/name) for name in ('a.docx','b.docx','r1.docx','r2.docx')]
+        first=SimpleNamespace(by_path={},pairs={a:r1,b:r2})
+        swapped=SimpleNamespace(by_path={},pairs={a:r2,b:r1})
+        self.assertNotEqual(context_identity(self.glossary,first,self.client()),context_identity(self.glossary,swapped,self.client()))
+        one=SimpleNamespace(by_path={},pairs={a:r1})
+        two=SimpleNamespace(by_path={},pairs={b:r1})
+        self.assertEqual(context_identity(self.glossary,one,self.client(),a),context_identity(self.glossary,two,self.client(),b))
+
 
 if __name__ == '__main__': unittest.main()
