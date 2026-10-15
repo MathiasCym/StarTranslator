@@ -114,7 +114,7 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
             from .batch import review_batch
             if cancel and cancel.is_set(): raise LLMUnavailable('模型复核已取消。')
             values = review_batch([(seg, review_reference(seg,ordinal,False), rules_by_segment.get(seg.id, []))
-                for seg, ordinal in group],glossary,client,page_context.prompt(group[0][0]))
+                for seg, ordinal in group],glossary,client,page_context)
             for seg, ordinal in group:
                 if seg.id not in values:
                     try: values[seg.id] = review_one(seg, ordinal)

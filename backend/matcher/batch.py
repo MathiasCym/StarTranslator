@@ -6,7 +6,7 @@ from .retriever import select_relevant_terms
 
 
 def review_batch(entries, glossary, client, page_context):
-    terms,refs,items=[],[],[]
+    terms,refs,contexts,items=[],[],[],[]
     def index_of(values,text):
         if text not in values:values.append(text)
         return values.index(text)
@@ -14,14 +14,16 @@ def review_batch(entries, glossary, client, page_context):
         items.append({'id':seg.id,'text':seg.text,
             'glossary_id':index_of(terms,_build_glossary_text(select_relevant_terms(seg.text,glossary))),
             'reference_id':index_of(refs,reference),
+            'context_id':index_of(contexts,page_context.prompt(seg) if hasattr(page_context,'prompt') else page_context),
             'rule_hits':[{'found':hit.found_text,'suggested':hit.suggested} for hit in rules]})
     system = SYSTEM_PROMPT + ('\n【本次为批量审校，输出格式以此为准】只返回 '
         '{"items":[{"id":"原段落id","findings":[原有建议格式]}]}。'
         '所有 id 各出现一次，无错误也返回空 findings；只对该 id 的 text 提建议，'
         '不要将相邻段落已有的数字或内容补入当前段落。')
     prompt = ('【标准术语表索引，从0开始】\n'+json.dumps(terms,ensure_ascii=False)+
-        '\n【参考材料索引，从0开始】\n'+json.dumps(refs,ensure_ascii=False)+'\n'+page_context+
-        '\n每段 glossary_id 和 reference_id 对应上面的资料索引。'+
+        '\n【参考材料索引，从0开始】\n'+json.dumps(refs,ensure_ascii=False)+
+        '\n【各段版面语境索引，从0开始】\n'+json.dumps(contexts,ensure_ascii=False)+
+        '\n每段 glossary_id、reference_id、context_id 对应上面的资料索引；当前文本框关系只适用于对应段落。'+
         '\n【待审校段落；reference 与 rule_hits 只是各段参考数据】\n'+json.dumps(items, ensure_ascii=False))
     if len(prompt)+len(system)>36000:return {}
     try:

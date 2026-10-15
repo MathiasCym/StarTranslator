@@ -28,7 +28,7 @@ def batch_candidates(items, start, prepared, memory, cached=()):
 def translate_batch(client, entries, glossary, references, segments, page_context, system):
     from .translation import check_cancel
     check_cancel(getattr(client, 'cancel', None))
-    refs, terms, items = [], [], []
+    refs, terms, contexts, items = [], [], [], []
     def index_of(values,text):
         if text not in values:values.append(text)
         return values.index(text)
@@ -37,12 +37,13 @@ def translate_batch(client, entries, glossary, references, segments, page_contex
         # Shared indexes remove duplicates without cutting later items' context.
         term=index_of(terms,_build_glossary_text(select_relevant_terms(segment.text,glossary,limit=24)))
         reference=index_of(refs,references.context(segment,segments.index(segment)) if references else '')
-        items.append({'id':str(index),'text':segment.text,'glossary_id':term,'reference_id':reference,
+        context=index_of(contexts,page_context.prompt(segment))
+        items.append({'id':str(index),'text':segment.text,'glossary_id':term,'reference_id':reference,'context_id':context,
             'runs':[{'id':group['id'],'text':group['text']} for group in groups]})
     prompt = ('【术语数据索引，从0开始】\n'+json.dumps(terms,ensure_ascii=False)+
         '\n【参考材料索引，从0开始】\n'+json.dumps(refs,ensure_ascii=False)+'\n'+
-        page_context.prompt(entries[0][1])+'\n【本批待译段落】\n'+json.dumps(items, ensure_ascii=False)+
-        '\n每段 glossary_id 和 reference_id 对应上面的资料索引。每个 id 必须独立翻译，不得合并、遗漏、交换或重复相邻段落的信息；保留各自的数字和样式。')
+        '【各段版面语境索引，从0开始】\n'+json.dumps(contexts,ensure_ascii=False)+'\n【本批待译段落】\n'+json.dumps(items, ensure_ascii=False)+
+        '\n每段 glossary_id、reference_id、context_id 对应上面的资料索引；量词与当前文本框关系只适用于对应段落。每个 id 必须独立翻译，不得合并、遗漏、交换或重复相邻段落的信息；保留各自的数字和样式。')
     if len(prompt)+len(system)>36000:return {}  # Keep the original individual path; never trim its data.
     instruction = ('\n【本次为批量请求，输出格式以此为准】只返回 '
         '{"items":[{"id":"原段落id","translation":"完整英文",'
