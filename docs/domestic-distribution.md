@@ -4,7 +4,9 @@
 
 GitHub 继续作为源码和团队词库的维护主仓库。软件可以优先读取维护者控制的 AtomGit / GitCode 或 Gitee 公开仓库，失败后尝试 GitHub。普通用户不需要平台账号或令牌。
 
-目前的 `backend/distribution.json` 已指向 [MathiasCym/StarTranslator](https://atomgit.com/MathiasCym/StarTranslator)。2.0.5 已在国内仓库正式发布：更新信息、校验附件及 143,997,899 字节的完整安装包均已通过匿名读取验证，安装包 SHA-256 为 `5aa7e521d30e717b26002e08640beb4844b9e5f10d3310355b5b57f54946fb65`，与 GitHub 原发行包一致。
+目前的 `backend/distribution.json` 已指向 [MathiasCym/StarTranslator](https://atomgit.com/MathiasCym/StarTranslator)。2.0.7 已在国内仓库正式发布：更新信息、校验附件及 144,022,928 字节的完整安装包均已通过匿名读取验证，安装包 SHA-256 为 `dfdd9f9d2dd407a7ac2fc92b6fc6e66309c7cfde7384326516981ec47373c5f8`，与 GitHub 原发行包一致。
+
+2026-10-15 的 2.0.7 发布中，原生 HTTP 与 curl 后台上传均未取得平台回执，随后通过已登录页面补齐缺失附件，维护者已确认正式发布状态。恢复流程复核了三个附件、匿名完整下载及原包摘要。又使用实际安装的 2.0.5 原始更新组件，在独立直连会话中发现 2.0.7、下载完整安装包并通过安装前校验，用时 25.113 秒，仅访问 `api.atomgit.com`、`atomgit.com`、`file-cdn.gitcode.com`，未访问 GitHub，未执行安装或修改全局代理。该结果不代表所有地区的固定下载速度。
 
 2.0.4 和 2.0.5 安装包均通过已登录的发行版页面补传，再进行匿名下载核对后转为正式版。CI 的大文件自动上传仍存在等待响应超时，不能据此宣称后续安装包已能全自动上传；源码和词库同步、已有附件的校验及正式发布流程已通过。本次未重新构建或替换原发行包。
 
