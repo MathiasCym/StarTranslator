@@ -3,20 +3,28 @@ const assert = require('node:assert/strict')
 const { EventEmitter } = require('node:events')
 const { defaultWindowSize, fitBounds, installDisplaySizing } = require('../lib/window-size')
 
-test('the default is larger and leaves room on a 1080p desktop', () => {
+test('the default stays moderate on a 1080p desktop and larger monitors', () => {
   const size = defaultWindowSize({ width: 1920, height: 1040 })
-  assert.equal(size.width, 1600)
-  assert.equal(size.height, 998)
-  assert(size.width < 1920 && size.height < 1080)
+  assert.equal(size.width, 1280)
+  assert.equal(size.height, 820)
+  assert.deepEqual(defaultWindowSize({width:3840,height:2120}),size)
 })
 
 test('smaller desktops retain margins and allow the window below the usual minimum', () => {
   for (const workArea of [{ width: 1366, height: 728 }, { width: 1280, height: 680 }, { width: 1024, height: 728 }]) {
     const size = defaultWindowSize(workArea)
-    assert(workArea.width - size.width >= 24)
-    assert(workArea.height - size.height >= 24)
+    assert(workArea.width - size.width >= 40)
+    assert(workArea.height - size.height >= 40)
     assert(size.minWidth <= size.width && size.minHeight <= size.height)
   }
+})
+
+test('high Windows scaling leaves real desktop space without shrinking text through zoom', () => {
+  // The current 187.5% display reports this logical work area to Electron.
+  const size=defaultWindowSize({width:1195,height:709})
+  assert.equal(size.width,1028)
+  assert.equal(size.height,610)
+  assert(size.width/1195<.87&&size.height/709<.87)
 })
 
 test('scaled work areas and negative monitor coordinates keep windows reachable', () => {

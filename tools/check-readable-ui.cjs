@@ -2,16 +2,18 @@
 const runtime=require('electron')
 if(typeof runtime==='string') {
  const path=require('node:path'),fs=require('node:fs'),{spawnSync}=require('node:child_process')
+ const file=path.resolve(__dirname,'../dist/qa/readability/readable-result.json')
+ fs.rmSync(file,{force:true})
  const task=spawnSync(runtime,[__filename],{cwd:path.resolve(__dirname,'..'),windowsHide:true,timeout:150000,encoding:'utf8'})
- const file=path.resolve(__dirname,'../dist/qa/readability/readable-206-result.json')
  if(task.error)console.error(task.error.message)
  if(fs.existsSync(file)){const value=JSON.parse(fs.readFileSync(file));console.log(value.passed?'Desktop readability and dialog checks passed':value.error||'UI checks did not finish')}
+ else if(task.status!==0)console.error('Hidden UI worker did not produce results. '+(task.stderr||'').slice(-1800))
  process.exit(task.status??1)
 }
 const {app,BrowserWindow,ipcMain}=require('electron'),fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict')
 const root=path.resolve(__dirname,'..'),qaDir=path.join(root,'dist','qa','readability'),wait=ms=>new Promise(r=>setTimeout(r,ms)),result={passed:false,checks:[],screenshots:[],companyDocumentsSent:false}
 fs.mkdirSync(qaDir,{recursive:true})
-app.setPath('userData',path.join(qaDir,'readable-206-profile'));BrowserWindow.prototype.show=function(){}
+app.setPath('userData',path.join(qaDir,'readable-ui-profile'));BrowserWindow.prototype.show=function(){}
 app.getVersion=()=>JSON.parse(fs.readFileSync(path.join(root,'package.json'))).version
 app.commandLine.appendSwitch('disable-renderer-backgrounding')
 app.on('browser-window-created',(_event,win)=>win.webContents.setBackgroundThrottling(false))
@@ -39,43 +41,73 @@ server.listen(0,'127.0.0.1',async()=>{
   ipcMain.removeHandler('ignore-update-notice');ipcMain.handle('ignore-update-notice',(_e,v)=>ignored.push(v))
   ipcMain.removeHandler('check-updates');ipcMain.handle('check-updates',()=>{updateChecks++;return {currentVersion:'2.0.6',newVersion:'2.0.7',phase:'available',canDownload:true,message:'发现新版本',notes:'测试说明'}})
   await app.whenReady()
-  const desktop=new BrowserWindow({show:false,width:1600,height:998,frame:false,webPreferences:{preload:path.join(root,'preload.js'),offscreen:true,contextIsolation:true,nodeIntegration:false}})
+  const size=require('../lib/window-size').defaultWindowSize(require('electron').screen.getPrimaryDisplay().workArea)
+  result.displays=require('electron').screen.getAllDisplays().map(({workArea,scaleFactor})=>({workArea,scaleFactor}))
+  const desktop=new BrowserWindow({show:false,...size,frame:false,webPreferences:{preload:path.join(root,'preload.js'),offscreen:true,contextIsolation:true,nodeIntegration:false}})
   let frame
   desktop.webContents.on('paint',(_event,_dirty,image)=>{frame=image})
   await desktop.loadFile(path.join(root,'renderer/index.html'))
   for(const win of BrowserWindow.getAllWindows())if(win!==desktop)win.destroy()
   for(let i=0;i<240;i++){if(!desktop.webContents.isLoading()&&await desktop.webContents.executeJavaScript('typeof initialized!=="undefined"&&initialized'))break;await wait(100)}
-  const run=code=>desktop.webContents.executeJavaScript(code),snap=async(name)=>{desktop.webContents.invalidate();await wait(350);const target=path.join(qaDir,`${name}.png`);assert(frame,'offscreen frame missing');fs.writeFileSync(target,frame.toPNG());result.screenshots.push(target)}
-  const layout=()=>run(`(()=>{const main=document.querySelector('body>main'),aside=document.querySelector('.task-options'),r=$('runBtn').getBoundingClientRect(),top=document.querySelector('.topbar').getBoundingClientRect();return {width:innerWidth,height:innerHeight,mainScroll:main.scrollHeight-main.clientHeight,asideScroll:aside.scrollHeight-aside.clientHeight,run:{top:r.top,bottom:r.bottom},horizontal:document.documentElement.scrollWidth-innerWidth,topbar:top.height}})()`)
+  const run=code=>desktop.webContents.executeJavaScript(code),snap=async(name)=>{desktop.webContents.invalidate();await wait(350);const target=path.join(qaDir,`${name}.png`);assert(frame,'offscreen frame missing');fs.writeFileSync(target,frame.resize({width:desktop.getContentSize()[0]}).toPNG());result.screenshots.push(target)}
+  const layout=()=>run(`(()=>{const main=document.querySelector('body>main'),aside=document.querySelector('.task-options'),r=$('runBtn').getBoundingClientRect(),top=document.querySelector('.topbar').getBoundingClientRect(),list=$('filelist'),row=list.querySelector('li');return {width:innerWidth,height:innerHeight,mainScroll:main.scrollHeight-main.clientHeight,asideScroll:aside.scrollHeight-aside.clientHeight,run:{top:r.top,bottom:r.bottom},horizontal:document.documentElement.scrollWidth-innerWidth,topbar:top.height,topbarScroll:document.querySelector('.topbar').scrollWidth-innerWidth,bodyFont:parseFloat(getComputedStyle(document.body).fontSize),buttonFont:parseFloat(getComputedStyle($('runBtn')).fontSize),fileRows:row?list.clientHeight/row.getBoundingClientRect().height:0}})()`)
   await run("Object.defineProperty(document,'hidden',{get:()=>false});document.hasFocus=()=>true;$('modelModal').hidden=false")
   await wait(2300);assert.equal(await run("$('updateNoticeDialog').open"),false)
   await run("$('modelModal').hidden=true");await wait(200)
   assert.equal(await run("$('updateNoticeDialog').open"),true)
   assert.equal(await run("!!$('updateNoticeHighlights').querySelector('img')"),false)
-  await snap('update-notice-206');await run("$('ignoreUpdateVersion').checked=true;$('laterUpdateNotice').click()");await wait(150)
+  await snap('update-notice');await run("$('ignoreUpdateVersion').checked=true;$('laterUpdateNotice').click()");await wait(150)
   assert.deepEqual(ignored,['2.0.7']);assert.equal(notices,1);assert.equal(await run("$('updateNoticeDialog').open"),false);result.checks.push('daily notice deferred behind modal; plain text; version opt-out')
   await run("state.files=[];state.references=[];setMode('translate')")
-  for(const [w,h] of [[1600,998],[1440,900],[1298,698],[1024,700],[972,698]]){
+  assert.equal(desktop.webContents.getZoomFactor(),1)
+  for(const [w,h] of [[1280,820],[size.width,size.height],[1600,998],[1175,626],[1101,585],[1024,700],[942,655],[972,560]]){
    desktop.setMinimumSize(600,500);desktop.setContentSize(w,h);await wait(230)
    await run("state.files=[];renderFiles();$('referencesPanel').open=false")
-   const empty=await layout();result.checks.push({empty});assert.equal(empty.horizontal,0,JSON.stringify(empty));assert(empty.mainScroll<3,JSON.stringify(empty))
+   const empty=await layout();result.checks.push({empty});assert.equal(empty.horizontal,0,JSON.stringify(empty));assert(empty.mainScroll<3,JSON.stringify(empty));assert(empty.topbarScroll<3,JSON.stringify(empty));assert(empty.bodyFont>=16&&empty.bodyFont<=16.5&&empty.buttonFont<=16.5,JSON.stringify(empty));assert(empty.run.bottom<=h,JSON.stringify(empty))
+   if(w===1280)await snap('home-empty-208')
    await run("state.files=Array.from({length:12},(_,i)=>'C:/qa/多文件布局测试文档'+(i+1)+'.pptx');state.references=['C:/qa/参考材料.docx'];renderFiles();$('referencesPanel').open=true")
    await wait(100);const loaded=await layout();result.checks.push({loaded});assert.equal(loaded.horizontal,0,JSON.stringify(loaded));assert(loaded.mainScroll<3,JSON.stringify(loaded));assert(loaded.run.bottom<=loaded.height,JSON.stringify(loaded));assert(loaded.asideScroll<3,JSON.stringify(loaded))
    const before=await run("$('runBtn').getBoundingClientRect().top")
    await run("$('translationHelpButton').focus();$('translationHelpButton').click()");await wait(100)
    assert.equal(await run("$('translationHelp').open"),true);assert.equal(await run("$('runBtn').getBoundingClientRect().top"),before)
    const help=await run("(()=>{const r=$('translationHelp').getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,display:getComputedStyle($('translationHelp')).display,hit:document.elementFromPoint(r.left+50,r.top+50)?.outerHTML.slice(0,200)}})()");result.checks.push({help});assert(help.bottom-help.top>100&&help.bottom-help.top<600&&help.top>=0&&help.bottom<=h,JSON.stringify(help))
-   if(w===1298)await snap('help-206')
+   if(w===1280)await snap('help-208')
    desktop.webContents.sendInputEvent({type:'keyDown',keyCode:'Escape'});desktop.webContents.sendInputEvent({type:'keyUp',keyCode:'Escape'});await wait(100)
    assert.equal(await run("$('translationHelp').open"),false);assert.equal(await run("document.activeElement.id"),'translationHelpButton')
-   await snap('home-206-'+w)
+   await snap('home-208-'+w)
   }
   desktop.setContentSize(1024,700);await run("$('openModel').click()");await wait(300)
   const model=await run("(()=>{const e=document.querySelector('.model-editor'),r=$('modelUse').getBoundingClientRect();return {scroll:e.scrollHeight-e.clientHeight,footer:r.bottom,height:innerHeight}})()")
   result.checks.push({model});assert(model.footer<=model.height,JSON.stringify(model));assert(model.scroll<3,JSON.stringify(model))
-  await snap('models-compact-206');await run("$('modelClose').click()");await wait(150)
-  desktop.setContentSize(1440,900)
-  await run("$('openLexicon').click()");await wait(500);await snap('glossary-206');await run("$('closeLexicon').click()");await wait(150)
+  await snap('models-compact-208');await run("$('modelClose').click()");await wait(150)
+  desktop.setContentSize(1280,820)
+  await run("$('openLexicon').click()");await wait(500)
+  const lexicon=await run("(()=>{const list=$('termRows'),row=list.querySelector('.term-card'),close=$('closeLexicon').getBoundingClientRect();return {visibleRows:list.clientHeight/row.getBoundingClientRect().height,font:parseFloat(getComputedStyle(row).fontSize),right:close.right,bottom:close.bottom}})()")
+  result.checks.push({lexicon});assert(lexicon.visibleRows>=10,JSON.stringify(lexicon));assert(lexicon.right<=1280&&lexicon.bottom<=820,JSON.stringify(lexicon))
+  await snap('glossary-208');await run("$('closeLexicon').click()");await wait(150)
+  await run(`loadReport({report_id:'layout-fixture',kind:'check',files:[{path:'C:/qa/sample.pptx',name:'sample.pptx'}],stats:{model_status:'complete',segments:10,judged:10,rule_hits:0,llm_hits:10},findings:Array.from({length:10},(_,i)=>({file:'sample.pptx',file_path:'C:/qa/sample.pptx',slide:i+1,method:'llm',editable:true,found_text:'Second half strategy',suggested:'H2 strategy',reason:'统一全文用语',context:'Example context'}))});openReport()`)
+  for(const [w,h] of [[1280,820],[942,655]]){
+   desktop.setContentSize(w,h);await wait(100)
+   const report=await run("(()=>{const card=$('reportPanel').getBoundingClientRect(),button=$('applyBtn').getBoundingClientRect(),toolbar=document.querySelector('.result-toolbar');return {width:innerWidth,height:innerHeight,right:card.right,bottom:card.bottom,applyBottom:button.bottom,toolbarOverflow:toolbar.scrollWidth-toolbar.clientWidth}})()")
+   result.checks.push({report});assert(report.right<=report.width&&report.bottom<=report.height&&report.applyBottom<=report.height&&report.toolbarOverflow<3,JSON.stringify(report))
+   if(w===1280)await snap('report-208')
+  }
+  await run("$('reportModal').hidden=true;state.report=null;state.selected.clear()")
+  for(const name of ['picker-options','picker-list','picker-mkdir','picker-confirm','picker-cancel'])ipcMain.removeHandler(name)
+  const fixture=path.join(qaDir,'picker-fixture');fs.mkdirSync(fixture,{recursive:true})
+  for(let i=1;i<=40;i++)fs.writeFileSync(path.join(fixture,`示例文档${i}.pptx`),'')
+  const choose=require('../lib/file-picker').installFilePicker(()=>desktop,()=>path.join(root,'build/icon.png'))
+  const chosen=choose({mode:'open',directory:fixture,extensions:['pptx'],multiple:true,title:'选择文档'})
+  const picker=BrowserWindow.getAllWindows().find(win=>win!==desktop)
+  for(let i=0;i<50;i++){if(await picker.webContents.executeJavaScript("!!document.querySelector('.picker-entry')").catch(()=>false))break;await wait(100)}
+  for(const [w,h] of [[1120,760],[942,655]]){
+   picker.setContentSize(w,h);await wait(100)
+   const filePicker=await picker.webContents.executeJavaScript("(()=>{const list=document.getElementById('pickerList'),row=list.querySelector('.picker-entry'),button=document.getElementById('pickerAccept').getBoundingClientRect();return {width:innerWidth,height:innerHeight,rows:list.clientHeight/row.getBoundingClientRect().height,rowFont:parseFloat(getComputedStyle(row).fontSize),buttonBottom:button.bottom,horizontal:document.documentElement.scrollWidth-innerWidth}})()")
+   result.checks.push({filePicker});assert(filePicker.rows>=8&&filePicker.rowFont===16&&filePicker.buttonBottom<=filePicker.height&&filePicker.horizontal===0,JSON.stringify(filePicker))
+  }
+  await picker.webContents.executeJavaScript("document.getElementById('pickerCancel').click()");await chosen
+  result.checks.push('report controls fit compact windows; file picker keeps at least eight visible rows')
+  desktop.setContentSize(1280,820)
   await run("$('translationHelpButton').click();state.files=['C:/qa/sample.pdf'];renderFiles()");await wait(150);assert.equal(await run("$('translationHelp').open"),false)
   const resumeOptions={kind:'check',paths:['C:/qa/unfinished.docx'],references:[],pairs:{},workers:3,use_llm:false,combined_output:'final',translation_mode:'faithful'}
   let resumedRequest
@@ -105,7 +137,12 @@ server.listen(0,'127.0.0.1',async()=>{
   await sr("(()=>{const d=new DataTransfer();d.items.add(new File([''],'demo.pptx'));$('files').files=d.files;$('files').dispatchEvent(new Event('change'));$('translationHelpButton').click()})()")
   for(const w of [900,480]){shared.setContentSize(w,850);await wait(100);const rect=await sr("(()=>{const r=$('translationHelp').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth}})()");assert(rect.left>=0&&rect.right<=rect.width&&rect.bottom<=850,JSON.stringify(rect))}
   result.checks.push('floating help geometry; Escape focus; source file changes close modal; shared 480/900px')
+  desktop.webContents.debugger.attach('1.3')
+  await desktop.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]})
+  assert.equal(await run("getComputedStyle($('dropzone'),'::before').animationName"),'none')
+  desktop.webContents.debugger.detach()
+  result.checks.push('system reduced-motion preference preserved')
   result.passed=true
  }catch(error){result.error=error.stack}
- finally{fs.writeFileSync(path.join(qaDir,'readable-206-result.json'),JSON.stringify(result,null,2));clearTimeout(timeout);server.closeAllConnections();server.close();app.emit('will-quit');app.exit(result.passed?0:1)}
+ finally{fs.writeFileSync(path.join(qaDir,'readable-result.json'),JSON.stringify(result,null,2));clearTimeout(timeout);server.closeAllConnections();server.close();app.emit('will-quit');app.exit(result.passed?0:1)}
 })
