@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer, webUtils } = require('electron')
 contextBridge.exposeInMainWorld('api', {
   appVersion: () => ipcRenderer.invoke('app-version'),
   updateState: () => ipcRenderer.invoke('update-state'),
+  startupUpdateNotice: () => ipcRenderer.invoke('startup-update-notice'),
+  ignoreUpdateNotice: version => ipcRenderer.invoke('ignore-update-notice',version),
   checkUpdates: () => ipcRenderer.invoke('check-updates'),
   downloadUpdate: () => ipcRenderer.invoke('download-update'),
   cancelUpdate: () => ipcRenderer.invoke('cancel-update'),

@@ -9,6 +9,7 @@
 <link rel="stylesheet" href="shared/comparison-view.css">
 <link rel="stylesheet" href="community.css">
 <link rel="stylesheet" href="shared/form-controls.css">
+<link rel="stylesheet" href="readability.css">
 </head>
 <body>
   <header class="topbar">
@@ -83,7 +84,7 @@
           <legend>翻译方式 <button id="translationHelpButton" class="translation-help-button" type="button" aria-label="了解翻译方式与中英文排版差异" aria-expanded="false" aria-controls="translationHelp">?</button></legend>
           <label class="translation-choice"><input type="radio" name="translationMode" value="faithful" checked><span><strong>忠实翻译</strong><small>逐项保留原文信息</small></span></label>
           <label class="translation-choice"><input type="radio" name="translationMode" value="compressed"><span><strong>文案压缩</strong><small>保留事实，精简重复表达</small></span></label>
-          <div id="translationHelp" class="translation-help" hidden><p>中文表达往往更紧凑，英文可能占用更多空间，增加换行或拥挤。</p><p>忠实翻译保留全部信息，必要时适配排版。文案压缩允许精简重复表达和宣传套话，仍保留事实、参数、型号、数字和条件。</p><p>PPT 同类样式在每页使用统一字号，保留原稿的文字位置与强调层级；空间紧张时会自动适配，尽量保留原字号。</p></div>
+          <dialog id="translationHelp" class="translation-help help-dialog" aria-labelledby="translationHelpTitle" hidden><header class="help-heading"><h3 id="translationHelpTitle"><img src="assets/normal.png" width="48" height="48" alt="">翻译方式与排版</h3><button type="button" class="btn ghost sm" data-close-help autofocus>关闭</button></header><div class="help-body"><p>中文通常比英文紧凑。翻译后文字变长时，软件会适配字号和行距，尽量保留原稿布局。</p><p><strong>忠实翻译</strong>保留全部信息，适合技术说明、参数和正式资料。</p><p><strong>文案压缩</strong>可精简重复表达和宣传套话，仍保留事实、参数、型号、数字和条件。</p><p>PPT 同类文字在每页统一字号，保留原稿的文字位置与强调层级。导出后仍建议检查重点页面。</p></div></dialog>
         </fieldset>
         <div class="output-row"><label for="outputDir">输出位置</label><input id="outputDir" readonly placeholder="默认另存到原文件旁"><button class="btn ghost sm" id="pickOutput">选择位置</button></div>
         <p class="hint" id="scopeHint">修改由你确认，支持另存或覆盖原文件。</p>
@@ -269,6 +270,13 @@
   </div>
 </dialog>
 <dialog id="comparisonDialog" class="shared-dialog comparison-dialog" aria-labelledby="comparisonTitle"><div class="panel-head"><h3 id="comparisonTitle"><img src="assets/normal.png" width="48" height="48" alt="">原文与译文</h3><button id="closeComparison" class="btn ghost sm">关闭</button></div><p id="comparisonNote" class="hint"></p><div class="comparison-filters"><input id="compareSearch" type="search" placeholder="搜索原文或译文" aria-label="搜索对照"><select id="comparePage" aria-label="筛选页面"><option value="">全部页面</option></select></div><div class="comparison-scroll"><table class="comparison-table"><thead><tr><th>原文</th><th>译文</th></tr></thead><tbody id="comparisonRows"></tbody></table></div></dialog>
+<dialog id="updateNoticeDialog" class="shared-dialog community-dialog update-notice" aria-labelledby="updateNoticeTitle" aria-describedby="updateNoticeIntro">
+  <div class="panel-head"><h3 id="updateNoticeTitle"><img src="assets/happy.png" width="48" height="48" alt="">发现新版本</h3><button id="closeUpdateNotice" class="btn ghost sm">关闭</button></div>
+  <div class="community-body"><p id="updateNoticeIntro"></p><ul id="updateNoticeHighlights"></ul><p class="hint">可稍后更新，不影响本次工作。</p></div>
+  <p id="updateNoticeError" class="error" role="alert" hidden></p>
+  <label class="check"><input type="checkbox" id="ignoreUpdateVersion">此版本不再提示</label>
+  <footer class="community-footer"><button id="laterUpdateNotice" class="btn ghost">稍后</button><button id="viewUpdateNotice" class="btn primary">查看更新</button></footer>
+</dialog>
 <script src="term-search.js"></script>
 <script src="lexicon.js"></script>
 <script src="history.js"></script>
@@ -279,5 +287,6 @@
   <script src="collaboration.js"></script>
   <script src="community.js"></script>
   <script src="workspace.js"></script>
+  <script src="update-notice.js"></script>
 </body>
 </html>

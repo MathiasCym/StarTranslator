@@ -149,6 +149,9 @@ function renderFiles() {
   $('referenceCount').textContent = state.references.length ? `（${state.references.length} 份）` : '（可选）'
   $('referenceList').innerHTML = state.references.map((path, i) => `<li><div class="file-copy"><div>${esc(basename(path))}</div><div class="fpath">${esc(path)}</div></div><button class="btn ghost sm" data-remove="${i}">移除</button></li>`).join('')
   $('referenceList').querySelectorAll('[data-remove]').forEach(button => { button.onclick = () => { const removed = state.references.splice(Number(button.dataset.remove), 1)[0]; for (const key of Object.keys(state.pairs)) if (state.pairs[key] === removed) delete state.pairs[key]; renderFiles() } })
+  for (const list of [$('filelist'), $('referenceList')]) {
+    for (const copy of list.querySelectorAll('.file-copy')) copy.title = copy.querySelector('.fpath')?.textContent || ''
+  }
 }
 action('pickBtn', async () => addFiles(await window.api.pickFiles()))
 action('addMore', async () => addFiles(await window.api.pickFiles()))

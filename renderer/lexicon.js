@@ -84,7 +84,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     $('termRows').innerHTML = rows.map(({ row, index }) => {
       const aliases = lines(cell(row, 'variants')).length, wrong = lines(cell(row, 'wrong_variants')).length
       return '<button class="term-card' + (index === state.selected ? ' active' : '') + '" data-term="' + index + '" role="listitem" aria-current="' + (index === state.selected) + '">' +
-        '<span class="term-card-zh">' + esc(cell(row, 'zh') || '新术语') + '</span><span class="term-card-en">' + esc(cell(row, 'en') || '尚未填写标准英文') + '</span>' +
+        '<span class="term-card-zh" title="' + esc(cell(row, 'zh') || '新术语') + '">' + esc(cell(row, 'zh') || '新术语') + '</span><span class="term-card-en" title="' + esc(cell(row, 'en') || '尚未填写标准英文') + '">' + esc(cell(row, 'en') || '尚未填写标准英文') + '</span>' +
         (aliases || wrong ? '<span class="term-card-tags">' + (aliases ? '<span>' + aliases + ' 个别名</span>' : '') +
           (wrong ? '<span class="wrong-tag">' + wrong + ' 项错译</span>' : '') + '</span>' : '') + '</button>'
     }).join('') || '<div class="lexicon-empty">没有匹配的术语<br><span>试试其他关键词，或新增术语。</span></div>'

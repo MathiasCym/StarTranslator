@@ -14,10 +14,7 @@ const fs = require('fs')
 const http = require('http')
 const { ModelConnectionMonitor } = require('./lib/model-monitor')
 
-// Electron dimensions normally use DIP; a 125/150% Windows scale enlarges them.
-// Pin the device scale to 1 so window width/height below map to physical pixels
-// and the default size is honored verbatim. Must be set before Chromium starts.
-app.commandLine.appendSwitch('force-device-scale-factor', '1')
+// Respect Windows display scaling. Window bounds use the display's DIP work area.
 
 const { installFilePicker } = require('./lib/file-picker')
 let mainWindow = null
@@ -146,6 +143,20 @@ function updater(){
   return githubUpdater
 }
 function updateSender(event){if(!mainWindow||event.sender.id!==mainWindow.webContents.id)throw Error('当前窗口无法管理软件更新。')}
+let updateNotifications
+ipcMain.handle('startup-update-notice',event=>{
+  updateSender(event)
+  if(!app.isPackaged)return null
+  updateNotifications ||= new (require('./lib/update-notifications').UpdateNotifications)({
+    currentVersion:app.getVersion(),userData:app.getPath('userData'),check:()=>updater().findUpdate()
+  })
+  return updateNotifications.startup()
+})
+ipcMain.handle('ignore-update-notice',(event,version)=>{
+  updateSender(event)
+  if(!updateNotifications)throw Error('当前没有更新提醒。')
+  updateNotifications.ignore(version)
+})
 ipcMain.handle('update-state',event=>{updateSender(event);return updater().snapshot()})
 ipcMain.handle('check-updates',event=>{updateSender(event);return updater().check()})
 ipcMain.handle('download-update',event=>{updateSender(event);return updater().download()})
@@ -291,11 +302,15 @@ ipcMain.handle('check-installation', async (event, allowServiceRestart) => {
 ipcMain.handle('open-shared-service', async (event, address) => {
   if (!mainWindow || event.sender.id !== mainWindow.webContents.id) throw new Error('当前窗口无法连接共享服务。')
   const target = require('./lib/shared-address').validateSharedAddress(address)
-  const window = new BrowserWindow({ width:1280, height:900, minWidth:820, minHeight:620, show:false,
+  const display = screen.getDisplayMatching(mainWindow.getBounds())
+  const size = require('./lib/window-size').defaultWindowSize(display.workArea)
+  const window = new BrowserWindow({ ...size, show:false,
+    x:display.workArea.x+Math.round((display.workArea.width-size.width)/2),y:display.workArea.y+Math.round((display.workArea.height-size.height)/2),
     title:'星译官 · 共享工作台', icon:path.join(__dirname,'renderer','assets','app-icon.png'),
     parent:mainWindow, backgroundColor:'#081524', autoHideMenuBar:true,
     webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,partition:'persist:star-lan-'+new URL(target).host} })
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}))
+  require('./lib/window-size').installDisplaySizing(window,screen,display)
   window.webContents.on('will-navigate',(evt,url)=>{if(new URL(url).origin!==new URL(target).origin)evt.preventDefault()})
   window.once('ready-to-show',()=>window.show())
   try { await window.loadURL(target) } catch(error) { window.destroy(); throw new Error('未能连接共享电脑，请确认地址和共享服务已开启。') }
@@ -422,9 +437,10 @@ ipcMain.handle('set-glossary-sources', (_evt, sources) => {
 function createWindow() {
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   const size = require('./lib/window-size').defaultWindowSize(display.workAreaSize)
+  const position = { x:display.workArea.x+Math.round((display.workArea.width-size.width)/2), y:display.workArea.y+Math.round((display.workArea.height-size.height)/2) }
   mainWindow = new BrowserWindow({
     ...size,
-    center: true,
+    ...position,
     frame: false,          // 无边框，顶栏由渲染进程自绘
     show: false,           // 等首帧画好再显示，避免白闪
     title: `星译官 v${app.getVersion()} — 中英技术文档翻译与审校工作台`,
@@ -437,10 +453,10 @@ function createWindow() {
     },
   })
   mainWindow.setMenuBarVisibility(false)
+  require('./lib/window-size').installDisplaySizing(mainWindow, screen, display)
   mainWindow.once('ready-to-show', () => {
     mainWindow.unmaximize()
-    mainWindow.setSize(size.width, size.height)
-    mainWindow.center()
+    mainWindow.setBounds({...position,width:size.width,height:size.height})
     mainWindow.show()
   })
   mainWindow.on('maximize', () => mainWindow.webContents.send('window-maximized', true))

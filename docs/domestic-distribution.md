@@ -1,5 +1,7 @@
 # 国内公开来源接入
 
+版本准备、提交、构建、补传和验收统一按 [固定工作与发布流程](../RELEASING.md) 执行。本文件保留国内来源的配置、实现细节及已完成的公开验证记录。
+
 GitHub 继续作为源码和团队词库的维护主仓库。软件可以优先读取维护者控制的 AtomGit / GitCode 或 Gitee 公开仓库，失败后尝试 GitHub。普通用户不需要平台账号或令牌。
 
 目前的 `backend/distribution.json` 已指向 [MathiasCym/StarTranslator](https://atomgit.com/MathiasCym/StarTranslator)。2.0.5 已在国内仓库正式发布：更新信息、校验附件及 143,997,899 字节的完整安装包均已通过匿名读取验证，安装包 SHA-256 为 `5aa7e521d30e717b26002e08640beb4844b9e5f10d3310355b5b57f54946fb65`，与 GitHub 原发行包一致。

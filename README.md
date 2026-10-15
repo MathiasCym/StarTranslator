@@ -23,6 +23,7 @@
 | 术语库 | 搜索、列表与表格编辑、导入导出，以及团队词库差异预览和冲突处理。 |
 | 局域网协作 | 一台电脑提供模型与词库，同事通过浏览器或已安装的星译官提交异步任务。 |
 | 历史与维护 | 按日期查找任务和输出位置；导出诊断日志、校验组件完整性并尝试离线修复。 |
+| 界面适配 | 窗口随屏幕可用空间与 Windows 缩放适配；文字保持清晰，列表紧凑排列，常用操作直接可见。 |
 
 **软件不设注册或登录。** 普通使用、获取公开团队词库和检查更新无需 GitHub 账号；提交词库修改需要维护者授权。模型服务可能需要自己的接口密钥，安装包不包含模型权重或云端模型额度。
 
@@ -38,6 +39,8 @@
 6. 开始任务，完成后查看结果或报告，确认修改并保存，再打开文件检查内容和版式。
 
 仅进行术语规则检查时可以关闭“深度审校”，无需模型服务。翻译与深度审校需要可用的模型连接。
+
+每天首次启动会在后台检查正式更新，发现新版本时简要介绍重点变化；可勾选“此版本不再提示”，不影响后续其他版本的提醒，也可随时在“关于 → 软件更新”中手动检查。提醒不会自动下载或安装，不会在文档处理或其他窗口操作过程中打断工作。翻译方式旁的问号会打开独立说明窗口，关闭后回到原位置。
 
 ## 模型配置
 
@@ -209,6 +212,8 @@
 
 ## 开发与发布
 
+每次接手先读 [AGENTS.md](AGENTS.md) 和 [固定工作与发布流程](RELEASING.md)。版本准备、测试、Git 提交、打包、国内补传及交付验收统一按该流程执行。
+
 开发环境为 Windows x64、Node.js 24 与带有 pip 的 Python 3.11。首次准备运行库需联网，运行库和组件版本由仓库固定。
 
 ```powershell
@@ -226,11 +231,9 @@ python-runtime\python.exe -B tools/run-regressions.py
 node --test tests/test_release.js tests/test_install_integrity.js tests/test_installation_repair.js tests/test_setup_worker.js tests/test_github_updates.js tests/test_electron_updates.js tests/test_public_sources.js tests/test_domestic_publish.js tests/test_release_repair.js tests/test_runtime_log.js
 ```
 
-本机打包用 `npm run dist`，或按 [发布规则](RELEASING.md) 使用 `release:patch` / `release:minor` / `release:major`。安装包与成功构建记录保存在本机，旧包保留。
+默认提交源码到 `main`，由 Actions 测试并生成源码声明版本的正式安装包。本机打包按需执行；`npm run dist` 等入口会选择未使用的版本，不能当作固定版本的重试按钮。说明和词库变更无需新软件版本。
 
-GitHub 发布前先同步更新 `package.json`、`package-lock.json` 和 [CHANGELOG.md](CHANGELOG.md)，再推送新版本源码到 `main`。Actions 自动准备环境、测试、打包、核对实际安装引导图片和完整组件，通过后发布到 Releases。**Actions 构建声明的确切版本，不自动递增版本号。**
-
-开发者需配置 GitHub 推送授权，软件内的词库维护授权不自动配置命令行 Git。安装包放在 Releases，不提交到源码历史。仅修改 README、文档或词库不触发打包，已发布版本默认保留。
+开发者需配置 GitHub 推送授权，软件内的词库维护授权不自动配置命令行 Git。安装包放在 Releases，已发布版本默认保留。GitHub 和国内渠道分别验收；国内完整下载及旧客户端检查通过后，才报告国内更新已就绪。具体完成条件和交付记录模板见 [RELEASING.md](RELEASING.md)。
 
 国内公开来源的接入见 [国内来源接入说明](docs/domestic-distribution.md)。2.0.5 已在 [AtomGit 公开仓库](https://atomgit.com/MathiasCym/StarTranslator/releases/v2.0.5) 正式发布，143,997,899 字节的安装包与 GitHub 原发行包的大小、SHA-256 一致。已使用实际安装的 2.0.4 更新组件，在独立直连进程中完成检查、完整下载和安装前校验，全程未访问 GitHub；本机全包下载约 8.1 秒，速度以各自网络为准。已经发现 GitHub 更新的用户应取消旧下载，重新检查并确认来源显示 AtomGit。2.0.3 首次接入国内来源仍需手动安装 2.0.4 或之后的版本。
 
