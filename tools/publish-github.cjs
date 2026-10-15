@@ -24,11 +24,15 @@ async function call(method,url,body,headers={}){const response=await fetch(url,{
  const name='StarTranslator-Setup-'+pkg.version+'.exe',sha=crypto.createHash('sha256').update(installer).digest('hex')
  const metadata={schema:1,version:pkg.version,platform:'win32',architecture:'x64',filename:name,size:installer.length,sha256:sha}
  const files=[[name,installer],['update.json',Buffer.from(JSON.stringify(metadata,null,2)+'\n')],['SHA256SUMS.txt',Buffer.from(sha+'  '+name+'\n')]]
+ const incremental=JSON.parse(fs.readFileSync(path.join(root,'dist/incremental/incremental.json'),'utf8'))
+ require('../lib/incremental-source').validateIndex(incremental,pkg.version)
+ for(const item of incremental.patches){const bytes=fs.readFileSync(path.join(root,'dist/incremental',item.filename));if(bytes.length!==item.size||crypto.createHash('sha256').update(bytes).digest('hex')!==item.sha256)throw Error('Incremental release asset mismatch');files.push([item.filename,bytes])}
+ for(const filename of ['incremental.json','SHA256SUMS.incremental.txt'])files.push([filename,fs.readFileSync(path.join(root,'dist/incremental',filename))])
  for(const [filename,bytes] of files){
   const old=(release.assets||[]).find(a=>a.name===filename)
   if(old)await call('DELETE',api+'/releases/assets/'+old.id)
   const asset=await call('POST',release.upload_url.split('{')[0]+'?name='+encodeURIComponent(filename),bytes,{'Content-Type':'application/octet-stream','Content-Length':String(bytes.length)})
-  if(asset.size!==bytes.length||filename===name&&asset.digest!=='sha256:'+sha)throw Error('Uploaded release asset verification failed')
+  if(asset.size!==bytes.length||asset.digest!=='sha256:'+crypto.createHash('sha256').update(bytes).digest('hex'))throw Error('Uploaded release asset verification failed')
  }
  await call('PATCH',api+'/releases/'+release.id,{draft:false,make_latest:'true',body:match?.[1].trim()||'',target_commitish:process.env.GITHUB_SHA},{'Content-Type':'application/json'})
  console.log(JSON.stringify({published:true,version:pkg.version,url:'https://github.com/'+repository+'/releases/tag/'+tag,size:installer.length,sha256:sha}))

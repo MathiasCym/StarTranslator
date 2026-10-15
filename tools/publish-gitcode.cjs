@@ -148,6 +148,7 @@ async function run(root=path.resolve(__dirname,'..')){
  const release=await engine.release('v'+pkg.version),a=candidate(release,'0.0.0')
  await publisher.syncGit(root,{tag:a?'v'+a.version:undefined})
  if(!a)return {synced:true,reason:'源码与词库已同步，此版本尚未在 GitHub 正式发布。'}
+ if((release.assets||[]).some(asset=>asset.name==='incremental.json'))return require('./publish-incremental.cjs').publishIncremental(publisher,release,{readBody})
  if(await publisher.retained(release,path.join(root,'dist/qa/domestic-publish')))return {synced:true,retained:true,version:a.version}
  let bytes;try{bytes=await fs.readFile(path.join(root,'dist/星译官 Setup '+a.version+'.exe'))}catch{}
  if(!bytes||bytes.length!==a.size||crypto.createHash('sha256').update(bytes).digest('hex')!==a.sha256){

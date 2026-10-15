@@ -4,6 +4,8 @@ fs.mkdirSync(base,{recursive:true})
 // A reused extraction directory can hide a missing new file behind an old
 // release's copy. Verify every installer in a fresh directory.
 const folder=fs.mkdtempSync(path.join(base,'extracted-'))
+fs.mkdirSync(path.join(root,'dist/qa/incremental'),{recursive:true})
+fs.writeFileSync(path.join(root,'dist/qa/incremental/target.json'),JSON.stringify({folder}))
 const zip=process.env['ProgramFiles']+'\\7-Zip\\7z.exe'
 execFileSync(zip,['x',path.join(root,'dist/星译官 Setup '+version+'.exe'),'-y','-o'+folder],{windowsHide:true,stdio:'ignore'})
 const stage=path.join(folder,'$PLUGINSDIR/stage'),images=spawnSync(process.execPath,[path.join(root,'tools/check-setup-images.cjs'),stage],{cwd:root,windowsHide:true,stdio:'inherit'})

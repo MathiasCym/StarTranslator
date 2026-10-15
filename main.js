@@ -135,7 +135,7 @@ ipcMain.handle('app-version', () => app.getVersion())
 let githubUpdater,quitAfterDownload=false
 function updater(){
   if(!githubUpdater)githubUpdater=new (require('./lib/github-updates').GitHubUpdates)({
-    currentVersion:app.getVersion(),userData:app.getPath('userData'),
+    currentVersion:app.getVersion(),userData:app.getPath('userData'),installRoot:app.isPackaged?path.dirname(process.resourcesPath):undefined,
     distribution:JSON.parse(fs.readFileSync(path.join(appRoot(),'backend','distribution.json'),'utf8')),
     fetcher:require('./lib/electron-update-transport').createFetcher(require('electron').net,{session:require('electron').session}),
     onStatus:value=>{if(mainWindow&&!mainWindow.isDestroyed())mainWindow.webContents.send('update-status',value)},
@@ -171,7 +171,10 @@ ipcMain.handle('install-update',async event=>{
   try{
     await backendMaintenanceLease(true)
     const installer=await updater().prepareInstall()
-    const error=await shell.openPath(installer);if(error)throw Error('无法启动更新安装包：'+error)
+    if(installer.endsWith('.stpatch')){
+      try{await require('./lib/patch-worker').launchPatch({file:installer,root:path.dirname(process.resourcesPath),currentVersion:app.getVersion(),userData:app.getPath('userData')})}
+      catch(error){runtimeLog.error('Incremental update preparation failed',error);await updater().useFullInstaller().catch(()=>{});throw Error('增量更新未能准备完成，原程序未修改。请重新检查并下载完整更新包。')}
+    }else{const error=await shell.openPath(installer);if(error)throw Error('无法启动更新安装包：'+error)}
     launched=true;mainWindow.destroy();app.quit();return {started:true}
   }finally{
     if(!launched){maintenanceBusy=false;await backendMaintenanceLease(false).catch(()=>{})}
@@ -483,6 +486,8 @@ app.whenReady().then(async () => {
           return require('./lib/install-integrity').verifyInstallation(path.dirname(process.resourcesPath), manifest, app.getVersion(), undefined, { runtime: true })
         })()
         for (let attempt = 0; attempt < 30; attempt++) {
+          const patchCleanup=await require('./lib/patch-worker').cleanupAppliedPatches({root:path.dirname(process.resourcesPath),userData:app.getPath('userData'),currentVersion:app.getVersion(),verifyInstalled})
+          if(patchCleanup.deferred){await new Promise(resolve=>setTimeout(resolve,1000));continue}
           const result = await require('./lib/update-cache-cleanup').cleanupInstalledUpdate({ userData: app.getPath('userData'), currentVersion: app.getVersion(), verifyInstalled })
           if (result.unverified) { runtimeLog.info('Incomplete installation; update cache retained for retry'); return }
           if (!result.deferred) { if (result.removed) runtimeLog.info('Installed update cache removed', { version: result.version }); return }

@@ -30,6 +30,6 @@ jobs:
         env:
           GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
         run: |
-          node --test tests/test_domestic_publish.js
+          node --test tests/test_domestic_publish.js tests/test_incremental_source.js
           if ($LASTEXITCODE -ne 0) { throw 'Publication checks failed' }
           node tools/publish-gitcode.cjs
