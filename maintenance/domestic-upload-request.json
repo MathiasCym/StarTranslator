@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "repository": "MathiasCym/StarTranslator",
+  "phase": "prepare",
+  "version": "2.0.9",
+  "id": "0a97251899029d5129ebd3610dc81f62",
+  "size": 144023759,
+  "sha256": "bbc718fc6a4a1a291826599787726e6f4ddfde73b3e8e2513fbf701ffd2f4d1b",
+  "expires": "2026-10-15T15:48:26.247Z",
+  "public_key": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAtZs+KAbn4s05RxT42l+Z\n8JLXQu35FUfi/cxd9mOdiQE0xdLyzDh/7UEqxBJe19sE+hvrHHLp65KL07qkWeOG\nAzlIY2xsQkw05lFaJ8An7bFY41hFJm5ZDf03aWjHGtF1DmTllHeebh4Hl1nweC46\nfkuFnZoz3KoTrtDxb9P6hHZ5SkyeS28yXPKVVJhj0EpL0wqfcxTd4O8DtWeUKa3Z\nOKgKKxSCGg2qQ8q+Bcd18XZmdFvPwFJrIrtgPRdXhvlU1WuSRAwBAW0cv/V82mvI\nDW3/a7G9QnTJaDDeV6Sp7MUvkjtqKKSa9YJ4Os9AYt4eIUhXXfEXkflnr8Nl5yGM\n+n2k9DaD/IdN2IeZ0HCAcQ2+mbjHbX6tBxzujaIy7riY7aRXLHju0lDUlSVx513l\nhdZmBZv3/3EnkhUH8AvlGWgujCPMqR69coNc52fTSQ4bhCtwiYOpNmrDheBweF+l\nJQLdYaZjsjt/6ERnQDJEbkxfvmzx94bvrIXBOpErBt1pAgMBAAE=\n-----END PUBLIC KEY-----\n"
+}

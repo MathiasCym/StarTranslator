@@ -1,0 +1,32 @@
+name: Local transfer for verified domestic release
+on:
+  push:
+    branches: [main]
+    paths: ['maintenance/domestic-upload-request.json']
+permissions:
+  contents: read
+concurrency:
+  group: startranslator-public-mirror
+  cancel-in-progress: false
+jobs:
+  relay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify encrypted transfer policy
+        run: node --test maintenance/tests/domestic-relay.test.cjs tests/test_domestic_publish.js
+      - name: Prepare encrypted upload or verify and finalize
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: node maintenance/domestic-relay.cjs
+      - name: Retain encrypted one-use grant
+        uses: actions/upload-artifact@v4
+        with:
+          name: domestic-upload-grant
+          path: dist/qa/domestic-relay/grant.json
+          if-no-files-found: ignore
+          retention-days: 1
