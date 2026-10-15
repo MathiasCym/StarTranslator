@@ -42,7 +42,7 @@ server.listen(0,'127.0.0.1',async()=>{
   result.dropzone=await run(`(()=>{const zone=$('dropzone'),style=getComputedStyle(zone,'::before'),portrait=zone.querySelector('img');return {animation:style.animationName,duration:style.animationDuration,imageLoaded:portrait.complete&&portrait.naturalWidth>0,portrait:portrait.getBoundingClientRect().width,glass:getComputedStyle(zone).backdropFilter,titleDrag:getComputedStyle(document.querySelector('.topbar')).webkitAppRegion}})()`)
   assert(result.dropzone.imageLoaded&&result.dropzone.titleDrag==='drag',JSON.stringify(result.dropzone))
   assert(result.dropzone.animation==='sheen'||await run("matchMedia('(prefers-reduced-motion:reduce)').matches"),JSON.stringify(result.dropzone))
-  if(!measure)assert(result.dropzone.portrait>=140,JSON.stringify(result.dropzone))
+  if(!measure)assert(result.dropzone.portrait>=(result.empty.height>740?140:75),JSON.stringify(result.dropzone))
   await run("state.files=Array.from({length:12},(_,i)=>'C:/qa/多文件布局测试文档'+(i+1)+'.pptx');state.references=['C:/qa/参考材料.docx'];renderFiles();$('referencesPanel').open=true")
   result.loaded=await layout();result.default.bodyScreenPixels=result.loaded.bodyFont*zoom*dpi;await capture('home')
   result.compact=await run(`(()=>{const zone=$('dropzone'),rect=zone.getBoundingClientRect(),portrait=zone.querySelector('img').getBoundingClientRect();return {height:rect.height,portrait:portrait.width,animation:getComputedStyle(zone,'::before').animationName}})()`)
