@@ -133,8 +133,10 @@ class DocumentSkillTests(unittest.TestCase):
 
     def test_persistently_invalid_facts_are_retried_but_never_published_as_english(self):
         source = fixture(self.root / 'bad.pptx'); original = source.read_bytes(); model = Model(bad=True)
-        with self.assertRaises(LLMUnavailable):translate_file(str(source), self.glossary, None, client=model)
-        self.assertEqual(list(self.root.glob('*English*')),[])
+        result=translate_file(str(source), self.glossary, None, client=model)
+        self.assertFalse(result['translation_complete']);self.assertTrue(result['review_items'])
+        self.assertTrue(Path(result['path']).is_file())
+        self.assertEqual([s.text for s in extract(str(source))],[s.text for s in extract(result['path'])])
         self.assertGreaterEqual(len(model.prompts), 8)
         self.assertIn('重新生成要求', model.prompts[1][0])
         self.assertEqual(source.read_bytes(), original)

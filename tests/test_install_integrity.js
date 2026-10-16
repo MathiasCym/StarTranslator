@@ -46,3 +46,11 @@ test('export includes environment, missing components and recent errors without 
   for (const secret of ['personal-secret-123', 'second-secret-789', 'unlisted-token', 'PRIVATE DOCUMENT TEXT', 'do-not-export']) assert(!report.includes(secret), secret)
   assert(!('report' in taskMetadata(task)))
 })
+
+test('partial translation diagnostics identify the exact paragraph without exporting its text', () => {
+  const value = taskMetadata({ outputs: [{ translation_complete: false, review_items: [{ slide: 3, para: 3,
+    locator: 'slide3/shape13/p2', reason: '日期未通过校验：2025-06', source_text: 'PRIVATE SOURCE', translation: 'PRIVATE CANDIDATE' }] }] })
+  assert.equal(value.outputs[0].incomplete[0].locator, 'slide3/shape13/p2')
+  assert.match(value.outputs[0].incomplete[0].reason, /2025-06/)
+  assert(!JSON.stringify(value).includes('PRIVATE'))
+})

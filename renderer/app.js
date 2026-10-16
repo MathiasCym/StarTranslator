@@ -307,9 +307,9 @@ function renderCheckCompletion() {
   $('completionResume').hidden=!state.job?.can_resume&&!notStarted
   $('completionIssue').hidden=!r.errors?.length
   $('completionIssue').textContent=[...new Set((r.errors||[]).map(e=>e.error).filter(Boolean))].join('；')
-  $('completionExportLog').hidden = !r.errors?.length && !state.job?.error && !s.errors
-  $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : notStarted?'翻译尚未完成 · 校对尚未开始':partial ? `${label}已暂停 · 部分内容未完成` : `${label}完成`
-  $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分，可从断点继续。' : notStarted?'已完成译文与断点均已保留。点击“从断点继续”补齐剩余内容后，程序会接着校对。':partial ? '已完成的建议可在报告中处理；未完成部分可从断点继续。' : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，打开报告查看并处理建议。'
+  $('completionExportLog').hidden = !partial && !state.job?.error && !s.errors
+  $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : notStarted?'文件已保留 · 校对尚未开始':partial ? `${label}已结束 · 部分内容待核对` : `${label}完成`
+  $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分，可从断点继续。' : notStarted?'已完成译文与断点均已保留，可查看报告与保存文件，也可从断点继续。':partial ? '可在报告中处理建议并保存文件；未解决的位置已标出，也可从断点继续。' : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，打开报告查看并处理建议。'
   $('completionSummary').innerHTML = [[files.length, '文档'], [s.segments ?? 0, '检查段落'], [findings.length, '审校建议'], [findings.filter(f => f.applied).length, '已替换建议']].map(([n, label]) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`).join('')
   $('completionFiles').innerHTML = files.map(f => esc(f.name || basename(f.path))).join(' · ') + state.outputs.filter(o => o.comparison_id).map(o => `<button class="btn ghost sm" data-comparison="${o.comparison_id}">中英对照 · ${esc(basename(o.path))}</button>`).join('')
   $('completionFiles').title = files.map(f => f.path).join('\n')
@@ -409,7 +409,7 @@ async function exportReport(overwrite = false, saveCurrent = false) {
         if (task.status !== 'complete') throw new Error(task.error || '保存未完成。')
         const r = task.result
         state.savedReviewFiles.add(path)
-        results.push({ path: r.output, layoutWarnings: r.layout_warnings || [], text: (state.report.kind === 'translate_review' ? r.overwritten ? '已更新校对文件，' : '校对文件已保存，' : r.overwritten ? '已覆盖原文件，' : '已另存，') + `替换 ${r.applied_count} 处` + (r.failed.length ? `；${r.failed.length} 项未完成` : '') })
+        results.push({ path: r.output, layoutWarnings: r.layout_warnings || [], text: (state.report.kind === 'translate_review' ? r.overwritten ? '已更新校对文件，' : '校对文件已保存，' : r.overwritten ? '已覆盖原文件，' : '已另存，') + `替换 ${r.applied_count} 处` + (r.failed.length ? `；${r.failed.length} 项未完成` : '') + (r.content_warnings?.length ? '；'+r.content_warnings.join('；') : '') })
         if (state.report.kind === 'translate_review') state.exportRecords = state.exportRecords.filter(record => (state.report.output_mode !== 'final' || record.path !== path) && record.path !== r.output)
         for (const { index, finding } of r.finding_updates || []) { state.report.findings[index] = finding; if (!finding.editable || finding.applied) { state.selected.delete(index); delete state.edits[index] } }
       }

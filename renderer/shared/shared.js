@@ -136,7 +136,7 @@ function renderDetail() {
         task=await api(`/shared/jobs/${job.id}/exports/${task.id}`)
       }
       if(task.status!=='complete')throw Error(task.error||'保存未完成。')
-      draft.savedMessage='文件已保存，可在下方下载。';lastDetail='';await refresh();revealResult($('savedMessage'))
+      draft.savedMessage='文件已保存，可在下方下载。'+(task.result?.content_warnings||[]).join('；');lastDetail='';await refresh();revealResult($('savedMessage'))
     } finally {indicator.remove();draft.saving=false;if($('saveReview')){lastDetail='';renderDetail();$('savedMessage').textContent=draft.savedMessage||''}}
   }
   action('saveReview',()=>save(false));if($('saveUnchanged'))action('saveUnchanged',()=>save(true))

@@ -287,6 +287,14 @@ class BatchTests(unittest.TestCase):
 
 
 class CheckpointTests(unittest.TestCase):
+    def test_shipped_2012_checkpoints_are_revalidated_without_losing_identity(self):
+        from backend.checkpoints import Checkpoint
+        identity={'source':str(self.root/'same.docx'),'fingerprint':'fixture','model':{'model':'fixture'}}
+        old='20631795cfac42022cdebcb50c6f52e8d44cdf72d7dfbc51129d27399cd58c47'
+        with patch('backend.checkpoints.policy',return_value=old):Checkpoint('translation',identity).put(['paragraph'],{'translation':'Verified English'})
+        self.assertEqual(Checkpoint('translation',identity).get(['paragraph'])['translation'],'Verified English')
+        self.assertIsNone(Checkpoint('translation',{**identity,'fingerprint':'changed'}).get(['paragraph']))
+        self.assertIsNone(Checkpoint('translation',{**identity,'model':{'model':'other'}}).get(['paragraph']))
     def test_shipped_2011_checkpoints_keep_connection_and_source_identity(self):
         from backend.checkpoints import Checkpoint
         identity={'source':str(self.root/'same.docx'),'fingerprint':'fixture','model':{'model':'fixture'}}

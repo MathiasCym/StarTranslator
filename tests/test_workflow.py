@@ -243,14 +243,16 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(result['translated'],2)
         self.assertTrue(all('pixel pitch' in s.text for s in extract(result['path'])))
 
-    def test_translation_failure_and_cancellation_do_not_write_output(self):
+    def test_translation_failure_keeps_a_marked_draft_but_explicit_cancellation_writes_nothing(self):
         path=self.document('source.docx','点间距为2.5毫米。')
-        with self.assertRaises(LLMUnavailable):
-            translate_file(path,self.g,None,client=FakeModel({'translation':'仍然是中文'}))
+        result=translate_file(path,self.g,None,client=FakeModel({'translation':'仍然是中文'}))
+        self.assertFalse(result['translation_complete']);self.assertTrue(result['review_items'])
+        self.assertEqual(Document(result['path']).paragraphs[0].text,'点间距为2.5毫米。')
+        outputs=list(self.root.glob('*English*'))
         cancel=threading.Event();cancel.set()
         with self.assertRaises(Cancelled):
             translate_file(path,self.g,None,client=FakeModel(),cancel=cancel)
-        self.assertEqual(list(self.root.glob('*English*')),[])
+        self.assertEqual(list(self.root.glob('*English*')),outputs)
 
     def test_shared_save_conflict_backup_and_deletion(self):
         current=store.read()

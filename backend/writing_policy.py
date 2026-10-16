@@ -5,6 +5,7 @@ from pathlib import Path
 import re
 import unicodedata
 from decimal import Decimal
+from datetime import date
 
 
 NUMBER = re.compile(r'\d+(?:[.,]\d+)*')
@@ -40,23 +41,67 @@ def numeric_values(text):
     return Counter(value for value, _, _ in numeric_tokens(text)[1])
 
 
+def _calendar_numeric_tokens(text):
+    """Keep dates as complete facts, without treating decimals/versions as dates.
+
+    Numeric month shorthand requires calendar context. In particular a dated
+    notice heading may use 2025.6; a brightness of 2025.6 nits may not. Ordinary
+    quantity/style matching continues to use numeric_tokens unchanged.
+    """
+    text, tokens = numeric_tokens(text)
+    dates = []
+    def add(match, year, month, day=None):
+        try:
+            year,month=int(year),int(month)
+            day=int(day) if day else None
+            date(year,month,day or 1)
+        except (ValueError,TypeError):return
+        if any(match.start()<end and match.end()>start for _,start,end in dates):return
+        dates.append(('date:'+f'{year:04d}-{month:02d}'+(f'-{day:02d}' if day else ''),match.start(),match.end()))
+    for m in re.finditer(r'(?<![A-Za-z0-9_.])([1-9]\d{3})\s*年\s*(\d{1,2})\s*月(?:\s*(\d{1,2})\s*[日号])?',text):
+        add(m,*m.groups())
+    months='January February March April May June July August September October November December'.split()
+    names={name.casefold():n for n,name in enumerate(months,1)}
+    names.update({name[:3].casefold():n for n,name in enumerate(months,1)})
+    names['sept']=9
+    month=r'('+'|'.join(sorted(names,key=len,reverse=True))+r')\.?'
+    # Longer forms first, so a day is never silently reduced to month precision.
+    for m in re.finditer(r'\b(\d{1,2})(?:st|nd|rd|th)?\s+'+month+r'\s*,?\s*([1-9]\d{3})\b',text,re.I):
+        add(m,m[3],names[m[2].casefold()],m[1])
+    for m in re.finditer(r'\b'+month+r'\s+(?:(\d{1,2})(?:st|nd|rd|th)?\s*,?\s+)?([1-9]\d{3})\b',text,re.I):
+        add(m,m[3],names[m[1].casefold()],m[2])
+    compact=re.compile(r'(?<![A-Za-z0-9_.])([1-9]\d{3})([./-])(\d{1,2})(?:\2(\d{1,2}))?(?![\d.])')
+    for m in compact.finditer(text):
+        before,after=text[max(0,m.start()-24):m.start()],text[m.end():]
+        # Explicit quantities, identifiers and version labels stay numeric.
+        if re.search(r'(?:版本|型号|价格|数值|version|model|price|value|\bv)\s*[:：]?\s*$',before,re.I):continue
+        if re.match(r'\s*(?:%|元|美元|人民币|万元|亿元|万|亿)|\s*[A-Za-z0-9_]',after):
+            # An English dated heading is allowed only with a known event noun.
+            if not re.match(r'\s+(?:[A-Za-z-]+\s+){0,3}(?:notice|plan|policy|report|release|update|meeting|conference)\b',after,re.I):continue
+        if QUANTITY_UNIT.match(after):continue
+        calendar_context=(m[4] is not None
+            or re.search(r'(?:日期|时间|发布于|截至|于|自|至|\bdated|\bin|\bsince|\buntil|\bas of)\s*[:：]?\s*$',before,re.I)
+            or re.match(r'\s*(?:[月年]|[^\d\n:：]{0,16}(?:通知|方案|规划|计划|报告|会议|发布|公告))',after)
+            or (not text[:m.start()].strip(' \t\r\n•·—-:：')
+                and re.match(r'\s+(?:[A-Za-z-]+\s+){0,3}(?:notice|plan|policy|report|release|update|meeting|conference)\b',after,re.I)))
+        if calendar_context:add(m,m[1],m[3],m[4])
+    tokens=[(value,start,end) for value,start,end in tokens
+        if not any(start>=a and end<=b for _,a,b in dates)]
+    return text, sorted(tokens+dates,key=lambda token:token[1])
+
+
+def _translation_numeric_values(text):
+    return Counter(value for value,_,_ in _calendar_numeric_tokens(text)[1])
+
+
 def translation_numeric_tokens(source, translation):
     """Calendar shorthand adds a label digit, not a factual quantity.
 
     Only explicit Chinese calendar labels permit it. Existing source identifiers
     remain counted, and codes embedded in model names/versions are never removed.
     """
-    text, tokens = numeric_tokens(translation)
+    text, tokens = _calendar_numeric_tokens(translation)
     ignored = []
-    # A month written as a word carries the same factual value as 中文数字月.
-    # Require an actual date next to a year: ordinary "may" is never a month.
-    if re.search(r'\d{4}\s*年\s*\d{1,2}\s*月', source):
-        months = ('January February March April May June July August September October November December').split()
-        names = {name.casefold():number for number,name in enumerate(months,1)}
-        names.update({name[:3].casefold():number for number,name in enumerate(months,1)})
-        date = re.compile(r'\b('+'|'.join(sorted(names,key=len,reverse=True))+r')\.?(?=\s+(?:\d{1,2}(?:st|nd|rd|th)?,?\s+)?\d{4}\b)',re.I)
-        for match in date.finditer(text):
-            tokens.append((Decimal(names[match[1].casefold()]),match.start(),match.end()))
     # An explicitly named Chinese five-year plan already encodes its ordinal.
     # Ignore only the exact equivalent English name, never arbitrary new digits.
     chinese = {11:'十一',12:'十二',13:'十三',14:'十四',15:'十五',16:'十六',17:'十七',18:'十八',19:'十九',20:'二十'}
@@ -80,7 +125,7 @@ def translation_numeric_tokens(source, translation):
 def repair_numeric_translation(source, translation):
     """Correct one unambiguous quantity difference; never rewrite model codes."""
     text, target = translation_numeric_tokens(source, translation)
-    expected = numeric_values(source)
+    expected = _translation_numeric_values(source)
     actual = Counter(value for value, _, _ in target)
     missing, extra = expected - actual, actual - expected
     if sum(expected.values()) != sum(actual.values()) or sum(missing.values()) != 1 or sum(extra.values()) != 1:
@@ -123,8 +168,14 @@ def validate_translation(source, translation):
     if '```' in translation and '```' not in source:
         raise ValueError('译文包含说明或代码包装，请重新生成正文。')
     # Preserve factual tokens; Chinese units may be translated, values may not change.
-    if numeric_values(source) != Counter(value for value, _, _ in translation_numeric_tokens(source, translation)[1]):
-        raise ValueError('生成的英文与中文原稿存在数值差异，需要核对。')
+    expected = _translation_numeric_values(source)
+    actual = Counter(value for value, _, _ in translation_numeric_tokens(source, translation)[1])
+    if expected != actual:
+        def describe(values):
+            def label(value):return value.replace('date:','日期 ') if isinstance(value,str) and value.startswith('date:') else str(value)
+            return '、'.join(label(value)+(f'（{count}处）' if count>1 else '') for value,count in values.items()) or '无'
+        raise ValueError('生成的英文与中文原稿存在数值差异，需要核对。'
+            +' 原稿需保留：'+describe(expected-actual)+'；译文多出：'+describe(actual-expected)+'。')
     tokens = re.findall(r'(?<![A-Za-z0-9])(?:[A-Z]{2,}[A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|'
         r'[A-Za-z]+[0-9][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|[0-9]+[A-Z][A-Za-z0-9]*)(?![A-Za-z0-9])', source)
     for token in tokens:

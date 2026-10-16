@@ -400,10 +400,11 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 # A bad paragraph is local; only a real service outage suspends
                 # the remaining repairs. Invalid candidates are never exported.
                 if isinstance(error,LLMUnavailable) and (not isinstance(error,TranslationNeedsReview) or error.service_error):repair_failures+=1
+                for item in review_items:
+                    if item['locator']==seg.locator:item['reason']=str(error)
         for item in review_items:item['translation']=by_locator[item['locator']].text
-    if not changed:
-        detail = review_items[0]['reason'] if review_items else '未获得可用英文。'
-        raise LLMUnavailable('没有生成可用英文，原稿保留。' + detail)
+    # Even a complete model outage must retain a usable document. Unresolved
+    # paragraphs stay visibly marked in the report; never invent their English.
     # Original English parameter cells also need consistent typography; they are
     # intentionally not sent through the Chinese-to-English model pipeline.
     for seg in segments:

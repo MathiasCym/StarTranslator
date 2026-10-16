@@ -104,14 +104,21 @@ class QualityGateTests(unittest.TestCase):
         result=translate_file(str(source),Glossary([]),None,client=Model(),workers=1)
         self.assertTrue(result['translation_complete']);self.assertEqual(result['untranslated'],0)
         self.assertEqual([p.text for p in Document(result['path']).paragraphs],['Brightness 500 nits','60 Hz'])
-    def test_incomplete_draft_is_not_sent_to_english_proofreading(self):
+    def test_incomplete_draft_is_reported_and_can_be_saved_without_bulk_retranslation(self):
         source=self.root/'source.docx';doc=Document();doc.add_paragraph('中文原稿');doc.save(source)
         draft=self.root/'draft.docx';doc.save(draft)
-        result=dict(path=str(draft),source=str(source),translation_complete=False,translated=0,total=1,untranslated=1,status='needs_review',needs_review=1,review_items=[{'locator':'p0'}],warnings=[])
+        result=dict(path=str(draft),source=str(source),translation_complete=False,translated=0,total=1,untranslated=1,status='needs_review',needs_review=1,review_items=[{'locator':extract(str(draft))[0].locator}],warnings=[])
         job=dict(id='quality-incomplete',kind='translate_review',cancel=threading.Event(),status='running')
-        with patch('backend.workflow.translate_file',return_value=result),patch('backend.workflow.auto_review') as review:
-            workflow.run(job,dict(kind='translate_review',paths=[str(source)],use_llm=True))
-        review.assert_not_called();self.assertFalse(job['result']['completed_paths']);self.assertEqual(result['review_status'],'translation_incomplete')
+        class Model:
+            def chat_json(self,*args,**kwargs):raise AssertionError('Known untranslated Chinese must not be sent to English proofreading')
+        with patch('backend.workflow.translate_file',return_value=result):
+            workflow.run(job,dict(kind='translate_review',paths=[str(source)],use_llm=True,_client=Model()))
+        self.assertFalse(job['result']['completed_paths']);self.assertEqual(result['review_status'],'partial')
+        report=job['result']['report'];self.assertEqual(len(report['findings']),1)
+        self.assertIn('翻译待核对',report['findings'][0]['reason'])
+        saved=workflow.apply_report(dict(report_id=job['id'],path=str(draft),save_unchanged=True))
+        self.assertEqual(Document(saved['output']).paragraphs[0].text,'中文原稿')
+        self.assertTrue(saved['content_warnings'])
     def test_language_detection_parse_failure_uses_normal_task_error_handling(self):
         from zipfile import BadZipFile
         source=self.root/'invalid.pptx';source.write_bytes(b'not an office archive')
@@ -213,16 +220,121 @@ class QualityGateTests(unittest.TestCase):
         model=Model();groups=[{'id':0,'text':'重要','key':'large-bold'},{'id':1,'text':'说明','key':'body'}]
         runs,approx=mapped_translation(model,'fixture','重要说明',groups,None,segment=SimpleNamespace(file_path='fixture.pptx',file='fixture.pptx'))
         self.assertFalse(approx);self.assertEqual(len(model.calls),1);self.assertTrue(model.calls[0]['thinking'])
+
+    def test_compact_calendar_dates_match_named_dates_without_weakening_quantity_checks(self):
+        from backend.writing_policy import validate_translation,repair_numeric_translation
+        valid=[
+            ('2025.6 影院通知：设立专项资金。','June 2025 cinema notice: Dedicated funding.'),
+            ('2025.06 影院通知：设立专项资金。','Jun. 2025 cinema notice: Dedicated funding.'),
+            ('截至2025.6，支持300尼特。','As of June 2025, supports 300 nits.'),
+            ('于2025年6月17日发布，亮度300尼特。','Released on 17 June 2025, with a brightness of 300 nits.'),
+            ('发布日期：2025-06-17','Release date: June 17th, 2025'),
+            ('2025.6.17 发布通知','Notice released on 17 June 2025'),
+            ('2025.6 影院通知','2025.6 Cinema Notice'),
+            ('2025年5月通知','May 2025 notice'),
+            ('2025年6月与2025年7月','June 2025 and July 2025'),
+            ('2025.6nits亮度，版本2025.6','2025.6 nits brightness, version 2025.6')]
+        for source,target in valid:
+            with self.subTest(source=source,target=target):
+                validate_translation(source,target)
+                self.assertEqual(repair_numeric_translation(source,target),target)
+        invalid=[
+            ('2025.6 影院通知','July 2025 cinema notice'),
+            ('2025.6 影院通知','June 2026 cinema notice'),
+            ('2025年6月17日','June 6, 2025 and 17'),
+            ('2025年6月17日','June 2025'),
+            ('2025年6月与2025年7月','June 2025 and June 2025'),
+            ('2025.6 影院通知，亮度300尼特','June 2025 cinema notice, brightness 301 nits'),
+            ('数值2025.6','June 2025'),
+            ('2025.6尼特亮度通知','June 2025 brightness notice'),
+            ('版本2025.6','June 2025'),
+            ('型号2025.6.17','June 17, 2025'),
+            ('2025.6万元','June 2025'),
+            ('2025.6','June 2025')]
+        for source,target in invalid:
+            with self.subTest(source=source,target=target):
+                with self.assertRaises(ValueError):validate_translation(source,target)
+
+    def test_dated_ppt_notice_completes_translation_and_starts_real_proofreading(self):
+        deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
+        shape=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(6),Inches(1))
+        shape.text='2025.6 影院通知：设立专项资金。'
+        source=self.root/'dated-notice.pptx';deck.save(source);original=source.read_bytes()
+        class Model:
+            def __init__(self):self.translations=0;self.reviews=0
+            def chat_json(self,prompt,**kw):
+                if kw.get('system','').startswith('你是 LED 显示行业的中英技术翻译'):
+                    self.translations+=1
+                    return {'translation':'June 2025 cinema notice: Dedicated funding.'}
+                self.reviews+=1
+                return []
+        model=Model();job=dict(id='quality-compact-date-review',kind='translate_review',cancel=threading.Event(),status='running')
+        with patch('backend.workflow.store.load_glossary',return_value=Glossary([])),patch('backend.workflow.review_pptx',return_value=([],[])):
+            workflow.run(job,dict(kind='translate_review',paths=[str(source)],use_llm=True,_client=model,workers=1))
+        self.assertTrue(job['result']['outputs'][0]['translation_complete'])
+        self.assertEqual(model.translations,1);self.assertGreater(model.reviews,0)
+        self.assertGreater(job['result']['report']['stats']['judged'],0)
+        self.assertEqual(source.read_bytes(),original)
+
+    def test_one_unfixable_numeric_paragraph_does_not_block_review_or_final_export(self):
+        source=self.root/'partial-source.docx';doc=Document()
+        doc.add_paragraph('分辨率为3840×2160。');doc.add_paragraph('亮度500尼特。');doc.save(source)
+        original=source.read_bytes()
+        class Model:
+            def __init__(self):self.reviews=0;self.translations=0
+            def chat_json(self,prompt,**kw):
+                if kw.get('system','').startswith('你是 LED 显示行业的中英技术翻译'):
+                    self.translations+=1
+                    piece=prompt.split('【待译原文】\n',1)[1].split('\n【',1)[0]
+                    return {'translation':'1920 x 1080.' if '3840' in piece else 'Brightness 500 nits.'}
+                self.reviews+=1;return []
+        client=Model();job=dict(id='quality-one-local-failure',kind='translate_review',status='running',cancel=threading.Event())
+        with patch('backend.workflow.store.load_glossary',return_value=Glossary([])):
+            workflow.run(job,dict(kind='translate_review',paths=[str(source)],combined_output='final',output_dir=str(self.root/'output'),_client=client,workers=1))
+        output=job['result']['outputs'][0];report=job['result']['report']
+        self.assertEqual(job['status'],'partial');self.assertTrue(job['can_resume'])
+        self.assertEqual(report['stats']['judged'],1);self.assertEqual(report['stats']['unreviewed'],1)
+        self.assertEqual(client.reviews,1);self.assertLessEqual(client.translations,5)
+        saved=workflow.apply_report(dict(report_id=job['id'],path=output['path'],save_unchanged=True))
+        self.assertEqual([p.text for p in Document(saved['output']).paragraphs],['分辨率为3840×2160。','Brightness 500 nits.'])
+        self.assertTrue(saved['content_warnings']);self.assertEqual(source.read_bytes(),original)
+        issue=next(i for i,f in enumerate(report['findings']) if f['reason'].startswith('翻译待核对'))
+        fixed=workflow.apply_report(dict(report_id=job['id'],path=output['path'],edits=[dict(index=issue,text='Resolution: 3840 x 2160.')]))
+        self.assertEqual(fixed['output'],saved['output']);self.assertFalse(fixed['content_warnings'])
+        self.assertEqual(Document(fixed['output']).paragraphs[0].text,'Resolution: 3840 x 2160.')
+
+    def test_total_model_outage_still_saves_a_marked_document(self):
+        from backend.llm.client import LLMUnavailable
+        source=self.root/'offline-source.docx';doc=Document();doc.add_paragraph('中文原稿');doc.save(source)
+        original=source.read_bytes()
+        class Model:
+            def __init__(self):self.calls=0
+            def chat_json(self,*args,**kwargs):self.calls+=1;raise LLMUnavailable('连接中断')
+        model=Model();result=translate_file(str(source),Glossary([]),None,client=model,workers=1)
+        self.assertFalse(result['translation_complete']);self.assertTrue(result['review_items'])
+        self.assertEqual(Document(result['path']).paragraphs[0].text,'中文原稿')
+        self.assertEqual(model.calls,1);self.assertEqual(source.read_bytes(),original)
+
+    def test_unfinished_text_with_a_changed_locator_is_reported_on_its_actual_paragraph(self):
+        source=self.root/'locator-source.docx';doc=Document();doc.add_paragraph('原稿内容');doc.save(source)
+        output=self.root/'locator-output.docx';doc=Document();doc.add_paragraph('未完成中文');doc.add_paragraph('Completed English.');doc.save(output)
+        result=dict(path=str(output),source=str(source),translation_complete=False,review_items=[dict(locator='old-locator',translation='未完成中文',reason='该处未完成')],warnings=[])
+        class Model:
+            def chat_json(self,*args,**kwargs):return []
+        review=workflow.auto_review(result,Glossary([]),None,threading.Event(),None,client=Model(),workers=1)
+        self.assertEqual(review['stats']['judged'],1);self.assertEqual(review['stats']['unreviewed'],1)
+        finding=next(f for f in review['local']['findings'] if f.reason.startswith('翻译待核对'))
+        self.assertEqual(finding.found_text,'未完成中文');self.assertEqual(finding.segment_id,extract(str(output))[0].id)
     def test_incomplete_translation_is_partial_and_directly_resumable(self):
         source=self.root/'partial.docx';doc=Document();doc.add_paragraph('完整中文原稿');doc.save(source)
         draft=self.root/'draft.docx';doc.save(draft)
         result=dict(path=str(draft),source=str(source),translation_complete=False,translated=0,total=1,
-            untranslated=1,status='needs_review',needs_review=1,review_items=[dict(reason='连接暂不可用')],warnings=[])
+            untranslated=1,status='needs_review',needs_review=1,review_items=[dict(locator=extract(str(draft))[0].locator,reason='连接暂不可用')],warnings=[])
         job=dict(id='quality-direct-resume',kind='translate_review',cancel=threading.Event(),status='running')
         with patch('backend.workflow.translate_file',return_value=result):
             workflow.run(job,dict(kind='translate_review',paths=[str(source)]))
         self.assertEqual(job['status'],'partial');self.assertTrue(job['can_resume'])
-        self.assertEqual(job['result']['stats']['model_status'],'not_started')
+        self.assertEqual(job['result']['stats']['model_status'],'partial')
     def test_combined_review_runs_format_comparison_after_text_review(self):
         source=self.root/'source.pptx';deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6]);slide.shapes.add_textbox(Inches(1),Inches(1),Inches(6),Inches(1)).text='Technical information';deck.save(source)
         result=dict(path=str(source),source=str(source),format_review_deferred=True,review_items=[],warnings=[])

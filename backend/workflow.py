@@ -5,6 +5,7 @@ import uuid
 import tempfile
 import logging
 import shutil
+import re
 from pathlib import Path
 from .extract import extract
 from .extract.office import open_office
@@ -14,7 +15,7 @@ from .references import ReferenceIndex
 from .translation import translate_file, Cancelled, check_cancel, output_path, OUTPUT_LOCK, TRANSLATION_MODES
 from .replacer.run_utils import replace_spans
 from .matcher.retriever import _form_pattern
-from .models import RunInfo
+from .models import RunInfo, Finding
 from .replacer.pptx_package import save_office
 from .replacer.pptx_layout import fit_document, capture_layout
 from .replacer.pptx_style_manifest import capture_styles,verify_styles
@@ -174,7 +175,7 @@ def run(job,data):
                     result.update(staged=final_only, output_mode=data.get('combined_output', 'both'),
                                   target_dir=str(Path(data.get('output_dir') or Path(path).parent).absolute()))
                     outputs.append(result)
-                    if combined and result.get('translation_complete',not result.get('untranslated',0)):
+                    if combined:
                         progress(0,0,f'校对 {index+1}/{len(paths)}：{Path(result["path"]).name}', 'check',100*(index+.55)/len(paths))
                         review = auto_review(result, glossary, references, job['cancel'],
                             lambda n,t,*message:progress(n,t,f'校对 {index+1}/{len(paths)}：{Path(path).name}',
@@ -186,9 +187,6 @@ def run(job,data):
                         reviews.append(review)
                         if result['review_status'] == 'complete' and not job['cancel'].is_set():
                             job['result']['completed_paths'].append(path)
-                    elif combined:
-                        result.update(auto_reviewed=False,review_status='translation_incomplete',status='needs_review')
-                        errors.append({'path':path,'error':'翻译尚未完成，已保存可恢复的进度；未将未译中文交给校对。恢复任务后会继续翻译。'})
                     else:
                         if result['status']=='complete': job['result']['completed_paths'].append(path)
                     check_cancel(job['cancel'])
@@ -240,7 +238,8 @@ def run(job,data):
             job['message'] = '校对完成' if stats['model_status'] in ('complete','not_requested') else '规则检查已完成，模型复核未完成'
         outcome = ('cancelled' if job['cancel'].is_set() else 'failed'
                    if data['kind'] in ('translate', 'translate_review') and not outputs and errors else 'partial'
-                   if errors or (data['kind']=='translate_review' and any(o.get('review_status')!='complete' for o in outputs)) else 'complete')
+                   if errors or (data['kind'] in ('translate','translate_review') and any(o.get('translation_complete') is False for o in outputs))
+                   or (data['kind']=='translate_review' and any(o.get('review_status')!='complete' for o in outputs)) else 'complete')
     except Cancelled as error:
         outcome = 'cancelled'
         job.update(message=str(error))
@@ -281,7 +280,43 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
     if store.fingerprint(translated_path) != before:
         raise ValueError('读取期间译文文件发生变化，请重试')
     refs = ReferenceIndex(list(dict.fromkeys([result['source'], *references.by_path])) if references else [result['source']], glossary, {translated_path: result['source']})
-    findings, stats = check_segments(segments, glossary, True, client=client, references=refs, cancel=cancel, progress=progress, on_finding=on_finding,workers=workers,expect_english=True,checkpoint_origin=result['source'])
+    # Local translation failures do not block reviewing the usable English or
+    # saving a valid file. Do not turn English proofreading into bulk Chinese
+    # translation: known unfinished paragraphs become explicit manual items.
+    pending={}
+    for item in result.get('review_items',[]):
+        expected=item.get('translation') or item.get('source_text')
+        matches=[s for s in segments if s.locator==item.get('locator') and (not expected or s.text==expected)]
+        # Numeric-only chart labels can disappear from text extraction after
+        # translation. Match an unfinished label by its unchanged text instead
+        # of attaching its old ordinal to a different label.
+        if not matches and expected:matches=[s for s in segments if s.text==expected]
+        for segment in matches:pending[segment.locator]=item
+    if result.get('translation_complete') is False:
+        for segment in segments:
+            if segment.editable and re.search(r'[\u3400-\u9fff]',segment.text):
+                pending.setdefault(segment.locator,{'reason':'自动翻译未完成，已保留原文。'})
+    unchecked={s.locator for s in segments if s.locator in pending and s.editable}
+    findings, stats = check_segments([s for s in segments if s.locator not in unchecked], glossary, True,
+        client=client, references=refs, cancel=cancel, progress=progress, on_finding=on_finding,
+        workers=workers,expect_english=True,checkpoint_origin=result['source'])
+    manual=[]
+    for segment in segments:
+        if segment.locator not in unchecked:continue
+        issue=pending[segment.locator]
+        manual.append(Finding(segment_id=segment.id,file=segment.file,file_path=segment.file_path,
+            slide=segment.slide,para=segment.para,source=segment.source,found_text=segment.text,
+            reason='翻译待核对：'+issue.get('reason','自动修复未完成，已保留原文。')+' 其余内容已继续处理；可保存文件，也可填写确认后的英文再替换。',
+            kind='grammar',method='rule',editable=segment.editable,context=segment.text))
+    if manual:
+        findings.extend(manual)
+        stats['segments']+=len(manual);stats['unreviewed']+=len(manual)
+        stats['residual_chinese']=stats.get('residual_chinese',0)+sum(bool(re.search(r'[\u3400-\u9fff]',f.found_text)) for f in manual)
+        pending_files={f.file_path for f in manual}
+        stats['completed_files']=[path for path in stats.get('completed_files',[]) if path not in pending_files]
+        stats['findings']=len(findings);stats['model_status']='partial' if stats['model_status']=='complete' else stats['model_status']
+        stats['warnings'].insert(0,f'{len(manual)} 处翻译问题自动修复后仍待核对，已在报告逐条标出；文件可正常保存，已完成部分可继续使用。')
+        if on_finding:on_finding([f.to_dict() for f in manual])
     guard_source()
     if store.fingerprint(translated_path)!=before:raise ValueError('译文在校对期间被外部修改，已停止写入以保留修改。')
     if result.get('format_review_deferred') and not cancel.is_set():
@@ -346,8 +381,8 @@ def publish_combined_report(job, reviews, outcome):
         REPORTS[job['id']] = local
         result.update(report=public,stats=stats)
     job.pop('partial_findings',None)
-    if outcome=='complete' and (errors or stats['model_status']!='complete'):
-        job['message'] = '翻译并校对已结束，部分内容未完成'
+    if errors or stats['model_status']!='complete':
+        job['message'] = '文件已保留，翻译并校对已结束 · 部分内容待核对'
 
 
 def apply_report(data, progress=None, client=None):
@@ -382,8 +417,6 @@ def _apply_report(data, report, progress=None, client=None):
     if overwrite and Path(path).suffix.lower() == '.pdf':
         raise ValueError('PDF 的处理结果保存为 Word，不能覆盖原 PDF。请使用另存。')
     option = report.get('output_options',{}).get(path,{})
-    if option.get('translation_complete') is False:
-        raise ValueError('翻译尚未完成，已保留草稿和断点。请先恢复翻译，完成后再保存校对文件。')
     final_only = option.get('mode') == 'final'
     managed_output = bool(option)
     if path not in report['hashes'] or store.fingerprint(path)!=report['hashes'][path]:
@@ -572,5 +605,7 @@ def _apply_report(data, report, progress=None, client=None):
                     finding.editable = False
                     finding.not_editable_reason = '原文已被本次改正更新。'
         updates.append({'index':index,'finding':finding.to_dict()})
-    return {'output':output,'report_path':path,'applied_count':len(done),'failed':failed,'overwritten':overwrite,'finding_updates':updates,
+    pending_translation=[f for f in report['findings'] if f.file_path==path and f.reason.startswith('翻译待核对：') and not f.applied]
+    content_warnings=[f'已保存可用文件；仍有 {len(pending_translation)} 处翻译待核对，请查看报告中的对应位置。'] if pending_translation else []
+    return {'output':output,'report_path':path,'applied_count':len(done),'failed':failed,'overwritten':overwrite,'finding_updates':updates,'content_warnings':content_warnings,
             'layout_warnings':layout_warnings,'layout_adjustments':layout_adjustments,'layout_checked':is_pptx and not layout_warnings,'needs_review':len(layout_warnings)}
