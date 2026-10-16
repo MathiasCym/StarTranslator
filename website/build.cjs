@@ -1,13 +1,18 @@
 const fs=require('node:fs'),path=require('node:path')
 const root=path.resolve(__dirname,'..'),out=path.join(__dirname,'dist')
 const history=JSON.parse(fs.readFileSync(path.join(root,'release-history.json')))
-const published=new Set(history.filter(r=>!r.renumberedTo).map(r=>r.version))
+const requestedVersion=process.argv.indexOf('--version')
+const currentVersion=requestedVersion<0?JSON.parse(fs.readFileSync(path.join(root,'package.json'))).version:process.argv[requestedVersion+1]
+if(!/^\d+\.\d+\.\d+$/.test(currentVersion||''))throw new Error('请指定已正式发布的版本：--version 2.0.12')
+const excluded=new Set(history.filter(r=>r.renumberedTo).map(r=>r.version))
+const compare=(a,b)=>{const x=a.split('.').map(Number),y=b.split('.').map(Number);for(let i=0;i<3;i++){if(x[i]!==y[i])return x[i]-y[i]}return 0}
 const source=fs.readFileSync(path.join(root,'CHANGELOG.md'),'utf8')
 const releases=[...source.matchAll(/^## \[([\d.]+)\] - ([\d-]+)\r?\n([\s\S]*?)(?=^## |$(?![\s\S]))/gm)]
  .map(m=>({version:m[1],date:m[2],notes:[...m[3].matchAll(/^(?:[-*]|\d+[.)])\s+(.+)$/gm)].map(x=>x[1])}))
- .filter(r=>published.has(r.version)||r.version==='1.0.0')
-const latest=releases.find(r=>published.has(r.version))
-if(!latest)throw new Error('没有已完成版本的说明')
+ .filter(r=>!excluded.has(r.version)&&compare(r.version,currentVersion)<=0)
+ .sort((a,b)=>compare(b.version,a.version))
+const latest=releases[0]
+if(!latest||latest.version!==currentVersion)throw new Error('缺少当前版本的更新说明：'+currentVersion)
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 const card=r=>`<article class="update-card"><h3>v${esc(r.version)}</h3><time datetime="${esc(r.date)}">${esc(r.date)}</time><ol>${r.notes.map(n=>`<li>${esc(n)}</li>`).join('')}</ol></article>`
 const updateRows=releases.slice(0,3).map(card).join('\n')+(releases.length>3?`<details><summary>更早的更新记录</summary><div class="older-updates">${releases.slice(3).map(card).join('\n')}</div></details>`:'')

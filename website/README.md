@@ -7,7 +7,7 @@
 在项目目录运行：
 
 ```powershell
-node website/build.cjs
+node website/build.cjs --version 2.0.12
 node website/verify.cjs
 node website/preview.cjs
 ```
@@ -16,7 +16,9 @@ node website/preview.cjs
 
 也可打开预览工具给出的本机地址。验证包括图片与原始资源摘要一致、没有外部资源依赖、完整指南和所有导航锚点存在；额外在隔离目录中进行断网渲染检查。
 
-更新说明来自 `CHANGELOG.md`，当前版本依据 `release-history.json` 的成功构建记录。`dist/releases.json` 只包含版本、日期和说明，不包含安装包地址、路径、大小或校验值；构建不依赖安装包仍保存在本机。
+更新说明来自 `CHANGELOG.md`。先核对软件已正式发布，再用 `--version` 指定本次官网版本；省略时取 `package.json`。构建收录截至该版本的说明，并排除 `release-history.json` 中已重新编号的版本，不再因本机构建记录缺失而漏掉 CI 发布的版本。`dist/releases.json` 只包含版本、日期和说明，不包含安装包地址、路径、大小或校验值；构建不依赖安装包仍保存在本机。
+
+桌面交付时，将构建后的 `website/dist/星译官官网.html` 复制到桌面同名文件，核对两者摘要，并用单文件离线查看。同步维护 `index.html` 的功能概览与 `guide.html` 的实际操作说明，不能只替换版本号。
 
 ## 发布与更新
 
