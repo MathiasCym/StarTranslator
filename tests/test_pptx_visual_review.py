@@ -138,6 +138,19 @@ class VisualTests(unittest.TestCase):
         self.assertTrue(apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=18,width=216,height=54,reason='model')],changed,[{'shapes':[]}]))
         deck.slides[0].shapes[0].left+=Inches(1)
         with self.assertRaisesRegex(ValueError,'对象结构'):save_office(source,deck,self.folder/'unsafe.pptx',changed)
+    def test_unfitting_model_growth_gets_measurement_feedback_instead_of_shrinking(self):
+        deck,source=self.deck(1);shape=deck.slides[0].shapes[1];snapshot=capture_layout(deck,[])
+        run=shape.text_frame.paragraphs[0].runs[0];run.text='An English explanation with more information';run.font.size=Pt(12)
+        out=self.folder/'feedback.pptx';changed=['slide1/shape1/p0'];save_office(source,deck,out,changed);calls=[]
+        class Vision:
+            def chat_images_json(_,prompt,**kw):
+                calls.append(prompt)
+                return {'reviewed':True,'issues':[{'shape_id':shape.shape_id,'kind':'crowded','reason':'文字太小，需要利用空白放大'}] if len(calls)<3 else [],
+                    'adjustments':[dict(shape_id=shape.shape_id,font_size=24,width=216 if len(calls)==1 else 360,height=54 if len(calls)==1 else 100,wrap=True,reason='利用右侧及下方空白')] if len(calls)<3 else []}
+        with patch.object(visual,'render_pages',side_effect=self.renderer):
+            warnings,fixes=visual.review_pptx(source,out,deck,changed,snapshot,Vision())
+        self.assertFalse(warnings);self.assertEqual(len(calls),3);self.assertIn('measured_min_height',calls[1])
+        self.assertTrue(any(f.get('model_readability') for f in fixes));self.assertEqual(Presentation(out).slides[0].shapes[1].text_frame.paragraphs[0].runs[0].font.size,Pt(24))
     def test_every_page_is_reviewed_and_private_images_are_removed(self):
         deck,source=self.deck(3);out=self.folder/'out.pptx';save_office(source,deck,out,[])
         calls=[]

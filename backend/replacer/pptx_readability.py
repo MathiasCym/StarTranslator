@@ -11,7 +11,7 @@ def _area(a,b):
 def _number(value):
     return isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value)
 
-def apply_actions(document,issues,changed,native_pages):
+def apply_actions(document,issues,changed,native_pages,feedback=None):
     """The model chooses the size and expansion; this code never invents either."""
     fixes=[]
     with Metrics() as metrics:
@@ -41,11 +41,19 @@ def apply_actions(document,issues,changed,native_pages):
             candidate=[(p,[(r,(st[0],st[1]*factor,*st[2:])) for r,st in pieces],l,rr,i,sp,b)
                 for p,pieces,l,rr,i,sp,b in data]
             frame=shape.text_frame
+            wrap=item.get('wrap',frame.word_wrap is not False)
+            if type(wrap) is not bool:continue
             inner_w=(width-(frame.margin_left+frame.margin_right)/EMU_PT)*.975
             inner_h=(height-(frame.margin_top+frame.margin_bottom)/EMU_PT)*.97
             if inner_w<=0 or inner_h<=0:continue
-            measured,_,clipped=estimate(candidate,inner_w,metrics,wrap=frame.word_wrap is not False)
-            if clipped or measured>inner_h:continue
+            measured,widest,clipped=estimate(candidate,inner_w,metrics,wrap=wrap)
+            if clipped or measured>inner_h:
+                if feedback is not None:feedback.append({'slide':number,'shape_id':shape.shape_id,'proposed_font_size':target,
+                    'proposed_width':width,'proposed_height':height,'reason':'该字号在提议的文字框中放不下，请重新选择尺寸；不要进一步缩小当前文字。',
+                    'measured_min_height':round(measured/.97+(frame.margin_top+frame.margin_bottom)/EMU_PT+1,2),
+                    'wrapping_enabled':wrap,'measured_min_width_without_wrapping':round(widest/.975+(frame.margin_left+frame.margin_right)/EMU_PT+1,2),
+                    'hint':'不换行时必须提供足够宽度；需要多行时明确指定 wrap:true 并留出足够高度。'})
+                continue
             before=(x,y,w,h);after=(x,y,width,height);blocked=False
             native={v['id']:v for v in native_pages[number-1].get('shapes',[]) if isinstance(v.get('id'),int)}
             for peer_key,peer,matrix in shapes:
@@ -60,7 +68,10 @@ def apply_actions(document,issues,changed,native_pages):
                 # existing background. Foreground objects remain obstacles.
                 elif _area(before,rect)>=w*h-.5:continue
                 if _area(after,rect)>_area(before,rect)+.5:blocked=True;break
-            if blocked:continue
+            if blocked:
+                if feedback is not None:feedback.append({'slide':number,'shape_id':shape.shape_id,
+                    'reason':'提议的文字区域会新增遮挡其他文字或前景对象，请观察图像后重新选择可用区域。'})
+                continue
             xf=shape._element.find(f'{{http://schemas.openxmlformats.org/presentationml/2006/main}}spPr/{{{A}}}xfrm')
             ext=None if xf is None else xf.find(f'{{{A}}}ext')
             if ext is None:continue
@@ -75,6 +86,7 @@ def apply_actions(document,issues,changed,native_pages):
             entries[shape.shape_id]={'before':original,'after':after_extent}
             document._star_visual_geometry=approved
             shape.width,shape.height=after_extent
+            frame.word_wrap=wrap
             _write_typography(candidate,1,False,False,0,True)
             from pptx.enum.text import MSO_AUTO_SIZE
             frame.auto_size=MSO_AUTO_SIZE.NONE
