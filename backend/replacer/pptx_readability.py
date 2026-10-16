@@ -29,7 +29,11 @@ def apply_actions(document,issues,changed,native_pages,feedback=None):
             x,y,w,h=[v/EMU_PT for v in bounds(shape,transform)]
             width,height=item.get('width',w),item.get('height',h)
             if not all(_number(v) for v in (width,height,item.get('font_size'))):continue
-            if width<w-.05 or height<h-.05 or x<0 or y<0:continue
+            # A model may round an unchanged side down. Preserve the space
+            # already available instead of rejecting a useful expansion on the
+            # other side; no extra area beyond old/model bounds is invented.
+            width,height=max(w,width),max(h,height)
+            if x<0 or y<0:continue
             if x+width>document.slide_width/EMU_PT-1 or y+height>document.slide_height/EMU_PT-1:continue
             props=shape.text_frame._txBody.bodyPr
             if props.get('vert','horz')!='horz' or int(props.get('numCol','1'))!=1:continue

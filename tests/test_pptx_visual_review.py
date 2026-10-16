@@ -151,6 +151,12 @@ class VisualTests(unittest.TestCase):
             warnings,fixes=visual.review_pptx(source,out,deck,changed,snapshot,Vision())
         self.assertFalse(warnings);self.assertEqual(len(calls),3);self.assertIn('measured_min_height',calls[1])
         self.assertTrue(any(f.get('model_readability') for f in fixes));self.assertEqual(Presentation(out).slides[0].shapes[1].text_frame.paragraphs[0].runs[0].font.size,Pt(24))
+    def test_model_rounding_does_not_discard_already_available_height(self):
+        from backend.replacer.pptx_readability import apply_actions
+        deck,_=self.deck(1);shape=deck.slides[0].shapes[1];shape.text='Readable text';shape.text_frame.paragraphs[0].runs[0].font.size=Pt(9)
+        height=shape.height
+        fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=18,width=216,height=40,reason='留白允许放大')],[],[{'shapes':[]}])
+        self.assertTrue(fixes);self.assertEqual(shape.height,height);self.assertEqual(shape.text_frame.paragraphs[0].runs[0].font.size,Pt(18))
     def test_every_page_is_reviewed_and_private_images_are_removed(self):
         deck,source=self.deck(3);out=self.folder/'out.pptx';save_office(source,deck,out,[])
         calls=[]
