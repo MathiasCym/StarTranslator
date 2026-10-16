@@ -9,6 +9,20 @@ function Read-TextShapes($items) {
     $values=@()
     foreach($shape in $items) {
         if($shape.Type -eq 6) { $values+=@(Read-TextShapes $shape.GroupItems);continue }
+        if($shape.HasTable -eq -1) {
+            for($row=1;$row -le $shape.Table.Rows.Count;$row++) {
+                for($col=1;$col -le $shape.Table.Columns.Count;$col++) {
+                    try {
+                        $cell=$shape.Table.Cell($row,$col).Shape;$range=$cell.TextFrame.TextRange
+                        if(!$range.Text.Trim()){continue}
+                        $values+=@{id=([string]$shape.Id+'/'+$row+'/'+$col);shape_id=[int]$shape.Id;row=$row-1;col=$col-1;
+                            x=[double]$cell.Left;y=[double]$cell.Top;width=[double]$cell.Width;height=[double]$cell.Height;
+                            bound_x=[double]$range.BoundLeft;bound_y=[double]$range.BoundTop;bound_width=[double]$range.BoundWidth;bound_height=[double]$range.BoundHeight}
+                    }catch{}
+                }
+            }
+            continue
+        }
         if($shape.HasTextFrame -eq -1 -and $shape.TextFrame.HasText -eq -1) {
             $range=$shape.TextFrame.TextRange
             $values+=@{id=[int]$shape.Id;x=[double]$shape.Left;y=[double]$shape.Top;width=[double]$shape.Width;height=[double]$shape.Height;

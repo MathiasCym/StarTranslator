@@ -287,6 +287,28 @@ class BatchTests(unittest.TestCase):
 
 
 class CheckpointTests(unittest.TestCase):
+    def test_shipped_2011_checkpoints_keep_connection_and_source_identity(self):
+        from backend.checkpoints import Checkpoint
+        identity={'source':str(self.root/'same.docx'),'fingerprint':'fixture','model':{'model':'fixture'}}
+        old='e70d058be4e421fe6cc5ed3f7fee27bdd31e342576ce3d47145039279f088bf5'
+        with patch('backend.checkpoints.policy',return_value=old):Checkpoint('translation',identity).put(['paragraph'],{'translation':'Verified English'})
+        self.assertEqual(Checkpoint('translation',identity).get(['paragraph'])['translation'],'Verified English')
+        self.assertIsNone(Checkpoint('translation',{**identity,'fingerprint':'changed'}).get(['paragraph']))
+    def test_full_paragraph_repair_checkpoint_is_used_before_splitting_soft_breaks(self):
+        from backend.checkpoints import open_checkpoint,translation_key
+        from backend.glossary.store import fingerprint
+        from backend.extract.office import open_office
+        from backend.replacer.styled_text import style_groups,slice_groups
+        doc=Document();doc.add_paragraph('亮度500尼特\n支持图像处理');doc.save(self.source)
+        client=self.client();segment=extract(str(self.source))[0];_,paragraphs,_=open_office(str(self.source))
+        groups=slice_groups(style_groups(paragraphs[0][1]),0,len(segment.text),visual_keys=True)
+        checkpoint=open_checkpoint('translation',{'source':os.path.normcase(os.path.abspath(self.source)),
+            'fingerprint':fingerprint(self.source),'mode':'faithful'},self.glossary,None,client)
+        text='Brightness 500 nits\nSupports image processing'
+        checkpoint.put(translation_key(segment,segment.text,groups),{'translation':text,'runs':[{'id':groups[0]['id'],'text':text}],'needs_style':False})
+        with patch('backend.llm.client._urlopen',side_effect=AssertionError('Completed paragraph must not be retransmitted')):
+            result=self.translate(client)
+        self.assertTrue(result['translation_complete']);self.assertEqual(result['resumed_segments'],1)
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name)
         self.addCleanup(self.tmp.cleanup)

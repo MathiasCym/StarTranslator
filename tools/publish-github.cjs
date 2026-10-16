@@ -28,6 +28,13 @@ async function call(method,url,body,headers={}){const response=await fetch(url,{
  require('../lib/incremental-source').validateIndex(incremental,pkg.version)
  for(const item of incremental.patches){const bytes=fs.readFileSync(path.join(root,'dist/incremental',item.filename));if(bytes.length!==item.size||crypto.createHash('sha256').update(bytes).digest('hex')!==item.sha256)throw Error('Incremental release asset mismatch');files.push([item.filename,bytes])}
  for(const filename of ['incremental.json','SHA256SUMS.incremental.txt'])files.push([filename,fs.readFileSync(path.join(root,'dist/incremental',filename))])
+ const small=JSON.parse(fs.readFileSync(path.join(root,'dist/incremental/small-updaters.json'),'utf8'))
+ for(const item of small.updates){
+  const bytes=fs.readFileSync(path.join(root,'dist/incremental',item.filename))
+  if(item.filename!==`StarTranslator-SmallUpdate-${item.from}-to-${pkg.version}.exe`||bytes.length!==item.size||crypto.createHash('sha256').update(bytes).digest('hex')!==item.sha256)throw Error('Small updater release asset mismatch')
+  files.push([item.filename,bytes])
+ }
+ files.push(['small-updaters.json',Buffer.from(JSON.stringify(small,null,2)+'\n')])
  for(const [filename,bytes] of files){
   const old=(release.assets||[]).find(a=>a.name===filename)
   if(old)await call('DELETE',api+'/releases/assets/'+old.id)

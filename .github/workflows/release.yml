@@ -60,6 +60,8 @@ jobs:
         run: node --require ./tools/nsis-timeout.js node_modules/electron-builder/cli.js --win nsis --x64 --publish never
       - name: Verify extracted installer images and complete payload
         run: node tools/check-release-payload.cjs
+      - name: Verify old-runtime small-update launcher and automatic restart
+        run: node --test tests/test_small_updater.js
       - name: Build and apply verified small updates from recent releases
         run: node tools/build-incremental.cjs
       - name: Publish verified release

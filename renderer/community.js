@@ -67,15 +67,17 @@
     updateValue=value;$('updateVersions').textContent='当前 v'+value.currentVersion+(value.newVersion?' → v'+value.newVersion:'')
     $('updateSource').textContent=(value.sourceName||'GitHub')+' 正式发布'
     $('updateMessage').textContent=value.message;$('updateMessage').classList.toggle('error',value.phase==='error')
-    $('updateCheck').disabled=['checking','downloading'].includes(value.phase)
-    $('updateDownload').hidden=!value.canDownload||['checking','downloading','ready'].includes(value.phase)
+    $('updateCheck').disabled=['checking','downloading','installing'].includes(value.phase)
+    $('closeUpdates').disabled=value.phase==='installing'
+    $('updateDownload').hidden=!value.canDownload||['checking','downloading','ready','installing'].includes(value.phase)
     $('updateCancel').hidden=value.phase!=='downloading';$('updateInstall').hidden=value.phase!=='ready'
-    $('updateProgressBox').hidden=!['downloading','ready'].includes(value.phase)
+    $('updateProgressBox').hidden=!['downloading','ready','installing'].includes(value.phase)
     $('updateProgressFill').style.width=(value.progress||0)+'%'
-    $('updateDownloadSize').textContent=value.total?`${(value.bytes/1048576||0).toFixed(1)} / ${(value.total/1048576).toFixed(1)} MiB`:'更新包已校验'
+    $('updateDownloadSize').textContent=value.phase==='installing'?'正在准备'+(value.kind==='patch'?'小包':'安装')+'更新；请稍候，程序将自动重启':value.total?`${(value.bytes/1048576||0).toFixed(1)} / ${(value.total/1048576).toFixed(1)} MiB`:'更新包已校验'
     $('updateNotes').hidden=!value.notes;$('updateNotes').textContent=value.notes||''
   }
   window.api.onUpdateStatus(renderUpdate)
+  $('updateDialog').addEventListener('cancel',event=>{if(updateValue?.phase==='installing')event.preventDefault()})
   action('openUpdates',async()=>{renderUpdate(await window.api.updateState());$('updateDialog').showModal()})
   action('closeUpdates',()=>$('updateDialog').close())
   action('updateCheck',()=>window.api.checkUpdates().then(renderUpdate))
@@ -86,7 +88,8 @@
     $('updateDialog').close()
     if(!await confirmResultNavigation('安装更新将关闭星译官，请确认已保存本次结果。','已完成，继续更新')){$('updateDialog').showModal();return}
     if(!await AppDialogs.ask({title:'安装新版本？',message:'即将关闭星译官并打开已校验的更新安装包。模型配置、词库和历史记录会保留。',accept:'关闭并安装',cancel:'稍后安装'})){$('updateDialog').showModal();return}
-    try{await window.api.installUpdate()}catch(error){toast(error.message,true);$('updateDialog').showModal();renderUpdate(await window.api.updateState())}
+    $('updateDialog').showModal();renderUpdate({...updateValue,phase:'installing',progress:0,message:'正在准备更新，完成后自动重启…'})
+    try{await window.api.installUpdate()}catch(error){const value=await window.api.updateState();renderUpdate({...value,message:error.message});if(!$('updateDialog').open)$('updateDialog').showModal()}
   })
   window.Community={get busy(){return teamBusy},get authorizationDirty(){return !!$('teamToken').value}}
 })()

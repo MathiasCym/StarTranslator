@@ -110,19 +110,21 @@ def append_runs(styled,runs):
 def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, page_context=None, segment=None, translation_mode="faithful", initial_result=None):
     """Validate the English once; repair formatting without retranslating it."""
     candidate = None
-    # Escalate only a failed PPT repair. Layout geometry remains owned by the
-    # program; enabling reasoning for every title/label adds no format guarantee.
+    # Complex inline emphasis needs semantic mapping. Uniform text remains a
+    # normal request; reasoning is bounded to one useful call per mapped piece.
     can_think = (getattr(client,'supports_thinking_mode',False) is True and segment is not None
         and Path(segment.file_path or segment.file).suffix.lower()=='.pptx')
     thinking_used = False
+    complex_styles=len({g.get('key',g['id']) for g in groups if any(c.isalnum() for c in g['text'])})>1
     for attempt in range(2):
         check_cancel(cancel)
         try:
             if not attempt and isinstance(initial_result, Exception): raise initial_result
-            if attempt and can_think: thinking_used = True
+            think=can_think and not thinking_used and (bool(attempt) or complex_styles)
+            if think and not (not attempt and initial_result is not None):thinking_used=True
             result = initial_result if not attempt and initial_result is not None else client.chat_json(
-                prompt, system=translation_system(translation_mode), max_tokens=4000 if not attempt else 8000,
-                **({'thinking':True} if attempt and can_think else {}))
+                prompt, system=translation_system(translation_mode), max_tokens=8000 if attempt or think else 4000,
+                **({'thinking':True} if think else {}))
             raw = result.get('translation') if isinstance(result,dict) else None
             if isinstance(raw,str) and raw.strip()!=piece.strip() and re.search(r'[A-Za-z]',raw) and '```' not in raw:
                 candidate={**result,'translation':raw.strip()}
@@ -173,8 +175,11 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
         return anchored_runs(text, groups, glossary)
 
 
-def translate_file(path, glossary, references, output_dir=None, client=None, progress=None, cancel=None, workers=3, translation_mode="faithful"):
+def translate_file(path, glossary, references, output_dir=None, client=None, progress=None, cancel=None, workers=3, translation_mode="faithful", activity=None, defer_visual=False):
+    def notify(phase,message,done=0,total=0):
+        if activity:activity(phase,message,done,total)
     translation_system(translation_mode)
+    notify('preparing','正在读取文档，记录原稿文字、样式与页面结构')
     if Path(path).suffix.lower() != '.pptx': translation_mode = 'faithful'
     validate_document_input(path)
     if Path(path).suffix.lower() == '.pptx':
@@ -223,6 +228,22 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             check_cancel(cancel)
             context = references.context(seg, segments.index(seg)) if references else ''
             groups = prepared[seg.locator]
+            notify('translate',f'模型正在翻译'+(f'第 {seg.slide} 页，' if seg.slide else '')+f'第 {seg.para} 段；保留原稿语境与局部样式')
+            whole=cached_whole.get(seg.locator)
+            if isinstance(whole,dict) and not whole.get('needs_style'):
+                try:
+                    text=whole['translation']
+                    if CHINESE.search(text):raise ValueError('Incomplete checkpoint')
+                    validate_translation(seg.text,text)
+                    runs=response_runs(whole,text,slice_groups(groups,0,len(seg.text),visual_keys=True))
+                except (ValueError,KeyError,TypeError):pass
+                else:
+                    checkpoint.used();page_context.remember(seg,seg.text,text)
+                    results.append((index,seg,groups,runs,True,False,[],[]))
+                    with progress_lock:
+                        completed_count[0]+=1
+                        if progress:progress(completed_count[0],len(todo))
+                    continue
             styled, offset, paragraph_changed, retained_source = [], 0, False, False
             local_issues = []
             # Independent pages may run concurrently, but each paragraph gets
@@ -345,13 +366,16 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     # label a partially translated document as ready for English proofreading.
     if review_items:
         repair_failures=0
-        for seg in todo:
+        repairs=[s for s in todo if CHINESE.search(by_locator[s.locator].text) or any(item['locator']==s.locator for item in review_items)]
+        notify('repair','正在核对翻译完整性，自动修正未译文字、日期与数值',0,len(repairs))
+        for repair_index,seg in enumerate(repairs):
             check_cancel(cancel)
             paragraph=by_locator[seg.locator]
             unresolved=any(item['locator']==seg.locator for item in review_items)
             if not CHINESE.search(paragraph.text) and not unresolved:continue
             if any(item['locator']==seg.locator and item.get('service_unavailable') for item in review_items):continue
             if repair_failures>=2:break
+            notify('repair',f'正在补齐'+(f'第 {seg.slide} 页，' if seg.slide else '')+f'第 {seg.para} 段的翻译；已完成的内容不会重译',repair_index,len(repairs))
             try:
                 # Persistent connection failures already spent the transport
                 # retry budget; keep the resumable draft rather than flood it.
@@ -405,18 +429,23 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 'reason':'该处仍有中文：'+(seg.not_editable_reason or '模型未完成补译，已保留内容。'),
                 'retained_source':True})
     untranslated = len(remaining)
+    notify('layout','正在适配文字排版，协调同页字号、行距与局部强调')
     layout_adjustments,layout_warnings=fit_document(document,changed,original_layout) if is_pptx else ([],[])
     # Finish the whole document in private staging before choosing/publishing its name.
     with tempfile.TemporaryDirectory(prefix='star-translation-private-') as tmp:
         staged=Path(tmp)/('translated'+Path(path).suffix if is_pptx else 'translated'+__import__('backend.formats',fromlist=['output_extension']).output_extension(path))
+        notify('layout','正在写入译文，保留原有图片、图表与对象位置')
         save_office(path,document,staged,changed)
+        visual_warnings=[];visual_audit={'status':'pending' if defer_visual else 'not_requested'}
         if is_pptx:
-            visual_warnings,visual_adjustments=review_pptx(path,staged,document,changed,original_layout,client,cancel,workers=workers)
+            visual_warnings,visual_adjustments=([],[]) if defer_visual else review_pptx(path,staged,document,changed,original_layout,client,cancel,workers=workers,
+                progress=lambda message,n,t:notify('format',message,n,t),audit=visual_audit)
             layout_adjustments+=visual_adjustments
             # Final measurements may resolve an initial estimate warning.
             if visual_adjustments:
                 layout_warnings=[]
             layout_warnings+=visual_warnings
+            notify('layout','正在检查译稿文件结构、图表关联与样式保留情况')
             layout_warnings+=officecli_bridge.compare(baseline,officecli_bridge.inspect(staged,cancel=cancel))
             style_warnings+=verify_styles(document,paragraphs,original_styles,changed)
             if visual_warnings or style_warnings:
@@ -448,13 +477,16 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     from dataclasses import replace
     from .consistency import check_consistency
     translated_segments = [replace(s, text=by_locator[s.locator].text) if s.locator in by_locator else s for s in segments]
+    notify('consistency','正在检查整份文档的重复术语与跨页译法')
     consistency_items = [f.to_dict() for f in check_consistency(translated_segments, glossary,
         aligned_sources={s.id:s.text for s in segments})]
     editable_locators={s.locator for s in segments if s.editable}
-    return {'path':str(destination),'source':os.path.abspath(path),'translated':translated,
+    return {'path':str(destination),'source':os.path.abspath(path),'source_fingerprint':before,'translated':translated,
             'translation_complete':not any(item['locator'] in editable_locators for item in review_items),
             'resumed_segments':checkpoint.resumed if checkpoint else 0,
             'checkpoint_available':checkpoint.available if checkpoint else False,
+            'format_review_deferred':is_pptx and defer_visual,
+            'format_review':visual_audit if is_pptx else None,
             'comparison_id':__import__('backend.comparison',fromlist=['safe_create']).safe_create(segments,by_locator,path,destination),
             'total':len(todo), 'untranslated':untranslated, 'needs_review':pending_count, 'translation_mode':translation_mode,
             'review_items':review_items, 'status':'needs_review' if pending_count else 'complete',

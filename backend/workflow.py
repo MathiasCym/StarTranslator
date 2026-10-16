@@ -130,9 +130,10 @@ def run(job,data):
                     job.setdefault('_history_data',{})['kind']='translate_review'
         except Cancelled: pass
         except Exception: pass  # Normal read errors are recorded per file below.
-    def progress(done,total,message,phase='check',percent=None):
+    def progress(done,total,message,phase='check',percent=None,detail=''):
+        import time
         with LOCK:
-            job.update(done=done,total=total,message=message,phase=phase)
+            job.update(done=done,total=total,message=message,phase=phase,detail=detail or message,activity_at=time.time())
             job['percent'] = max(job.get('percent', 0), percent if percent is not None else 100*done/total if total else 0)
     try: history.begin(job['id'], data)
     except Exception: logging.getLogger(__name__).exception('Could not create local task history')
@@ -152,18 +153,34 @@ def run(job,data):
                 try:
                     final_only = combined and data.get('combined_output') == 'final'
                     folder = store.data_dir() / 'translation-drafts' / job['id'] if final_only else data.get('output_dir')
+                    def activity(phase,message,done=0,total=0):
+                        if phase=='translate' and job.get('phase')=='translate':done,total=job.get('done',0),job.get('total',0)
+                        ranges={'preparing':(0,.02),'translate':(.02,.43 if combined else .70),
+                            'repair':(.45 if combined else .72,.05 if combined else .08),
+                            'layout':(.50 if combined else .80,.04),'consistency':(.54 if combined else .98,.01),
+                            'format':(.84,.14)}
+                        start,span=ranges.get(phase,(.5,.02))
+                        if phase=='format':
+                            if '原稿' in message:start,span=.84,.035
+                            elif '输出' in message:start,span=.875,.035
+                            elif '重新渲染' in message:start,span=.96,.015
+                            else:start,span=.91,.05
+                        progress(done,total,f'处理 {index+1}/{len(paths)}：{Path(path).name}',phase,
+                            100*(index+start+span*done/max(1,total))/len(paths),message)
                     result = translate_file(path,glossary,references,folder,client=data.get('_client'),cancel=job['cancel'],workers=data.get('workers',3),translation_mode=data.get('translation_mode','faithful'),
+                        activity=activity,defer_visual=combined,
                         progress=lambda n,t:progress(n,t,f'翻译 {index+1}/{len(paths)}：{Path(path).name}',
-                            'translate',100*(index+fraction*n/max(1,t))/len(paths)))
+                            'translate',100*(index+(.02+(.43 if combined else .70)*n/max(1,t)))/len(paths),job.get('detail','正在翻译')))
                     result.update(staged=final_only, output_mode=data.get('combined_output', 'both'),
                                   target_dir=str(Path(data.get('output_dir') or Path(path).parent).absolute()))
                     outputs.append(result)
                     if combined and result.get('translation_complete',not result.get('untranslated',0)):
-                        progress(0,0,f'校对 {index+1}/{len(paths)}：{Path(result["path"]).name}', 'check',100*(index+.45)/len(paths))
+                        progress(0,0,f'校对 {index+1}/{len(paths)}：{Path(result["path"]).name}', 'check',100*(index+.55)/len(paths))
                         review = auto_review(result, glossary, references, job['cancel'],
                             lambda n,t,*message:progress(n,t,f'校对 {index+1}/{len(paths)}：{Path(path).name}',
-                                'check',100*(index+.45+.45*n/max(1,t))/len(paths)),
+                                'check',100*(index+.55+.29*n/max(1,t))/len(paths),str(message[0]) if message else '模型正在审校英文表达、术语和事实'),
                             on_finding=lambda items: job.setdefault('partial_findings', []).extend(items),
+                            format_progress=lambda message,n,t:activity('format',message,n,t),
                             client=data.get('_client'), workers=data.get('workers',3),on_export=lambda:progress(0,0,f'保存校对结果 {index+1}/{len(paths)}：{Path(path).name}',
                                 'export',100*(index+.9)/len(paths)))
                         reviews.append(review)
@@ -222,7 +239,8 @@ def run(job,data):
                 job.pop('partial_findings',None)
             job['message'] = '校对完成' if stats['model_status'] in ('complete','not_requested') else '规则检查已完成，模型复核未完成'
         outcome = ('cancelled' if job['cancel'].is_set() else 'failed'
-                   if data['kind'] in ('translate', 'translate_review') and not outputs and errors else 'complete')
+                   if data['kind'] in ('translate', 'translate_review') and not outputs and errors else 'partial'
+                   if errors or (data['kind']=='translate_review' and any(o.get('review_status')!='complete' for o in outputs)) else 'complete')
     except Cancelled as error:
         outcome = 'cancelled'
         job.update(message=str(error))
@@ -239,6 +257,8 @@ def run(job,data):
     finally:
         if data['kind'] == 'translate_review' and job.get('result'):
             publish_combined_report(job, reviews, outcome)
+        job['can_resume']=bool(outcome in ('failed','partial','cancelled') or
+            (job.get('result') or {}).get('stats',{}).get('model_status') in ('partial','unavailable','cancelled','not_started'))
         try: history.finish({**job,'status':outcome}, data)
         except Exception:
             logging.getLogger(__name__).exception('Could not save local task history')
@@ -248,9 +268,13 @@ def run(job,data):
             if outcome=='complete': job['percent'] = 100
 
 
-def auto_review(result, glossary, references, cancel, progress, on_finding=None, on_export=None, client=None, workers=3):
+def auto_review(result, glossary, references, cancel, progress, on_finding=None, on_export=None, client=None, workers=3, format_progress=None):
     """Produce suggestions; applying any review change requires a user action."""
     check_cancel(cancel)
+    def guard_source():
+        if result.get('source_fingerprint') and store.fingerprint(result['source'])!=result['source_fingerprint']:
+            raise ValueError('原稿在翻译完成后发生变化，已保留译文，请重新核对文件后继续。')
+    guard_source()
     translated_path = result['path']
     before = store.fingerprint(translated_path)
     segments = extract(translated_path)
@@ -258,6 +282,22 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
         raise ValueError('读取期间译文文件发生变化，请重试')
     refs = ReferenceIndex(list(dict.fromkeys([result['source'], *references.by_path])) if references else [result['source']], glossary, {translated_path: result['source']})
     findings, stats = check_segments(segments, glossary, True, client=client, references=refs, cancel=cancel, progress=progress, on_finding=on_finding,workers=workers,expect_english=True,checkpoint_origin=result['source'])
+    guard_source()
+    if store.fingerprint(translated_path)!=before:raise ValueError('译文在校对期间被外部修改，已停止写入以保留修改。')
+    if result.get('format_review_deferred') and not cancel.is_set():
+        if format_progress:format_progress('英文审校已结束，正在准备原稿与译稿的逐页格式对照',0,0)
+        original,original_paragraphs,_=open_office(result['source'])
+        document,_,_=open_office(translated_path)
+        changed=[s.locator for s in segments if s.editable]
+        audit={}
+        warnings,adjustments=review_pptx(translated_path,translated_path,document,changed,
+            capture_layout(original,[loc for loc,*_ in original_paragraphs]),client,cancel,
+            reference=result['source'],workers=workers,progress=format_progress,audit=audit)
+        result.setdefault('layout_warnings',[]).extend(warnings)
+        result.setdefault('layout_adjustments',[]).extend(adjustments)
+        result.update(layout_checked=not warnings,format_review=audit,format_review_deferred=False)
+        stats['format_pages']=audit.get('pages',0)
+        stats['format_image_pages']=audit.get('image_pages',0)
     result.update(auto_reviewed=True, review_status=stats['model_status'], corrected=0, translation_path=translated_path)
     result['review_exported'] = False
     if on_export and not cancel.is_set(): on_export()
@@ -276,13 +316,13 @@ def publish_combined_report(job, reviews, outcome):
     result = job['result']
     local = {'segments':[],'hashes':{},'findings':[], 'output_options':{}}
     stats = {key:sum(r['stats'].get(key,0) for r in reviews) for key in
-             ('segments','rule_hits','consistency_hits','llm_hits','judged','errors','unreviewed','truncated','unsupported','residual_chinese','resumed_segments')}
+             ('segments','rule_hits','consistency_hits','llm_hits','judged','errors','unreviewed','truncated','unsupported','residual_chinese','resumed_segments','format_pages','format_image_pages')}
     errors = result.get('errors',[]) + [{'path':r['output']['source'],'error':r['output']['review_error']}
         for r in reviews if r['output'].get('review_error')]
     if job.get('error'): errors.append({'error':job['error']})
     states = [r['stats']['model_status'] for r in reviews]
     stats['model_status'] = 'cancelled' if outcome=='cancelled' else (
-        'unavailable' if not reviews or all(s=='unavailable' for s in states) else 'partial' if errors or any(s!='complete' for s in states) else 'complete')
+        'not_started' if not reviews else 'unavailable' if all(s=='unavailable' for s in states) else 'partial' if errors or any(s!='complete' for s in states) else 'complete')
     stats['warnings'] = [warning for r in reviews for warning in r['stats']['warnings']]
     files = []
     for review in reviews:

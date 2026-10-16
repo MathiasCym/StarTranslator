@@ -169,15 +169,16 @@ ipcMain.handle('install-update',async event=>{
   if(BrowserWindow.getAllWindows().some(window=>window!==mainWindow))throw Error('请先关闭共享工作台和文件选择窗口，再安装更新。')
   maintenanceBusy=true;let launched=false
   try{
+    updater().update({phase:'installing',progress:0,message:'正在准备更新，完成后将自动重启…'})
     await backendMaintenanceLease(true)
     const installer=await updater().prepareInstall()
     if(installer.endsWith('.stpatch')){
-      try{await require('./lib/patch-worker').launchPatch({file:installer,root:path.dirname(process.resourcesPath),currentVersion:app.getVersion(),userData:app.getPath('userData')})}
-      catch(error){runtimeLog.error('Incremental update preparation failed',error);await updater().useFullInstaller().catch(()=>{});throw Error('增量更新未能准备完成，原程序未修改。请重新检查并下载完整更新包。')}
+      try{await require('./lib/patch-worker').launchPatch({file:installer,root:path.dirname(process.resourcesPath),currentVersion:app.getVersion(),userData:app.getPath('userData'),progress:value=>updater().update(value)})}
+      catch(error){runtimeLog.error('Incremental update preparation failed',error);updater().update({phase:'ready',message:'小包更新未启动，原程序保持打开：'+error.message});throw error}
     }else{const error=await shell.openPath(installer);if(error)throw Error('无法启动更新安装包：'+error)}
     launched=true;mainWindow.destroy();app.quit();return {started:true}
   }finally{
-    if(!launched){maintenanceBusy=false;await backendMaintenanceLease(false).catch(()=>{})}
+    if(!launched){maintenanceBusy=false;if(updater().snapshot().phase==='installing')updater().update({phase:'ready',message:'更新尚未启动，可重试；原程序未修改。'});await backendMaintenanceLease(false).catch(()=>{})}
   }
 })
 app.on('before-quit',event=>{

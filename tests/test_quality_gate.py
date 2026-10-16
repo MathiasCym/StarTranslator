@@ -65,6 +65,22 @@ class QualityGateTests(unittest.TestCase):
             if p.cell==('Sheet1','A2'):p.runs[0].text='Cinema screens'
         output=self.root/'result.pptx';save_office(staged,doc,output,[loc for loc,p,*_ in paras if getattr(p,'cell',None)==('Sheet1','A2')])
         self.assertEqual(self.book(output).active['A2'].value,'="显示屏"')
+    def test_chart_point_label_fits_plot_space_without_losing_number_or_emphasis(self):
+        from lxml import etree
+        from backend.replacer.pptx_layout import capture_layout,fit_document
+        source=self.chart();deck=Presentation(source);chart=deck.slides[0].shapes[0].chart
+        ns='http://schemas.openxmlformats.org/drawingml/2006/chart';a='http://schemas.openxmlformats.org/drawingml/2006/main'
+        series=chart._chartSpace.find('.//{'+ns+'}ser')
+        series.append(etree.fromstring(('<c:dLbls xmlns:c="'+ns+'" xmlns:a="'+a+'" xmlns:c15="http://schemas.microsoft.com/office/drawing/2012/chart"><c:dLbl><c:idx val="1"/><c:tx><c:rich><a:bodyPr vertOverflow="ellipsis" lIns="38100" rIns="38100" tIns="19050" bIns="19050"/><a:lstStyle/><a:p><a:pPr><a:defRPr sz="2000"/></a:pPr><a:r><a:rPr sz="2000" b="1"/><a:t>预计500+</a:t></a:r><a:endParaRPr sz="2000"/></a:p></c:rich></c:tx><c:extLst><c:ext uri="fixture"><c15:layout><c:manualLayout><c:w val="0.225"/><c:h val="0.097"/></c:manualLayout></c15:layout></c:ext></c:extLst></c:dLbl></c:dLbls>').encode()))
+        deck.save(source);doc,paras,_=open_office(source)
+        loc,p,*_=next(item for item in paras if item[1].text=='预计500+')
+        snapshots=capture_layout(doc,[loc]);p.runs[0].text='Estimated 500+'
+        fit_document(doc,[loc],snapshots)
+        self.assertEqual(p.text,'Estimated 500+');self.assertTrue(p.runs[0].font.bold)
+        size=p.runs[0].font.size.pt;self.assertLessEqual(size,11);self.assertGreaterEqual(size,9)
+        self.assertEqual(int(p._p.find('{'+a+'}endParaRPr').get('sz')),round(size*100))
+        output=self.root/'chart-fit.pptx';save_office(source,doc,output,[loc])
+        self.assertEqual(self.book(output).active['B2'].value,10)
     def test_empty_residual_suggestion_can_be_manually_edited(self):
         findings,incomplete=residual_findings(Segment('s','source.pptx','显示控制器','slide1/shape0/p0'),Glossary([]))
         self.assertTrue(incomplete);self.assertTrue(findings[0].editable);self.assertEqual(findings[0].suggested,'')
@@ -174,5 +190,51 @@ class QualityGateTests(unittest.TestCase):
         with patch('backend.workflow.review_pptx',return_value=([{'slide':1,'reason':'文档排版处理未完成。'}],[])):
             result=workflow.apply_report(dict(report_id=job['id'],path=str(source),edits=[dict(index=0,text='pixel pitch')]))
         self.assertTrue(Path(result['output']).is_file());self.assertFalse(result['layout_checked']);self.assertTrue(result['layout_warnings'])
+
+    def test_calendar_dates_and_named_plan_are_equal_but_wrong_dates_still_fail(self):
+        from backend.writing_policy import validate_translation
+        examples=[('2025 年 1 月，建立中心。','A center was established in January 2025.'),
+            ('2024 年 12 月 23 日，中国北京','December 23, 2024, Beijing, China'),
+            ('2024 年 12 月 23 日，中国北京','23 December 2024, Beijing, China'),
+            ('2021《“十四五”规划》支持 LED 电影屏。','The 2021 14th Five-Year Plan supports LED cinema screens.')]
+        for source,target in examples:validate_translation(source,target)
+        for source,target in [('2025 年 1 月','February 2025'),('2024 年 12 月 23 日','December 24, 2024'),
+                ('2021《“十四五”规划》','The 2021 15th Five-Year Plan'),('支持 LED 电影屏','Supports 14 LED cinema screens')]:
+            with self.assertRaises(ValueError):validate_translation(source,target)
+    def test_complex_ppt_emphasis_uses_one_reasoning_request_before_style_loss(self):
+        from types import SimpleNamespace
+        from backend.translation import mapped_translation
+        class Model:
+            supports_thinking_mode=True
+            def __init__(self):self.calls=[]
+            def chat_json(self,prompt,**kw):
+                self.calls.append(kw)
+                return {'translation':'Important information','runs':[{'id':0,'text':'Important '},{'id':1,'text':'information'}]}
+        model=Model();groups=[{'id':0,'text':'重要','key':'large-bold'},{'id':1,'text':'说明','key':'body'}]
+        runs,approx=mapped_translation(model,'fixture','重要说明',groups,None,segment=SimpleNamespace(file_path='fixture.pptx',file='fixture.pptx'))
+        self.assertFalse(approx);self.assertEqual(len(model.calls),1);self.assertTrue(model.calls[0]['thinking'])
+    def test_incomplete_translation_is_partial_and_directly_resumable(self):
+        source=self.root/'partial.docx';doc=Document();doc.add_paragraph('完整中文原稿');doc.save(source)
+        draft=self.root/'draft.docx';doc.save(draft)
+        result=dict(path=str(draft),source=str(source),translation_complete=False,translated=0,total=1,
+            untranslated=1,status='needs_review',needs_review=1,review_items=[dict(reason='连接暂不可用')],warnings=[])
+        job=dict(id='quality-direct-resume',kind='translate_review',cancel=threading.Event(),status='running')
+        with patch('backend.workflow.translate_file',return_value=result):
+            workflow.run(job,dict(kind='translate_review',paths=[str(source)]))
+        self.assertEqual(job['status'],'partial');self.assertTrue(job['can_resume'])
+        self.assertEqual(job['result']['stats']['model_status'],'not_started')
+    def test_combined_review_runs_format_comparison_after_text_review(self):
+        source=self.root/'source.pptx';deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6]);slide.shapes.add_textbox(Inches(1),Inches(1),Inches(6),Inches(1)).text='Technical information';deck.save(source)
+        result=dict(path=str(source),source=str(source),format_review_deferred=True,review_items=[],warnings=[])
+        order=[]
+        class Model:
+            def chat_json(self,*args,**kwargs):order.append('text');return []
+        def visual(*args,**kwargs):
+            order.append('format');kwargs['progress']('正在逐页检查版式',1,1);kwargs['audit'].update(pages=1,image_pages=1);return [],[]
+        with patch('backend.workflow.review_pptx',side_effect=visual):
+            review=workflow.auto_review(result,Glossary([]),None,threading.Event(),lambda *a:None,
+                client=Model(),format_progress=lambda *a:order.append('progress'))
+        self.assertLess(order.index('text'),order.index('format'));self.assertEqual(result['format_review']['image_pages'],1)
+        self.assertTrue(result['layout_checked']);self.assertEqual(review['stats']['format_pages'],1)
 
 if __name__=='__main__':unittest.main()

@@ -9,7 +9,7 @@ async function verify({file,base,target,output}){
  await fs.writeFile(path.join(folder,'plan.json'),bytes)
  // QA suppresses only login recovery registration. The production replacement,
  // SHA checks and rollback code execute unchanged, against this extracted copy.
- const source=worker.replace('__PLAN_HASH__',hash(bytes)).replace(/New-Item -Path \$runKey[^\n]+/,'# No registry writes for extracted QA.').replace(/Remove-ItemProperty -Path \$runKey[^\n]+/,'# No registry writes for extracted QA.')
+ const source=worker.replace('__PLAN_HASH__',hash(bytes)).replace(/RegisterRecovery \$runName \$resume/,'# No registry writes for extracted QA.').replace(/RemoveRecovery \$runName/,'# No registry writes for extracted QA.')
  await fs.writeFile(script,'\ufeff'+source)
  const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',script],{windowsHide:true,encoding:'utf8',timeout:180000})
  const outcome=JSON.parse(await fs.readFile(path.join(folder,'result.json'),'utf8').catch(()=>'{"complete":false}'))

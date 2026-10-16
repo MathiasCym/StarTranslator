@@ -19,11 +19,18 @@ app.commandLine.appendSwitch('disable-renderer-backgrounding')
 app.on('browser-window-created',(_event,win)=>win.webContents.setBackgroundThrottling(false))
 let notices=0,ignored=[],updateChecks=0
 let sharedJobs=[],sharedResumes=0
+const previewRequests=[]
 const server=http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost').pathname
  res.setHeader('Content-Type',url.endsWith('.css')?'text/css':url.endsWith('.js')?'text/javascript':url.endsWith('.png')?'image/png':'text/html')
  if(url==='/v1/models')return res.end(JSON.stringify({data:[{id:'ui-only'}]}))
- if(url==='/shared/session')return res.end(JSON.stringify({csrf:'ui-only'}))
+ if(url==='/shared/session'){res.setHeader('Set-Cookie','preview-test=owned; HttpOnly; SameSite=Strict; Path=/');return res.end(JSON.stringify({csrf:'ui-only'}))}
+ if(url.startsWith('/preview-fixture/preview/')){
+  const page=Number(new URL(req.url,'http://localhost').searchParams.get('page')||1),owned=String(req.headers.cookie||'').includes('preview-test=owned')
+  previewRequests.push({page,side:url.split('/').at(-1),owned})
+  const script=fs.readFileSync(path.join(root,'backend/document_preview.py'),'utf8').match(/FRAME_SCRIPT=r'''([\s\S]*?)'''/)[1]
+  return res.end(`<html><head><style>.slide{width:900px;height:500px;background:white}.slide-container{width:900px;height:500px}</style></head><body data-star-page="${page}" data-star-total="3"><div class="slide-container"><div class="slide">${owned?'Page '+page:'Ownership cookie missing'}</div></div><script>${script}</script></body></html>`)
+ }
  if(url==='/shared/jobs')return res.end(JSON.stringify({jobs:sharedJobs}))
  if(url==='/shared/jobs/shared-resume-fixture/resume'){
   sharedResumes++;const restored={id:'shared-restored-fixture',kind:'translate',status:'running',message:'继续翻译',percent:60,downloads:[]}
@@ -154,6 +161,12 @@ server.listen(0,'127.0.0.1',async()=>{
   await run("state.job={id:'resume-fixture',status:'running'};showTaskFailure(new Error('连接暂时中断'))")
   assert.equal(await run("$('failureResume').hidden"),true)
   result.checks.push('history resumes exact saved options; failure action visible; running task cannot duplicate')
+  await run(`state.job={id:'resume-fixture',status:'partial',can_resume:true};state.outputs=[{path:'C:/qa/draft.pptx',staged:true,target_dir:'C:/qa',translated:222,review_items:[{reason:'剩余翻译尚未完成'}]}];loadReport({report_id:'resume-fixture',kind:'translate_review',output_mode:'final',files:[{path:'C:/qa/draft.pptx',name:'draft.pptx',review_available:false}],stats:{model_status:'not_started',segments:0,judged:0},errors:[{error:'翻译尚未完成，已保存可恢复的进度；未将未译中文交给校对。恢复任务后会继续翻译。'}],findings:[]},state.outputs);showCheckCompletion()`)
+  assert.equal(await run("$('completionResume').hidden"),false)
+  assert((await run("$('reviewCompleteTitle').textContent")).includes('校对尚未开始'))
+  assert.equal(await run("$('completionIssue').hidden"),false)
+  await snap('incomplete-translation-resume')
+  result.checks.push('incomplete translation explains why proofreading has not started and offers direct resume')
   sharedJobs=[{id:'shared-resume-fixture',kind:'translate',status:'interrupted',message:'任务已中断',downloads:[],can_resume:true,percent:50}]
   const shared=new BrowserWindow({show:false,width:900,height:850,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});await shared.loadURL(`http://127.0.0.1:${port}/`)
   const sr=code=>shared.webContents.executeJavaScript(code)
@@ -164,6 +177,15 @@ server.listen(0,'127.0.0.1',async()=>{
   await sr("(()=>{const d=new DataTransfer();d.items.add(new File([''],'demo.pptx'));$('files').files=d.files;$('files').dispatchEvent(new Event('change'));$('translationHelpButton').click()})()")
   for(const w of [900,480]){shared.setContentSize(w,850);await wait(100);const rect=await sr("(()=>{const r=$('translationHelp').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth}})()");assert(rect.left>=0&&rect.right<=rect.width&&rect.bottom<=850,JSON.stringify(rect))}
   result.checks.push('floating help geometry; Escape focus; source file changes close modal; shared 480/900px')
+  await sr("if($('translationHelp').open)$('translationHelp').close();comparison={source_name:'source.pptx',output_name:'output.pptx',rows:[]};comparisonBase='/preview-fixture';openComparison()")
+  await wait(1500)
+  await sr("document.querySelector('#comparison [data-side=source] [data-next]').click()")
+  await wait(1500)
+  assert.equal(await sr("document.querySelector('#comparison [data-side=source] input').value"),'2')
+  assert.equal(await sr("document.querySelector('#comparison [data-side=output] input').value"),'2')
+  assert(previewRequests.some(p=>p.page===2&&p.side==='source')&&previewRequests.some(p=>p.page===2&&p.side==='output'))
+  assert(previewRequests.every(p=>p.owned),JSON.stringify(previewRequests))
+  result.checks.push('sandboxed full-page preview flips both panes and retains LAN ownership cookies')
   desktop.webContents.debugger.attach('1.3')
   await desktop.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]})
   assert.equal(await run("getComputedStyle($('dropzone'),'::before').animationName"),'none')

@@ -267,6 +267,12 @@ def _frames(document, changed):
                         count=max((len(cat.findall(f'.//{{{C}}}pt')) for cat in root.findall(f'.//{{{C}}}cat')),default=5)
                         w=.9 if title else .78/max(1,count)
                     if not h or not 0<h<=1: h=.19 if title else .14
+                    if not title:
+                        # Point-label fractions are resolved inside the plot,
+                        # which also reserves axes and title space. Treating
+                        # them as the full chart hides the numeric suffix behind
+                        # PowerPoint's ellipsis even when our estimate fits.
+                        w*=.8;h*=.8
                     frame=TextFrame(body,Owner(shape.chart.part))
                     yield loc,frame,shape,slide,round(actual_width*w),round(actual_height*h),(frame.margin_left,frame.margin_right,frame.margin_top,frame.margin_bottom)
     for index,slide in enumerate(document.slides,1):
@@ -355,6 +361,12 @@ def _write_typography(data,scale,font_changed,spacing_changed,padding,baked_scal
             if font_changed: run.font.name=style[0]
             rpr=run.font._rPr
             rpr.set('spc',str(round(style[4]*100)))
+        if paragraph._p.getparent().tag==f'{{{C}}}rich' and pieces:
+            # Chart engines use paragraph/end-marker size for line height even
+            # when every visible run has already been fitted smaller.
+            size=str(round(max(st[1] for _,st in pieces)*scale*100))
+            paragraph._p.get_or_add_pPr().get_or_add_defRPr().set('sz',size)
+            paragraph._p.get_or_add_endParaRPr().set('sz',size)
         if spacing_changed or scale<.999:
             if 'lnSpc' in spacing:
                 kind,value=spacing['lnSpc']
@@ -383,8 +395,10 @@ def _cohort(page,style):
     return (page,style[0].casefold(),round(style[1],2),style[2],style[3])
 
 
-def _step(size,original):
-    floor=min(original,max(6,min(9,original*.65)))
+def _step(size,original,visual=False):
+    # Measured overflow may require a substantial fit. Additional visual-model
+    # requests alone must not repeatedly collapse an already fitted heading.
+    floor=min(original,max(6,original*.65 if visual else min(9,original*.65)))
     return next((v for v in reversed(FONT_STEPS) if floor<=v<size-.005),size)
 
 
@@ -520,7 +534,7 @@ def fit_document(document, changed, snapshots=None, constraints=None):
                         cohorts={_cohort(page,st) for _,pieces,*_ in chosen for _,st in pieces}
                         local={c:targets[c] for c in cohorts}
                         if constraints and key in constraints:
-                            for c in cohorts: local[c]=min(local[c],_step(rendered_sizes.get(c,local[c]),c[2]))
+                            for c in cohorts: local[c]=min(local[c],_step(rendered_sizes.get(c,local[c]),c[2],visual=True))
                         def fits():
                             measured=_sized(chosen,page,local)
                             mh,_,clip=estimate(measured,width,metrics,wrap=wrap)

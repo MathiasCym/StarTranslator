@@ -105,7 +105,7 @@ for (const id of ['failureExportLog', 'completionExportLog', 'translationExportL
   try {
     const job = state.job || {}, errors = [...(job.result?.errors || []), ...(state.report?.errors || [])]
     const output = await window.api.exportDiagnostics({ id: job.id, kind: job.kind || state.mode, status: job.status,
-      phase: job.phase, error: state.lastFailure || job.error, errors })
+      phase: job.phase,detail:job.detail,done:job.done,total:job.total,outputs:job.result?.outputs||[],error: state.lastFailure || job.error, errors })
     if (output) toast('错误日志已保存：' + output)
   } finally { $(id).disabled = false }
 })
@@ -228,9 +228,10 @@ function chooseCombinedOutput() {
   })
 }
 function renderJobPhase(job) {
-  const labels = { preparing: '准备', translate: '翻译', check: '校对', export: '保存', complete: '完成' }
+  const labels = { preparing: '准备', translate: '翻译', repair:'补译与核对',layout:'文字排版',consistency:'全文一致性',format:'格式对照',check: '校对', export: '保存', complete: '完成' }
   const phase = labels[job.phase] || '处理'
-  $('jobDetail').textContent = job.status === 'queued' ? '等待前面的任务完成，可随时取消' : job.total ? `${phase}：${job.done} / ${job.total} 段${job.file_total ? ` · 文件 ${job.file_index} / ${job.file_total}` : ''}` : job.phase === 'export' ? '正在保存校对结果…' : job.phase === 'check' ? '正在准备校对译文…' : '正在读取文档…'
+  const unit=job.phase==='format'?'页':'段',elapsed=job.activity_at?Math.max(0,Math.floor(Date.now()/1000-job.activity_at)):0
+  $('jobDetail').textContent = job.status === 'queued' ? '等待前面的任务完成，可随时取消' : [job.total?`${phase}：${job.done} / ${job.total} ${unit}`:phase,job.detail||(job.phase==='check'?'正在准备校对译文…':'正在处理文档…'),elapsed>=8?`本步骤已等待 ${elapsed} 秒`:''].filter(Boolean).join(' · ')
   const percent = Number.isFinite(job.percent) ? job.percent : job.total ? 100 * job.done / job.total : null
   const progress = $('jobProgress'), track = $('jobProgressTrack')
   if (percent !== null) {
@@ -242,7 +243,7 @@ function renderJobPhase(job) {
   track.classList.toggle('indeterminate', percent === null)
   progress.setAttribute('aria-valuetext', percent === null ? phase + '中' : phase + '：' + Math.round(progress.value) + '%')
   $('jobStages').querySelectorAll('[data-phase]').forEach(chip => {
-    const active = chip.dataset.phase === job.phase
+    const active = chip.dataset.phase === (['repair','layout','consistency'].includes(job.phase)?'translate':job.phase)
     chip.classList.toggle('active', active)
     if (active) chip.setAttribute('aria-current', 'step'); else chip.removeAttribute('aria-current')
   })
@@ -302,9 +303,13 @@ function renderCheckCompletion() {
   const s = r.stats || {}, files = r.files || [], findings = r.findings || []
   const combined = r.kind === 'translate_review', label = combined ? '翻译并校对' : '校对'
   const cancelled = state.job?.status === 'cancelled', partial = !!r.errors?.length || !['complete', 'not_requested'].includes(s.model_status)
+  const notStarted=combined&&s.model_status==='not_started'
+  $('completionResume').hidden=!state.job?.can_resume&&!notStarted
+  $('completionIssue').hidden=!r.errors?.length
+  $('completionIssue').textContent=[...new Set((r.errors||[]).map(e=>e.error).filter(Boolean))].join('；')
   $('completionExportLog').hidden = !r.errors?.length && !state.job?.error && !s.errors
-  $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : partial ? `${label}已结束 · 部分内容待检查` : `${label}完成`
-  $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分的建议，未检查的内容可稍后重新校对。' : partial ? '已完成的建议可在报告中处理，未完成的范围与原因也列在其中。' : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，打开报告查看并处理建议。'
+  $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : notStarted?'翻译尚未完成 · 校对尚未开始':partial ? `${label}已暂停 · 部分内容未完成` : `${label}完成`
+  $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分，可从断点继续。' : notStarted?'已完成译文与断点均已保留。点击“从断点继续”补齐剩余内容后，程序会接着校对。':partial ? '已完成的建议可在报告中处理；未完成部分可从断点继续。' : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，打开报告查看并处理建议。'
   $('completionSummary').innerHTML = [[files.length, '文档'], [s.segments ?? 0, '检查段落'], [findings.length, '审校建议'], [findings.filter(f => f.applied).length, '已替换建议']].map(([n, label]) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`).join('')
   $('completionFiles').innerHTML = files.map(f => esc(f.name || basename(f.path))).join(' · ') + state.outputs.filter(o => o.comparison_id).map(o => `<button class="btn ghost sm" data-comparison="${o.comparison_id}">中英对照 · ${esc(basename(o.path))}</button>`).join('')
   $('completionFiles').title = files.map(f => f.path).join('\n')
@@ -490,6 +495,7 @@ async function resumeHistoryTask(row) {
   await runTask(false,data)
 }
 action('failureResume',()=>resumeHistoryTask(state.job))
+action('completionResume',()=>resumeHistoryTask(state.job))
 const historyEditor = installHistory({ $, action, callApi, esc, basename, openResult, resumeTask:resumeHistoryTask })
 
 /* ---------- 关于星译官 ---------- */

@@ -47,9 +47,11 @@ class DocumentPreviewTests(unittest.TestCase):
         return source,output,ident
     def test_ppt_keeps_whole_slides_images_tables_and_chart(self):
         source,output,ident=self.pair('.pptx');before=store.fingerprint(source);out_before=store.fingerprint(output)
-        text=document_preview.preview(ident,'source');dom=html.fromstring(text)
-        self.assertEqual(len(dom.xpath('//*[@class="slide-container"]')),2);self.assertGreaterEqual(len(dom.xpath('//img')),2)
+        first=document_preview.preview(ident,'source');text=document_preview.preview(ident,'source',2);dom=html.fromstring(text)
+        self.assertEqual(len(dom.xpath('//*[@class="slide-container"]')),1);self.assertGreaterEqual(len(dom.xpath('//img')),1)
+        self.assertIn('data-star-page="2"',text);self.assertIn('data-star-total="2"',text)
         self.assertIn('data:image/',text);self.assertIn('2025',text);self.assertIn('300',text);self.assertIn('中文完整页面',text)
+        self.assertNotEqual(first,text)
         bars=dom.xpath('//svg/rect');self.assertEqual(len(bars),2)
         self.assertAlmostEqual(float(bars[1].get('height'))/float(bars[0].get('height')),300/261,places=2)
         self.assertTrue(dom.xpath('//table') or dom.xpath('//*[contains(@class,"table")]'))

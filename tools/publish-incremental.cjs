@@ -21,6 +21,25 @@ async function publishIncremental(publisher,release,{readBody}){
    if(bytes.length!==p.size||hash(bytes)!==p.sha256)throw Error('国内增量包必须与 GitHub 原附件逐字节一致。')
    files.push([p.filename,bytes])
  }
+ const smallAssets=(release.assets||[]).filter(a=>a.name==='small-updaters.json')
+ if(smallAssets.length){
+   if(smallAssets.length!==1)throw Error('小包升级入口清单重复。')
+   const bytes=await readAsset(GITHUB,smallAssets[0],'small-updaters.json',2*1024*1024)
+   if(smallAssets[0].digest!=='sha256:'+hash(bytes))throw Error('小包升级入口清单摘要不符。')
+   const small=JSON.parse(bytes)
+   if(small.schema!==1||small.version!==a.version||!Array.isArray(small.updates)||small.updates.length>5)throw Error('小包升级入口清单无效。')
+   const seen=new Set()
+   for(const item of small.updates){
+     if(!index.patches.some(p=>p.from===item.from)||item.to!==a.version||item.filename!==`StarTranslator-SmallUpdate-${item.from}-to-${a.version}.exe`||seen.has(item.from)||!Number.isSafeInteger(item.size)||item.size<1024||item.size>32*1024*1024||!/^[a-f0-9]{64}$/.test(item.sha256))throw Error('小包升级入口无效。')
+     seen.add(item.from)
+     const asset=(release.assets||[]).filter(a=>a.name===item.filename)
+     if(asset.length!==1||asset[0].digest!=='sha256:'+item.sha256||asset[0].size!==item.size)throw Error('小包升级入口附件不符。')
+     const value=await readAsset(GITHUB,asset[0],item.filename,item.size)
+     if(value.length!==item.size||hash(value)!==item.sha256)throw Error('小包升级入口下载摘要不符。')
+     files.push([item.filename,value])
+   }
+   files.push(['small-updaters.json',bytes])
+ }
  files.unshift(['SHA256SUMS.incremental.txt',Buffer.from(index.patches.map(p=>p.sha256+'  '+p.filename+'\n').join(''))]);files.push(['incremental.json',indexBytes])
  let existing=await publisher.call('GET','releases/tags/'+tag)
  if(existing&&existing.release_status!=='pre'&&!existing.prerelease){

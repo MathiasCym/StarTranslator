@@ -149,6 +149,29 @@ class VisualTests(unittest.TestCase):
             issues,fixes=visual.review_pptx(source,out,deck,['slide1/shape0/p0'],capture_layout(deck,[]),Vision())
         self.assertEqual(out.read_bytes(),original);self.assertEqual(len(issues),1)
         self.assertEqual(count[0],3);self.assertEqual(fixes,[])
+    def test_in_place_staged_review_keeps_a_readonly_package_before_repair(self):
+        deck,source=self.deck(1);out=self.folder/'same.pptx';save_office(source,deck,out,[])
+        sid=deck.slides[0].shapes[0].shape_id;count=[0]
+        class Vision:
+            def chat_images_json(_,prompt,images,**kwargs):
+                count[0]+=1
+                return {'reviewed':True,'issues':[{'shape_id':sid,'kind':'crowded','reason':'文字拥挤'}] if count[0]==1 else []}
+        with patch.object(visual,'render_pages',side_effect=self.renderer):
+            issues,_=visual.review_pptx(out,out,deck,['slide1/shape0/p0'],capture_layout(deck,[]),Vision(),reference=source)
+        self.assertFalse(issues);self.assertGreater(count[0],1)
+        with ZipFile(out) as archive:self.assertIsNone(archive.testzip())
+    def test_native_table_cell_and_left_clipping_map_to_the_correct_frame(self):
+        old=dict(id='10/1/1',shape_id=10,row=0,col=0,x=0,y=0,width=100,height=20,bound_x=0,bound_y=0,bound_width=50,bound_height=15)
+        new={**old,'bound_x':-5}
+        found=visual._native_issues({'shapes':[old]},{'shapes':[new]},1,[{'shape_id':10,'locator':'slide1/shape2'}])
+        self.assertEqual(len(found),1);self.assertEqual(found[0]['locator'],'slide1/shape2/table/0/0/')
+    def test_visual_object_inventory_does_not_create_text_in_covered_merged_cells(self):
+        deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
+        table=slide.shapes.add_table(1,2,Inches(1),Inches(1),Inches(6),Inches(1)).table
+        table.cell(0,0).merge(table.cell(0,1));table.cell(0,0).text='Merged label'
+        cell=table.cell(0,1);body=cell._tc.find('{http://schemas.openxmlformats.org/drawingml/2006/main}txBody')
+        cell._tc.remove(body);before=slide._element.xml
+        self.assertTrue(visual._objects(deck)[0]);self.assertEqual(slide._element.xml,before)
     def test_cancellation_exits_and_cleans_private_images(self):
         deck,source=self.deck();out=self.folder/'out.pptx';save_office(source,deck,out,[]);cancel=threading.Event();paths=[]
         class Vision:

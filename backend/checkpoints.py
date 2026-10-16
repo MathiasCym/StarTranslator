@@ -52,6 +52,16 @@ class Checkpoint:
                 db.execute('CREATE TABLE IF NOT EXISTS checkpoint_scopes (scope TEXT PRIMARY KEY, origin TEXT NOT NULL)')
                 db.execute('INSERT OR REPLACE INTO checkpoint_scopes VALUES (?,?)',(self.scope,str(identity.get('source',''))))
                 rows = db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?', (self.scope,stage)).fetchall()
+                # Explicit compatibility with the shipped 2.0.11 translator.
+                # Source/model/glossary/references/styles remain in the identity;
+                # every resumed paragraph still passes today's content checks.
+                if stage=='translation':
+                    for old_policy in ('e70d058be4e421fe6cc5ed3f7fee27bdd31e342576ce3d47145039279f088bf5',
+                            '2dbc35c2e107202d597ff58e7d2bf3baff4ac9e807e2afd4dcc7e40a98e1a664'):
+                        legacy=digest({'policy':old_policy,'input':identity})
+                        if legacy==self.scope:continue
+                        known={key for key,_ in rows}
+                        rows.extend((key,value) for key,value in db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?',(legacy,stage)).fetchall() if key not in known)
             for key, value in rows:
                 try: self.values[key] = json.loads(value)
                 except (ValueError, TypeError): pass

@@ -48,6 +48,23 @@ def translation_numeric_tokens(source, translation):
     """
     text, tokens = numeric_tokens(translation)
     ignored = []
+    # A month written as a word carries the same factual value as 中文数字月.
+    # Require an actual date next to a year: ordinary "may" is never a month.
+    if re.search(r'\d{4}\s*年\s*\d{1,2}\s*月', source):
+        months = ('January February March April May June July August September October November December').split()
+        names = {name.casefold():number for number,name in enumerate(months,1)}
+        names.update({name[:3].casefold():number for number,name in enumerate(months,1)})
+        date = re.compile(r'\b('+'|'.join(sorted(names,key=len,reverse=True))+r')\.?(?=\s+(?:\d{1,2}(?:st|nd|rd|th)?,?\s+)?\d{4}\b)',re.I)
+        for match in date.finditer(text):
+            tokens.append((Decimal(names[match[1].casefold()]),match.start(),match.end()))
+    # An explicitly named Chinese five-year plan already encodes its ordinal.
+    # Ignore only the exact equivalent English name, never arbitrary new digits.
+    chinese = {11:'十一',12:'十二',13:'十三',14:'十四',15:'十五',16:'十六',17:'十七',18:'十八',19:'十九',20:'二十'}
+    for number,label in chinese.items():
+        if not re.search(re.escape(label)+r'五["”’》]*\s*(?:规划|计划)',source):continue
+        suffix='th' if number not in (21,22,23) else {21:'st',22:'nd',23:'rd'}[number]
+        pattern=re.compile(r'\b'+str(number)+suffix+r'\s*[-–]?\s*(?:Five|5)[-\s]+Year\s+Plan\b',re.I)
+        ignored.extend((m.start(),m.end()) for m in pattern.finditer(text))
     for labels, forms in [(['上半年'], ['H1', '1H']), (['下半年'], ['H2', '2H']),
             (['第一季度', '一季度'], ['Q1', '1Q']), (['第二季度', '二季度'], ['Q2', '2Q']),
             (['第三季度', '三季度'], ['Q3', '3Q']), (['第四季度', '四季度'], ['Q4', '4Q'])]:

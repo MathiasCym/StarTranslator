@@ -41,6 +41,17 @@ window.PageComparison = (() => {
     const entry=Object.entries(v.panes).find(([,p])=>p.frame.contentWindow===event.source);if(!entry)return
     const [side,p]=entry
     if(data.token!==p.token)return
+    if(data.type==='navigate'){
+      p.ready=false;p.page=Math.max(1,Math.min(p.total,Math.round(Number(data.page))||1));p.number.value=p.page
+      p.status.hidden=false;p.status.textContent='正在加载第 '+p.page+' 页…'
+      p.pane.querySelector('[data-prev]').disabled=p.pane.querySelector('[data-next]').disabled=true
+      // The parent starts the request so LAN ownership cookies remain first
+      // party; the sandboxed document never chooses an endpoint or URL.
+      const url=new URL(p.frame.src);p.token=String(++sequence)+'-'+side
+      url.searchParams.set('page',p.page);url.searchParams.set('preview_token',p.token);url.searchParams.set('zoom',v.box.querySelector('select').value)
+      p.frame.src=url.href
+      return
+    }
     if(data.type==='error'){clearTimeout(p.timer);p.status.hidden=false;p.status.textContent=String(data.message||'页面预览未完成').slice(0,500);return}
     if(data.type==='ready'){
       const first=!p.ready;clearTimeout(p.timer);p.ready=true;p.status.hidden=true;p.total=Math.max(1,Math.min(10000,Number(data.total)||1));p.number.max=p.total;p.pane.querySelector('[data-count]').textContent='/ '+p.total

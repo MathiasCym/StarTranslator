@@ -8,7 +8,7 @@ import tempfile
 import threading
 from pathlib import Path
 from lxml import html
-from flask import Response
+from flask import Response,request,has_request_context
 from . import comparison, officecli_bridge
 from .glossary import store
 
@@ -16,11 +16,13 @@ SLOTS=threading.BoundedSemaphore(2)
 LOCK=threading.RLock()
 RENDER_LOCKS={}
 MAX_HTML=64*1024*1024
-PREVIEW_FORMAT='pages-4'
+PREVIEW_FORMAT='pages-5'
 CSP="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"
 FRAME_SCRIPT=r'''
 (()=>{
 const channel='star-page-preview',token=new URLSearchParams(location.search).get('preview_token');let pages=[],zoom='fit',muteUntil=0,ready=false,timer,currentPage=0;
+const remotePage=Number(document.body.dataset.starPage)||0,remoteTotal=Number(document.body.dataset.starTotal)||0;
+zoom=new URLSearchParams(location.search).get('zoom')||'fit';muteUntil=remotePage>1?Date.now()+2500:0;
 function send(data){parent.postMessage({channel,token,...data},'*')}
 function list(){return [...document.querySelectorAll('.slide-container,.page-wrapper')].filter(p=>p.querySelector('.slide,.page'))}
 function scale(){
@@ -32,18 +34,19 @@ function scale(){
   p.style.transformOrigin='top left';p.style.transform='scale('+factor+')';
   w.style.width=width*factor+'px';w.style.height=height*factor+'px';w.style.minHeight='0';
  });
- if(pages.length){send({type:'ready',total:pages.length});ready=true;position()}
+ if(pages.length){send({type:'ready',total:remoteTotal||pages.length});ready=true;position()}
 }
 function position(){
  if(!ready)return;
  const p=pages[currentPage],fraction=Math.max(0,Math.min(1,(scrollY-p.offsetTop)/Math.max(1,p.offsetHeight)));
- send({type:'position',page:currentPage+1,fraction,command:Date.now()<muteUntil})
+ send({type:'position',page:remotePage||currentPage+1,fraction,command:Date.now()<muteUntil})
 }
 addEventListener('message',e=>{
  if(e.source!==parent||e.data?.channel!==channel||e.data.token!==token)return;
  const d=e.data;
  if(d.type==='zoom'){zoom=['fit','1','1.25','1.5','2'].includes(d.value)?d.value:'fit';muteUntil=Date.now()+350;scale()}
  if(d.type==='goto'&&pages.length){const i=Math.max(0,Math.min(pages.length-1,Math.round(Number(d.page)||1)-1));
+  if(remotePage){const wanted=Math.max(1,Math.min(remoteTotal,Math.round(Number(d.page)||1)));if(wanted!==remotePage){send({type:'navigate',page:wanted});return}}
   muteUntil=Date.now()+500;currentPage=i;scale();scrollTo(scrollX,pages[i].offsetTop+Math.max(0,Math.min(1,Number(d.fraction)||0))*pages[i].offsetHeight);position()}
 });
 addEventListener('scroll',()=>{clearTimeout(timer);timer=setTimeout(position,70)},{passive:true});
@@ -65,7 +68,7 @@ a{pointer-events:none!important;color:inherit!important;text-decoration:inherit!
 '''
 
 
-def prepare(raw,kind):
+def prepare(raw,kind,page=None,total=None):
     dom=html.fromstring(raw)
     # Inline renderer scripts from the pinned compiler run only in an opaque,
     # network-free sandbox. PPT uses our page sizing; Word keeps its pagination.
@@ -80,6 +83,8 @@ def prepare(raw,kind):
             del node.attrib['src']
     head=dom.find('head');body=dom.find('body')
     if head is None or body is None: raise ValueError('文档组件未生成完整页面。')
+    if page is not None:
+        body.set('data-star-page',str(page));body.set('data-star-total',str(total))
     style=html.Element('style');style.text=FRAME_CSS;head.append(style)
     script=html.Element('script');script.text=FRAME_SCRIPT;body.append(script)
     return '<!doctype html>\n'+html.tostring(dom,encoding='unicode',method='html')
@@ -101,7 +106,7 @@ def text_preview(source):
     return prepare(raw,'.pptx')
 
 
-def preview(comparison_id,side):
+def preview(comparison_id,side,page=1):
     if side not in ('source','output'): raise ValueError('页面预览不存在。')
     value=comparison.read(comparison_id)
     # The shared semaphore bounds renderer subprocesses independently of model work.
@@ -111,8 +116,16 @@ def preview(comparison_id,side):
         with render_lock:
             source=comparison.source_for_preview(value) if side=='source' else Path(value['output_path'])
             if not source.is_file(): raise ValueError('处理后的文件已移动或删除，无法显示完整页面。文字对照仍可查看。')
+            total=None
+            if source.suffix.lower()=='.pptx':
+                from zipfile import ZipFile
+                from lxml import etree
+                with ZipFile(source) as archive:
+                    total=len(etree.fromstring(archive.read('ppt/presentation.xml')).findall('.//{http://schemas.openxmlformats.org/presentationml/2006/main}sldId'))
+                if type(page) is not int or not 1<=page<=total:raise ValueError('预览页码超出范围。')
             digest=store.fingerprint(source);folder=comparison.folder()/comparison_id;folder.mkdir(parents=True,exist_ok=True)
-            cached=folder/(side+'.html');stamp=folder/(side+'.sha256')
+            name=side+(f'-page-{page}' if total is not None else '')
+            cached=folder/(name+'.html');stamp=folder/(name+'.sha256')
             cache_key=PREVIEW_FORMAT+'\n'+digest
             if cached.is_file() and stamp.is_file() and stamp.read_text()==cache_key: return cached.read_text(encoding='utf-8')
             if source.suffix.lower() not in {'.docx','.pptx'}:
@@ -126,14 +139,16 @@ def preview(comparison_id,side):
                 if store.fingerprint(snapshot)!=digest: raise ValueError('文件在读取期间发生变化，请重试预览。')
                 binary=officecli_bridge.ensure_component('before_preview')
                 try:
-                    result=subprocess.run([str(binary),'view',str(snapshot),'html','--out',str(output)],
+                    args=[str(binary),'view',str(snapshot),'html','--out',str(output)]
+                    if total is not None:args+=['--start',str(page),'--end',str(page)]
+                    result=subprocess.run(args,
                         cwd=tmp,capture_output=True,encoding='utf-8',errors='replace',timeout=120,
                         creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0,
                         env={**os.environ,'OFFICECLI_NO_AUTO_RESIDENT':'1','OFFICECLI_SKIP_UPDATE':'1'})
                 except subprocess.TimeoutExpired as e: raise ValueError('完整页面预览准备超时。文字对照仍可使用，请稍后重试。') from e
                 if result.returncode or not output.is_file(): raise ValueError('文档组件未能生成完整页面，请导出诊断日志。')
-                if output.stat().st_size>MAX_HTML: raise ValueError('页面预览内容较大，请先通过文档软件查看。文字对照仍可使用。')
-                prepared=prepare(output.read_text(encoding='utf-8-sig'),source.suffix.lower())
+                if output.stat().st_size>MAX_HTML: raise ValueError('当前单页含有超大图像，页面预览未完成。请导出诊断日志。')
+                prepared=prepare(output.read_text(encoding='utf-8-sig'),source.suffix.lower(),page if total is not None else None,total)
             # Replacements and external edits produce a new fingerprint on the next view.
             cached.write_text(prepared,encoding='utf-8');stamp.write_text(cache_key)
             return prepared
@@ -141,7 +156,9 @@ def preview(comparison_id,side):
 
 
 def response(comparison_id,side,shared=False):
-    try: content=preview(comparison_id,side)
+    try:
+        page=int(request.args.get('page','1')) if has_request_context() else 1
+        content=preview(comparison_id,side,page)
     except Exception as error:
         logging.getLogger(__name__).exception('Could not prepare read-only page comparison')
         message=str(error) if isinstance(error,ValueError) else '页面预览未完成，请导出诊断日志。'
