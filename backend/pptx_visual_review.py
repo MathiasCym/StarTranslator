@@ -125,10 +125,15 @@ def _objects(document):
     for number,slide in enumerate(document.slides,1):
         values=[]
         for key,shape,transform in walk_shapes(slide.shapes,f'slide{number}'):
-            if not shape.has_text_frame and not shape.has_table:continue
             x,y,w,h=bounds(shape,transform)
+            text=shape.text if shape.has_text_frame else '\n'.join(cell.text for row in shape.table.rows for cell in row.cells if not cell.is_spanned) if shape.has_table else ''
+            fonts=[]
+            if shape.has_text_frame and text.strip():
+                from .replacer.pptx_layout import _paragraph_data
+                fonts=sorted({round(st[1],2) for _,pieces,*_ in _paragraph_data(shape.text_frame,shape,slide,document) for r,st in pieces if r.text.strip()})
             values.append({'shape_id':shape.shape_id,'locator':key,'box':[round(v/12700,1) for v in (x,y,w,h)],
-                           'text':(shape.text if shape.has_text_frame else '\n'.join(cell.text for row in shape.table.rows for cell in row.cells if not cell.is_spanned))[:400]})
+                           'kind':'text' if shape.has_text_frame and text.strip() else 'table' if shape.has_table else 'chart' if shape.has_chart else 'picture' if shape.shape_type==13 else 'decoration',
+                           'font_sizes':fonts,'text':text[:400]})
         pages.append(values)
     return pages
 
@@ -211,6 +216,13 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                         sid=item.get('shape_id')
                         issues.append({'slide':number,'text':f'文本框 {sid}' if sid in keys else '页面文字',
                                        'locator':keys.get(sid),'kind':item['kind'],'reason':item['reason'][:200]})
+                    for action in (result.get('adjustments') or [])[:20]:
+                        if not isinstance(action,dict) or action.get('shape_id') not in keys or not isinstance(action.get('reason'),str):continue
+                        from .replacer.pptx_readability import _number
+                        if not _number(action.get('font_size')) or not action['reason'].strip():continue
+                        issues.append({**action,'slide':number,'kind':'readability','locator':keys[action['shape_id']],
+                            'current_font_size':max(next(v['font_sizes'] for v in objects[number-1] if v['shape_id']==action['shape_id']) or [1]),
+                            'text':f"文本框 {action['shape_id']}",'reason':action['reason'][:200]})
                     return issues
                 from concurrent.futures import ThreadPoolExecutor
                 issues=[]
@@ -228,22 +240,29 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
             issues=inspect(current,range(1,len(document.slides)+1))
             best=folder/'best.pptx';shutil.copyfile(output,best)
             best_issues=list(issues);best_adjustments=[]
-            def score(values):return sum(10+min(100,float(v.get('extent',0))) for v in values)
+            def score(values):return sum(10+min(100,float(v.get('extent',0))) if v.get('kind')!='readability' else
+                10+min(100,max(0,float(v.get('font_size',0))/v['current_font_size']-1)*10) for v in values)
             for attempt in range(1,3):
                 constraints={i['locator']:True for i in issues if i.get('locator') and i.get('kind') in {'clipping','overlap','crowded'}}
                 for key in list(constraints):
                     for frame in snapshots or {}:
                         if frame.startswith(key.rstrip('/')+'/'):constraints[frame]=True
-                if not constraints:break
                 _cancel(cancel)
-                fixes,final_fitting=fit_document(document,changed,snapshots,constraints=constraints)
+                fixes,final_fitting=fit_document(document,changed,snapshots,constraints=constraints) if constraints else ([],[])
+                from .replacer.pptx_readability import apply_actions
+                if any(i.get('kind')=='readability' for i in issues):notify('正在根据整页图像调整字号与文字区域')
+                growth=apply_actions(document,issues,changed,current['pages'])
+                if not constraints and not growth:break
+                fixes+=growth
                 adjustments.extend(fixes)
                 save_office(source,document,output,changed)
                 notify('正在重新渲染并检查调整后的页面')
                 revised=render_pages(output,folder/f'output-{attempt}',cancel,**({'progress':lambda n,t:notify('正在重新渲染调整后的页面',n,t)} if progress else {}))
                 if len(revised['pages'])!=len(document.slides):return [*issues,pending],adjustments
-                affected={i['slide'] for i in issues if i.get('locator') in constraints}
+                affected={i['slide'] for i in issues if i.get('locator') in constraints}|{i['slide'] for i in growth}
+                objects=_objects(document)
                 issues=[i for i in issues if i['slide'] not in affected]+inspect(revised,sorted(affected))
+                current=revised
                 if score(issues)<score(best_issues):
                     shutil.copyfile(output,best);best_issues=list(issues);best_adjustments=list(adjustments)
             shutil.copyfile(best,output)

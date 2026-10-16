@@ -103,6 +103,41 @@ class VisualTests(unittest.TestCase):
         deck,source=self.deck();deck.slides[0].shapes[0].left+=Inches(1)
         with self.assertRaisesRegex(ValueError,'对象结构'):
             save_office(source,deck,self.folder/'bad.pptx',['slide1/shape0/p0'])
+    def test_model_can_enlarge_readable_text_into_free_space_and_rerender(self):
+        deck,source=self.deck(1);shape=deck.slides[0].shapes[1];snapshot=capture_layout(deck,[])
+        from pptx.dml.color import RGBColor
+        run=shape.text_frame.paragraphs[0].runs[0];run.text='English information';run.font.size=Pt(12);run.font.bold=True;run.font.color.rgb=RGBColor(20,180,240)
+        changed=['slide1/shape1/p0'];out=self.folder/'grown.pptx';save_office(source,deck,out,changed)
+        calls=[]
+        class Vision:
+            def chat_images_json(_,prompt,**kw):
+                calls.append(prompt)
+                return {'reviewed':True,'issues':[],'adjustments':[{'shape_id':shape.shape_id,'font_size':18,'width':216,'height':54,'reason':'整页图像显示右侧有空白，可以放大'}] if len(calls)==1 else []}
+        with patch.object(visual,'render_pages',side_effect=self.renderer):
+            issues,fixes=visual.review_pptx(source,out,deck,changed,snapshot,Vision())
+        self.assertFalse(issues);self.assertEqual(len(calls),2);self.assertTrue(any(f.get('model_readability') for f in fixes))
+        result=Presentation(out).slides[0].shapes[1]
+        self.assertEqual(result.width,Pt(216));self.assertEqual(result.height,Pt(54));self.assertEqual(result.left,shape.left)
+        self.assertEqual(result.text,'English information');r=result.text_frame.paragraphs[0].runs[0]
+        self.assertEqual(r.font.size,Pt(18));self.assertTrue(r.font.bold);self.assertEqual(r.font.color.rgb,RGBColor(20,180,240))
+        self.assertIn('"font_sizes": [18.0]',calls[-1])
+    def test_model_expansion_cannot_cover_an_image_or_other_text_or_leave_page(self):
+        from backend.replacer.pptx_readability import apply_actions
+        from PIL import Image
+        deck,source=self.deck(1);slide=deck.slides[0];shape=slide.shapes[1];shape.text='Text';shape.text_frame.paragraphs[0].runs[0].font.size=Pt(10)
+        image=self.folder/'picture.png';Image.new('RGB',(40,40),'blue').save(image)
+        slide.shapes.add_picture(str(image),Inches(3),Inches(2),Inches(1),Inches(1))
+        before=(shape.width,shape.height,shape.text_frame.paragraphs[0].runs[0].font.size)
+        for width in (300,10000):
+            fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=18,width=width,height=54,reason='model')],[],[{'shapes':[]}])
+            self.assertEqual(fixes,[]);self.assertEqual((shape.width,shape.height,shape.text_frame.paragraphs[0].runs[0].font.size),before)
+    def test_approved_expansion_does_not_let_another_geometry_change_through(self):
+        from backend.replacer.pptx_readability import apply_actions
+        deck,source=self.deck(1);shape=deck.slides[0].shapes[1];shape.text='Text';shape.text_frame.paragraphs[0].runs[0].font.size=Pt(10)
+        changed=[]
+        self.assertTrue(apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=18,width=216,height=54,reason='model')],changed,[{'shapes':[]}]))
+        deck.slides[0].shapes[0].left+=Inches(1)
+        with self.assertRaisesRegex(ValueError,'对象结构'):save_office(source,deck,self.folder/'unsafe.pptx',changed)
     def test_every_page_is_reviewed_and_private_images_are_removed(self):
         deck,source=self.deck(3);out=self.folder/'out.pptx';save_office(source,deck,out,[])
         calls=[]
