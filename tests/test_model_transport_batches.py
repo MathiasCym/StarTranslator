@@ -287,6 +287,20 @@ class BatchTests(unittest.TestCase):
 
 
 class CheckpointTests(unittest.TestCase):
+    def test_policy_is_independent_of_windows_checkout_line_endings(self):
+        from backend.checkpoints import policy
+        policy.cache_clear();expected=policy('translation');original=Path.read_bytes
+        try:
+            with patch.object(Path,'read_bytes',lambda p:original(p).replace(b'\r\n',b'\n').replace(b'\n',b'\r\n')):
+                policy.cache_clear();self.assertEqual(policy('translation'),expected)
+        finally:policy.cache_clear()
+
+    def test_formal_2012_installer_policy_keeps_completed_translation(self):
+        from backend.checkpoints import Checkpoint
+        identity={'source':str(self.root/'same.docx'),'fingerprint':'fixture','model':{'model':'fixture'}}
+        old='cce7e89f4fc5d122f2f32566e846b3f5d6868984403ab0aee2a8b8808d0ae6bf'
+        with patch('backend.checkpoints.policy',return_value=old):Checkpoint('translation',identity).put(['paragraph'],{'translation':'Verified English'})
+        self.assertEqual(Checkpoint('translation',identity).get(['paragraph'])['translation'],'Verified English')
     def test_shipped_2012_checkpoints_are_revalidated_without_losing_identity(self):
         from backend.checkpoints import Checkpoint
         identity={'source':str(self.root/'same.docx'),'fingerprint':'fixture','model':{'model':'fixture'}}

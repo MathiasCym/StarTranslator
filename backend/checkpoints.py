@@ -24,7 +24,8 @@ def policy(stage):
     names = ['writing_policy.py', 'document_context.py', 'llm/client.py']
     names += (['translation.py', 'translation_batch.py', 'translation_residual.py', 'replacer/styled_text.py']
               if stage == 'translation' else ['matcher/__init__.py', 'matcher/judge.py', 'matcher/batch.py'])
-    return digest([hashlib.sha256((Path(__file__).parent/name).read_bytes()).hexdigest() for name in names])
+    # Checkout line endings must not change the meaning of a resumable policy.
+    return digest([hashlib.sha256((Path(__file__).parent/name).read_bytes().replace(b'\r\n',b'\n')).hexdigest() for name in names])
 
 
 def context_identity(glossary, references, client, reference_path=None):
@@ -58,7 +59,8 @@ class Checkpoint:
                 if stage=='translation':
                     for old_policy in ('e70d058be4e421fe6cc5ed3f7fee27bdd31e342576ce3d47145039279f088bf5',
                             '2dbc35c2e107202d597ff58e7d2bf3baff4ac9e807e2afd4dcc7e40a98e1a664',
-                            '20631795cfac42022cdebcb50c6f52e8d44cdf72d7dfbc51129d27399cd58c47'):
+                            '20631795cfac42022cdebcb50c6f52e8d44cdf72d7dfbc51129d27399cd58c47',
+                            'cce7e89f4fc5d122f2f32566e846b3f5d6868984403ab0aee2a8b8808d0ae6bf'):
                         legacy=digest({'policy':old_policy,'input':identity})
                         if legacy==self.scope:continue
                         known={key for key,_ in rows}
