@@ -42,16 +42,16 @@ class VisualTests(unittest.TestCase):
             png=folder/f'page-{i+1}.png';Image.new('RGB',(128,72),'white').save(png)
             pages.append({'image':png,'file':png.name,'shapes':[]})
         return {'pages':pages,'native':False}
-    def test_same_source_style_uses_one_clean_size_on_each_page_including_english_peers(self):
+    def test_a_crowded_frame_does_not_shrink_spacious_peers_or_other_pages(self):
         deck,source=self.deck();original=capture_layout(deck,[])
         short=deck.slides[0].shapes[0];long=deck.slides[0].shapes[1]
         short.text_frame.paragraphs[0].runs[0].text='Title'
         long.text_frame.paragraphs[0].runs[0].text='Full technical explanation for cinema display processing'
         changed=['slide1/shape1/p0'];fit_document(deck,changed,original)
         sizes=[s.text_frame.paragraphs[0].runs[0].font.size.pt for s in deck.slides[0].shapes]
-        self.assertEqual(len(set(sizes)),1);self.assertIn(sizes[0],FONT_STEPS);self.assertLess(sizes[0],24)
+        self.assertEqual(sizes[0],24);self.assertIn(sizes[1],FONT_STEPS);self.assertLess(sizes[1],24)
         self.assertEqual(deck.slides[1].shapes[0].text_frame.paragraphs[0].runs[0].font.size.pt,24)
-        self.assertIn('slide1/shape0/p0',changed)
+        self.assertNotIn('slide1/shape0/p0',changed)
         output=self.folder/'output.pptx';save_office(source,deck,output,changed)
         with ZipFile(source) as a,ZipFile(output) as b:
             self.assertEqual(a.read('ppt/slides/slide2.xml'),b.read('ppt/slides/slide2.xml'))
@@ -121,6 +121,7 @@ class VisualTests(unittest.TestCase):
         self.assertEqual(result.text,'English information');r=result.text_frame.paragraphs[0].runs[0]
         self.assertEqual(r.font.size,Pt(18));self.assertTrue(r.font.bold);self.assertEqual(r.font.color.rgb,RGBColor(20,180,240))
         self.assertIn('"font_sizes": [18.0]',calls[-1])
+        self.assertIn('"source_font_sizes": [24.0]',calls[-1])
     def test_model_expansion_cannot_cover_an_image_or_other_text_or_leave_page(self):
         from backend.replacer.pptx_readability import apply_actions
         from PIL import Image
@@ -131,6 +132,64 @@ class VisualTests(unittest.TestCase):
         for width in (300,10000):
             fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=18,width=width,height=54,reason='model')],[],[{'shapes':[]}])
             self.assertEqual(fixes,[]);self.assertEqual((shape.width,shape.height,shape.text_frame.paragraphs[0].runs[0].font.size),before)
+    def test_font_growth_inside_unchanged_overlapping_frames_cannot_cover_text(self):
+        from backend.replacer.pptx_readability import apply_actions
+        deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
+        a=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(4),Inches(2));a.text='Readable text in this area.'
+        b=slide.shapes.add_textbox(Inches(1),Inches(1.55),Inches(4),Inches(.5));b.text='Neighbor text'
+        for shape in (a,b):shape.text_frame.paragraphs[0].runs[0].font.size=Pt(10)
+        feedback=[]
+        fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape0',font_size=32,reason='留白')],[],[{'shapes':[]}],feedback)
+        self.assertFalse(fixes);self.assertTrue(feedback)
+        self.assertEqual(a.text_frame.paragraphs[0].runs[0].font.size,Pt(10))
+
+    def test_model_can_recover_tiny_text_without_a_multiplier_ceiling(self):
+        from backend.replacer.pptx_readability import apply_actions
+        deck,_=self.deck(1);shape=deck.slides[0].shapes[1];shape.text='Readable title'
+        shape.width=Inches(5);shape.height=Inches(1)
+        shape.text_frame.paragraphs[0].runs[0].font.size=Pt(6)
+        fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=32,reason='恢复可读标题')],[],[{'shapes':[]}])
+        self.assertTrue(fixes);self.assertEqual(shape.text_frame.paragraphs[0].runs[0].font.size,Pt(32))
+
+    def test_model_can_expand_or_wrap_without_reducing_or_increasing_font(self):
+        from backend.replacer.pptx_readability import apply_actions
+        deck,_=self.deck(1);shape=deck.slides[0].shapes[1];shape.text='English information'
+        fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=24,width=300,height=60,wrap=True,reason='使用旁边空白')],[],[{'shapes':[]}])
+        self.assertTrue(fixes);self.assertEqual(shape.text_frame.paragraphs[0].runs[0].font.size,Pt(24))
+        self.assertEqual(shape.width,Pt(300))
+
+    def test_model_can_expand_left_to_preserve_a_centered_label_and_guards_position(self):
+        from backend.replacer.pptx_readability import apply_actions
+        from pptx.enum.text import PP_ALIGN
+        deck,source=self.deck(1);shape=deck.slides[0].shapes[1];shape.text='English information'
+        shape.text_frame.paragraphs[0].alignment=PP_ALIGN.CENTER
+        deck.save(source);original_left=shape.left
+        changed=[]
+        fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=24,x=18,y=144,width=240,height=60,reason='向两侧扩展标签')],changed,[{'shapes':[]}])
+        self.assertTrue(fixes);self.assertLess(shape.left,original_left)
+        output=self.folder/'moved.pptx';save_office(source,deck,output,changed)
+        self.assertEqual(Presentation(output).slides[0].shapes[1].left,Pt(18))
+        shape.left+=Pt(1)
+        with self.assertRaisesRegex(ValueError,'位置无法验证'):
+            save_office(source,deck,self.folder/'bad-move.pptx',changed)
+
+    def test_model_move_cannot_cross_page_or_cover_other_text(self):
+        from backend.replacer.pptx_readability import apply_actions
+        deck,_=self.deck(1);shape=deck.slides[0].shapes[1];shape.text='Information'
+        before=(shape.left,shape.top,shape.width,shape.height)
+        for x,y in ((-20,144),(18,36),(10000,144)):
+            fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=24,x=x,y=y,width=240,height=60,reason='model')],[],[{'shapes':[]}])
+            self.assertFalse(fixes);self.assertEqual((shape.left,shape.top,shape.width,shape.height),before)
+
+    def test_visual_followup_does_not_mechanically_refit_unconstrained_tiny_text(self):
+        deck,_=self.deck(1);a,b=list(deck.slides[0].shapes)
+        b.text='Unchanged small note';b.text_frame.paragraphs[0].runs[0].font.size=Pt(9)
+        snapshot=capture_layout(deck,[])
+        fit_document(deck,['slide1/shape0/p0','slide1/shape1/p0'],snapshot,constraints={'slide1/shape0':True})
+        self.assertEqual(b.text_frame.paragraphs[0].runs[0].font.size,Pt(9))
+        fit_document(deck,['slide1/shape0/p0','slide1/shape1/p0'],snapshot,constraints={'slide1/shape1':True})
+        self.assertEqual(b.text_frame.paragraphs[0].runs[0].font.size,Pt(9))
+
     def test_approved_expansion_does_not_let_another_geometry_change_through(self):
         from backend.replacer.pptx_readability import apply_actions
         deck,source=self.deck(1);shape=deck.slides[0].shapes[1];shape.text='Text';shape.text_frame.paragraphs[0].runs[0].font.size=Pt(10)
@@ -192,6 +251,32 @@ class VisualTests(unittest.TestCase):
             issues,_=visual.review_pptx(source,out,deck,[],capture_layout(deck,[]),Vision())
         self.assertTrue(issues)
         self.assertTrue(visual.review_pptx(source,out,deck,[],{},object())[0])
+    def test_invalid_page_response_is_retried_without_rolling_back_other_pages(self):
+        deck,source=self.deck(2);out=self.folder/'retry.pptx';save_office(source,deck,out,[])
+        calls=[];audit={}
+        class Vision:
+            def chat_images_json(_,prompt,**kwargs):
+                calls.append(prompt)
+                if len(calls)==1:return {'reviewed':True,'issues':[{'kind':'small_font','reason':'格式不符合约定'}]}
+                return {'reviewed':True,'issues':[]}
+        with patch.object(visual,'render_pages',side_effect=self.renderer):
+            issues,_=visual.review_pptx(source,out,deck,[],capture_layout(deck,[]),Vision(),audit=audit)
+        self.assertFalse(issues);self.assertEqual(audit['status'],'complete');self.assertEqual(audit['image_pages'],2)
+        self.assertEqual(len(calls),3);self.assertIn('上次结果不符合格式',calls[1])
+
+    def test_persistent_invalid_page_is_local_and_other_pages_still_finish(self):
+        deck,source=self.deck(2);out=self.folder/'partial.pptx';save_office(source,deck,out,[])
+        calls=[];audit={}
+        class Vision:
+            def chat_images_json(_,prompt,**kwargs):
+                calls.append(prompt)
+                return {'reviewed':True,'issues':[{'kind':'other','shape_id':{},'reason':'无效定位'}]} if prompt.startswith('第 1 页') else {'reviewed':True,'issues':[]}
+        with patch.object(visual,'render_pages',side_effect=self.renderer):
+            issues,_=visual.review_pptx(source,out,deck,[],capture_layout(deck,[]),Vision(),audit=audit)
+        self.assertEqual(audit['status'],'partial');self.assertEqual(audit['image_pages'],1)
+        self.assertEqual([i['slide'] for i in issues],[1]);self.assertEqual(len(calls),3)
+        with ZipFile(out) as archive:self.assertIsNone(archive.testzip())
+
     def test_worse_visual_repairs_keep_the_best_complete_file(self):
         deck,source=self.deck(1);out=self.folder/'out.pptx';save_office(source,deck,out,[])
         original=out.read_bytes();sid=deck.slides[0].shapes[0].shape_id;count=[0]
@@ -219,6 +304,15 @@ class VisualTests(unittest.TestCase):
         new={**old,'bound_x':-5}
         found=visual._native_issues({'shapes':[old]},{'shapes':[new]},1,[{'shape_id':10,'locator':'slide1/shape2'}])
         self.assertEqual(len(found),1);self.assertEqual(found[0]['locator'],'slide1/shape2/table/0/0/')
+    def test_native_review_detects_new_ink_overlap_inside_unchanged_frames(self):
+        a=dict(id=1,x=0,y=0,width=200,height=100,bound_x=0,bound_y=0,bound_width=100,bound_height=15)
+        b=dict(id=2,x=0,y=0,width=200,height=100,bound_x=0,bound_y=40,bound_width=100,bound_height=15)
+        objects=[{'shape_id':1,'locator':'slide1/shape0'},{'shape_id':2,'locator':'slide1/shape1'}]
+        original={'shapes':[a,b]}
+        found=visual._native_issues(original,{'shapes':[{**a,'bound_height':50},b]},1,objects)
+        self.assertEqual({v['locator'] for v in found if v['kind']=='overlap'},{'slide1/shape0','slide1/shape1'})
+        self.assertFalse(visual._native_issues(original,original,1,objects))
+
     def test_visual_object_inventory_does_not_create_text_in_covered_merged_cells(self):
         deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
         table=slide.shapes.add_table(1,2,Inches(1),Inches(1),Inches(6),Inches(1)).table

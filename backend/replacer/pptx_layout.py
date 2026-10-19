@@ -398,13 +398,32 @@ def _cohort(page,style):
 def _step(size,original,visual=False):
     # Measured overflow may require a substantial fit. Additional visual-model
     # requests alone must not repeatedly collapse an already fitted heading.
-    floor=min(original,max(6,original*.65 if visual else min(9,original*.65)))
+    floor=min(original,max(12,original*.8)) if visual else min(original,max(6,min(9,original*.65)))
     return next((v for v in reversed(FONT_STEPS) if floor<=v<size-.005),size)
 
 
 def _sized(data,page,targets):
     return [(p,[(r,(st[0],targets[_cohort(page,st)],*st[2:])) for r,st in pieces],l,rr,i,sp,b)
             for p,pieces,l,rr,i,sp,b in data]
+
+
+def _reconcile_sizes(plans,targets):
+    """Unify close fits, without a cramped label shrinking the entire page."""
+    groups={}
+    for _,_,_,data,scope,*_ in plans:
+        for _,pieces,*_ in data:
+            for run,style in pieces:
+                if not run.text.strip():continue
+                key=_cohort(scope,style)
+                groups.setdefault((scope[0],*key[1:]),set()).add(key)
+    for keys in groups.values():
+        remaining=sorted(keys,key=lambda k:targets[k],reverse=True)
+        while remaining:
+            largest=targets[remaining[0]]
+            cluster=[k for k in remaining if targets[k]>=largest*.85]
+            common=min(targets[k] for k in cluster)
+            for k in cluster:targets[k]=common
+            remaining=[k for k in remaining if k not in cluster]
 
 
 def _preserve_emphasis(plans,targets):
@@ -453,8 +472,9 @@ def fit_document(document, changed, snapshots=None, constraints=None):
             for key,frame,shape,slide,w,h,margins in _frames(document,list(dict.fromkeys([*requested,*peers]))):
                 original=snapshots.get(key)
                 page=original['page'] if original else document.slides.index(slide)+1 if slide is not None else key.split('/body')[0]
+                scope=(page,key)
                 data=_paragraph_data(frame,shape,slide,document)
-                touched=any(c.startswith(key.rstrip('/')+'/') for c in requested)
+                touched=any(c.startswith(key.rstrip('/')+'/') for c in requested) and (not constraints or key in constraints)
                 if not any(run.text.strip() for _,pieces,*_ in data for run,_ in pieces):continue
                 restored=[]
                 for p,pieces,l,r,i,sp,b in data:
@@ -463,7 +483,7 @@ def fit_document(document, changed, snapshots=None, constraints=None):
                         if hasattr(run,'_r'):style_origins.setdefault(run._r,run_key(run))
                         current_size=style[1]
                         style=origins.setdefault(run._r,style)
-                        c=_cohort(page,style)
+                        c=_cohort(scope,style)
                         rendered_sizes[c]=min(rendered_sizes.get(c,current_size),current_size)
                         values.append((run,style))
                     restored.append((p,values,l,r,i,sp,b))
@@ -490,7 +510,7 @@ def fit_document(document, changed, snapshots=None, constraints=None):
                         warnings.append({**location,'reason':'该处文字方向或分栏需要确认。'})
                     continue
                 for _,pieces,*_ in data:
-                    for _,style in pieces: targets.setdefault(_cohort(page,style),style[1])
+                    for _,style in pieces: targets.setdefault(_cohort(scope,style),style[1])
                 width=(w-margins[0]-margins[1])/EMU_PT*.975
                 height=(h-margins[2]-margins[3])/EMU_PT*.97
                 wrap=frame.word_wrap is not False
@@ -516,13 +536,9 @@ def fit_document(document, changed, snapshots=None, constraints=None):
                             height=min(height,(oy-y-margins[2])/EMU_PT-2)
                 height=max(.1,height)
                 budgets=None
-                if original and len(original['data'])==len(data) and len(data)>1:
-                    budgets=[estimate([item],width,metrics,wrap=wrap)[0] for item in original['data']]
-                    total=sum(budgets)
-                    if total>height: budgets=[v*height/total for v in budgets]
-                    else:
-                        last=max((i for i,item in enumerate(original['data']) if any(r.text.strip() for r,_ in item[1])),default=len(data)-1)
-                        budgets[last]+=height-total
+                # Paragraphs share the actual frame height. Reserving each
+                # Chinese line's old height wastes space after compression and
+                # forces English into tiny fonts despite unused space below.
                 units=[[item] for item in data] if budgets else [data]
                 unit_plans=[]
                 for index,unit in enumerate(units):
@@ -531,16 +547,16 @@ def fit_document(document, changed, snapshots=None, constraints=None):
                     if touched:
                         if estimate(chosen,width,metrics,wrap=wrap)[0]>budget:
                             chosen=_variant(unit,compact=True);compact=True
-                        cohorts={_cohort(page,st) for _,pieces,*_ in chosen for _,st in pieces}
+                        cohorts={_cohort(scope,st) for _,pieces,*_ in chosen for _,st in pieces}
                         local={c:targets[c] for c in cohorts}
                         if constraints and key in constraints:
                             for c in cohorts: local[c]=min(local[c],_step(rendered_sizes.get(c,local[c]),c[2],visual=True))
                         def fits():
-                            measured=_sized(chosen,page,local)
+                            measured=_sized(chosen,scope,local)
                             mh,_,clip=estimate(measured,width,metrics,wrap=wrap)
                             return mh<=budget and not clip
                         while not fits():
-                            reduced={c:_step(v,c[2]) for c,v in local.items()}
+                            reduced={c:_step(v,c[2],visual=bool(constraints)) for c,v in local.items()}
                             if reduced==local:break
                             local=reduced
                         if not fits() and not wrap and not natural:
@@ -548,13 +564,14 @@ def fit_document(document, changed, snapshots=None, constraints=None):
                             # With wrapping, retry from current page requirements.
                             local={c:targets[c] for c in cohorts}
                             while not fits():
-                                reduced={c:_step(v,c[2]) for c,v in local.items()}
+                                reduced={c:_step(v,c[2],visual=bool(constraints)) for c,v in local.items()}
                                 if reduced==local:break
                                 local=reduced
                         for c,v in local.items(): targets[c]=min(targets[c],v)
                     unit_plans.append((chosen,budget,compact))
-                plans.append((key,frame,location,data,page,width,height,wrap,natural,budgets,unit_plans,touched))
-            # Reconcile before writing so peers and translated text use exactly one size.
+                plans.append((key,frame,location,data,scope,width,height,wrap,natural,budgets,unit_plans,touched))
+            # Close peers share a clean size; unrelated crowded frames remain local.
+            _reconcile_sizes(plans,targets)
             _preserve_emphasis(plans,targets)
             for key,frame,location,data,page,width,height,wrap,natural,budgets,units,touched in plans:
                 any_change=False

@@ -223,7 +223,7 @@ class LayoutTests(unittest.TestCase):
             after=estimate(_paragraph_data(shape.text_frame,shape,deck.slides[0],deck),10000,metrics,wrap=False)
         self.assertGreater(after[1],before[1]+.5); self.assertLessEqual(after[0],before[0]+.5)
 
-    def test_long_card_title_does_not_push_date_and_body_below_the_original_slots(self):
+    def test_multiline_card_shares_available_height_and_keeps_date_and_body_inside(self):
         _,deck,shape=self.deck('显示方案\v技术落地\n2024.11.20\n中国首家LED影厅正式启用。',width=1.7,height=2.5,size=11)
         shape.text_frame.word_wrap=True
         for run in shape.text_frame.paragraphs[0].runs:run.font.size=Pt(20);run.font.bold=True
@@ -238,8 +238,27 @@ class LayoutTests(unittest.TestCase):
         self.assertFalse(warnings);self.assertTrue(adjustments)
         with Metrics() as metrics:
             new_title=estimate([_paragraph_data(shape.text_frame,shape,deck.slides[0],deck)[0]],(shape.width-shape.text_frame.margin_left-shape.text_frame.margin_right)/12700*.975,metrics)[0]
-        self.assertLess(abs(source_title-new_title),2)
+        self.assertLess(new_title,shape.height/12700)
+        self.assertEqual(shape.text_frame.paragraphs[1].text,'2024.11.20')
         self.assertEqual((shape.left,shape.top,shape.width,shape.height),original)
+        self.assert_frame_fits(deck,shape)
+
+    def test_compressed_multiline_copy_uses_free_height_before_shrinking(self):
+        _,deck,shape=self.deck('第一点\n第二点',width=4,height=2.5,size=20)
+        frame=shape.text_frame;frame.word_wrap=True
+        frame.paragraphs[0].runs[0].font.bold=True
+        frame.paragraphs[1].runs[0].font.color.rgb=RGBColor.from_string('48CCFF')
+        snapshot=capture_layout(deck,['slide1/shape0/p0','slide1/shape0/p1'])
+        texts=['Clear English copy can wrap naturally within the same text frame.','Consistent color.']
+        for p,text in zip(frame.paragraphs,texts):p.runs[0].text=text
+        geometry=(shape.left,shape.top,shape.width,shape.height)
+        _,warnings=fit_document(deck,['slide1/shape0/p0','slide1/shape0/p1'],snapshot)
+        self.assertFalse(warnings)
+        self.assertEqual([p.runs[0].font.size.pt for p in frame.paragraphs],[20,20])
+        self.assertTrue(frame.paragraphs[0].runs[0].font.bold)
+        self.assertEqual(str(frame.paragraphs[1].runs[0].font.color.rgb),'48CCFF')
+        self.assertEqual([p.text for p in frame.paragraphs],texts)
+        self.assertEqual((shape.left,shape.top,shape.width,shape.height),geometry)
         self.assert_frame_fits(deck,shape)
 
     def test_excess_line_spacing_is_compacted_before_extreme_font_shrinking(self):

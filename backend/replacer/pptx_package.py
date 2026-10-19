@@ -45,6 +45,12 @@ def _guard_part(name, before, after, approved_geometry=None):
             if ext is None or tuple(int(ext.get(k)) for k in ('cx','cy'))!=tuple(expected):
                 raise ValueError('版式调整尺寸无法验证，未导出。')
             ext.set('cx',str(value['before'][0]));ext.set('cy',str(value['before'][1]))
+            if 'before_offset' in value:
+                off=shapes[0].find(f'{{{p}}}spPr/{{{a}}}xfrm/{{{a}}}off')
+                expected_offset=value['after_offset' if output else 'before_offset']
+                if off is None or tuple(int(off.get(k)) for k in ('x','y'))!=tuple(expected_offset):
+                    raise ValueError('版式调整位置无法验证，未导出。')
+                off.set('x',str(value['before_offset'][0]));off.set('y',str(value['before_offset'][1]))
         for body in root.xpath('.//p:txBody | .//a:txBody',namespaces={'p':p,'a':a}):
             # Text and typography are editable. Fields and list semantics are not.
             paragraphs=body.findall(f'{{{a}}}p')
