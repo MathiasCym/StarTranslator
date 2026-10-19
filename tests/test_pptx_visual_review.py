@@ -288,6 +288,23 @@ class VisualTests(unittest.TestCase):
             issues,fixes=visual.review_pptx(source,out,deck,['slide1/shape0/p0'],capture_layout(deck,[]),Vision())
         self.assertEqual(out.read_bytes(),original);self.assertEqual(len(issues),1)
         self.assertEqual(count[0],3);self.assertEqual(fixes,[])
+    def test_a_worse_page_does_not_discard_safe_font_recovery_on_another_page(self):
+        deck,source=self.deck(2);shape=deck.slides[0].shapes[1];shape.text='English information'
+        shape.text_frame.paragraphs[0].runs[0].font.size=Pt(12);deck.save(source)
+        snapshot=capture_layout(deck,[]);out=self.folder/'per-page.pptx';save_office(source,deck,out,[])
+        sid=deck.slides[1].shapes[0].shape_id;calls={1:0,2:0}
+        class Vision:
+            def chat_images_json(_,prompt,**kwargs):
+                page=1 if prompt.startswith('第 1 页') else 2;calls[page]+=1
+                if page==1:
+                    return {'reviewed':True,'issues':[],'adjustments':[dict(shape_id=shape.shape_id,font_size=18,width=216,height=54,reason='恢复清晰文字')] if calls[page]==1 else []}
+                return {'reviewed':True,'issues':[dict(shape_id=sid,kind='overlap',reason='未解决的局部问题')]*calls[page]}
+        with patch.object(visual,'render_pages',side_effect=self.renderer):
+            issues,fixes=visual.review_pptx(source,out,deck,['slide1/shape1/p0','slide2/shape0/p0'],snapshot,Vision())
+        self.assertEqual(Presentation(out).slides[0].shapes[1].text_frame.paragraphs[0].runs[0].font.size,Pt(18))
+        self.assertTrue(any(i.get('model_readability') for i in fixes));self.assertEqual([i['slide'] for i in issues],[2])
+        with ZipFile(source) as a,ZipFile(out) as b:self.assertEqual(a.read('ppt/slides/slide2.xml'),b.read('ppt/slides/slide2.xml'))
+
     def test_in_place_staged_review_keeps_a_readonly_package_before_repair(self):
         deck,source=self.deck(1);out=self.folder/'same.pptx';save_office(source,deck,out,[])
         sid=deck.slides[0].shapes[0].shape_id;count=[0]

@@ -36,6 +36,17 @@ def _valid_result(result):
         and isinstance(result.get('adjustments',[]),list))
 
 
+def _keep_improved_pages(best,candidate,parts):
+    """Text-only slide repairs are independent; reject a worse page locally."""
+    from zipfile import ZipFile
+    next_file=best.with_name('best-next.pptx')
+    with ZipFile(best) as original,ZipFile(candidate) as revised,ZipFile(next_file,'w') as output:
+        output.comment=original.comment
+        for info in original.infolist():
+            output.writestr(info,revised.read(info.filename) if info.filename in parts else original.read(info.filename))
+    os.replace(next_file,best)
+
+
 def _cancel(cancel):
     if cancel and cancel.is_set():
         from .translation import Cancelled
@@ -316,8 +327,11 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                 objects=_objects(document,snapshots)
                 issues=[i for i in issues if i['slide'] not in affected]+inspect(revised,sorted(affected))
                 current=revised
-                if score(issues)<score(best_issues):
-                    shutil.copyfile(output,best);best_issues=list(issues);best_adjustments=list(adjustments)
+                improved={page for page in affected if score([i for i in issues if i['slide']==page])<score([i for i in best_issues if i['slide']==page])}
+                if improved:
+                    _keep_improved_pages(best,output,{str(document.slides[page-1].part.partname).lstrip('/') for page in improved})
+                    best_issues=[i for i in best_issues if i['slide'] not in improved]+[i for i in issues if i['slide'] in improved]
+                    best_adjustments=[i for i in best_adjustments if i['slide'] not in improved]+[i for i in adjustments if i['slide'] in improved]
             shutil.copyfile(best,output)
             # Complete page images/native bounds are authoritative over estimates.
             if vision_unavailable.is_set():
