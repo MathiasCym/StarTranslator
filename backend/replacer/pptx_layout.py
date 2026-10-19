@@ -310,7 +310,8 @@ def capture_layout(document, locators):
     rects={}
     for index,slide in enumerate(document.slides,1):
         for key,shape,transform in walk_shapes(slide.shapes,f'slide{index}'):
-            rects[key]=bounds(shape,transform)
+            if (shape.has_text_frame and shape.text.strip()) or shape.has_table or shape.has_chart or shape.shape_type==13:
+                rects[key]=bounds(shape,transform)
     for key,frame,shape,slide,width,height,margins in _frames(document,list(dict.fromkeys([*locators,*_all_locators(document)]))):
         data=_paragraph_data(frame,shape,slide,document)
         frozen=[(None,[(SimpleNamespace(text=run.text),style) for run,style in pieces],left,right,indent,dict(spacing),bullet)
@@ -528,11 +529,10 @@ def fit_document(document, changed, snapshots=None, constraints=None):
                 # Text frames may extend below their visible Chinese text into a picture.
                 # Reserve that picture/next object if the source ink did not overlap it.
                 if original and original.get('rect') and props.get('anchor','t')=='t':
-                    x,y,rw,_=original['rect']; source_h=estimate(original['data'],width,metrics,wrap=wrap)[0]
-                    ink_bottom=y/EMU_PT+margins[2]/EMU_PT+source_h
+                    x,y,rw,_=original['rect']
                     for ox,oy,ow,oh in original.get('obstacles',[]):
                         overlap=min(x+rw,ox+ow)-max(x,ox)
-                        if ow>0 and oh>0 and overlap>min(rw,ow)*.25 and oy/EMU_PT>=ink_bottom+1:
+                        if ow>0 and oh>0 and overlap>min(rw,ow)*.25 and oy/EMU_PT>y/EMU_PT+margins[2]/EMU_PT+1:
                             height=min(height,(oy-y-margins[2])/EMU_PT-2)
                 height=max(.1,height)
                 budgets=None

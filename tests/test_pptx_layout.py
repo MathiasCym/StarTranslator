@@ -243,6 +243,20 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual((shape.left,shape.top,shape.width,shape.height),original)
         self.assert_frame_fits(deck,shape)
 
+    def test_tight_source_heading_still_reserves_the_following_body(self):
+        _,deck,shape=self.deck('简短标题',width=4,height=1.5,size=20)
+        body=deck.slides[0].shapes.add_textbox(Inches(1),Inches(1.35),Inches(4),Inches(1))
+        body.text='Existing body'
+        snapshot=capture_layout(deck,['slide1/shape0/p0'])
+        shape.text_frame.word_wrap=True
+        shape.text_frame.paragraphs[0].runs[0].text='A clear English title for a screen'
+        fit_document(deck,['slide1/shape0/p0'],snapshot)
+        with Metrics() as metrics:
+            h,_,_=estimate(_paragraph_data(shape.text_frame,shape,deck.slides[0],deck),
+                (shape.width-shape.text_frame.margin_left-shape.text_frame.margin_right)/12700*.975,metrics)
+        self.assertLessEqual(shape.top/12700+shape.text_frame.margin_top/12700+h,body.top/12700)
+        self.assertEqual(body.text,'Existing body')
+
     def test_compressed_multiline_copy_uses_free_height_before_shrinking(self):
         _,deck,shape=self.deck('第一点\n第二点',width=4,height=2.5,size=20)
         frame=shape.text_frame;frame.word_wrap=True
