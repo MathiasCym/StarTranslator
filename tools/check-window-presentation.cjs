@@ -25,7 +25,7 @@ const out=path.join(root,'dist/qa/presentation'),result={passed:false,target,com
 fs.mkdirSync(out,{recursive:true});app.setPath('userData',path.join(out,label+'-profile'))
 app.getVersion=()=>JSON.parse(fs.readFileSync(path.join(target,'package.json'))).version
 BrowserWindow.prototype.show=function(){}
-if(target.endsWith('.asar'))process.resourcesPath=path.dirname(target)
+if(target.endsWith('.asar'))Object.defineProperty(process,'resourcesPath',{value:path.dirname(target),configurable:true})
 const server=http.createServer((_req,res)=>{res.setHeader('Content-Type','application/json');res.end(JSON.stringify({data:[{id:'ui-only'}]}))})
 const timeout=setTimeout(()=>app.exit(2),70000)
 server.listen(0,'127.0.0.1',async()=>{
@@ -48,6 +48,9 @@ server.listen(0,'127.0.0.1',async()=>{
    await wait(100)
   }
   assert(win,'The real main window was not created')
+  result.runtimeResources=process.resourcesPath
+  result.backendPort=await win.webContents.executeJavaScript('window.api.backendPort()')
+  assert(result.backendPort,'The actual backend must start before checking packaged dialogs')
   win.webContents.setBackgroundThrottling(false)
   const run=code=>win.webContents.executeJavaScript(code),display=screen.getDisplayMatching(win.getBounds()),dpi=display.scaleFactor,zoom=win.webContents.getZoomFactor(),bounds=win.getBounds()
   win.webContents.debugger.attach('1.3')
@@ -82,6 +85,7 @@ server.listen(0,'127.0.0.1',async()=>{
    assert(Math.abs(result.screenshots[1].pixelWidth-win.getContentBounds().width*dpi)<=3,'Screenshot must retain actual screen pixels')
   }
   await run("$('openModel').onclick()");await wait(200);await capture('model')
+  assert.equal(await run("$('modelModal').hidden"),false,'The actual model dialog must open')
   await checkFocus('#modelProfileName','model-name-focus')
   await checkFocus('#modelPreset','model-provider-focus')
   await checkFocus('#modelKey','model-key-focus')
