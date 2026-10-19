@@ -77,7 +77,8 @@ def apply_replacements(path: str, segments: list[Segment],
         if para is None:
             failed.append((seg_id, f"定位失败：{seg.locator}"))
             continue
-        runs = para.runs
+        from .text_runs import text_runs
+        runs = text_runs(para)
         if not runs:
             failed.append((seg_id, "段落无可写入的 run"))
             continue
@@ -90,7 +91,8 @@ def apply_replacements(path: str, segments: list[Segment],
 
     out_path = _output_path(path, output_dir)
     if is_docx:
-        doc.save(out_path)
+        from .pptx_package import save_office
+        save_office(path, doc, out_path, list(para_map))
     else:
         prs.save(out_path)
     return out_path, succeeded, failed

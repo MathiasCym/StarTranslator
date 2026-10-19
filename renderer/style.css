@@ -28,11 +28,7 @@
 
 body {
   font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
-  background:
-    radial-gradient(1100px 620px at 82% -12%, rgba(56,189,248,.16), transparent 62%),
-    radial-gradient(900px 520px at 8% 4%, rgba(59,140,247,.13), transparent 60%),
-    linear-gradient(180deg, #0a1626, var(--bg));
-  background-attachment: fixed;
+  background: var(--bg);
   color: var(--fg);
   height: 100vh;
   overflow: hidden;

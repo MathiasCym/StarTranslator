@@ -20,7 +20,7 @@ class DocumentContext:
 
     @staticmethod
     def frame(segment):
-        if segment.slide is None: return segment.locator
+        if segment.slide is None: return re.sub(r'/span\d+$', '', segment.locator)
         return re.sub(r'/(?:p)?\d+$', '', segment.locator)
 
     def related(self, segment):

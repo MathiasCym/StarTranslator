@@ -219,6 +219,9 @@ def best_effort_runs(text,groups,glossary=None):
 
 
 def write_styled(paragraph, groups, runs):
+    if hasattr(paragraph, 'write_styled'):
+        paragraph.write_styled(groups, runs)
+        return
     templates = {g['id']: g['prototype'] for g in groups}
     old_runs = text_runs(paragraph)
     position = paragraph._p.index(old_runs[0]._r)

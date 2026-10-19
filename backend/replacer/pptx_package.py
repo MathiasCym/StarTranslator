@@ -4,6 +4,9 @@ import re
 from zipfile import ZipFile
 def save_office(source, document, destination, changed):
     if Path(source).suffix.lower() != '.pptx':
+        if Path(source).suffix.lower() == '.docx':
+            from ..extract.word import sync_word_parts
+            sync_word_parts(document)
         document.save(str(destination))
         return
     parts = {}

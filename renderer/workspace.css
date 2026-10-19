@@ -93,11 +93,8 @@ body.results-view #translationPanel { display: flex; flex-direction: column; fle
   --radius: 14px; --shadow: 0 16px 48px #0004;
 }
 body {
-  background:
-    radial-gradient(1100px 620px at 82% -12%, rgba(56,189,248,.16), transparent 62%),
-    radial-gradient(900px 520px at 8% 4%, rgba(59,140,247,.13), transparent 60%),
-    linear-gradient(180deg, #0a1626, var(--bg));
-  background-attachment: fixed; font-size: 18px; line-height: 1.55;
+  background: var(--bg);
+  font-size: 18px; line-height: 1.55;
 }
 button, input, textarea, select, summary { transition: background-color .16s, border-color .16s, color .16s, box-shadow .16s, filter .16s; }
 :is(button, input, textarea, select, summary, [tabindex]):focus-visible {

@@ -421,7 +421,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     recorded = {item['locator'] for item in review_items}
     for seg in segments:
         paragraph = by_locator.get(seg.locator)
-        current = paragraph.text if paragraph is not None else seg.text if seg.source in {'textbox','chart'} else ''
+        current = paragraph.text if paragraph is not None else seg.text if not seg.editable and seg.source != 'image' else ''
         if not CHINESE.search(current):
             continue
         remaining.append({'slide':seg.slide,'locator':seg.locator,'text':current,'source':seg.source})
@@ -482,9 +482,8 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     notify('consistency','正在检查整份文档的重复术语与跨页译法')
     consistency_items = [f.to_dict() for f in check_consistency(translated_segments, glossary,
         aligned_sources={s.id:s.text for s in segments})]
-    editable_locators={s.locator for s in segments if s.editable}
     return {'path':str(destination),'source':os.path.abspath(path),'source_fingerprint':before,'translated':translated,
-            'translation_complete':not any(item['locator'] in editable_locators for item in review_items),
+            'translation_complete':not remaining and not review_items,
             'resumed_segments':checkpoint.resumed if checkpoint else 0,
             'checkpoint_available':checkpoint.available if checkpoint else False,
             'format_review_deferred':is_pptx and defer_visual,

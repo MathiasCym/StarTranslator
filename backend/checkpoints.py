@@ -62,6 +62,7 @@ class Checkpoint:
                             '20631795cfac42022cdebcb50c6f52e8d44cdf72d7dfbc51129d27399cd58c47',
                             'cce7e89f4fc5d122f2f32566e846b3f5d6868984403ab0aee2a8b8808d0ae6bf',
                             'e3803df46fe2e75c773fb753ac815277ea9bdf6d9fcba0df316833dc855671ad',
+                            '0b812f78dc872c18d916ec6b046062e9c7dfa7bd8372a133ba4343244fc86cc0',
                             'd52442f83508e6b572652942e65ca8199efeed7f0cd2e8555df75a01c21b15fa'):
                         legacy=digest({'policy':old_policy,'input':identity})
                         if legacy==self.scope:continue

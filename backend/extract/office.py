@@ -20,30 +20,8 @@ def open_office(path):
     paragraphs, blocked, seen, layouts = [], [], set(), {}
     if Path(path).suffix.lower() == '.docx':
         document = Document(path)
-        def blocks(element, parent, locator, source):
-            for i, child in enumerate(element.iterchildren()):
-                key = f'{locator}/{i}'
-                if child.tag == qn('w:p'):
-                    if child in seen:
-                        continue
-                    seen.add(child)
-                    paragraphs.append((key, Paragraph(child, parent), source, None, len(paragraphs)+1))
-                elif child.tag == qn('w:tbl'):
-                    table = Table(child, parent)
-                    for r,row in enumerate(table.rows):
-                        for c,cell in enumerate(row.cells):
-                            blocks(cell._tc, cell, f'{key}/table/{r}/{c}', 'table')
-        blocks(document.element.body, document, 'body', 'text')
-        for i, section in enumerate(document.sections):
-            for kind in ('header','footer','first_page_header','first_page_footer','even_page_header','even_page_footer'):
-                part = getattr(section,kind)
-                if part.is_linked_to_previous:
-                    continue
-                blocks(part._element,part,f'section/{i}/{kind}', 'header' if 'header' in kind else 'footer')
-        for i,node in enumerate(document.element.body.iter(qn('w:txbxContent'))):
-            text = ''.join(t.text or '' for t in node.iter(qn('w:t')))
-            if text:
-                blocked.append((f'textbox/{i}', text, 'textbox', None, 'Word 文本框暂不自动改写，请手动处理。'))
+        from .word import word_paragraphs
+        paragraphs, blocked = word_paragraphs(document)
         images = len(document.element.body.findall('.//' + qn('w:drawing')))
         if images:
             blocked.append(('drawings', f'[{images} 个图片/绘图对象]', 'image', None, '图片内文字未做 OCR，需人工检查。'))
@@ -95,14 +73,12 @@ def extract_office(path):
             continue
         runs = [RunInfo(r.text,i) for i,r in enumerate(text_runs(para))]
         editable = editable_paragraph(para)
-        if Path(path).suffix.lower() == '.docx' and any(
-                node.tag in {qn('w:drawing'), qn('w:pict'), qn('w:object'), qn('w:fldChar'), qn('w:instrText')}
-                for node in para._p.iter()):
-            editable = False
+        reason = getattr(para, 'not_editable_reason', '')
+        if reason: editable = False
         result.append(Segment(id=str(len(result)),file=Path(path).name,text=text,locator=locator,
             source=source,slide=slide,para=number,runs=runs,editable=editable,
             layout=getattr(document,'_star_text_layouts',{}).get(locator,{}),
-            not_editable_reason='' if editable else '含动态域、嵌入对象或特殊文字结构，需人工处理。'))
+            not_editable_reason='' if editable else reason or '含动态域、嵌入对象或特殊文字结构，需人工处理。'))
     for locator,text,source,slide,reason in blocked:
         result.append(Segment(id=str(len(result)),file=Path(path).name,text=text,locator=locator,
             source=source,slide=slide,editable=False,not_editable_reason=reason))
