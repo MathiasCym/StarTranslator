@@ -194,14 +194,15 @@ class BatchTests(unittest.TestCase):
         self.assertEqual(source.read_bytes(), original)
         self.assertEqual(calls[1], calls[0])
 
-    def test_batch_review_has_explicit_coverage_and_missing_id_is_reviewed_separately(self):
+    def test_review_uses_independent_paragraph_requests_even_if_batches_are_supported(self):
         source, answers = self.document()
         doc = Document(source)
         for paragraph, text in zip(doc.paragraphs, answers.values()): paragraph.text = text
         doc.save(source); segments = extract(str(source))
         model = BatchFixture(omit=segments[2].id)
         findings, stats = check_segments(segments, Glossary([]), client=model)
-        self.assertEqual(model.calls, 2)
+        self.assertEqual(model.calls, len(segments))
+        self.assertEqual(model.batch_calls, 0)
         self.assertEqual(stats['judged'], len(segments))
         self.assertEqual(stats['model_status'], 'complete')
         self.assertEqual(findings, [])
@@ -215,7 +216,7 @@ class BatchTests(unittest.TestCase):
                 finding = {'found': 'pythsical', 'suggested': 'physical', 'kind': 'typo'}
                 return {'items': [{'id': '0', 'findings': [finding]}, {'id': '1', 'findings': [finding]}]}
         values = review_batch([(seg, '', []) for seg in segments], Glossary([]), Model(), '')
-        self.assertEqual(values['0'], ([], False))
+        self.assertNotIn('0', values)  # Invalid paragraph coverage must be retried, not marked clean.
         self.assertEqual(values['1'][0][0]['suggested'], 'physical')
 
     def test_thinking_is_used_only_for_failed_ppt_repairs(self):
@@ -324,6 +325,13 @@ class CheckpointTests(unittest.TestCase):
         self.assertEqual(Checkpoint('translation',identity).get(['paragraph'])['translation'],'Verified English')
         self.assertIsNone(Checkpoint('translation',{**identity,'fingerprint':'changed'}).get(['paragraph']))
         self.assertIsNone(Checkpoint('translation',{**identity,'model':{'model':'other'}}).get(['paragraph']))
+    def test_shipped_2014_checkpoints_survive_unit_validation_improvements(self):
+        from backend.checkpoints import Checkpoint
+        identity={'source':str(self.root/'same.docx'),'fingerprint':'fixture','model':{'model':'fixture'}}
+        old='d52442f83508e6b572652942e65ca8199efeed7f0cd2e8555df75a01c21b15fa'
+        with patch('backend.checkpoints.policy',return_value=old):Checkpoint('translation',identity).put(['paragraph'],{'translation':'Verified English'})
+        self.assertEqual(Checkpoint('translation',identity).get(['paragraph'])['translation'],'Verified English')
+        self.assertIsNone(Checkpoint('translation',{**identity,'fingerprint':'changed'}).get(['paragraph']))
     def test_full_paragraph_repair_checkpoint_is_used_before_splitting_soft_breaks(self):
         from backend.checkpoints import open_checkpoint,translation_key
         from backend.glossary.store import fingerprint

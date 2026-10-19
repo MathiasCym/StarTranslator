@@ -323,6 +323,86 @@ class QualityGateTests(unittest.TestCase):
         for source,target in invalid:
             with self.subTest(source=source,target=target):
                 with self.assertRaises(ValueError):validate_translation(source,target)
+    def test_numeric_equality_does_not_hide_wrong_or_missing_units(self):
+        from backend.writing_policy import validate_translation
+        valid=[('亮度500尼特','Brightness 500 nits'),('长度500毫米','Length 500 millimeters'),
+            ('刷新率60赫兹，帧率30帧/秒','Refresh rate 60 Hz; frame rate 30 fps'),
+            ('尺寸500毫米×600毫米','Dimensions 500 x 600 mm'),
+            ('尺寸500毫米×600毫米×700毫米','Dimensions 500x600x700 mm'),
+            ('范围30赫兹至60赫兹','Range 30 to 60 Hz'),
+            ('支持10bit色深','Supports 10-bit color depth'),
+            ('3位工程师维护200块屏','3 engineers maintain 200 screens'),
+            ('1万米','10 thousand meters')]
+        for source,target in valid:
+            with self.subTest(source=source,target=target):validate_translation(source,target)
+        invalid=[('亮度500尼特','Brightness 500 mm'),('长度500毫米','Length 500'),
+            ('刷新率60赫兹，帧率30帧/秒','Refresh rate 60 fps; frame rate 30 Hz'),
+            ('尺寸500毫米×600毫米','Dimensions 500 cm x 600 mm'),
+            ('亮度500尼特，长度600毫米','Brightness 500 mm; length 600 nits')]
+        for source,target in invalid:
+            with self.subTest(source=source,target=target):
+                with self.assertRaisesRegex(ValueError,'单位'):validate_translation(source,target)
+    def test_wrong_unit_is_repaired_in_translation_before_review(self):
+        source=self.root/'units.docx';doc=Document();doc.add_paragraph('亮度500尼特');doc.save(source)
+        original=source.read_bytes()
+        class Model:
+            def __init__(self):self.prompts=[]
+            def chat_json(self,prompt,**kwargs):
+                self.prompts.append(prompt)
+                return {'translation':'Brightness 500 mm' if len(self.prompts)==1 else 'Brightness 500 nits'}
+        model=Model();result=translate_file(str(source),Glossary([]),None,client=model,workers=1)
+        self.assertEqual(len(model.prompts),2);self.assertIn('单位',model.prompts[1])
+        self.assertEqual(Document(result['path']).paragraphs[0].text,'Brightness 500 nits')
+        self.assertTrue(result['translation_complete']);self.assertEqual(result['needs_review'],0)
+        self.assertEqual(source.read_bytes(),original)
+    def test_misplaced_review_response_is_retried_before_marking_checked(self):
+        from backend.matcher import check_segments
+        segment=Segment('review-unit','English.docx','pythsical output','body/0',file_path=str(self.root/'English.docx'))
+        class Model:
+            def __init__(self):self.calls=0
+            def chat_json(self,*args,**kwargs):
+                self.calls+=1
+                return [{'found':'other paragraph' if self.calls==1 else 'pythsical','suggested':'physical','kind':'typo'}]
+        model=Model()
+        with patch('backend.matcher.RETRY_BACKOFF',(0,0)):
+            findings,stats=check_segments([segment],Glossary([]),client=model,workers=1)
+        self.assertEqual(model.calls,2);self.assertEqual(stats['judged'],1)
+        self.assertEqual(stats['model_status'],'complete');self.assertEqual(stats['errors'],0)
+        self.assertEqual([(f.found_text,f.suggested) for f in findings],[('pythsical','physical')])
+    def test_invalid_review_rows_never_become_a_clean_report(self):
+        from backend.matcher import check_segments
+        segment=Segment('review-invalid','English.docx','pythsical output','body/0',file_path=str(self.root/'English.docx'))
+        class Model:
+            def __init__(self):self.calls=0
+            def chat_json(self,*args,**kwargs):self.calls+=1;return [{'found':'pythsical','suggested':None}]
+        model=Model()
+        with patch('backend.matcher.RETRY_BACKOFF',(0,0)):
+            findings,stats=check_segments([segment],Glossary([]),client=model,workers=1)
+        self.assertEqual(model.calls,3);self.assertEqual(findings,[])
+        self.assertEqual(stats['model_status'],'unavailable');self.assertEqual(stats['unreviewed'],1)
+        self.assertEqual(stats['completed_files'],[])
+    def test_old_checkpoint_reuses_valid_english_but_rechecks_wrong_units(self):
+        from backend.checkpoints import open_checkpoint,translation_key
+        from backend.llm.client import LLMClient
+        from backend.replacer.styled_text import style_groups,slice_groups
+        old='d52442f83508e6b572652942e65ca8199efeed7f0cd2e8555df75a01c21b15fa'
+        class Model(LLMClient):
+            def __init__(self):
+                super().__init__(provider='compatible',base_url='http://127.0.0.1:1/v1',model='unit-checkpoint-fixture',api_key='',retries=0)
+                self.calls=0
+            def chat_json(self,*args,**kwargs):self.calls+=1;return {'translation':'Brightness 500 nits'}
+        for index,text in enumerate(['Brightness 500 nits','Brightness 500 mm']):
+            source=self.root/f'checkpoint-{index}.docx';doc=Document();doc.add_paragraph('亮度500尼特');doc.save(source)
+            segment=extract(str(source))[0];_,paragraphs,_=open_office(source)
+            groups=slice_groups(style_groups(paragraphs[0][1]),0,len(segment.text),visual_keys=True)
+            model=Model();glossary=Glossary([])
+            with patch('backend.checkpoints.policy',return_value=old):
+                checkpoint=open_checkpoint('translation',{'source':os.path.normcase(os.path.abspath(source)),
+                    'fingerprint':fingerprint(source),'mode':'faithful'},glossary,None,model)
+                checkpoint.put(translation_key(segment,segment.text,groups),{'translation':text,'runs':[{'id':groups[0]['id'],'text':text}],'needs_style':False})
+            result=translate_file(str(source),glossary,None,client=model,workers=1)
+            self.assertEqual(Document(result['path']).paragraphs[0].text,'Brightness 500 nits')
+            self.assertEqual(model.calls,index);self.assertEqual(result['resumed_segments'],1-index)
     def test_date_before_venue_line_completes_real_translation_review_handoff(self):
         source=self.root/'date-venue.docx';doc=Document();doc.add_paragraph('2025.05.09\n测试场馆');doc.save(source)
         class Model:

@@ -98,9 +98,9 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
         stats['model_status'] = 'complete'
         file_counts = {}
         unreviewed = []
-        def review_reference(seg, ordinal, include_page=True):
+        def review_reference(seg, ordinal):
             reference = references.context(seg,ordinal) if references else ''
-            if include_page: reference += '\n' + page_context.prompt(seg)
+            reference += '\n' + page_context.prompt(seg)
             advice = consistency_by_segment.get(seg.id, [])
             if advice:
                 reference += '\n【全文用语统一建议；仅供风格参考，不代表原写法错误】\n' + '\n'.join(f'{f.found_text} → {f.suggested}' for f in advice[:6])[:1800]
@@ -110,17 +110,6 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
                 rules_by_segment.get(seg.id, []),cancel)
             remember_review(seg,value)
             return value
-        def review_group(group):
-            from .batch import review_batch
-            if cancel and cancel.is_set(): raise LLMUnavailable('模型复核已取消。')
-            values = review_batch([(seg, review_reference(seg,ordinal,False), rules_by_segment.get(seg.id, []))
-                for seg, ordinal in group],glossary,client,page_context)
-            for seg, ordinal in group:
-                if seg.id not in values:
-                    try: values[seg.id] = review_one(seg, ordinal)
-                    except LLMUnavailable as error: values[seg.id] = error
-                else: remember_review(seg,values[seg.id])
-            return values
         # Build page flow caches before threads start; only the merger writes findings.
         for seg in checked: page_context.prompt(seg)
         rules_by_segment = {}
@@ -128,42 +117,27 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
             if finding.method == 'rule': rules_by_segment.setdefault(finding.segment_id, []).append(finding)
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='star-review') as pool:
             pending = {}
-            groups, group, size = [], [], 0
             for seg in checked:
                 ordinal = file_counts.get(seg.file_path,0)
                 file_counts[seg.file_path] = ordinal + 1
                 cached = cached_review(seg)
                 if cached is not None:
                     from concurrent.futures import Future
-                    future=Future();future.set_result(cached);pending[seg.id]=(future,False)
-                    continue
-                if workers > 1 and getattr(client,'supports_document_batches',False) is True:
-                    page = (seg.file_path, seg.slide, ordinal//12 if seg.slide is None else None)
-                    previous = (group[-1][0].file_path,group[-1][0].slide,group[-1][1]//12 if group[-1][0].slide is None else None) if group else None
-                    if group and (page != previous or len(group)>=8 or size+len(seg.text)>1800):
-                        groups.append(group);group=[];size=0
-                    group.append((seg,ordinal));size+=len(seg.text)
-                else: pending[seg.id]=(pool.submit(review_one, seg, ordinal), False)
-            if group: groups.append(group)
-            for group in groups:
-                if len(group)==1:
-                    pending[group[0][0].id]=(pool.submit(review_one,*group[0]), False)
+                    future=Future();future.set_result(cached)
                 else:
-                    future=pool.submit(review_group,group)
-                    pending.update({seg.id:(future,True) for seg,_ in group})
+                    # Concurrency overlaps independent, fully contextualized
+                    # reviews; quality does not depend on a batched model reply.
+                    future=pool.submit(review_one,seg,ordinal)
+                pending[seg.id]=future
             for index,seg in enumerate(checked):
                 if cancel and cancel.is_set():
-                    for future, _ in pending.values(): future.cancel()
+                    for future in pending.values(): future.cancel()
                     stats['model_status'] = 'cancelled'
                     stats['warnings'].append('模型复核已取消；以下仅包含已完成部分。')
                     break
                 new_hits = []
                 try:
-                    future, batched = pending[seg.id]
-                    value = future.result()
-                    if batched: value = value[seg.id]
-                    if isinstance(value, Exception): raise value
-                    hits, truncated = value
+                    hits, truncated = pending[seg.id].result()
                     stats['judged'] += 1
                     file_judged[seg.file_path] = file_judged.get(seg.file_path, 0) + 1
                     if truncated:

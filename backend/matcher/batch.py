@@ -1,7 +1,7 @@
 """Review small groups with explicit per-paragraph coverage and ID isolation."""
 import json
 from ..llm.client import LLMUnavailable, LLMResponseInvalid, LLMTruncated
-from .judge import SYSTEM_PROMPT, _build_glossary_text, _clean_hits
+from .judge import SYSTEM_PROMPT, _build_glossary_text, validated_hits
 from .retriever import select_relevant_terms
 
 
@@ -42,5 +42,12 @@ def review_batch(entries, glossary, client, page_context):
         if not isinstance(key, str) or key not in expected: continue
         if key in found: duplicates.add(key)
         found[key] = row
-    return {key: (_clean_hits(row['findings'], expected[key].text), False)
-            for key, row in found.items() if key not in duplicates and isinstance(row.get('findings'), list)}
+    values = {}
+    for key, row in found.items():
+        if key in duplicates:
+            continue
+        try:
+            values[key] = (validated_hits(row.get('findings'), expected[key].text), False)
+        except LLMResponseInvalid:
+            continue  # The caller retries only this paragraph with its full context.
+    return values

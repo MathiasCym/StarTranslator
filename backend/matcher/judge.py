@@ -19,7 +19,7 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 from ..glossary.loader import Glossary
-from ..llm.client import LLMClient, LLMUnavailable
+from ..llm.client import LLMClient, LLMUnavailable, LLMResponseInvalid
 from .retriever import recall_terms, select_relevant_terms
 from ..writing_policy import instructions
 
@@ -128,6 +128,20 @@ def _clean_hits(items, text: str) -> list[dict]:
     return out
 
 
+def validated_hits(items, text):
+    """Invalid or misplaced rows require a retry, never a false clean result."""
+    if not isinstance(items, list):
+        raise LLMResponseInvalid('模型返回的审校建议不是列表，需要重新检查该段。')
+    for item in items:
+        if (not isinstance(item, dict) or not isinstance(item.get('found'), str)
+                or not isinstance(item.get('suggested'), str)
+                or not item['found'].strip() or not item['suggested'].strip()):
+            raise LLMResponseInvalid('模型返回的审校建议缺少有效原文或替换文本，需要重新检查该段。')
+        if item['found'].strip().lower() not in text.lower():
+            raise LLMResponseInvalid('模型的建议未对应当前段落，需要重新检查该段。')
+    return _clean_hits(items, text)
+
+
 def judge_text(text: str, glossary: Glossary, client: LLMClient | None = None,
                max_tokens: int = 4000, reference: str = '', rule_hits=None) -> list[dict]:
     """对一段文本做判决。返回 [{found, concept_zh, suggested, kind, confidence, reason}]。
@@ -166,7 +180,7 @@ def judge_text_ex(text: str, glossary: Glossary, client: LLMClient | None = None
         result, truncated = client.chat_json(prompt, system=SYSTEM_PROMPT, max_tokens=max_tokens), False
     if not isinstance(result, list):
         raise LLMUnavailable("模型返回的审校结果格式无效，本次检验未完成。")
-    return _clean_hits(result, text), truncated
+    return validated_hits(result, text), truncated
 
 
 def judge_segments(segments: list, glossary: Glossary, client: LLMClient | None = None,

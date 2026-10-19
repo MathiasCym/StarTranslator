@@ -154,6 +154,45 @@ def translation_numeric_tokens(source, translation):
     return text, [(value, start, end) for value, start, end in tokens if not any(start >= a and end <= b for a, b in ignored)]
 
 
+def quantity_units(text):
+    """Bind explicit physical units to their values, including shared dimensions.
+
+    Chinese counters such as 位/块 depend on context and are deliberately excluded.
+    A trailing unit in 500 x 600 mm applies to both dimensions.
+    """
+    text, tokens = _calendar_numeric_tokens(text)
+    values = {}
+    physical = {'nit', 'mm', 'cm', 'm', 'hz', 'fps', 'bit', 'pixel'}
+    joined = re.compile(r'\s*(?:[x×*~–—-]|by|to|至|到|/)\s*', re.I)
+    def quantity(index):
+        value, start, end = tokens[index]
+        embedded = start and re.match(r'[A-Za-z0-9_]', text[start-1])
+        dimension = index and joined.fullmatch(text[tokens[index-1][2]:start])
+        return isinstance(value, Decimal) and (not embedded or dimension)
+    for index, (value, start, end) in enumerate(tokens):
+        if not quantity(index):
+            continue
+        unit = QUANTITY_UNIT.match(text, end)
+        if unit is None and re.match(r'-bits?\b', text[end:], re.I):
+            unit = QUANTITY_UNIT.match(text, end+1)
+        if unit is None or unit.group(1) in ('位', '块'):
+            continue
+        label = unit.group(1).lower()
+        label = UNITS.get(label, label)
+        if label not in physical:
+            continue
+        values[index] = (value, label)
+        previous = index-1
+        while previous >= 0:
+            prior, a, b = tokens[previous]
+            if (not quantity(previous) or previous in values
+                    or not joined.fullmatch(text[b:tokens[previous+1][1]])):
+                break
+            values[previous] = (prior, label)
+            previous -= 1
+    return Counter(values.values())
+
+
 def repair_numeric_translation(source, translation):
     """Correct one unambiguous quantity difference; never rewrite model codes."""
     text, target = translation_numeric_tokens(source, translation)
@@ -210,6 +249,10 @@ def validate_translation(source, translation):
             return '、'.join(label(value)+(f'（{count}处）' if count>1 else '') for value,count in values.items()) or '无'
         raise ValueError('生成的英文与中文原稿存在数值差异，需要核对。'
             +' 原稿需保留：'+describe(expected-actual)+'；译文多出：'+describe(actual-expected)+'。')
+    missing_units = quantity_units(source) - quantity_units(translation)
+    if missing_units:
+        required = '、'.join(f'{value} {unit}' for value, unit in missing_units)
+        raise ValueError('译文未保留与原数值对应的单位，需要修正：'+required+'。')
     tokens = re.findall(r'(?<![A-Za-z0-9])(?:[A-Z]{2,}[A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|'
         r'[A-Za-z]+[0-9][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|[0-9]+[A-Z][A-Za-z0-9]*)(?![A-Za-z0-9])', source)
     for token in tokens:

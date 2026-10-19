@@ -156,6 +156,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     if (state.busy) return
     state.view = view
     $('lexiconListPane').hidden = view !== 'list'; $('lexiconGridPane').hidden = view !== 'grid'
+    $('lexiconPagination').classList.toggle('grid-pagination', view === 'grid')
     for (const [id, name] of [['lexiconListView', 'list'], ['lexiconGridView', 'grid']]) {
       $(id).classList.toggle('active', view === name); $(id).setAttribute('aria-pressed', String(view === name))
     }
