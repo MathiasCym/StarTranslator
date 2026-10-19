@@ -316,6 +316,14 @@ class CheckpointTests(unittest.TestCase):
         with patch('backend.checkpoints.policy',return_value=old):Checkpoint('translation',identity).put(['paragraph'],{'translation':'Verified English'})
         self.assertEqual(Checkpoint('translation',identity).get(['paragraph'])['translation'],'Verified English')
         self.assertIsNone(Checkpoint('translation',{**identity,'fingerprint':'changed'}).get(['paragraph']))
+    def test_shipped_2013_checkpoints_survive_calendar_validation_improvements(self):
+        from backend.checkpoints import Checkpoint
+        identity={'source':str(self.root/'same.docx'),'fingerprint':'fixture','model':{'model':'fixture'}}
+        old='e3803df46fe2e75c773fb753ac815277ea9bdf6d9fcba0df316833dc855671ad'
+        with patch('backend.checkpoints.policy',return_value=old):Checkpoint('translation',identity).put(['paragraph'],{'translation':'Verified English'})
+        self.assertEqual(Checkpoint('translation',identity).get(['paragraph'])['translation'],'Verified English')
+        self.assertIsNone(Checkpoint('translation',{**identity,'fingerprint':'changed'}).get(['paragraph']))
+        self.assertIsNone(Checkpoint('translation',{**identity,'model':{'model':'other'}}).get(['paragraph']))
     def test_full_paragraph_repair_checkpoint_is_used_before_splitting_soft_breaks(self):
         from backend.checkpoints import open_checkpoint,translation_key
         from backend.glossary.store import fingerprint

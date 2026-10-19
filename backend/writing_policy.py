@@ -50,14 +50,23 @@ def _calendar_numeric_tokens(text):
     """
     text, tokens = numeric_tokens(text)
     dates = []
-    def add(match, year, month, day=None):
+    def add_dates(match, values):
+        normalized=[];calendar=[]
         try:
-            year,month=int(year),int(month)
-            day=int(day) if day else None
-            date(year,month,day or 1)
+            for year,month,day in values:
+                year=int(year) if year is not None else None
+                month=int(month);day=int(day) if day else None
+                calendar.append(date(year if year is not None else 2000,month,day or 1))
+                normalized.append('date:'+(f'{year:04d}' if year is not None else '-')+f'-{month:02d}'+(f'-{day:02d}' if day else ''))
         except (ValueError,TypeError):return
+        if len(calendar)>1 and calendar[-1]<calendar[0]:return
         if any(match.start()<end and match.end()>start for _,start,end in dates):return
-        dates.append(('date:'+f'{year:04d}-{month:02d}'+(f'-{day:02d}' if day else ''),match.start(),match.end()))
+        dates.extend((value,match.start(),match.end()) for value in normalized)
+    def add(match, year, month, day=None):
+        add_dates(match,[(year,month,day)])
+    # Shared month/year ranges represent two dates, not a date plus a quantity.
+    for m in re.finditer(r'(?<!\d)([1-9]\d{3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]?\s*(?:至|到|[-–—~])\s*(\d{1,2})\s*[日号]',text):
+        add_dates(m,[(m[1],m[2],m[3]),(m[1],m[2],m[4])])
     for m in re.finditer(r'(?<![A-Za-z0-9_.])([1-9]\d{3})\s*年\s*(\d{1,2})\s*月(?:\s*(\d{1,2})\s*[日号])?',text):
         add(m,*m.groups())
     months='January February March April May June July August September October November December'.split()
@@ -66,16 +75,28 @@ def _calendar_numeric_tokens(text):
     names['sept']=9
     month=r'('+'|'.join(sorted(names,key=len,reverse=True))+r')\.?'
     # Longer forms first, so a day is never silently reduced to month precision.
+    for m in re.finditer(r'\b'+month+r'\s+(\d{1,2})(?:st|nd|rd|th)?\s*[-–—]\s*(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*([1-9]\d{3})\b',text,re.I):
+        add_dates(m,[(m[4],names[m[1].casefold()],m[2]),(m[4],names[m[1].casefold()],m[3])])
+    for m in re.finditer(r'\b(\d{1,2})(?:st|nd|rd|th)?\s*[-–—]\s*(\d{1,2})(?:st|nd|rd|th)?\s+'+month+r'\s*,?\s*([1-9]\d{3})\b',text,re.I):
+        add_dates(m,[(m[4],names[m[3].casefold()],m[1]),(m[4],names[m[3].casefold()],m[2])])
     for m in re.finditer(r'\b(\d{1,2})(?:st|nd|rd|th)?\s+'+month+r'\s*,?\s*([1-9]\d{3})\b',text,re.I):
         add(m,m[3],names[m[2].casefold()],m[1])
-    for m in re.finditer(r'\b'+month+r'\s+(?:(\d{1,2})(?:st|nd|rd|th)?\s*,?\s+)?([1-9]\d{3})\b',text,re.I):
+    for m in re.finditer(r'\b'+month+r'[\s,]+(?:(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*)?([1-9]\d{3})\b',text,re.I):
         add(m,m[3],names[m[1].casefold()],m[2])
-    compact=re.compile(r'(?<![A-Za-z0-9_.])([1-9]\d{3})([./-])(\d{1,2})(?:\2(\d{1,2}))?(?![\d.])')
+    # No year in the source means no invented year in the translation.
+    for m in re.finditer(r'(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]',text):
+        add(m,None,*m.groups())
+    for m in re.finditer(r'\b'+month+r'\s+(\d{1,2})(?:st|nd|rd|th)?\b',text,re.I):
+        add(m,None,names[m[1].casefold()],m[2])
+    for m in re.finditer(r'\b(\d{1,2})(?:st|nd|rd|th)?\s+'+month+r'\b',text,re.I):
+        add(m,None,names[m[2].casefold()],m[1])
+    compact=re.compile(r'(?<![A-Za-z0-9_.])([1-9]\d{3})([./-])(\d{1,2})(?:\2(\d{1,2}))?(?!\d|[./-]\d)')
     for m in compact.finditer(text):
         before,after=text[max(0,m.start()-24):m.start()],text[m.end():]
         # Explicit quantities, identifiers and version labels stay numeric.
         if re.search(r'(?:版本|型号|价格|数值|version|model|price|value|\bv)\s*[:：]?\s*$',before,re.I):continue
-        if re.match(r'\s*(?:%|元|美元|人民币|万元|亿元|万|亿)|\s*[A-Za-z0-9_]',after):
+        if re.match(r'\s*(?:%|元|美元|人民币|万元|亿元|万|亿)',after):continue
+        if m[4] is None and re.match(r'\s*[A-Za-z0-9_]',after):
             # An English dated heading is allowed only with a known event noun.
             if not re.match(r'\s+(?:[A-Za-z-]+\s+){0,3}(?:notice|plan|policy|report|release|update|meeting|conference)\b',after,re.I):continue
         if QUANTITY_UNIT.match(after):continue
@@ -85,6 +106,17 @@ def _calendar_numeric_tokens(text):
             or (not text[:m.start()].strip(' \t\r\n•·—-:：')
                 and re.match(r'\s+(?:[A-Za-z-]+\s+){0,3}(?:notice|plan|policy|report|release|update|meeting|conference)\b',after,re.I)))
         if calendar_context:add(m,m[1],m[3],m[4])
+    # Numeric day/month order is accepted only when unambiguous. For 05/09/2025
+    # neither a US nor a European interpretation may be guessed from language.
+    for m in re.finditer(r'(?<![A-Za-z0-9_.])(\d{1,2})([./-])(\d{1,2})\2([1-9]\d{3})(?!\d|[./-]\d)',text):
+        before=text[max(0,m.start()-24):m.start()]
+        if re.search(r'(?:版本|型号|version|model|\bv)\s*[:：]?\s*$',before,re.I):continue
+        first,second=int(m[1]),int(m[3])
+        if first>12 and second<=12:add(m,m[4],second,first)
+        elif second>12 and first<=12:add(m,m[4],first,second)
+        elif first==second:add(m,m[4],first,second)
+        elif 1<=first<=12 and 1<=second<=12 and not any(m.start()<end and m.end()>start for _,start,end in dates):
+            dates.append((f'ambiguous-date:{m[4]}-{first:02d}-{second:02d}',m.start(),m.end()))
     tokens=[(value,start,end) for value,start,end in tokens
         if not any(start>=a and end<=b for _,a,b in dates)]
     return text, sorted(tokens+dates,key=lambda token:token[1])
@@ -172,7 +204,9 @@ def validate_translation(source, translation):
     actual = Counter(value for value, _, _ in translation_numeric_tokens(source, translation)[1])
     if expected != actual:
         def describe(values):
-            def label(value):return value.replace('date:','日期 ') if isinstance(value,str) and value.startswith('date:') else str(value)
+            def label(value):
+                if isinstance(value,str) and value.startswith('ambiguous-date:'):return value.replace('ambiguous-date:','月日顺序待确认的日期 ')
+                return value.replace('date:','日期 ') if isinstance(value,str) and value.startswith('date:') else str(value)
             return '、'.join(label(value)+(f'（{count}处）' if count>1 else '') for value,count in values.items()) or '无'
         raise ValueError('生成的英文与中文原稿存在数值差异，需要核对。'
             +' 原稿需保留：'+describe(expected-actual)+'；译文多出：'+describe(actual-expected)+'。')

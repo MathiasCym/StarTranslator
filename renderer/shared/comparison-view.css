@@ -4,10 +4,14 @@ dialog.shared-dialog, dialog#comparison, dialog#contactDialog {
   inset: 0;
   -webkit-app-region: no-drag;
 }
-dialog#lanDialog { max-height: calc(100dvh - 48px); overflow: hidden; }
+dialog#lanDialog { width: min(680px, calc(100vw - 40px)); max-height: calc(100dvh - 48px); overflow: hidden; }
 dialog#lanDialog[open] { display: flex; flex-direction: column; }
 dialog#lanDialog .panel-head { flex-shrink: 0; padding: 8px 0; background: transparent; }
-dialog#lanDialog .lan-dialog-body { min-height: 0; overflow: auto; }
+dialog#lanDialog .lan-dialog-body {
+  min-height: 0; overflow: auto;
+  /* The scrollport includes the outer focus ring and the buttons' soft glow. */
+  margin-inline: -16px; padding: 8px 16px 24px; scroll-padding: 12px;
+}
 dialog#lanDialog .lan-message { color: #ff9eac; margin: 12px 0; overflow-wrap: anywhere; }
 dialog#lanDialog input[aria-invalid=true] { border-color: #ff9eac; }
 dialog#lanDialog .btn { -webkit-app-region: no-drag; }

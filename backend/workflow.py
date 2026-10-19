@@ -36,6 +36,22 @@ def snapshot(job):
     return {k:v for k,v in job.items() if k != 'cancel' and not k.startswith('_')}
 
 
+def can_resume_processing(job, outcome):
+    """Manual decisions and layout advice are not interrupted model work."""
+    result = job.get('result') or {}
+    stats = result.get('stats') or {}
+    if outcome in ('failed', 'cancelled') or job.get('error') or result.get('errors'):
+        return True
+    if stats.get('errors') or stats.get('truncated'):
+        return True
+    processing = stats.get('review_processing_status', stats.get('model_status'))
+    if processing in ('partial', 'unavailable', 'cancelled', 'not_started'):
+        return True
+    return any(output.get('untranslated') or output.get('review_error') or
+        any(item.get('service_unavailable') for item in output.get('review_items', []))
+        for output in result.get('outputs', []))
+
+
 def start(data):
     if data.get('kind') not in ('check','translate','translate_review'):
         raise ValueError('任务类型不正确')
@@ -256,8 +272,7 @@ def run(job,data):
     finally:
         if data['kind'] == 'translate_review' and job.get('result'):
             publish_combined_report(job, reviews, outcome)
-        job['can_resume']=bool(outcome in ('failed','partial','cancelled') or
-            (job.get('result') or {}).get('stats',{}).get('model_status') in ('partial','unavailable','cancelled','not_started'))
+        job['can_resume'] = can_resume_processing(job, outcome)
         try: history.finish({**job,'status':outcome}, data)
         except Exception:
             logging.getLogger(__name__).exception('Could not save local task history')
@@ -300,6 +315,7 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
     findings, stats = check_segments([s for s in segments if s.locator not in unchecked], glossary, True,
         client=client, references=refs, cancel=cancel, progress=progress, on_finding=on_finding,
         workers=workers,expect_english=True,checkpoint_origin=result['source'])
+    stats['review_processing_status'] = stats['model_status']
     manual=[]
     for segment in segments:
         if segment.locator not in unchecked:continue
@@ -308,6 +324,7 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
             slide=segment.slide,para=segment.para,source=segment.source,found_text=segment.text,
             reason='翻译待核对：'+issue.get('reason','自动修复未完成，已保留原文。')+' 其余内容已继续处理；可保存文件，也可填写确认后的英文再替换。',
             kind='grammar',method='rule',editable=segment.editable,context=segment.text))
+    stats['manual_review'] = len(manual)
     if manual:
         findings.extend(manual)
         stats['segments']+=len(manual);stats['unreviewed']+=len(manual)
@@ -351,13 +368,17 @@ def publish_combined_report(job, reviews, outcome):
     result = job['result']
     local = {'segments':[],'hashes':{},'findings':[], 'output_options':{}}
     stats = {key:sum(r['stats'].get(key,0) for r in reviews) for key in
-             ('segments','rule_hits','consistency_hits','llm_hits','judged','errors','unreviewed','truncated','unsupported','residual_chinese','resumed_segments','format_pages','format_image_pages')}
+             ('segments','rule_hits','consistency_hits','llm_hits','judged','errors','unreviewed','manual_review','truncated','unsupported','residual_chinese','resumed_segments','format_pages','format_image_pages')}
     errors = result.get('errors',[]) + [{'path':r['output']['source'],'error':r['output']['review_error']}
         for r in reviews if r['output'].get('review_error')]
     if job.get('error'): errors.append({'error':job['error']})
     states = [r['stats']['model_status'] for r in reviews]
     stats['model_status'] = 'cancelled' if outcome=='cancelled' else (
         'not_started' if not reviews else 'unavailable' if all(s=='unavailable' for s in states) else 'partial' if errors or any(s!='complete' for s in states) else 'complete')
+    processing_states = [r['stats'].get('review_processing_status', r['stats']['model_status']) for r in reviews]
+    stats['review_processing_status'] = 'cancelled' if outcome=='cancelled' else (
+        'not_started' if not reviews else 'unavailable' if all(s=='unavailable' for s in processing_states)
+        else 'partial' if errors or any(s!='complete' for s in processing_states) else 'complete')
     stats['warnings'] = [warning for r in reviews for warning in r['stats']['warnings']]
     files = []
     for review in reviews:

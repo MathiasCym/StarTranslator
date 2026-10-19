@@ -52,6 +52,7 @@ def finish(job, data):
                            'resumed_translation':sum(item.get('resumed_segments',0) for item in outputs),
                            'needs_review': sum(item.get('needs_review', 0) for item in outputs),
                            'replaced': sum(item.get('corrected', 0) for item in outputs) + sum(item.get('replaced', 0) for item in row.get('exports', []))})
+        if 'can_resume' in job: row['can_resume'] = job['can_resume']
         row['outputs'] = unique_outputs([*({'path': item['path'], 'source': item.get('source', ''), 'comparison_id':item.get('comparison_id')} for item in outputs if not item.get('staged')), *row.get('outputs', [])])
         exported_sources = {item['source'] for item in row.get('exports',[])}
         row['drafts'] = [{'path':item['path'],'source':item['source']} for item in outputs if item.get('staged') and item['source'] not in exported_sources]

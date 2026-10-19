@@ -53,14 +53,15 @@ class Checkpoint:
                 db.execute('CREATE TABLE IF NOT EXISTS checkpoint_scopes (scope TEXT PRIMARY KEY, origin TEXT NOT NULL)')
                 db.execute('INSERT OR REPLACE INTO checkpoint_scopes VALUES (?,?)',(self.scope,str(identity.get('source',''))))
                 rows = db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?', (self.scope,stage)).fetchall()
-                # Explicit compatibility with the shipped 2.0.11/2.0.12 translators.
+                # Explicit compatibility with the shipped 2.0.11–2.0.13 translators.
                 # Source/model/glossary/references/styles remain in the identity;
                 # every resumed paragraph still passes today's content checks.
                 if stage=='translation':
                     for old_policy in ('e70d058be4e421fe6cc5ed3f7fee27bdd31e342576ce3d47145039279f088bf5',
                             '2dbc35c2e107202d597ff58e7d2bf3baff4ac9e807e2afd4dcc7e40a98e1a664',
                             '20631795cfac42022cdebcb50c6f52e8d44cdf72d7dfbc51129d27399cd58c47',
-                            'cce7e89f4fc5d122f2f32566e846b3f5d6868984403ab0aee2a8b8808d0ae6bf'):
+                            'cce7e89f4fc5d122f2f32566e846b3f5d6868984403ab0aee2a8b8808d0ae6bf',
+                            'e3803df46fe2e75c773fb753ac815277ea9bdf6d9fcba0df316833dc855671ad'):
                         legacy=digest({'policy':old_policy,'input':identity})
                         if legacy==self.scope:continue
                         known={key for key,_ in rows}

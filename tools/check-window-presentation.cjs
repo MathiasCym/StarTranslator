@@ -1,6 +1,7 @@
 // Measure the application's own default window. Never replace it with a test-sized window.
 const runtime=require('electron')
 const scenarios={
+ 'compact':{width:1280,height:800,dpi:1},
  '1080p':{width:1920,height:1080,dpi:1},
  '2240-150':{width:2240,height:1400,dpi:1.5},
  '4k-150':{width:3840,height:2160,dpi:1.5},
@@ -49,9 +50,20 @@ server.listen(0,'127.0.0.1',async()=>{
   assert(win,'The real main window was not created')
   win.webContents.setBackgroundThrottling(false)
   const run=code=>win.webContents.executeJavaScript(code),display=screen.getDisplayMatching(win.getBounds()),dpi=display.scaleFactor,zoom=win.webContents.getZoomFactor(),bounds=win.getBounds()
+  win.webContents.debugger.attach('1.3')
+  await win.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled',{enabled:true})
   result.version=app.getVersion();result.default={bounds,scaleFactor:dpi,zoomFactor:zoom,screenPixels:{width:bounds.width*dpi,height:bounds.height*dpi},workArea:display.workArea}
   const layout=()=>run(`(()=>{const main=document.querySelector('body>main'),aside=document.querySelector('.task-options'),button=$('runBtn').getBoundingClientRect();return {width:innerWidth,height:innerHeight,bodyFont:parseFloat(getComputedStyle(document.body).fontSize),buttonFont:parseFloat(getComputedStyle($('runBtn')).fontSize),mainScroll:main.scrollHeight-main.clientHeight,asideScroll:aside.scrollHeight-aside.clientHeight,horizontal:document.documentElement.scrollWidth-innerWidth,buttonBottom:button.bottom}})()`)
   const capture=async name=>{await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true});await wait(1100);const image=await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true}),bytes=image.toPNG(),file=path.join(out,label+'-'+name+'.png');fs.writeFileSync(file,bytes);result.screenshots.push({file,pixelWidth:bytes.readUInt32BE(16),pixelHeight:bytes.readUInt32BE(20)});assert(bytes.length>15000,'Missing real window image')}
+  const checkFocus=async(selector,name)=>{
+   await win.webContents.debugger.sendCommand('Input.dispatchKeyEvent',{type:'rawKeyDown',key:'Tab',code:'Tab',windowsVirtualKeyCode:9})
+   await win.webContents.debugger.sendCommand('Input.dispatchKeyEvent',{type:'keyUp',key:'Tab',code:'Tab',windowsVirtualKeyCode:9})
+   await run(`document.querySelector(${JSON.stringify(selector)}).focus()`);await wait(180)
+   await capture(name)
+   const value=await run(`(()=>{const e=document.querySelector(${JSON.stringify(selector)}),r=e.getBoundingClientRect(),s=getComputedStyle(e),outset=Math.max(0,parseFloat(s.outlineWidth)+parseFloat(s.outlineOffset)),clipped=[];for(let a=e.parentElement;a;a=a.parentElement){const t=getComputedStyle(a),b=a.getBoundingClientRect(),left=b.left+a.clientLeft,top=b.top+a.clientTop;if(/auto|scroll|hidden|clip/.test(t.overflowX)&&(r.left-outset<left-.75||r.right+outset>left+a.clientWidth+.75))clipped.push({parent:a.id||a.className,axis:'x'});if(/auto|scroll|hidden|clip/.test(t.overflowY)&&(r.top-outset<top-.75||r.bottom+outset>top+a.clientHeight+.75))clipped.push({parent:a.id||a.className,axis:'y'})}return {selector:${JSON.stringify(selector)},focusVisible:e.matches(':focus-visible'),outline:s.outlineWidth,outset,clipped}})()`)
+   ;(result.focusChecks||=[]).push(value)
+   if(!measure){assert(value.focusVisible,'Keyboard focus must remain visible: '+selector);assert.equal(value.clipped.length,0,JSON.stringify(value))}
+  }
   await run("state.files=[];state.references=[];setMode('translate');renderFiles()")
   result.empty=await layout();await capture('empty')
   result.dropzone=await run(`(()=>{const zone=$('dropzone'),style=getComputedStyle(zone,'::before'),portrait=zone.querySelector('img');return {animation:style.animationName,duration:style.animationDuration,imageLoaded:portrait.complete&&portrait.naturalWidth>0,portrait:portrait.getBoundingClientRect().width,glass:getComputedStyle(zone).backdropFilter,titleDrag:getComputedStyle(document.querySelector('.topbar')).webkitAppRegion}})()`)
@@ -69,7 +81,23 @@ server.listen(0,'127.0.0.1',async()=>{
    assert(result.loaded.mainScroll<3&&result.loaded.asideScroll<3&&result.loaded.horizontal===0&&result.loaded.buttonBottom<=result.loaded.height,JSON.stringify(result.loaded))
    assert(Math.abs(result.screenshots[1].pixelWidth-win.getContentBounds().width*dpi)<=3,'Screenshot must retain actual screen pixels')
   }
-  await run("$('openModel').click()");await wait(200);await capture('model');await run("$('modelClose').click()")
+  await run("$('openModel').onclick()");await wait(200);await capture('model')
+  await checkFocus('#modelProfileName','model-name-focus')
+  await checkFocus('#modelPreset','model-provider-focus')
+  await checkFocus('#modelKey','model-key-focus')
+  await run("profileState={...profileState,active:'qa-model',editing:'qa-model',encryption:'dpapi',profiles:[{id:'qa-model',name:'团队模型',model:'ui-only'},{id:'qa-spare',name:'备用模型',model:'ui-only'}]};renderProfiles();updateProfileControls()")
+  await checkFocus('#profileList [data-profile]','model-profile-focus')
+  await run("$('modelClose').click()")
+  await run('showLan()')
+  result.lan=await run("(()=>{const d=$('lanDialog'),r=d.getBoundingClientRect(),b=$('closeLan'),c=b.getBoundingClientRect();return {width:r.width,height:r.height,horizontal:d.scrollWidth-d.clientWidth,centerOffset:Math.abs(r.left+r.width/2-innerWidth/2),closeVisible:c.top>=0&&c.bottom<=innerHeight&&b.contains(document.elementFromPoint(c.left+c.width/2,c.top+c.height/2))}})()")
+  result.lan.screenWidth=result.lan.width*zoom*dpi
+  if(!measure){assert(result.lan.width<=681&&result.lan.width>400,JSON.stringify(result.lan));assert(result.lan.centerOffset<2&&result.lan.horizontal<2&&result.lan.closeVisible,JSON.stringify(result.lan))}
+  await checkFocus('#lanPort','lan-port-focus')
+  await checkFocus('#lanToggle','lan-toggle-focus')
+  await run("lanStatus={enabled:true,port:8765,addresses:['http://192.168.1.10:8765']};renderLan()")
+  await checkFocus('#lanAddresses input','lan-address-focus')
+  await checkFocus('#lanRemote','lan-remote-focus')
+  await run("$('closeLan').click()")
   await run("$('openLexicon').click()");await wait(200);await capture('glossary');await run("$('closeLexicon').click()")
   await run(`loadReport({report_id:'presentation',kind:'check',files:[{path:'C:/qa/sample.pptx',name:'sample.pptx'}],stats:{model_status:'complete',segments:10,judged:10,rule_hits:0,llm_hits:10},findings:Array.from({length:10},(_,i)=>({file:'sample.pptx',file_path:'C:/qa/sample.pptx',slide:i+1,method:'llm',editable:true,found_text:'Second half strategy',suggested:'H2 strategy',reason:'统一全文用语',context:'Example context'}))});openReport()`)
   await capture('report');result.passed=true

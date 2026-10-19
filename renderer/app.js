@@ -297,23 +297,45 @@ function showCheckCompletion() {
   $('reviewCompletePanel').hidden = false
   renderCheckCompletion()
 }
+function reviewCompletionState(report, job) {
+  const stats = report.stats || {}, findings = report.findings || []
+  const manual = findings.filter(f => f.reason?.startsWith('翻译待核对：'))
+  const manualTotal = stats.manual_review ?? manual.length
+  const manualPending = manual.filter(f => !f.applied).length
+  const untranslated = findings.filter(f => !f.applied && /[\u3400-\u9fff]/.test(f.found_text || '') &&
+    (f.reason?.startsWith('翻译待核对：') || f.reason?.startsWith('未译中文：'))).length
+  const unreviewed = Math.max(0, (stats.unreviewed || 0) - manualTotal)
+  // Older reports used "partial" for both human decisions and failed calls.
+  const processing = stats.review_processing_status ||
+    (stats.model_status === 'partial' && manualTotal && !unreviewed && !stats.errors && !stats.truncated ? 'complete' : stats.model_status)
+  const errors = [...new Set([job?.error, ...(report.errors || []).map(e => e.error)].filter(Boolean))]
+  if (stats.errors) errors.push(`${stats.errors} 段未能完成模型检查，已保留完成部分。`)
+  if (stats.truncated) errors.push(`${stats.truncated} 段模型响应被截断，检查尚未完成。`)
+  if (unreviewed && !stats.errors) errors.push(`${unreviewed} 段尚未完成模型检查。`)
+  const interrupted = !!errors.length || job?.status === 'failed' || ['partial', 'unavailable', 'not_started'].includes(processing)
+  const cancelled = job?.status === 'cancelled' || processing === 'cancelled'
+  const notStarted = report.kind === 'translate_review' && processing === 'not_started'
+  if (interrupted && !errors.length) errors.push(notStarted ? '校对尚未开始，已完成译文和断点已保留。' : '模型检查未能全部完成，已保留可用文件与完成部分。')
+  return { manualPending, untranslated, interrupted, cancelled, notStarted, errors,
+    canResume: (interrupted || cancelled || untranslated > 0) && job?.can_resume !== false }
+}
 function renderCheckCompletion() {
   const r = state.report
   if (!r) return
   const s = r.stats || {}, files = r.files || [], findings = r.findings || []
   const combined = r.kind === 'translate_review', label = combined ? '翻译并校对' : '校对'
-  const cancelled = state.job?.status === 'cancelled', partial = !!r.errors?.length || !['complete', 'not_requested'].includes(s.model_status)
-  const notStarted=combined&&s.model_status==='not_started'
-  $('completionResume').hidden=!state.job?.can_resume&&!notStarted
-  $('completionIssue').hidden=!r.errors?.length
-  $('completionIssue').textContent=[...new Set((r.errors||[]).map(e=>e.error).filter(Boolean))].join('；')
-  $('completionExportLog').hidden = !partial && !state.job?.error && !s.errors
-  $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : notStarted?'文件已保留 · 校对尚未开始':partial ? `${label}已结束 · 部分内容待核对` : `${label}完成`
-  $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分，可从断点继续。' : notStarted?'已完成译文与断点均已保留，可查看报告与保存文件，也可从断点继续。':partial ? '可在报告中处理建议并保存文件；未解决的位置已标出，也可从断点继续。' : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，打开报告查看并处理建议。'
+  const { cancelled, interrupted, notStarted, manualPending, untranslated, errors, canResume } = reviewCompletionState(r, state.job)
+  $('completionResume').hidden = !canResume
+  $('completionResume').textContent = untranslated && !interrupted && !cancelled ? '继续未完成翻译' : '从断点继续'
+  $('completionIssue').hidden = !errors.length
+  $('completionIssue').textContent = errors.join('；')
+  $('completionExportLog').hidden = !interrupted
+  $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : notStarted ? '文件已保留 · 校对尚未开始' : interrupted ? `${label}已结束 · 部分检查未完成` : manualPending ? `${label}处理完成 · ${manualPending} 处待人工核对` : `${label}完成`
+  $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分。' : interrupted ? '可用文件和已完成部分已保留，未完成原因见下方；可查看报告并保存当前文件。' : untranslated ? `仍有 ${untranslated} 处未译中文，可继续补译或在报告中填写英文；已完成内容和当前文件均保留。` : manualPending ? `自动处理已结束，${manualPending} 处内容需要人工确认，具体位置和原因已列在报告中；可以继续保存文件。` : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，建议由你确认后应用。'
   $('completionSummary').innerHTML = [[files.length, '文档'], [s.segments ?? 0, '检查段落'], [findings.length, '审校建议'], [findings.filter(f => f.applied).length, '已替换建议']].map(([n, label]) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`).join('')
   $('completionFiles').innerHTML = files.map(f => esc(f.name || basename(f.path))).join(' · ') + state.outputs.filter(o => o.comparison_id).map(o => `<button class="btn ghost sm" data-comparison="${o.comparison_id}">中英对照 · ${esc(basename(o.path))}</button>`).join('')
   $('completionFiles').title = files.map(f => f.path).join('\n')
-  $('completionDetails').textContent = combined ? `已翻译 ${state.outputs.reduce((n, o) => n + (o.translated || 0), 0)} 段，校对 ${s.judged || 0} 段。原稿保留，校对建议由你确认后应用。${r.output_mode === 'final' ? state.exportRecords.some(o => o.staged) ? '当前译文暂存，确认后保存最终文件。' : '最终文件已保存。' : ''}${state.outputs.some(o => o.review_items?.length) ? '需人工核对的内容列在报告中。' : ''}` : ''
+  $('completionDetails').textContent = combined ? `已翻译 ${state.outputs.reduce((n, o) => n + (o.translated || 0), 0)} 段，校对 ${s.judged || 0} 段${manualPending ? `；另有 ${manualPending} 处待人工核对` : ''}。原稿保留，校对建议由你确认后应用。${r.output_mode === 'final' ? state.exportRecords.some(o => o.staged) ? '当前译文暂存，确认后保存最终文件。' : '最终文件已保存。' : ''}` : ''
   $('completionDetails').hidden = !combined
   renderCompletionOutput()
 }

@@ -110,6 +110,12 @@ body > main { padding:16px 20px 20px; }
 .model-card .form-grid .form-label { margin:4px 0; font-size:16px; line-height:1.4; }
 .model-card .form-grid :is(input,select) { padding:8px 10px; line-height:1.4; }
 .profile-row { padding:8px 10px; gap:5px; box-shadow:none; }
+/* Leave room inside scrolling panes for focus rings on edge controls. */
+.model-editor { padding:8px; scroll-padding:8px; }
+.model-card .profile-list { padding:6px; scroll-padding:6px; }
+.community-body { margin-inline:-8px; padding:8px 12px 12px; scroll-padding:8px; }
+:is(.model-card, .shared-dialog) :is(input,select,textarea,button):focus,
+.model-card .profile-row:focus-within { position:relative; z-index:1; }
 .profile-copy .hint, #profileEncryption { font-size:14px; }
 .translation-help-button { width:32px; height:32px; font-size:16px; }
 .translation-help.help-dialog { width:min(600px,calc(100vw - 32px)); padding:18px; font-size:16px; }

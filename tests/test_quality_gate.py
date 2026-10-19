@@ -12,7 +12,7 @@ from pptx.enum.chart import XL_CHART_TYPE
 from pptx.util import Inches
 from openpyxl import load_workbook
 from docx import Document
-from backend import workflow,report_exports
+from backend import workflow,report_exports,history
 from backend.extract.office import open_office
 from backend.replacer.pptx_package import save_office
 from backend.translation import translate_file
@@ -126,6 +126,32 @@ class QualityGateTests(unittest.TestCase):
         with patch('backend.workflow.predominantly_chinese',side_effect=BadZipFile('invalid archive')):
             workflow.run(job,dict(kind='check',paths=[str(source)],use_llm=True))
         self.assertEqual(job['status'],'failed');self.assertTrue(job['error'])
+    def test_manual_english_validation_does_not_advertise_interrupted_processing(self):
+        source=self.root/'source.docx';doc=Document();doc.add_paragraph('原稿');doc.save(source)
+        draft=self.root/'draft.docx';doc=Document();doc.add_paragraph('English draft');doc.save(draft)
+        segment=extract(str(draft))[0]
+        result=dict(path=str(draft),source=str(source),translation_complete=False,translated=1,total=1,
+            untranslated=0,status='needs_review',needs_review=1,warnings=[],
+            review_items=[dict(locator=segment.locator,translation=segment.text,reason='请确认日期。',service_unavailable=False)])
+        class Model:
+            def chat_json(self,*args,**kwargs):raise AssertionError('Manual-only paragraph must not call the model')
+        job=dict(id='quality-manual-only',kind='translate_review',cancel=threading.Event(),status='running')
+        with patch('backend.workflow.translate_file',return_value=result):
+            workflow.run(job,dict(kind='translate_review',paths=[str(source)],_client=Model()))
+        stats=job['result']['stats']
+        self.assertEqual(stats['model_status'],'partial');self.assertEqual(stats['review_processing_status'],'complete')
+        self.assertEqual(stats['manual_review'],1);self.assertEqual(stats['errors'],0)
+        self.assertFalse(job['can_resume']);self.assertFalse(history.record(job['id'])['can_resume'])
+    def test_real_processing_failures_keep_resume_available(self):
+        cases=[({'stats':{'model_status':'partial','review_processing_status':'partial','errors':1}},'partial'),
+            ({'stats':{'model_status':'unavailable'}},'partial'),
+            ({'outputs':[{'untranslated':1}]},'partial'),
+            ({'outputs':[{'review_items':[{'service_unavailable':True}]}]},'partial'),
+            ({},'cancelled'), ({'errors':[{'error':'read failed'}]},'partial')]
+        for result,outcome in cases:
+            with self.subTest(result=result):self.assertTrue(workflow.can_resume_processing({'result':result},outcome))
+        self.assertFalse(workflow.can_resume_processing({'result':{'stats':{'model_status':'complete'},
+            'outputs':[{'needs_review':9,'layout_warnings':[{'reason':'Check layout'}]}]}},'complete'))
     def test_equal_selected_suggestions_are_all_marked_applied(self):
         source=self.root/'same.docx';doc=Document();doc.add_paragraph('dot spacing');doc.save(source);segment=extract(str(source))[0]
         findings=[Finding(segment.id,source.name,None,1,'text','dot spacing',suggested='pixel pitch',file_path=str(source),method=method) for method in ('rule','llm')]
@@ -255,6 +281,62 @@ class QualityGateTests(unittest.TestCase):
             with self.subTest(source=source,target=target):
                 with self.assertRaises(ValueError):validate_translation(source,target)
 
+    def test_date_formats_preserve_calendar_values_precision_and_ambiguity(self):
+        from backend.writing_policy import validate_translation,repair_numeric_translation
+        valid=[
+            ('2025.05.09\v示例场馆','2025.05.09\vExample venue'),
+            ('2025.12.26\v示例地点','2025.12.26\vExample location'),
+            ('2025.01.02\v示例城市','2025.01.02\vExample city'),
+            ('2024.11.20\v示例影城','2024.11.20\vExample cinema'),
+            ('2025.05.09\n测试地点','9 May 2025\nExample venue'),
+            ('2025.05.09\n测试地点','May 9th, 2025\nExample venue'),
+            ('2025/05/09 测试地点','May 9, 2025. Example venue.'),
+            ('2025年5月9日','2025-05-09.'),
+            ('2025年5月17日','05/17/2025'),
+            ('2025年5月17日','17/05/2025'),
+            ('2025年5月5日','05/05/2025'),
+            ('5月9日','9 May'),('5月9日','May 9th'),
+            ('2025年5月','May, 2025'),
+            ('2024年2月29日','29 February 2024'),
+            ('2025年5月9日至10日','9–10 May 2025'),
+            ('2025年5月9日至10日','May 9–10, 2025'),
+            ('２０２５．０５．０９\v地点','2025.05.09\vVenue'),
+            ('版本2025.05.09，型号VX1000','Version 2025.05.09, model VX1000'),
+            ('05/09/2025 测试地点','05/09/2025 Example venue')]
+        for source,target in valid:
+            with self.subTest(source=source,target=target):
+                validate_translation(source,target)
+                self.assertEqual(repair_numeric_translation(source,target),target)
+        invalid=[
+            ('2025.05.09\v地点','2025.05.10\vVenue'),
+            ('2025.05.09\v地点','2026.05.09\vVenue'),
+            ('2025.05.09\v地点','May 2025\vVenue'),
+            ('2025年5月','May 9, 2025'),('5月9日','9 May 2025'),
+            ('2024年2月29日','29 February 2025'),
+            ('2025年5月9日','05/09/2025'),
+            ('05/09/2025','May 9, 2025'),
+            ('05/09/2025','09/05/2025'),
+            ('2025年5月9日至10日','May 9–11, 2025'),
+            ('2025年5月9日至10日','May 10–9, 2025'),
+            ('版本2025.05.09','May 9, 2025'),
+            ('2025.05.09 通知，亮度300尼特','9 May 2025 notice, brightness 301 nits')]
+        for source,target in invalid:
+            with self.subTest(source=source,target=target):
+                with self.assertRaises(ValueError):validate_translation(source,target)
+    def test_date_before_venue_line_completes_real_translation_review_handoff(self):
+        source=self.root/'date-venue.docx';doc=Document();doc.add_paragraph('2025.05.09\n测试场馆');doc.save(source)
+        class Model:
+            def __init__(self):self.translation_calls=0;self.review_calls=0
+            def chat_json(self,prompt,**kw):
+                if '【待译原文】' in prompt:
+                    self.translation_calls+=1;return {'translation':'Example venue'}
+                self.review_calls+=1;return []
+        model=Model();job=dict(id='quality-date-venue',kind='translate_review',cancel=threading.Event(),status='running')
+        workflow.run(job,dict(kind='translate_review',paths=[str(source)],_client=model,workers=1))
+        self.assertEqual(job['status'],'complete');self.assertFalse(job['can_resume'])
+        self.assertEqual(model.translation_calls,1);self.assertEqual(model.review_calls,1)
+        self.assertFalse(job['result']['outputs'][0]['review_items'])
+        self.assertEqual(job['result']['stats']['manual_review'],0)
     def test_dated_ppt_notice_completes_translation_and_starts_real_proofreading(self):
         deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
         shape=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(6),Inches(1))
