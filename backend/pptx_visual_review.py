@@ -145,6 +145,8 @@ def render_pages(path, folder, cancel=None, progress=None):
 
 def _objects(document,snapshots=None):
     pages=[]
+    translated_pages={v['page'] for v in (snapshots or {}).values() if any(
+        '\u3400'<=c<='\u9fff' for _,pieces,*_ in v.get('data',[]) for r,_ in pieces for c in r.text)}
     for number,slide in enumerate(document.slides,1):
         values=[]
         for key,shape,transform in walk_shapes(slide.shapes,f'slide{number}'):
@@ -156,9 +158,14 @@ def _objects(document,snapshots=None):
                 fonts=sorted({round(st[1],2) for _,pieces,*_ in _paragraph_data(shape.text_frame,shape,slide,document) for r,st in pieces if r.text.strip()})
             original=(snapshots or {}).get(key,{})
             source_fonts=sorted({round(st[1],2) for _,pieces,*_ in original.get('data',[]) for r,st in pieces if r.text.strip()})
+            original_text='\n'.join(''.join(r.text for r,_ in pieces) for _,pieces,*_ in original.get('data',[]))
+            source_box=original.get('rect')
+            unchanged=(number in translated_pages and not any('\u3400'<=c<='\u9fff' for c in original_text)
+                and shape.has_text_frame and shape.text.strip()==original_text.strip()
+                and fonts==source_fonts and source_box is not None and all(abs(a-b)<127 for a,b in zip((x,y,w,h),source_box)))
             values.append({'shape_id':shape.shape_id,'locator':key,'box':[round(v/12700,1) for v in (x,y,w,h)],
                            'kind':'text' if shape.has_text_frame and text.strip() else 'table' if shape.has_table else 'chart' if shape.has_chart else 'picture' if shape.shape_type==13 else 'decoration',
-                           'font_sizes':fonts,'source_font_sizes':source_fonts,'wrap':shape.text_frame.word_wrap is not False if shape.has_text_frame else None,
+                           'font_sizes':fonts,'source_font_sizes':source_fonts,'unchanged_source':unchanged,'wrap':shape.text_frame.word_wrap is not False if shape.has_text_frame else None,
                            'text':text[:400]})
         pages.append(values)
     return pages
@@ -167,6 +174,7 @@ def _objects(document,snapshots=None):
 def _native_issues(source,output,number,objects):
     originals={s['id']:s for s in source.get('shapes',[])}
     keys={o['shape_id']:o['locator'] for o in objects}
+    backgrounds={o['shape_id'] for o in objects if o.get('unchanged_source') and max(o.get('source_font_sizes') or [0])>=36}
     issues=[]
     for s in output.get('shapes',[]):
         old=originals.get(s['id'])
@@ -193,6 +201,7 @@ def _native_issues(source,output,number,objects):
             old_a,old_b=originals.get(a['id']),originals.get(b['id'])
             if not old_a or not old_b:continue
             dx,dy=intersection(a,b);ox,oy=intersection(old_a,old_b)
+            if ox>.6 and oy>.6 and (a['id'] in backgrounds or b['id'] in backgrounds):continue
             if dx<=.6 or dy<=.6 or dx*dy<=max(2,max(0,ox)*max(0,oy)+2):continue
             for shape in (a,b):
                 key=locator(shape)
@@ -267,12 +276,14 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                     incomplete_pages.discard(number)
                     image_seen.add(number);audit['image_pages']=len(image_seen)
                     keys={v['shape_id']:v['locator'] for v in objects[number-1]}
+                    protected={v['shape_id'] for v in objects[number-1] if v.get('unchanged_source') and max(v.get('source_font_sizes') or [0])>=24}
                     for item in result['issues']:
                         sid=item.get('shape_id')
+                        if sid in protected:continue
                         issues.append({'slide':number,'text':f'文本框 {sid}' if sid in keys else '页面文字',
                                        'locator':keys.get(sid),'kind':item['kind'],'reason':item['reason'][:200]})
                     for action in (result.get('adjustments') or [])[:20]:
-                        if not isinstance(action,dict) or type(action.get('shape_id')) is not int or action['shape_id'] not in keys or not isinstance(action.get('reason'),str):continue
+                        if not isinstance(action,dict) or type(action.get('shape_id')) is not int or action['shape_id'] not in keys or action['shape_id'] in protected or not isinstance(action.get('reason'),str):continue
                         from .replacer.pptx_readability import _number
                         if not _number(action.get('font_size')) or not action['reason'].strip():continue
                         issues.append({**action,'slide':number,'kind':'readability','locator':keys[action['shape_id']],
@@ -301,7 +312,8 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                 10+min(100,max(0,float(v.get('font_size',0))/v['current_font_size']-1)*10) for v in values)
             for attempt in range(1,3):
                 growing={i['locator'] for i in issues if i.get('kind')=='readability'}
-                constraints={i['locator']:True for i in issues if i.get('locator') and i.get('locator') not in growing and i.get('kind') in {'clipping','overlap','crowded'}}
+                protected={v['locator'] for page in objects for v in page if v.get('unchanged_source') and max(v.get('source_font_sizes') or [0])>=24}
+                constraints={i['locator']:True for i in issues if i.get('locator') and i['locator'] not in protected and i.get('locator') not in growing and i.get('kind') in {'clipping','overlap','crowded'}}
                 for key in list(constraints):
                     for frame in snapshots or {}:
                         if frame.startswith(key.rstrip('/')+'/'):constraints[frame]=True

@@ -305,6 +305,32 @@ class VisualTests(unittest.TestCase):
         self.assertTrue(any(i.get('model_readability') for i in fixes));self.assertEqual([i['slide'] for i in issues],[2])
         with ZipFile(source) as a,ZipFile(out) as b:self.assertEqual(a.read('ppt/slides/slide2.xml'),b.read('ppt/slides/slide2.xml'))
 
+    def test_existing_english_watermark_keeps_source_size_while_translation_can_grow(self):
+        deck,source=self.deck(1);slide=deck.slides[0]
+        watermark=slide.shapes.add_textbox(Inches(1),Inches(3.5),Inches(5),Inches(1.8));watermark.text='Bit'
+        watermark.text_frame.paragraphs[0].runs[0].font.size=Pt(72)
+        deck.save(source);snapshot=capture_layout(deck,[])
+        shape=slide.shapes[1];shape.text='English information';shape.text_frame.paragraphs[0].runs[0].font.size=Pt(12)
+        out=self.folder/'watermark.pptx';changed=['slide1/shape1/p0'];save_office(source,deck,out,changed);calls=[]
+        class Vision:
+            def chat_images_json(_,prompt,**kwargs):
+                calls.append(prompt)
+                return {'reviewed':True,'issues':[], 'adjustments':[
+                    dict(shape_id=watermark.shape_id,font_size=12,reason='不应改动的装饰'),
+                    dict(shape_id=shape.shape_id,font_size=18,width=216,height=54,reason='英文可以放大')] if len(calls)==1 else []}
+        with patch.object(visual,'render_pages',side_effect=self.renderer):
+            issues,_=visual.review_pptx(source,out,deck,changed,snapshot,Vision())
+        self.assertFalse(issues)
+        result=Presentation(out);self.assertEqual(result.slides[0].shapes[2].text_frame.paragraphs[0].runs[0].font.size,Pt(72))
+        self.assertEqual(result.slides[0].shapes[1].text_frame.paragraphs[0].runs[0].font.size,Pt(18))
+
+    def test_existing_watermark_overlap_is_not_a_new_text_collision(self):
+        a=dict(id=1,x=0,y=0,width=200,height=100,bound_x=0,bound_y=0,bound_width=150,bound_height=80)
+        b=dict(id=2,x=0,y=0,width=200,height=100,bound_x=20,bound_y=20,bound_width=30,bound_height=20)
+        objects=[dict(shape_id=1,locator='slide1/shape0',unchanged_source=True,source_font_sizes=[72]),dict(shape_id=2,locator='slide1/shape1')]
+        issues=visual._native_issues({'shapes':[a,b]},{'shapes':[a,{**b,'bound_width':70,'bound_height':30}]},1,objects)
+        self.assertFalse(issues)
+
     def test_in_place_staged_review_keeps_a_readonly_package_before_repair(self):
         deck,source=self.deck(1);out=self.folder/'same.pptx';save_office(source,deck,out,[])
         sid=deck.slides[0].shapes[0].shape_id;count=[0]
