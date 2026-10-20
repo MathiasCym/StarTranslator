@@ -9,6 +9,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 from pptx.enum.text import MSO_AUTO_SIZE
 from pptx.util import Pt
 from types import SimpleNamespace
+from ..text_integrity import contains_chinese
 
 A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 P = 'http://schemas.openxmlformats.org/presentationml/2006/main'
@@ -496,7 +497,7 @@ def fit_document(document, changed, snapshots=None, constraints=None):
                     adapted=[]
                     for index,(p,pieces,l,r,i,sp,b) in enumerate(data):
                         source_text=''.join(run.text for run,_ in original['data'][index][1]) if index<len(original['data']) else ''
-                        translated=re.search(r'[\u3400-\u9fff]',source_text) and not re.search(r'[\u3400-\u9fff]',''.join(run.text for run,_ in pieces))
+                        translated=contains_chinese(source_text) and not contains_chinese(''.join(run.text for run,_ in pieces))
                         if translated:
                             cap=0 if constraints and key in constraints else None
                             pieces=[(run,(*st[:4],min(st[4],cap if cap is not None else st[1]*.03))) for run,st in pieces]

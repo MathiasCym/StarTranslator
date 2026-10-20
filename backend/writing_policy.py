@@ -236,6 +236,8 @@ def instructions():
 
 
 def validate_translation(source, translation):
+    from .text_integrity import validate_identifiers
+    validate_identifiers(source, translation)
     if '```' in translation and '```' not in source:
         raise ValueError('译文包含说明或代码包装，请重新生成正文。')
     # Preserve factual tokens; Chinese units may be translated, values may not change.

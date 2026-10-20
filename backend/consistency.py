@@ -10,7 +10,7 @@ from .document_context import DocumentContext
 from .matcher.retriever import _form_pattern
 from .writing_policy import validate_translation
 
-CHINESE = re.compile(r'[\u3400-\u9fff]')
+from .text_integrity import CHINESE
 WORDS = re.compile(r'[A-Za-z0-9]+')
 PERIOD_TITLE = re.compile(r'(?<![A-Za-z0-9])(?P<period>H[12]|[12]H|(?:first|second)[\s-]+half(?:\s+of\s+(?:the\s+)?year)?)\s+(?P<noun>strateg(?:y|ies)|plans?|outlook|review|summary|results?|performance|priorities|objectives?|goals?)(?![A-Za-z0-9])', re.I)
 

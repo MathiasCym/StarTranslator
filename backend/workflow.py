@@ -26,6 +26,7 @@ from .document_input import validate_document_input
 from . import history
 from . import task_queue
 from .llm.client import LLMClient
+from .text_integrity import CHINESE, contains_chinese, prose
 
 JOBS = {}
 REPORTS = {}
@@ -126,9 +127,9 @@ def error_message(error):
 def predominantly_chinese(path):
     import re
     texts=[s.text for s in extract(path) if s.editable and s.text.strip()]
-    chinese=sum(len(re.findall(r'[\u3400-\u9fff]',text)) for text in texts)
+    chinese=sum(len(CHINESE.findall(prose(text))) for text in texts)
     latin=sum(len(re.findall('[A-Za-z]',text)) for text in texts)
-    paragraphs=sum(bool(re.search(r'[\u3400-\u9fff]',text)) for text in texts)
+    paragraphs=sum(contains_chinese(text) for text in texts)
     return chinese >= 8 and chinese > latin*.5 and paragraphs > len(texts)*.5
 
 
@@ -309,7 +310,7 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
         for segment in matches:pending[segment.locator]=item
     if result.get('translation_complete') is False:
         for segment in segments:
-            if segment.editable and re.search(r'[\u3400-\u9fff]',segment.text):
+            if segment.editable and contains_chinese(segment.text):
                 pending.setdefault(segment.locator,{'reason':'自动翻译未完成，已保留原文。'})
     unchecked={s.locator for s in segments if s.locator in pending and s.editable}
     findings, stats = check_segments([s for s in segments if s.locator not in unchecked], glossary, True,
@@ -328,7 +329,7 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
     if manual:
         findings.extend(manual)
         stats['segments']+=len(manual);stats['unreviewed']+=len(manual)
-        stats['residual_chinese']=stats.get('residual_chinese',0)+sum(bool(re.search(r'[\u3400-\u9fff]',f.found_text)) for f in manual)
+        stats['residual_chinese']=stats.get('residual_chinese',0)+sum(contains_chinese(f.found_text) for f in manual)
         pending_files={f.file_path for f in manual}
         stats['completed_files']=[path for path in stats.get('completed_files',[]) if path not in pending_files]
         stats['findings']=len(findings);stats['model_status']='partial' if stats['model_status']=='complete' else stats['model_status']
@@ -469,6 +470,7 @@ def _apply_report(data, report, progress=None, client=None):
     document, paragraphs, _ = open_office(input_path)
     para_map = {loc:para for loc,para,*_ in paragraphs}
     done, failed, changed_locators, applied_indices = [], [], [], set()
+    final_residuals=[]
     is_pptx = Path(path).suffix.lower() == '.pptx'
     original_layout = capture_layout(document,[s.locator for s in segments.values()]) if is_pptx else None
     original_styles=capture_styles(paragraphs) if is_pptx else None
@@ -504,6 +506,15 @@ def _apply_report(data, report, progress=None, client=None):
             from difflib import SequenceMatcher
             candidates=[(match.start()+a,match.start()+b,new[c:d]) for match in matches
                 for op,a,b,c,d in SequenceMatcher(None,match.group(),new,autojunk=False).get_opcodes() if op!='equal']
+            from .text_integrity import IDENTIFIERS, validate_identifiers
+            try:
+                validate_identifiers(old,new)
+                if any((a<token.end() and b>token.start()) or (a==b and token.start()<a<token.end())
+                        for a,b,_ in candidates for token in IDENTIFIERS.finditer(segment.text)):
+                    raise ValueError('该项会改动网址、邮箱或路径，已保留原信息；其余建议继续应用。')
+            except ValueError as error:
+                failed.append({'segment_id':segment_id,'index':finding_index,'reason':str(error)})
+                continue
             def conflicts(first,second):
                 a,b,value=first;c,d,other=second
                 if first==second:return False
@@ -550,6 +561,9 @@ def _apply_report(data, report, progress=None, client=None):
             notify('validate',message='正在检查输出文件完整性')
             structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
             layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings else structure_warnings
+            from .translation_audit import saved_residuals
+            notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
+            final_residuals=saved_residuals(temporary)
             if store.fingerprint(path) != report['hashes'][path]:
                 raise ValueError('导出时原文件已变化，请重新校对。')
             if store.fingerprint(input_path) != input_hash:
@@ -580,6 +594,9 @@ def _apply_report(data, report, progress=None, client=None):
             notify('validate',message='正在检查输出文件完整性')
             structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
             layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings else structure_warnings
+            from .translation_audit import saved_residuals
+            notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
+            final_residuals=saved_residuals(temporary)
             def guard_original():
                 if store.fingerprint(path) != report['hashes'][path]:
                     raise ValueError('覆盖前原文件已变化，请重新校对。')
@@ -628,5 +645,7 @@ def _apply_report(data, report, progress=None, client=None):
         updates.append({'index':index,'finding':finding.to_dict()})
     pending_translation=[f for f in report['findings'] if f.file_path==path and f.reason.startswith('翻译待核对：') and not f.applied]
     content_warnings=[f'已保存可用文件；仍有 {len(pending_translation)} 处翻译待核对，请查看报告中的对应位置。'] if pending_translation else []
+    if final_residuals:content_warnings.append(f'输出复查仍发现 {len(final_residuals)} 处可见中文，已保留内容和原有链接；当前文件不能视为完整英文。')
     return {'output':output,'report_path':path,'applied_count':len(done),'failed':failed,'overwritten':overwrite,'finding_updates':updates,'content_warnings':content_warnings,
-            'layout_warnings':layout_warnings,'layout_adjustments':layout_adjustments,'layout_checked':is_pptx and not layout_warnings,'needs_review':len(layout_warnings)}
+            'remaining_chinese':final_residuals,'untranslated':len(final_residuals),
+            'layout_warnings':layout_warnings,'layout_adjustments':layout_adjustments,'layout_checked':is_pptx and not layout_warnings,'needs_review':len(layout_warnings)+len(final_residuals)}

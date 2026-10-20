@@ -189,8 +189,8 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
             stats['warnings'].insert(0,summary)
     if expect_english:
         from .residual import residual_findings
-        from ..translation_residual import CHINESE
-        candidates=[seg for seg in checked if CHINESE.search(seg.text)]
+        from ..text_integrity import CHINESE, contains_chinese
+        candidates=[seg for seg in checked if contains_chinese(seg.text)]
         active=client if use_llm and stats['model_status'] not in ('unavailable','cancelled') else None
         with ThreadPoolExecutor(max_workers=workers,thread_name_prefix='star-residual') as pool:
             pending=[pool.submit(residual_findings,seg,glossary,active,

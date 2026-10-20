@@ -1,9 +1,8 @@
 """Repair mixed-language model output without retranslating correct English."""
 import re
+from .text_integrity import CHINESE, PHRASES, contains_chinese, chinese_phrases, replace_prose
 from .llm.client import LLMResponseInvalid,LLMUnavailable
 
-CHINESE = re.compile(r'[\u3400-\u9fff]')
-PHRASES = re.compile(r'[\u3400-\u9fff]+(?:[、，：·][\u3400-\u9fff]+)*')
 
 
 def _mappings(answer,batch):
@@ -25,7 +24,7 @@ def _mappings(answer,batch):
 
 def repair_residual(client, source, result, glossary=None, *, allow_source=False, check_cancel=None):
     text = result.get('translation', '')
-    if not isinstance(text,str) or not CHINESE.search(text) or (not allow_source and not re.search(r'[A-Za-z]',text)):
+    if not isinstance(text,str) or not contains_chinese(text) or (not allow_source and not re.search(r'[A-Za-z]',text)):
         return result
     replacements = {}
     entries = getattr(glossary,'entries',[]) if glossary else []
@@ -37,8 +36,8 @@ def repair_residual(client, source, result, glossary=None, *, allow_source=False
             continue
         if len(confirmed.get(entry.zh,()))==1 and entry.en and not CHINESE.search(entry.en):
             replacements[entry.zh] = entry.en
-            text = text.replace(entry.zh,entry.en)
-    missing = list(dict.fromkeys(PHRASES.findall(text)))
+            text = replace_prose(text,{entry.zh:entry.en})
+    missing = chinese_phrases(text)
     if missing:
         if len(missing)>128: raise ValueError('该段仍有较多中文，需要分段补译。')
         import json
@@ -56,18 +55,20 @@ def repair_residual(client, source, result, glossary=None, *, allow_source=False
             error.partial_result=_updated(result,text,replacements)
             raise
         replacements.update(mappings)
-        for old,new in sorted(mappings.items(),key=lambda p:len(p[0]),reverse=True): text=text.replace(old,new)
+        text=replace_prose(text,mappings)
     return _updated(result,text,replacements)
 
 
 def _updated(result,text,replacements):
     updated={**result,'translation':text,'_residual_replacements':dict(replacements)}
     if isinstance(result.get('runs'),list):
-        updated['runs']=[]
-        for item in result['runs']:
-            if not isinstance(item,dict) or not isinstance(item.get('text'),str):
-                updated['runs']=result['runs']; break
-            value=item['text']
-            for old,new in sorted(replacements.items(),key=lambda p:len(p[0]),reverse=True): value=value.replace(old,new)
-            updated['runs'].append({**item,'text':value})
+        from types import SimpleNamespace
+        from .replacer.run_utils import replace_spans
+        items=result['runs']
+        if all(isinstance(item,dict) and isinstance(item.get('text'),str) for item in items):
+            runs=[SimpleNamespace(text=item['text']) for item in items]
+            original=''.join(run.text for run in runs)
+            rewritten=replace_prose(original,replacements)
+            replace_spans(runs,[(0,len(original),rewritten)])
+            updated['runs']=[{**item,'text':run.text} for item,run in zip(items,runs)]
     return updated

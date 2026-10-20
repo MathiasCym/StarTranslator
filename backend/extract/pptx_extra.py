@@ -6,6 +6,7 @@ from pathlib import PurePosixPath
 import posixpath
 from zipfile import ZipFile
 from lxml import etree
+from ..text_integrity import contains_chinese
 from pptx.text.text import TextFrame
 
 A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
@@ -111,8 +112,7 @@ def extra_paragraphs(path, document):
                 ancestors = {ancestor.tag for ancestor in node.iterancestors()}
                 if f'{{{C}}}strLit' not in ancestors and not (workbook and f'{{{C}}}strCache' in ancestors):
                     if f'{{{C}}}strCache' in ancestors:
-                        import re
-                        if re.search(r'[\u3400-\u9fff]',node.text or ''):
+                        if contains_chinese(node.text or ''):
                             blocked.append((f'part:{name}/linked-label{len(blocked)}',node.text,'chart',None,
                                 '该图表关联外部数据，需更新关联数据中的中文标签。'))
                     continue

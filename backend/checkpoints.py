@@ -21,7 +21,7 @@ def digest(value):
 
 @lru_cache(maxsize=2)
 def policy(stage):
-    names = ['writing_policy.py', 'document_context.py', 'llm/client.py']
+    names = ['writing_policy.py', 'document_context.py', 'llm/client.py', 'text_integrity.py']
     names += (['translation.py', 'translation_batch.py', 'translation_residual.py', 'replacer/styled_text.py']
               if stage == 'translation' else ['matcher/__init__.py', 'matcher/judge.py', 'matcher/batch.py'])
     # Checkout line endings must not change the meaning of a resumable policy.
@@ -63,7 +63,8 @@ class Checkpoint:
                             'cce7e89f4fc5d122f2f32566e846b3f5d6868984403ab0aee2a8b8808d0ae6bf',
                             'e3803df46fe2e75c773fb753ac815277ea9bdf6d9fcba0df316833dc855671ad',
                             '0b812f78dc872c18d916ec6b046062e9c7dfa7bd8372a133ba4343244fc86cc0',
-                            'd52442f83508e6b572652942e65ca8199efeed7f0cd2e8555df75a01c21b15fa'):
+                            'd52442f83508e6b572652942e65ca8199efeed7f0cd2e8555df75a01c21b15fa',
+                            'bd9a72b7c87a1fe9bd68460883b8f1fdf2e3a4618d99dcc2d30b5954eb98e464'):
                         legacy=digest({'policy':old_policy,'input':identity})
                         if legacy==self.scope:continue
                         known={key for key,_ in rows}

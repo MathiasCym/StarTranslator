@@ -15,6 +15,7 @@ from .replacer.pptx_package import save_office
 from .replacer.pptx_layout import fit_document, capture_layout
 from .replacer.pptx_style_manifest import capture_styles,verify_styles
 from .translation_residual import repair_residual
+from .text_integrity import CHINESE, contains_chinese
 from . import officecli_bridge
 from .pptx_visual_review import review_pptx
 from .bit_depth import replacements as depth_replacements
@@ -28,7 +29,6 @@ from concurrent.futures import ThreadPoolExecutor
 
 OUTPUT_LOCK = threading.Lock()
 
-CHINESE = re.compile(r'[\u3400-\u9fff]')
 SYSTEM = '''你是 LED 显示行业的中英技术翻译。将提供的中文完整翻译为自然、专业的英文。
 保持数字、单位、型号、段落信息完整，不得省略或添加原文没有的事实。
 优先使用已确认术语；待确认术语和参考资料用于理解，不能盲目套用错误或冲突译法。
@@ -38,6 +38,7 @@ SYSTEM = '''你是 LED 显示行业的中英技术翻译。将提供的中文完
 SYSTEM += '\n\n' + instructions()
 SYSTEM += '\n交付前逐项对照待译原文，检查每个事实、条件、逻辑关系及表格标签均已译出；不得把中文留给后续校对。页面上下文只帮助理解，不得把相邻文本框的内容重复补进当前段落。颜色、加粗等样式应对应其实际英文含义，不能按字符长度猜测。'
 SYSTEM += '\n日期按实际年月日理解，不按小数或数量翻译。日期换行后的地点不属于日期；可保留原有无歧义的数字日期。转成英文时全文优先使用 9 May 2025、May 2025、9 May 等无歧义格式，保持原有精度，不添加原稿没有的年份或日期。05/09/2025 等月日顺序不明的写法不得猜测。'
+SYSTEM += '\n网址、邮箱和文件路径必须逐字保留，包括其中的中文、大小写及参数；仅翻译周围可读正文。超链接的显示标签可以翻译，链接目标由程序保护。'
 
 
 TRANSLATION_MODES=('faithful','compressed')
@@ -134,7 +135,7 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
             text = result.get('translation') if isinstance(result, dict) else None
             if isinstance(text, str) and text.strip() != piece.strip() and re.search(r'[A-Za-z]', text) and '```' not in text:
                 candidate = {**result, 'translation': text.strip()}
-            if not isinstance(text, str) or not text.strip() or text.strip() == piece.strip() or CHINESE.search(text):
+            if not isinstance(text, str) or not text.strip() or text.strip() == piece.strip() or contains_chinese(text):
                 raise ValueError('模型未返回完整英文正文。')
             text = repair_numeric_translation(piece, text.strip())
             if page_context is not None:
@@ -190,7 +191,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     segments = extract(path)
     document, paragraphs, _ = open_office(path)
     by_locator = {loc: para for loc,para,*_ in paragraphs}
-    todo = [s for s in segments if s.editable and CHINESE.search(s.text)]
+    todo = [s for s in segments if s.editable and contains_chinese(s.text)]
     blocked = [s for s in segments if not s.editable]
     if not todo:
         raise ValueError('未发现可翻译的中文段落。图片或复杂结构中的文字暂不自动翻译。')
@@ -234,7 +235,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             if isinstance(whole,dict) and not whole.get('needs_style'):
                 try:
                     text=whole['translation']
-                    if CHINESE.search(text):raise ValueError('Incomplete checkpoint')
+                    if contains_chinese(text):raise ValueError('Incomplete checkpoint')
                     validate_translation(seg.text,text)
                     runs=response_runs(whole,text,slice_groups(groups,0,len(seg.text),visual_keys=True))
                 except (ValueError,KeyError,TypeError):pass
@@ -256,7 +257,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 check_cancel(cancel)
                 piece_groups = slice_groups(groups, offset, offset+len(piece), visual_keys=True)
                 offset += len(piece)
-                if not CHINESE.search(piece):
+                if not contains_chinese(piece):
                     append_runs(styled,piece_groups)
                     continue
                 terms = _build_glossary_text(select_relevant_terms(piece,glossary,limit=24))
@@ -278,7 +279,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                             if isinstance(cached,dict):
                                 try:
                                     text = cached['translation']
-                                    if CHINESE.search(text): raise ValueError('Incomplete checkpoint')
+                                    if contains_chinese(text): raise ValueError('Incomplete checkpoint')
                                     validate_translation(piece,text)
                                     if cached.get('needs_style'):
                                         # Keep validated English; retry only its
@@ -308,7 +309,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                     candidate = error.candidate
                     if candidate:
                         try:
-                            if CHINESE.search(candidate['translation']): raise ValueError('Incomplete English')
+                            if contains_chinese(candidate['translation']): raise ValueError('Incomplete English')
                             validate_translation(piece,candidate['translation'])
                         except ValueError: candidate = None
                     if candidate:
@@ -367,13 +368,13 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     # label a partially translated document as ready for English proofreading.
     if review_items:
         repair_failures=0
-        repairs=[s for s in todo if CHINESE.search(by_locator[s.locator].text) or any(item['locator']==s.locator for item in review_items)]
+        repairs=[s for s in todo if contains_chinese(by_locator[s.locator].text) or any(item['locator']==s.locator for item in review_items)]
         notify('repair','正在核对翻译完整性，自动修正未译文字、日期与数值',0,len(repairs))
         for repair_index,seg in enumerate(repairs):
             check_cancel(cancel)
             paragraph=by_locator[seg.locator]
             unresolved=any(item['locator']==seg.locator for item in review_items)
-            if not CHINESE.search(paragraph.text) and not unresolved:continue
+            if not contains_chinese(paragraph.text) and not unresolved:continue
             if any(item['locator']==seg.locator and item.get('service_unavailable') for item in review_items):continue
             if repair_failures>=2:break
             notify('repair',f'正在补齐'+(f'第 {seg.slide} 页，' if seg.slide else '')+f'第 {seg.para} 段的翻译；已完成的内容不会重译',repair_index,len(repairs))
@@ -390,7 +391,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 runs,needs_style=mapped_translation(client,prompt,seg.text,mapped_groups,cancel,glossary,context,seg,translation_mode)
                 fixed=''.join(r['text'] for r in runs)
                 validate_translation(seg.text,fixed)
-                if CHINESE.search(fixed):raise ValueError('英文补译未完成。')
+                if contains_chinese(fixed):raise ValueError('英文补译未完成。')
                 write_styled(paragraph,source_groups,runs)
                 if checkpoint:checkpoint.put(translation_key(seg,seg.text,mapped_groups),{'translation':fixed,'runs':runs,'needs_style':needs_style})
                 if seg.locator not in changed:changed.append(seg.locator);translated+=1
@@ -422,7 +423,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     for seg in segments:
         paragraph = by_locator.get(seg.locator)
         current = paragraph.text if paragraph is not None else seg.text if not seg.editable and seg.source != 'image' else ''
-        if not CHINESE.search(current):
+        if not contains_chinese(current):
             continue
         remaining.append({'slide':seg.slide,'locator':seg.locator,'text':current,'source':seg.source})
         if seg.locator not in recorded:
@@ -455,6 +456,17 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 logging.getLogger(__name__).warning('Private format follow-up: %s',
                     [(w.get('slide'),w.get('locator')) for w in [*visual_warnings,*style_warnings]])
         check_cancel(cancel)
+        notify('consistency','正在重新读取实际输出文件，逐项复查残留中文与受保护的链接信息')
+        from .translation_audit import saved_residuals
+        remaining=saved_residuals(staged)
+        untranslated=len(remaining)
+        recorded={item['locator'] for item in review_items}
+        for item in remaining:
+            if item['locator'] not in recorded:
+                review_items.append(dict(slide=item['slide'],para=item.get('para'),locator=item['locator'],
+                    source_text='',translation=item['text'],retained_source=True,
+                    reason='输出复查仍发现中文：'+(item.get('reason') or '自动补译未完成，已保留当前内容。')))
+                recorded.add(item['locator'])
         if fingerprint(path)!=before:raise ValueError('翻译过程中原文件被修改，请重新加载再翻译。')
         with OUTPUT_LOCK:
             destination=output_path(path,output_dir,'English_Draft' if review_items else 'English')

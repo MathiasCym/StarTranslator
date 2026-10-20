@@ -28,6 +28,7 @@ class BreakRun:
 
 
 def text_runs(paragraph):
+    if getattr(paragraph,'_star_xml_runs',False):return list(paragraph.runs)
     if paragraph._p.tag.rsplit('}', 1)[-1] != 'p' or 'drawingml' not in paragraph._p.tag:
         return list(paragraph.runs)
     from pptx.text.text import _Run

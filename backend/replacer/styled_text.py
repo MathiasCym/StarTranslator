@@ -4,6 +4,7 @@ from difflib import SequenceMatcher
 import unicodedata
 import re
 from .text_runs import text_runs, BreakRun
+from ..text_integrity import contains_chinese
 
 
 class StyleMappingError(ValueError):
@@ -159,7 +160,7 @@ def anchored_runs(text, groups, glossary=None):
         if group.get('key', group['id']) == base_key or not any(c.isalnum() for c in group['text']):
             continue
         source = group['text'].strip()
-        anchors = [source] if source and not re.search(r'[\u3400-\u9fff]', source) else []
+        anchors = [source] if source and not contains_chinese(source) else []
         for entry in entries:
             if entry.priority == 1 and entry.zh and entry.zh in source:
                 anchors.extend([entry.en, *entry.variants])

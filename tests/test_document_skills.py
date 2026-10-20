@@ -80,6 +80,7 @@ class Model:
                          {'id': 2, 'text': ' at a brightness of 500 nits.'}]},
             '分辨率为3840×2160。': {'translation': 'The resolution is 3840 x 2160.'},
             '点间距为2.5毫米。': {'translation': 'The pixel pitch is 2.5 mm.'},
+            '中文图片说明': {'translation': 'Image caption'},
         }
         return responses[source]
 
@@ -282,7 +283,8 @@ class DocumentSkillTests(unittest.TestCase):
         output = Document(result['path'])
         self.assertEqual([r.bold for r in output.paragraphs[0].runs], [False, True, False])
         self.assertEqual(len(output.inline_shapes), 1)
-        self.assertEqual(output.paragraphs[1].text, '中文图片说明')
+        self.assertEqual(output.paragraphs[1].text, 'Image caption')
+        self.assertTrue(result['translation_complete']);self.assertEqual(result['untranslated'],0)
         self.assertGreater(result['skipped'], 0)
 
     def test_chunk_style_slicing_and_language_reordering(self):

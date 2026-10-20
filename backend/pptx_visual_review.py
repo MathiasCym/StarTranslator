@@ -12,6 +12,7 @@ from . import officecli_bridge
 from .replacer.pptx_geometry import walk_shapes, bounds
 from .replacer.pptx_layout import fit_document
 from .replacer.pptx_package import save_office
+from .text_integrity import contains_chinese
 
 RENDER_LOCK=threading.Lock()
 SYSTEM='''你是演示文稿版式审查员。必须观察两张页面图像：第一张是原稿，第二张是译文。
@@ -146,7 +147,7 @@ def render_pages(path, folder, cancel=None, progress=None):
 def _objects(document,snapshots=None):
     pages=[]
     translated_pages={v['page'] for v in (snapshots or {}).values() if any(
-        '\u3400'<=c<='\u9fff' for _,pieces,*_ in v.get('data',[]) for r,_ in pieces for c in r.text)}
+        contains_chinese(''.join(r.text for r,_ in pieces)) for _,pieces,*_ in v.get('data',[]))}
     for number,slide in enumerate(document.slides,1):
         values=[]
         for key,shape,transform in walk_shapes(slide.shapes,f'slide{number}'):
@@ -160,7 +161,7 @@ def _objects(document,snapshots=None):
             source_fonts=sorted({round(st[1],2) for _,pieces,*_ in original.get('data',[]) for r,st in pieces if r.text.strip()})
             original_text='\n'.join(''.join(r.text for r,_ in pieces) for _,pieces,*_ in original.get('data',[]))
             source_box=original.get('rect')
-            unchanged=(number in translated_pages and not any('\u3400'<=c<='\u9fff' for c in original_text)
+            unchanged=(number in translated_pages and not contains_chinese(original_text)
                 and shape.has_text_frame and shape.text.strip()==original_text.strip()
                 and fonts==source_fonts and source_box is not None and all(abs(a-b)<127 for a,b in zip((x,y,w,h),source_box)))
             values.append({'shape_id':shape.shape_id,'locator':key,'box':[round(v/12700,1) for v in (x,y,w,h)],

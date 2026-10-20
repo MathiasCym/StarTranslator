@@ -1,11 +1,12 @@
 """Make untranslated visible text actionable without changing the document."""
 from ..models import Finding
 from ..translation_residual import CHINESE, PHRASES, repair_residual
+from ..text_integrity import chinese_phrases
 from ..llm.client import LLMUnavailable
 
 
 def residual_findings(segment, glossary, client=None, existing=(), cancel=None):
-    phrases=list(dict.fromkeys(PHRASES.findall(segment.text)))
+    phrases=chinese_phrases(segment.text)
     phrases=[p for p in phrases if not any(p in f.found_text and f.suggested and not CHINESE.search(f.suggested) for f in existing)]
     if not phrases:return [],False
     replacements,error={},''

@@ -1,5 +1,6 @@
 """提取层的公共工具。"""
 import re
+from ..text_integrity import CHINESE
 
 # Word 会把一个词拆进多个 run（拼写检查、格式变更都会触发）。
 # 判断"相邻 run 是否需要合并"的依据：无空白相接。
@@ -22,7 +23,7 @@ def is_meaningful(text: str) -> bool:
     if not stripped:
         return False
     # 至少含一个拉丁字母或中日韩字符
-    return bool(re.search(r"[A-Za-z一-鿿぀-ヿ가-힯]", stripped))
+    return bool(CHINESE.search(stripped) or re.search(r"[A-Za-z぀-ヿ가-힯]", stripped))
 
 
 def context_of(text: str, needle: str, width: int = 60) -> str:

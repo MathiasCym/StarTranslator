@@ -9,6 +9,8 @@ from docx.oxml.ns import qn
 from docx.oxml import parse_xml
 from docx.text.paragraph import Paragraph
 from docx.text.run import Run
+from ..text_integrity import contains_chinese
+from ..replacer.text_runs import BreakRun
 
 TEXT = {qn('w:t'), qn('w:tab'), qn('w:br'), qn('w:cr')}
 WRAPPERS = {qn('w:hyperlink'), qn('w:smartTag'), qn('w:customXml'),
@@ -57,6 +59,83 @@ class WordSpan:
         self.elements = replacement
 
 
+class WordTextRun:
+    """Edit only a w:t child, leaving sibling objects and field controls intact."""
+    def __init__(self, node, parent):
+        self.node, self._r, self._parent = node, node.getparent(), parent
+
+    @property
+    def text(self): return self.node.text or ''
+
+    @text.setter
+    def text(self, value):
+        self.node.text = value
+        self.node.set('{http://www.w3.org/XML/1998/namespace}space', 'preserve')
+
+
+class WordTextSpan(WordSpan):
+    def __init__(self, paragraph, node, reason=''):
+        self.node = node
+        super().__init__(paragraph, [node.getparent()], reason)
+
+    @property
+    def runs(self): return [WordTextRun(self.node, self)]
+
+    def write_styled(self, groups, runs):
+        self.runs[0].text = ''.join(item['text'] for item in runs)
+
+
+class DrawingBreak(BreakRun):
+    @BreakRun.text.setter
+    def text(self,value):
+        a='http://schemas.openxmlformats.org/drawingml/2006/main'
+        node=etree.Element('{'+a+'}r')
+        rpr=self._r.find('{'+a+'}rPr')
+        if rpr is not None:node.append(deepcopy(rpr))
+        etree.SubElement(node,'{'+a+'}t').text=value
+        self._r.getparent().replace(self._r,node)
+
+
+class DrawingParagraph:
+    """DrawingML inside a Word XML tree has no python-pptx element classes."""
+    _star_xml_runs = True
+    def __init__(self, node): self._p = node
+
+    @property
+    def runs(self):
+        a='http://schemas.openxmlformats.org/drawingml/2006/main'
+        result=[]
+        for r in self._p:
+            if r.tag=='{'+a+'}br':result.append(DrawingBreak(r,self))
+            elif r.tag=='{'+a+'}r':result.extend(WordTextRun(t,self) for t in r if t.tag=='{'+a+'}t')
+        return result
+
+    @property
+    def text(self):
+        a='http://schemas.openxmlformats.org/drawingml/2006/main'
+        return ''.join('\v' if r.tag=='{'+a+'}br' else ''.join(t.text or '' for t in r if t.tag=='{'+a+'}t')
+                       for r in self._p if r.tag in {'{'+a+'}r','{'+a+'}br','{'+a+'}fld'})
+
+    def write_styled(self, groups, runs):
+        a='http://schemas.openxmlformats.org/drawingml/2006/main'
+        templates={g['id']:g['prototype']._r for g in groups}
+        children=[r for r in self._p if r.tag in {'{'+a+'}r','{'+a+'}br'}]
+        position=self._p.index(children[0])
+        for r in children:self._p.remove(r)
+        for item in runs:
+            if not item['text']:continue
+            import re
+            for value in re.split(r'([\n\v])',item['text']):
+                if not value:continue
+                node=deepcopy(templates[item['id']])
+                if value in {'\n','\v'}:
+                    node.tag='{'+a+'}br'
+                    for t in list(node):
+                        if t.tag!='{'+a+'}rPr':node.remove(t)
+                else:node.find('{'+a+'}t').text=value
+                self._p.insert(position,node);position+=1
+
+
 def _paragraph_spans(paragraph, fields):
     groups, current, group_parent, group_reason = [], [], None, ''
 
@@ -65,6 +144,13 @@ def _paragraph_spans(paragraph, fields):
         if current:
             groups.append(WordSpan(paragraph, current, group_reason))
             current = []
+
+    def field_reason():
+        for field in fields:
+            command = field['instruction'].strip().split(None, 1)
+            if not field['result'] or not command or command[0].upper() != 'HYPERLINK':
+                return '动态域结果由 Word 生成，已保护域指令和结果；周围正文仍可翻译。'
+        return ''
 
     def visit(container):
         nonlocal group_parent, group_reason
@@ -84,27 +170,23 @@ def _paragraph_spans(paragraph, fields):
                                 fields.pop()
                         elif child.tag == qn('w:instrText') and fields:
                             fields[-1]['instruction'] += child.text or ''
-                    # A mixed run is uncommon, but deleting its text would also
-                    # delete its object/control. Report just that run truthfully.
-                    if any(n.tag in TEXT for n in node):
-                        groups.append(WordSpan(paragraph, [node],
-                            '文字与域控件或嵌入对象共用同一文字节点，需人工确认。'))
+                        elif child.tag == qn('w:t'):
+                            groups.append(WordTextSpan(paragraph, child, field_reason()))
                     continue
                 if not any(n.tag in TEXT for n in node):
                     flush()
                     continue
-                reason = ''
-                for field in fields:
-                    command = field['instruction'].strip().split(None, 1)
-                    if not field['result'] or not command or command[0].upper() != 'HYPERLINK':
-                        reason = '动态域结果由 Word 生成，已保护域指令和结果；周围正文仍可翻译。'
-                        break
+                reason = field_reason()
                 if node.getparent() is not group_parent or reason != group_reason:
                     flush()
                 group_parent, group_reason = node.getparent(), reason
                 current.append(node)
             elif node.tag in WRAPPERS:
                 flush(); visit(node); flush()
+            elif node.tag == qn('w:fldSimple'):
+                flush()
+                fields.append({'instruction':node.get(qn('w:instr'), ''), 'result':True})
+                visit(node); flush(); fields.pop()
             elif node.tag == qn('w:sdt'):
                 flush()
                 content = node.find(qn('w:sdtContent'))
@@ -163,12 +245,12 @@ def word_paragraphs(document):
     # XML and only synchronize edited text before serializing the original part.
     for part in document.part.package.parts:
         name = str(part.partname).lstrip('/')
-        if name not in {'word/footnotes.xml', 'word/endnotes.xml'}: continue
+        if name not in {'word/footnotes.xml', 'word/endnotes.xml', 'word/comments.xml'}: continue
         root = parse_xml(part.blob)
         extra_parts[name] = (part, root)
         for i, note in enumerate(root):
             if note.get(qn('w:type')) in {'separator', 'continuationSeparator'}: continue
-            story(note, document, f'part:{name}/note{i}', 'notes')
+            story(note, document, f'part:{name}/note{i}', 'comments' if name.endswith('comments.xml') else 'notes')
     document._star_word_parts = extra_parts
     document._star_word_span_groups = span_groups
     roots = [document.element.body]
@@ -176,15 +258,48 @@ def word_paragraphs(document):
               for kind in ('header','footer','first_page_header','first_page_footer','even_page_header','even_page_footer')
               if not getattr(section, kind).is_linked_to_previous]
     roots += [root for _, root in extra_parts.values()]
+    text_parts={'word/document.xml',*extra_parts}
+    for section in document.sections:
+        for kind in ('header','footer','first_page_header','first_page_footer','even_page_header','even_page_footer'):
+            part=getattr(section,kind)
+            if not part.is_linked_to_previous:text_parts.add(str(part.part.partname).lstrip('/'))
+    # Producers can wrap valid paragraphs in alternate-content or other XML
+    # containers. Their w:p text remains safe to edit; deleted revisions do not.
+    for root_index, root in enumerate(roots):
+        for index, node in enumerate(root.iter(qn('w:p'))):
+            if node in seen or any(a.tag in {qn('w:del'),qn('w:moveFrom')} for a in node.iterancestors()): continue
+            # Traverse the original node, without moving it out of its container.
+            parent = node.getparent()
+            story(parent, document, f'other/{root_index}/{index}', 'text')
+    # DrawingML text is used by some Word shapes and diagrams. Keep its XML
+    # owner and links intact, changing only ordinary a:r text inside each a:p.
+    a = 'http://schemas.openxmlformats.org/drawingml/2006/main'
+    known = {id(root) for root in roots}
+    for part in document.part.package.parts:
+        name = str(part.partname).lstrip('/')
+        if not name.startswith(('word/diagrams/', 'word/charts/', 'word/drawings/')) or not name.endswith('.xml'): continue
+        root = getattr(part, '_element', None)
+        if root is None: root = parse_xml(part.blob)
+        if id(root) not in known:
+            roots.append(root); known.add(id(root)); extra_parts[name] = (part, root)
+            text_parts.add(name)
+    for root_index, root in enumerate(roots):
+        for index, node in enumerate(list(root.iter('{'+a+'}p'))):
+            paragraphs.append((f'drawing/{root_index}/{index}', DrawingParagraph(node), 'drawing', None, index+1))
     covered = {node for _, para, *_ in paragraphs for run in para.runs
                for node in run._r if node.tag == qn('w:t')}
-    import re
     for root in roots:
         for node in root.iter(qn('w:t')):
-            if node in covered or not re.search(r'[\u3400-\u9fff]', node.text or ''): continue
+            if node in covered or not contains_chinese(node.text or ''): continue
             if any(a.tag in {qn('w:del'), qn('w:moveFrom')} for a in node.iterancestors()): continue
             blocked.append((f'word_other/{len(blocked)}', node.text, 'word_other', None,
                             '该文字所在 Word 结构尚不能安全写回，已保留并列出；其余正文继续处理。'))
+    c='http://schemas.openxmlformats.org/drawingml/2006/chart'
+    for root in roots:
+        for node in root.iter('{'+c+'}v'):
+            if contains_chinese(node.text or '') and any(p.tag in {'{'+c+'}strCache','{'+c+'}strLit','{'+c+'}tx'} for p in node.iterancestors()):
+                blocked.append((f'word_chart/{len(blocked)}',node.text,'chart',None,'Word 图表关联的文字仍需处理，已保留原数据与图表关系。'))
+    document._star_word_text_parts=text_parts
     return paragraphs, blocked
 
 

@@ -7,6 +7,9 @@ def save_office(source, document, destination, changed):
         if Path(source).suffix.lower() == '.docx':
             from ..extract.word import sync_word_parts
             sync_word_parts(document)
+            from .word_package import save_word
+            save_word(source,document,destination)
+            return
         document.save(str(destination))
         return
     parts = {}
