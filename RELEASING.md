@@ -22,7 +22,7 @@ GitHub 与国内渠道分别验收。源码推送成功、GitHub 构建成功、
 
 ## 1. 开工核对
 
-1. 读取本文件、当前 `CHANGELOG.md` 以及本次相关说明；查看 Git 分支、远程和未提交改动。
+1. 读取本文件、当前 `CHANGELOG.md`、[下一版待实施需求](docs/next-release.md)（如存在）以及本次相关说明；查看 Git 分支、远程和未提交改动。维护者明确延后到下一版的需求保持独立批次，不擅自并入正在验收的版本。
 2. 确认用户要求的版本与已有发布记录，留意其他窗口正在处理的改动，不重置、不覆盖未知工作。
 3. 读取 `package.json`、`package-lock.json` 和 `release-history.json`，同时核对 GitHub 与国内的实际发行状态。历史记录中的本机包不能代替公共发行状态。
 4. 确认公开目标仍由维护者控制：GitHub `MathiasCym/StarTranslator`，国内来源以 `backend/distribution.json` 为准。维护授权沿用已配置环境；缺失时只索要配置状态，不要求把令牌发送到聊天。
