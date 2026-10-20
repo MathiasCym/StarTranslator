@@ -1,0 +1,38 @@
+name: Align historical release display versions
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/release-display-versions.json'
+      - '.github/scripts/relabel-history.cjs'
+      - '.github/tests/relabel-history.test.cjs'
+      - '.github/workflows/relabel-history.yml'
+permissions:
+  contents: write
+concurrency:
+  group: startranslator-public-mirror
+  cancel-in-progress: false
+jobs:
+  relabel:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Check release text guards
+        run: node --test .github/tests/relabel-history.test.cjs
+      - name: Align titles and notes without changing update identities
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
+        run: node .github/scripts/relabel-history.cjs
+      - name: Preserve public metadata verification
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-display-verification
+          path: dist/qa/relabel-history
+          if-no-files-found: ignore
