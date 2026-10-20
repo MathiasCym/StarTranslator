@@ -24,6 +24,15 @@ dialog#comparison[open] { display: flex; flex-direction: column; gap: 8px; }
 .page-comparison { display: flex; flex: 1; min-height: 0; flex-direction: column; gap: 10px; }
 .pc-toolbar { display: flex; flex-shrink: 0; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pc-toolbar > button { flex-shrink: 0; }
+.comparison-button, .pc-toolbar [data-expand] { display: inline-flex; align-items: center; justify-content: center; gap: 7px; }
+.comparison-button { border: 1px solid #37728c; background: #103046; color: #8de8f4; border-radius: 9px; padding: 7px 12px; font: inherit; cursor: pointer; max-width: 100%; }
+.comparison-button svg, .pc-toolbar [data-expand] svg { flex: 0 0 auto; }
+.comparison-button span { overflow-wrap: anywhere; }
+.comparison-button:hover:not(:disabled) { border-color: #62d9ee; background: #16415a; }
+.comparison-button:focus-visible { outline: 2px solid #59def1; outline-offset: 2px; }
+.comparison-button:disabled { opacity: .5; cursor: default; }
+.comparison-button[hidden] { display: none!important; }
+.pc-fullscreen-status { margin: 0; color: #ffbf89; font-size: 14px; }
 dialog#comparisonDialog > .panel-head, dialog#comparison > .section-head,
 dialog#comparisonDialog > #comparisonNote, dialog#comparison > #comparisonNote,
 dialog#comparisonDialog > .comparison-filters, dialog#comparison > .filters { flex-shrink: 0; }

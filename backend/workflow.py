@@ -646,6 +646,6 @@ def _apply_report(data, report, progress=None, client=None):
     pending_translation=[f for f in report['findings'] if f.file_path==path and f.reason.startswith('翻译待核对：') and not f.applied]
     content_warnings=[f'已保存可用文件；仍有 {len(pending_translation)} 处翻译待核对，请查看报告中的对应位置。'] if pending_translation else []
     if final_residuals:content_warnings.append(f'输出复查仍发现 {len(final_residuals)} 处可见中文，已保留内容和原有链接；当前文件不能视为完整英文。')
-    return {'output':output,'report_path':path,'applied_count':len(done),'failed':failed,'overwritten':overwrite,'finding_updates':updates,'content_warnings':content_warnings,
+    return {'output':output,'report_path':path,'comparison_id':option.get('comparison_id'),'applied_count':len(done),'failed':failed,'overwritten':overwrite,'finding_updates':updates,'content_warnings':content_warnings,
             'remaining_chinese':final_residuals,'untranslated':len(final_residuals),
             'layout_warnings':layout_warnings,'layout_adjustments':layout_adjustments,'layout_checked':is_pptx and not layout_warnings,'needs_review':len(layout_warnings)+len(final_residuals)}

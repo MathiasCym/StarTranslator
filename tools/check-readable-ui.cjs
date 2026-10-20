@@ -20,6 +20,7 @@ app.on('browser-window-created',(_event,win)=>win.webContents.setBackgroundThrot
 let notices=0,ignored=[],updateChecks=0
 let sharedJobs=[],sharedResumes=0
 const previewRequests=[]
+const sharedComparisonOpens=[]
 const server=http.createServer((req,res)=>{
  const url=new URL(req.url,'http://localhost').pathname
  res.setHeader('Content-Type',url.endsWith('.css')?'text/css':url.endsWith('.js')?'text/javascript':url.endsWith('.png')?'image/png':'text/html')
@@ -32,6 +33,9 @@ const server=http.createServer((req,res)=>{
   return res.end(`<html><head><style>.slide{width:900px;height:500px;background:white}.slide-container{width:900px;height:500px}</style></head><body data-star-page="${page}" data-star-total="3"><div class="slide-container"><div class="slide">${owned?'Page '+page:'Ownership cookie missing'}</div></div><script>${script}</script></body></html>`)
  }
  if(url==='/shared/jobs')return res.end(JSON.stringify({jobs:sharedJobs}))
+ if(/^\/shared\/jobs\/shared-comparison\/comparison\/\d+$/.test(url)){
+  sharedComparisonOpens.push(url);return res.end(JSON.stringify({source_name:'source.pptx',output_name:sharedJobs[0].result.outputs[Number(url.split('/').at(-1))].path,rows:[]}))
+ }
  if(url==='/shared/jobs/shared-resume-fixture/resume'){
   sharedResumes++;const restored={id:'shared-restored-fixture',kind:'translate',status:'running',message:'继续翻译',percent:60,downloads:[]}
   sharedJobs=[restored];return res.end(JSON.stringify(restored))
@@ -190,6 +194,25 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("$('completionResume').textContent"),'继续未完成翻译')
   assert((await run("$('reviewCompleteNotice').textContent")).includes('1 处未译中文'))
   result.checks.push('completion separates successful review, manual decisions, layout advice and genuine model interruptions; resolved manual items refresh immediately')
+  const comparisonOpens=[]
+  ipcMain.removeHandler('api');ipcMain.handle('api',(_event,{method,path:apiPath,body})=>{
+   if(apiPath==='/api/reports/exports')return {id:'save-'+body.path,status:'complete',result:{output:body.path.replace('draft','checked'),comparison_id:body.path.includes('first')?'first-id':'second-id',applied_count:0,failed:[],finding_updates:[]}}
+   if(apiPath.startsWith('/api/comparisons/')){comparisonOpens.push(apiPath);return {source_name:'source.pptx',output_name:'latest-checked.pptx',rows:[]}}
+   return {}
+  })
+  await run(`state.outputs=[{path:'C:/qa/first-draft.pptx',comparison_id:'first-id',staged:true,target_dir:'C:/qa'},{path:'C:/qa/second-draft.pptx',comparison_id:'second-id',staged:true,target_dir:'C:/qa'}];loadReport({report_id:'comparison-save',kind:'translate_review',output_mode:'final',files:state.outputs.map(o=>({path:o.path,name:basename(o.path)})),stats:{model_status:'complete',segments:2,judged:2,rule_hits:0,llm_hits:0},errors:[],findings:[]},state.outputs);renderReport();$('reportModal').hidden=false`)
+  assert.equal(await run("$('reportCompare').hidden"),false)
+  await run('exportReport(false,true)')
+  assert.equal(await run("$('reportCompare').hidden||$('reportCompare').disabled"),false)
+  assert.equal(await run("$('reportCompare').dataset.comparison"),'second-id')
+  assert((await run("$('reportOutputPath').textContent")).endsWith('second-checked.pptx'))
+  await run("$('reportOutput').value='0';$('reportOutput').dispatchEvent(new Event('change'));$('reportCompare').click()")
+  await wait(200);assert.equal(comparisonOpens.at(-1),'/api/comparisons/first-id')
+  assert.equal(await run("$('comparisonDialog').open"),true)
+  await run("$('closeComparison').click()");await wait(50);await snap('report-saved-comparison')
+  await run("loadReport({report_id:'standalone',kind:'check',files:[],stats:{},findings:[]});renderReport()")
+  assert.equal(await run("$('reportCompare').hidden"),true)
+  result.checks.push('Report comparison remains enabled after final-only save, switches with selected document, opens latest comparison and clears between tasks')
   sharedJobs=[{id:'shared-resume-fixture',kind:'translate',status:'interrupted',message:'任务已中断',downloads:[],can_resume:true,percent:50}]
   const shared=new BrowserWindow({show:false,width:900,height:850,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});await shared.loadURL(`http://127.0.0.1:${port}/`)
   const sr=code=>shared.webContents.executeJavaScript(code)
@@ -209,6 +232,18 @@ server.listen(0,'127.0.0.1',async()=>{
   assert(previewRequests.some(p=>p.page===2&&p.side==='source')&&previewRequests.some(p=>p.page===2&&p.side==='output'))
   assert(previewRequests.every(p=>p.owned),JSON.stringify(previewRequests))
   result.checks.push('sandboxed full-page preview flips both panes and retains LAN ownership cookies')
+  await sr("$('comparison').close()")
+  sharedJobs=[{id:'shared-comparison',kind:'translate_review',status:'complete',message:'完成',percent:100,downloads:[],result:{outputs:[{path:'first-draft.pptx',comparison_id:'first-id'},{path:'second-draft.pptx',comparison_id:'second-id'}],report:{files:[{name:'first',comparison_index:0},{name:'second',comparison_index:1}],stats:{model_status:'complete'},findings:[]}}}]
+  await sr("selected='shared-comparison';lastDetail='';refresh()");await wait(100)
+  assert.equal(await sr("$('reportCompare').hidden"),false)
+  await sr("$('reportFile').value='1';$('reportFile').dispatchEvent(new Event('change'));$('reportCompare').click()");await wait(100)
+  assert(sharedComparisonOpens.at(-1).endsWith('/1'))
+  await sr("$('comparison').close()")
+  sharedJobs[0].result.outputs[1].path='second-checked.pptx';sharedJobs[0].downloads=[{index:0,name:'second-checked.pptx'}]
+  await sr('refresh()');await wait(100);await sr("$('reportCompare').click()");await wait(100)
+  assert.equal(await sr("$('comparisonNote').textContent"),'source.pptx → second-checked.pptx')
+  await sr("$('comparison').close()")
+  result.checks.push('Shared report comparison follows selected document and latest saved output after refresh')
   desktop.webContents.debugger.attach('1.3')
   await desktop.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]})
   assert.equal(await run("getComputedStyle($('dropzone'),'::before').animationName"),'none')

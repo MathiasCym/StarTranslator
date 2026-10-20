@@ -2,11 +2,45 @@
 window.PageComparison = (() => {
   let current = null, sequence = 0
   const buttons = 'class="btn ghost sm" type="button"'
+  const icon = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M3 5h7l2 2 2-2h7v14h-7l-2-2-2 2H3zM12 7v10" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/></svg>'
+  const expandIcon = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M8 3H3v5m13-5h5v5M3 16v5h5m13-5v5h-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  function expanded(v, active) {
+    v.expanded=active;v.dialog.classList.toggle('pc-expanded',active)
+    const button=v.box.querySelector('[data-expand]')
+    button.innerHTML=expandIcon+'<span>'+(active?'退出全屏':'全屏查看')+'</span>'
+    button.setAttribute('aria-pressed',String(active));button.title=active?'退出全屏（Esc）':'铺满当前屏幕查看原稿与译文'
+  }
+  async function fullscreen(v, enter) {
+    if(v.fullscreenBusy)return
+    const button=v.box.querySelector('[data-expand]'),status=v.box.querySelector('.pc-fullscreen-status')
+    v.fullscreenBusy=true;button.disabled=true;status.hidden=true
+    try {
+      if(enter) {
+        if(!document.fullscreenElement) {
+          if(!document.documentElement.requestFullscreen)throw Error('当前浏览器不支持全屏，请使用桌面版或支持全屏的浏览器。')
+          v.ownsFullscreen=true
+          // A dialog cannot itself be a Fullscreen API target. The root keeps
+          // the modal in the top layer while the actual window fills the screen.
+          await document.documentElement.requestFullscreen()
+        }
+        if(v.dialog.open)expanded(v,true)
+        else if(v.ownsFullscreen&&document.fullscreenElement)await document.exitFullscreen()
+      } else {
+        if(v.ownsFullscreen&&document.fullscreenElement)await document.exitFullscreen()
+        v.ownsFullscreen=false;expanded(v,false)
+      }
+    } catch(error) {
+      v.ownsFullscreen=false;expanded(v,false)
+      if(v.dialog.open){status.textContent=error.message||'未能进入全屏，请重试。';status.hidden=false}
+    } finally {v.fullscreenBusy=false;button.disabled=false}
+  }
   function mount(dialog, filters, text) {
     const box = document.createElement('div'); box.className = 'page-comparison'
     box.innerHTML = `<div class="pc-toolbar"><button ${buttons} data-mode="pages" aria-pressed="true">页面对照</button><button ${buttons} data-mode="text" aria-pressed="false">文字对照</button><label class="pc-sync"><input type="checkbox" checked>同步翻页与滚动</label><select class="pc-zoom" aria-label="页面缩放"><option value="fit">适合宽度</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select><button ${buttons} data-expand>展开查看</button></div><div class="pc-panes">${['source','output'].map((side,i)=>`<section class="pc-pane" data-side="${side}"><div class="pc-pane-head"><strong>${i?'处理后英文':'中文原稿'}</strong><small></small></div><p class="pc-status" role="status">正在准备完整页面…</p><iframe class="pc-frame" title="${i?'英文文档页面':'中文原稿页面'}" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe><div class="pc-nav"><button ${buttons} data-prev aria-label="${i?'英文':'原稿'}上一页">上一页</button><input type="number" min="1" value="1" aria-label="${i?'英文':'原稿'}页码"><span data-count>/ —</span><button ${buttons} data-next aria-label="${i?'英文':'原稿'}下一页">下一页</button></div></section>`).join('')}</div>`
     dialog.insertBefore(box, filters)
+    const status=document.createElement('p');status.className='pc-fullscreen-status';status.hidden=true;status.setAttribute('role','status');box.insertBefore(status,box.querySelector('.pc-panes'))
     const value = { dialog, box, filters, text, panes: {}, mode: 'pages' }
+    expanded(value,false)
     for (const side of ['source','output']) {
       const pane=box.querySelector(`[data-side="${side}"]`),frame=pane.querySelector('iframe')
       const p={pane,frame,number:pane.querySelector('input'),status:pane.querySelector('.pc-status'),page:1,total:0,ready:false};value.panes[side]=p
@@ -15,14 +49,17 @@ window.PageComparison = (() => {
       p.number.onchange=()=>go(value,side,Number(p.number.value))
     }
     box.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>mode(value,b.dataset.mode))
-    box.querySelector('[data-expand]').onclick=()=>{dialog.classList.toggle('pc-expanded');box.querySelector('[data-expand]').textContent=dialog.classList.contains('pc-expanded')?'还原大小':'展开查看'}
+    box.querySelector('[data-expand]').onclick=()=>fullscreen(value,!value.expanded)
+    document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement){value.ownsFullscreen=false;expanded(value,false)}})
+    dialog.addEventListener('cancel',event=>{if(value.expanded||value.fullscreenBusy){event.preventDefault();fullscreen(value,false)}})
+    dialog.addEventListener('keydown',event=>{if(event.key==='Escape'&&(value.expanded||value.fullscreenBusy)){event.preventDefault();event.stopPropagation();fullscreen(value,false)}})
     box.querySelector('select').onchange=()=>Object.values(value.panes).forEach(p=>send(p,{type:'zoom',value:box.querySelector('select').value}))
     dialog.addEventListener('close',()=>{
       // Native close events are queued. A newer open must keep its own frames.
       if(dialog.open)return
       if(current===value)current=null
       Object.values(value.panes).forEach(p=>{clearTimeout(p.timer);p.frame.src='about:blank'})
-      dialog.classList.remove('pc-expanded');box.querySelector('[data-expand]').textContent='展开查看'
+      fullscreen(value,false)
     })
     return value
   }
@@ -64,9 +101,11 @@ window.PageComparison = (() => {
     }
   })
   return {
+    buttonContent: icon+'<span>中英对照</span>',
     open(dialog,filters,text,metadata,urls) {
       const v=dialog._pageComparison||(dialog._pageComparison=mount(dialog,filters,text));current=v;mode(v,'pages')
-      dialog.classList.remove('pc-expanded');v.box.querySelector('[data-expand]').textContent='展开查看'
+      if(!dialog.open)expanded(v,false)
+      v.box.querySelector('.pc-fullscreen-status').hidden=true
       v.box.querySelector('select').value='fit'
       const opening=String(++sequence)
       for(const side of ['source','output']) {

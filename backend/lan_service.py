@@ -140,6 +140,9 @@ def public(job):
     raw_report = report_of(job)
     report = report_of(value)
     paths = [f['path'] for f in raw_report.get('files',[])]
+    outputs=(job.get('result') or {}).get('outputs',[])
+    for raw,file in zip(raw_report.get('files',[]),report.get('files',[])):
+        file['comparison_index']=next((i for i,o in enumerate(outputs) if o.get('path')==raw['path'] and o.get('comparison_id')),None)
     for original, finding in zip(raw_report.get('findings',[]), report.get('findings',[])):
         finding['file_index'] = paths.index(original['file_path']) if original.get('file_path') in paths else -1
     # A saved browser session can revisit any of its retained tasks and reports.

@@ -262,7 +262,7 @@ function consumeCompleted(result, submitted) {
 function loadReport(report, outputs = []) {
   state.report = report; state.selected.clear(); state.edits = {}; state.savedReviewFiles.clear()
   state.exportRecords = outputs.map(output => ({ path: output.path, layoutWarnings: output.layout_warnings || [],
-    staged: output.staged, targetDir: output.target_dir,
+    staged: output.staged, targetDir: output.target_dir, comparison_id: output.comparison_id,
     text: output.staged ? '译文已暂存，确认建议后保存最终文件' : output.review_status === 'complete' ? '译文已保存，校对建议尚未应用' : '译文已保存，校对未完成' }))
   $('reportStatus').value = 'pending'; $('reportFilter').value = 'all'; $('searchBox').value = ''
   $('completionOutput').value = ''; $('reportOutput').value = ''
@@ -333,7 +333,7 @@ function renderCheckCompletion() {
   $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : notStarted ? '文件已保留 · 校对尚未开始' : interrupted ? `${label}已结束 · 部分检查未完成` : manualPending ? `${label}处理完成 · ${manualPending} 处待人工核对` : `${label}完成`
   $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分。' : interrupted ? '可用文件和已完成部分已保留，未完成原因见下方；可查看报告并保存当前文件。' : untranslated ? `仍有 ${untranslated} 处未译中文，可继续补译或在报告中填写英文；已完成内容和当前文件均保留。` : manualPending ? `自动处理已结束，${manualPending} 处内容需要人工确认，具体位置和原因已列在报告中；可以继续保存文件。` : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，建议由你确认后应用。'
   $('completionSummary').innerHTML = [[files.length, '文档'], [s.segments ?? 0, '检查段落'], [findings.length, '审校建议'], [findings.filter(f => f.applied).length, '已替换建议']].map(([n, label]) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`).join('')
-  $('completionFiles').innerHTML = files.map(f => esc(f.name || basename(f.path))).join(' · ') + state.outputs.filter(o => o.comparison_id).map(o => `<button class="btn ghost sm" data-comparison="${o.comparison_id}">中英对照 · ${esc(basename(o.path))}</button>`).join('')
+  $('completionFiles').innerHTML = files.map(f => esc(f.name || basename(f.path))).join(' · ') + state.outputs.filter(o => o.comparison_id).map(o => `<button class="btn ghost sm comparison-button" data-comparison="${o.comparison_id}">${PageComparison.buttonContent}<span>· ${esc(basename(o.path))}</span></button>`).join('')
   $('completionFiles').title = files.map(f => f.path).join('\n')
   $('completionDetails').textContent = combined ? `已翻译 ${state.outputs.reduce((n, o) => n + (o.translated || 0), 0)} 段，校对 ${s.judged || 0} 段${manualPending ? `；另有 ${manualPending} 处待人工核对` : ''}。原稿保留，校对建议由你确认后应用。${r.output_mode === 'final' ? state.exportRecords.some(o => o.staged) ? '当前译文暂存，确认后保存最终文件。' : '最终文件已保存。' : ''}` : ''
   $('completionDetails').hidden = !combined
@@ -372,7 +372,7 @@ function updateSelection() {
   $('selInfo').title = '同段重复出现的内容会一并处理。'
   $('applyBtn').disabled = $('overwriteBtn').disabled = !!state.exportBusy || !state.selected.size
   $('saveCurrentBtn').disabled = !!state.exportBusy || !state.report?.files.some(file => file.review_available !== false)
-  for (const id of ['reportStatus', 'reportFilter', 'searchBox', 'selectRules', 'selectAll']) $(id).disabled = !!state.exportBusy
+  for (const id of ['reportStatus', 'reportFilter', 'searchBox', 'selectRules', 'selectAll', 'reportCompare', 'reportOutput']) $(id).disabled = !!state.exportBusy
   $('selectAll').disabled = !!state.exportBusy || !eligible.length
   $('reportBody').querySelectorAll('[data-edit]').forEach(input => { input.disabled = !!state.exportBusy })
   $('reportBody').querySelectorAll('[data-index]').forEach(input => { const i = Number(input.dataset.index), f = state.report.findings[i]; input.disabled = !!state.exportBusy || !f.editable || f.applied || !(state.edits[i] ?? f.suggested).trim() })
@@ -431,7 +431,7 @@ async function exportReport(overwrite = false, saveCurrent = false) {
         if (task.status !== 'complete') throw new Error(task.error || '保存未完成。')
         const r = task.result
         state.savedReviewFiles.add(path)
-        results.push({ path: r.output, layoutWarnings: r.layout_warnings || [], text: (state.report.kind === 'translate_review' ? r.overwritten ? '已更新校对文件，' : '校对文件已保存，' : r.overwritten ? '已覆盖原文件，' : '已另存，') + `替换 ${r.applied_count} 处` + (r.failed.length ? `；${r.failed.length} 项未完成` : '') + (r.content_warnings?.length ? '；'+r.content_warnings.join('；') : '') })
+        results.push({ path: r.output, comparison_id: r.comparison_id, layoutWarnings: r.layout_warnings || [], text: (state.report.kind === 'translate_review' ? r.overwritten ? '已更新校对文件，' : '校对文件已保存，' : r.overwritten ? '已覆盖原文件，' : '已另存，') + `替换 ${r.applied_count} 处` + (r.failed.length ? `；${r.failed.length} 项未完成` : '') + (r.content_warnings?.length ? '；'+r.content_warnings.join('；') : '') })
         if (state.report.kind === 'translate_review') state.exportRecords = state.exportRecords.filter(record => (state.report.output_mode !== 'final' || record.path !== path) && record.path !== r.output)
         for (const { index, finding } of r.finding_updates || []) { state.report.findings[index] = finding; if (!finding.editable || finding.applied) { state.selected.delete(index); delete state.edits[index] } }
       }
@@ -458,6 +458,12 @@ function renderReportOutputs() {
   $('reportOpenFile').textContent = output?.staged ? '预览暂存译文' : '打开文件'
   $('reportOpenFolder').onclick = () => openResult('openFolder', path)
   $('reportOpenFile').onclick = () => output && openResult('openFile', output.path)
+  const compare=$('reportCompare')
+  compare.hidden=!output?.comparison_id;compare.disabled=!!state.exportBusy
+  compare.innerHTML=PageComparison.buttonContent
+  if(output?.comparison_id)compare.dataset.comparison=output.comparison_id
+  else delete compare.dataset.comparison
+  compare.title=output?.staged?'对照中文原稿与当前暂存译文':'对照中文原稿与最新保存的译文'
   $('exportResults').hidden = !records.length
   $('exportResults').innerHTML = records.slice().reverse().map(r => `<div>${esc(r.text)}${r.path ? '<p class="fpath">' + esc(basename(r.path)) + '</p>' : ''}${layoutWarningMarkup(r.layoutWarnings)}</div>`).join('')
 }
@@ -477,7 +483,7 @@ function showTranslation(result, cancelled) {
   $('translationTitle').textContent = cancelled ? '翻译已取消，保留已完成文件' : !result.outputs.length ? '翻译未完成' : pending ? '翻译草稿已保存 · 部分内容待核对' : result.errors.length ? '部分译文已完成' : '翻译结果 · 是否继续校对？'
   if (combined && !cancelled && result.outputs.length) $('translationTitle').textContent = pending || result.errors.length ? '翻译并校对 · 部分内容待检查' : '翻译并校对已完成'
   $('translationNotice').textContent = pending ? '已保留处理结果，原稿未修改。待核对内容与残留中文列在下方，可继续结合原稿校对。' : result.outputs.length ? '译文单独保存，原稿保留。文字排版已适配，仍需关注的位置列在下方。' : '尚未生成译文，原稿保留。未完成的原因见下方。'
-  $('translationFiles').innerHTML = result.outputs.map((r, i) => `<li><div class="file-copy"><div>${esc(basename(r.path))}${r.needs_review ? ' · 待核对草稿' : ''}</div><div class="fpath">翻译 ${r.translated} 段${r.needs_review ? `；${r.needs_review} 段待核对` : ''}${r.untranslated ? `；${r.untranslated} 处仍有中文` : ''}${r.skipped ? `；${r.skipped} 处需人工检查` : ''}。${r.layout_checked ? ' 已检查文档结构并适配文字排版。' : ''}<br>${esc(r.path)}</div>${r.review_items?.length ? `<details open><summary>查看待核对内容（${r.review_items.length} 处）</summary>${r.review_items.map(w => `<p class="hint">${w.slide ? '第 ' + w.slide + ' 页 · ' : ''}${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}</details>` : ''}${r.warnings.length ? `<details><summary>查看未处理内容</summary>${r.warnings.map(w => `<p class="hint">${w.slide ? '第' + w.slide + '页：' : ''}${esc(w.reason)} ${esc(w.text)}</p>`).join('')}</details>` : ''}${r.consistency_hits ? `<p class="hint">发现 ${r.consistency_hits} 项全文用语统一建议，继续校对可在报告中确认。</p>` : ''}${layoutWarningMarkup(r.layout_warnings)}</div><div class="row-actions">${r.comparison_id ? `<button class="btn ghost sm" data-comparison="${r.comparison_id}">中英对照</button>` : ''}<button class="btn ghost sm" data-open="${i}">打开译文</button><button class="btn ghost sm" data-folder="${i}">所在位置</button></div></li>`).join('')
+  $('translationFiles').innerHTML = result.outputs.map((r, i) => `<li><div class="file-copy"><div>${esc(basename(r.path))}${r.needs_review ? ' · 待核对草稿' : ''}</div><div class="fpath">翻译 ${r.translated} 段${r.needs_review ? `；${r.needs_review} 段待核对` : ''}${r.untranslated ? `；${r.untranslated} 处仍有中文` : ''}${r.skipped ? `；${r.skipped} 处需人工检查` : ''}。${r.layout_checked ? ' 已检查文档结构并适配文字排版。' : ''}<br>${esc(r.path)}</div>${r.review_items?.length ? `<details open><summary>查看待核对内容（${r.review_items.length} 处）</summary>${r.review_items.map(w => `<p class="hint">${w.slide ? '第 ' + w.slide + ' 页 · ' : ''}${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}</details>` : ''}${r.warnings.length ? `<details><summary>查看未处理内容</summary>${r.warnings.map(w => `<p class="hint">${w.slide ? '第' + w.slide + '页：' : ''}${esc(w.reason)} ${esc(w.text)}</p>`).join('')}</details>` : ''}${r.consistency_hits ? `<p class="hint">发现 ${r.consistency_hits} 项全文用语统一建议，继续校对可在报告中确认。</p>` : ''}${layoutWarningMarkup(r.layout_warnings)}</div><div class="row-actions">${r.comparison_id ? `<button class="btn ghost sm comparison-button" data-comparison="${r.comparison_id}">${PageComparison.buttonContent}</button>` : ''}<button class="btn ghost sm" data-open="${i}">打开译文</button><button class="btn ghost sm" data-folder="${i}">所在位置</button></div></li>`).join('')
   $('translationFiles').querySelectorAll('[data-open]').forEach(b => { b.onclick = () => openResult('openFile', result.outputs[Number(b.dataset.open)].path) })
   $('translationFiles').querySelectorAll('[data-folder]').forEach(b => { b.onclick = () => openResult('openFolder', result.outputs[Number(b.dataset.folder)].path) })
   $('translationErrors').textContent = result.errors.map(e => `${e.path ? basename(e.path) + '：' : ''}${e.error || '未提供错误说明'}`).join('\n')

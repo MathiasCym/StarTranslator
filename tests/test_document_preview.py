@@ -72,6 +72,37 @@ class DocumentPreviewTests(unittest.TestCase):
         store.atomic_json(comparison.folder()/(ident+'.json'),value);shutil.rmtree(comparison.folder()/ident)
         data={'kind':'translate','paths':[str(source)]};history.begin('legacy',data);history.finish({'id':'legacy','status':'complete','result':{'outputs':[{'path':str(output),'source':str(source),'comparison_id':ident}]}},data)
         self.assertIn('中文完整页面',document_preview.preview(ident,'source'));self.assertTrue(comparison.read(ident).get('_source_snapshot'))
+    def test_report_saves_keep_latest_comparison_for_both_final_and_overwrite(self):
+        from backend.models import Finding
+        for mode,overwrite in [('both',False),('final',False),('both',True)]:
+            with self.subTest(mode=mode,overwrite=overwrite):
+                source,output,ident=self.pair();original=source.read_bytes()
+                segments=extract(str(output));segment=segments[0];key='compare-save-'+mode+str(overwrite)
+                findings=[Finding(segment.id,output.name,None,1,'text',old,suggested=new,file_path=str(output),method='llm') for old,new in [('Complete','Corrected'),('English','Reviewed')]]
+                workflow.REPORTS[key]={'segments':segments,'hashes':{str(output):store.fingerprint(output)},'findings':findings,
+                    'output_options':{str(output):{'mode':mode,'staged':mode=='final','target_dir':str(self.root),'source':str(source),'comparison_id':ident,'translation_complete':True}}}
+                self.addCleanup(lambda k=key:workflow.REPORTS.pop(k,None))
+                # Prime the cache before applying edits, then save twice through
+                # the real report writer so neither text nor page preview is stale.
+                document_preview.preview(ident,'output')
+                for i in range(2):
+                    saved=workflow.apply_report(dict(report_id=key,path=str(output),overwrite=overwrite,edits=[dict(index=i,text=findings[i].suggested)]))
+                    self.assertEqual(saved['comparison_id'],ident)
+                    value=comparison.read(saved['comparison_id']);self.assertEqual(value['output_path'],saved['output']);self.assertFalse(value['output_changed'])
+                    self.assertIn('Corrected',document_preview.preview(ident,'output'))
+                self.assertIn('Corrected Reviewed',document_preview.preview(ident,'output'))
+                self.assertTrue(any('Corrected Reviewed' in row['translation'] for row in value['rows']))
+                self.assertEqual(source.read_bytes(),original)
+    def test_shared_report_maps_each_file_to_its_own_comparison_after_save(self):
+        source,output,ident=self.pair();raw=str(output)
+        job={'id':'compare-public','kind':'translate_review','status':'complete','phase':'complete','percent':100,'message':'完成','result':{
+            'outputs':[{'path':str(self.root/'other.docx')},{'path':raw,'comparison_id':ident}],
+            'report':{'files':[{'path':str(self.root/'other.docx')},{'path':raw}],'findings':[]}}}
+        with patch.dict(workflow.REPORTS,{'compare-public':{'working_paths':{raw:str(output)}}}):
+            value=lan_service.public(job)
+        self.assertIsNone(value['result']['report']['files'][0]['comparison_index'])
+        self.assertEqual(value['result']['report']['files'][1]['comparison_index'],1)
+        self.assertNotIn(str(self.root),json.dumps(value))
     def test_missing_original_shows_reason_without_discarding_text(self):
         source,_,ident=self.pair();shutil.rmtree(comparison.folder()/ident);source.unlink()
         value=comparison.read(ident);value={k:v for k,v in value.items() if not k.startswith('_')};store.atomic_json(comparison.folder()/(ident+'.json'),value)
