@@ -50,6 +50,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tools/check-comparison-ui.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          .\python-runtime\python.exe -B tools/prepare-word-preview-qa.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tools/check-word-preview.cjs dist/qa/word-table/synthetic/paragraphs.html dist/qa/word-table/synthetic/single-paragraph.html dist/qa/word-table/synthetic/nested-table.html dist/qa/word-table/synthetic/repeating-header.html dist/qa/word-table/synthetic/vertical-merge.html dist/qa/word-table/synthetic/long-body-paragraph.html
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tools/check-window-presentation.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           foreach ($scenario in @('1080p', '2240-150', '4k-150', '4k-200')) {
@@ -80,6 +84,7 @@ jobs:
             dist/qa/readability
             dist/qa/presentation
             dist/qa/comparison
+            dist/qa/word-table
             dist/qa/incremental/*.json
   public-mirror:
     needs: windows

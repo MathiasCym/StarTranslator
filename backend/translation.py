@@ -8,7 +8,8 @@ from .llm.client import LLMClient, LLMUnavailable, LLMResponseInvalid, LLMTrunca
 from .matcher.judge import _build_glossary_text
 from .matcher.retriever import select_relevant_terms
 from .glossary.store import fingerprint
-from .writing_policy import instructions, validate_translation, repair_numeric_translation
+from .writing_policy import instructions, repair_numeric_translation
+from .translation_policy import validate_for_file
 from .document_input import validate_document_input
 from .replacer.styled_text import style_groups, slice_groups, response_runs, write_styled, anchored_runs, best_effort_runs, StyleMappingError
 from .replacer.pptx_package import save_office
@@ -141,7 +142,7 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
             if page_context is not None:
                 text = page_context.repair_quantity(segment, piece, text)
             result = {**result, 'translation': text}
-            validate_translation(piece, text)
+            validate_for_file(segment.file_path or segment.file if segment is not None else None,piece,text)
             break
         except (ValueError, LLMResponseInvalid, LLMTruncated) as error:
             partial=getattr(error,'partial_result',None)
@@ -180,6 +181,8 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
 def translate_file(path, glossary, references, output_dir=None, client=None, progress=None, cancel=None, workers=3, translation_mode="faithful", activity=None, defer_visual=False):
     def notify(phase,message,done=0,total=0):
         if activity:activity(phase,message,done,total)
+    def validate(source,target):
+        return validate_for_file(path,source,target)
     translation_system(translation_mode)
     notify('preparing','正在读取文档，记录原稿文字、样式与页面结构')
     if Path(path).suffix.lower() != '.pptx': translation_mode = 'faithful'
@@ -216,7 +219,18 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     groups_by_page = {}
     from .consistency import DocumentTranslationMemory
     document_memory = DocumentTranslationMemory(segments, glossary)
-    completed_count, progress_lock = [0], threading.Lock()
+    completed_count, progress_lock, active = [0], threading.RLock(), {}
+    def processing(segment,state=None,finished=False):
+        from collections import Counter
+        with progress_lock:
+            if state is None:active.pop(segment.id,None)
+            else:active[segment.id]=state
+            if finished:
+                completed_count[0]+=1
+                if progress:progress(completed_count[0],len(todo))
+            counts=Counter(active.values())
+            detail='；'.join(f'{label} {n} 处' for label,n in counts.items())
+            notify('translate',f'已处理 {completed_count[0]} / {len(todo)} 处；'+(detail or '正在整理已验证译文与样式'),completed_count[0],len(todo))
     for index, seg in enumerate(todo):
         # All text on one slide is sequential; Word uses context-aware blocks.
         key = seg.slide if seg.slide is not None else index // 12
@@ -230,21 +244,21 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             check_cancel(cancel)
             context = references.context(seg, segments.index(seg)) if references else ''
             groups = prepared[seg.locator]
-            notify('translate',f'模型正在翻译'+(f'第 {seg.slide} 页，' if seg.slide else '')+f'第 {seg.para} 段；保留原稿语境与局部样式')
+            processing(seg,'核对可用断点')
+            from .translation_activity import RequestActivity
+            request_client=RequestActivity(client,lambda state,s=seg:processing(s,state))
             whole=cached_whole.get(seg.locator)
             if isinstance(whole,dict) and not whole.get('needs_style'):
                 try:
                     text=whole['translation']
                     if contains_chinese(text):raise ValueError('Incomplete checkpoint')
-                    validate_translation(seg.text,text)
+                    validate(seg.text,text)
                     runs=response_runs(whole,text,slice_groups(groups,0,len(seg.text),visual_keys=True))
                 except (ValueError,KeyError,TypeError):pass
                 else:
                     checkpoint.used();page_context.remember(seg,seg.text,text)
                     results.append((index,seg,groups,runs,True,False,[],[]))
-                    with progress_lock:
-                        completed_count[0]+=1
-                        if progress:progress(completed_count[0],len(todo))
+                    processing(seg,finished=True)
                     continue
             styled, offset, paragraph_changed, retained_source = [], 0, False, False
             local_issues = []
@@ -270,6 +284,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                         raise LLMUnavailable(service_error)
                     cache_key = page_context.cache_key(seg, piece)
                     if len(piece_groups)==1 and cache_key in memory:
+                        processing(seg,'复用已验证译文')
                         runs,local_style=[{'id':piece_groups[0]['id'],'text':memory[cache_key]}],False
                     else:
                         def translate_piece():
@@ -280,7 +295,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                                 try:
                                     text = cached['translation']
                                     if contains_chinese(text): raise ValueError('Incomplete checkpoint')
-                                    validate_translation(piece,text)
+                                    validate(piece,text)
                                     if cached.get('needs_style'):
                                         # Keep validated English; retry only its
                                         # emphasis mapping instead of retranslating.
@@ -290,11 +305,12 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                                 else:
                                     checkpoint.used()
                                     if not cached.get('needs_style'):return runs,False
-                            value = mapped_translation(client,prompt,piece,piece_groups,cancel,glossary,page_context,seg,translation_mode,
+                            value = mapped_translation(request_client,prompt,piece,piece_groups,cancel,glossary,page_context,seg,translation_mode,
                                 initial_result=initial)
                             if checkpoint:
                                 checkpoint.put(key,{'translation':''.join(run['text'] for run in value[0]),'runs':value[0],'needs_style':value[1]})
                             return value
+                        processing(seg,'等待文档内译法与内容校验')
                         runs, local_style = document_memory.translate(seg, piece, piece_groups,
                             translate_piece,
                             lambda: check_cancel(cancel))
@@ -310,7 +326,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                     if candidate:
                         try:
                             if contains_chinese(candidate['translation']): raise ValueError('Incomplete English')
-                            validate_translation(piece,candidate['translation'])
+                            validate(piece,candidate['translation'])
                         except ValueError: candidate = None
                     if candidate:
                         text = candidate['translation']
@@ -333,9 +349,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                         'reason': '该段沿用主要字体样式，请核对局部颜色、加粗等强调。'})
                 append_runs(styled,runs)
             results.append((index, seg, groups, styled, paragraph_changed, retained_source, local_issues, local_styles))
-            with progress_lock:
-                completed_count[0] += 1
-                if progress: progress(completed_count[0], len(todo))
+            processing(seg,finished=True)
         return results
     with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='star-page') as pool:
         futures = [pool.submit(page_worker, items) for items in groups_by_page.values()]
@@ -349,7 +363,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 if paragraph_changed:
                     write_styled(paragraph, groups, styled)
                     try:
-                        validate_translation(seg.text, paragraph.text)
+                        validate(seg.text, paragraph.text)
                     except ValueError as error:
                         if str(error) not in local_issues:
                             local_issues.append(str(error))
@@ -377,7 +391,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             if not contains_chinese(paragraph.text) and not unresolved:continue
             if any(item['locator']==seg.locator and item.get('service_unavailable') for item in review_items):continue
             if repair_failures>=2:break
-            notify('repair',f'正在补齐'+(f'第 {seg.slide} 页，' if seg.slide else '')+f'第 {seg.para} 段的翻译；已完成的内容不会重译',repair_index,len(repairs))
+            notify('repair',f'正在修复第 {repair_index+1} / {len(repairs)} 处未完成内容；保留已完成的译文',repair_index,len(repairs))
             try:
                 # Persistent connection failures already spent the transport
                 # retry budget; keep the resumable draft rather than flood it.
@@ -390,7 +404,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 prompt+='\n【需保留的原文样式片段】\n'+json.dumps([{'id':g['id'],'text':g['text']} for g in mapped_groups],ensure_ascii=False)
                 runs,needs_style=mapped_translation(client,prompt,seg.text,mapped_groups,cancel,glossary,context,seg,translation_mode)
                 fixed=''.join(r['text'] for r in runs)
-                validate_translation(seg.text,fixed)
+                validate(seg.text,fixed)
                 if contains_chinese(fixed):raise ValueError('英文补译未完成。')
                 write_styled(paragraph,source_groups,runs)
                 if checkpoint:checkpoint.put(translation_key(seg,seg.text,mapped_groups),{'translation':fixed,'runs':runs,'needs_style':needs_style})
@@ -418,6 +432,9 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             if seg.locator not in changed: changed.append(seg.locator)
     if fingerprint(path) != before:
         raise ValueError('翻译过程中原文件被修改，请重新加载再翻译。')
+    if Path(path).suffix.lower() == '.docx':
+        from .extract.word_numbering import english_numbering
+        english_numbering(document)
     remaining = []
     recorded = {item['locator'] for item in review_items}
     for seg in segments:
@@ -434,6 +451,9 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     untranslated = len(remaining)
     notify('layout','正在适配文字排版，协调同页字号、行距与局部强调')
     layout_adjustments,layout_warnings=fit_document(document,changed,original_layout) if is_pptx else ([],[])
+    if Path(path).suffix.lower() == '.docx':
+        from .replacer.word_layout import fit_word_tables
+        layout_adjustments += fit_word_tables(document)
     # Finish the whole document in private staging before choosing/publishing its name.
     with tempfile.TemporaryDirectory(prefix='star-translation-private-') as tmp:
         staged=Path(tmp)/('translated'+Path(path).suffix if is_pptx else 'translated'+__import__('backend.formats',fromlist=['output_extension']).output_extension(path))

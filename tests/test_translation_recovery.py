@@ -44,6 +44,29 @@ class RecoveryTests(unittest.TestCase):
     def translate(self, source, model):
         return translate_file(str(source), Glossary([]), None, client=model)
 
+    def test_activity_reports_actual_requests_and_never_claims_cache_hits_are_model_work(self):
+        from backend.llm.client import LLMClient
+        class ResumeModel(Model,LLMClient):
+            def __init__(self,answers):
+                Model.__init__(self,answers)
+                self.provider='compatible';self.base_url='http://127.0.0.1:1/v1';self.model='activity-fixture';self.api_format='openai'
+        source=self.document('你好','谢谢');events=[]
+        model=ResumeModel(['Hello.','Thank you.'])
+        first=translate_file(source,Glossary([]),None,client=model,workers=3,
+            activity=lambda *v:events.append(v))
+        self.assertTrue(first['translation_complete'])
+        active=[e for e in events if e[0]=='translate']
+        self.assertTrue(any('等待模型响应' in e[1] for e in active))
+        self.assertTrue(any('校验模型返回内容' in e[1] for e in active))
+        self.assertEqual([e[2] for e in active],sorted(e[2] for e in active))
+        self.assertEqual(active[-1][2:],(2,2))
+        self.assertFalse(any('模型正在翻译第' in e[1] for e in events))
+        events.clear();never=ResumeModel([])
+        second=translate_file(source,Glossary([]),None,client=never,workers=1,activity=lambda *v:events.append(v))
+        self.assertTrue(second['translation_complete']);self.assertGreater(second['resumed_segments'],0)
+        self.assertEqual(never.prompts,[])
+        self.assertFalse(any('等待模型响应' in e[1] for e in events))
+
     def test_cinema_quantities_decimal_formats_and_chinese_units_are_equivalent(self):
         for source, text in [('21.4万块，市场潜力巨大', '214,000 screens offer significant market potential.'),
                              ('8.6万块，规模持续增长', '86,000 screens, with continued growth.'),

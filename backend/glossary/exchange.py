@@ -118,6 +118,8 @@ def merge_entries(current,incoming):
             entries.append(imported);by_zh[key(imported['zh'])]=[imported];report['added']+=1
             continue
         entry=exact[0];before=json.dumps(entry,sort_keys=True)
+        # Old exports without a category must not erase an existing person.
+        if imported.get('category')=='person':entry['category']='person'
         correct={key(v) for v in [entry['en'],*entry['variants']]}
         wrong={key(v) for v in entry['wrong_variants']}
         conflicting={key(v) for v in imported['variants']} & {key(v) for v in imported['wrong_variants']}

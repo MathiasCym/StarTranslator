@@ -25,6 +25,46 @@ class FixedModel:
         return {'translation':next(self.values)}
 
 class TextIntegrityTests(unittest.TestCase):
+    def test_equivalent_written_counts_dimensions_and_acronym_plurals(self):
+        for source,target in [('配置4套10.5K系统。','Four 10.5K systems are installed.'),
+                ('三维环境和GPU支持。','3D environments and GPUs are supported.'),
+                ('亮度500nits。','Brightness: five hundred nits.'),
+                ('部署24块屏幕。','Twenty-four screens are installed.'),
+                ('预算为4 million。','The budget is four million.'),
+                ('两套2K系统。','2 sets of 2K systems.'),('四百台设备。','400 devices.')]:
+            with self.subTest(source=source):validate_translation(source,target)
+        for source,target in [('配置4套系统。','Three systems are installed.'),
+                ('配置4套系统。','Four systems and four backups.'),
+                ('配置4套系统。','Twenty-four systems are installed.'),
+                ('三维环境。','4D environments.'),('GPU支持。','CPUs are supported.'),
+                ('VX1000支持。','VX1000s are supported.'),('亮度500nits。','Brightness: five hundred Hz.'),
+                ('两套系统。','3 systems.'),('两套系统。','2 systems and 2 backups.')]:
+            with self.subTest(source=source,target=target),self.assertRaises(ValueError):validate_translation(source,target)
+
+    def test_generated_toc_labels_translate_without_touching_fields_or_links(self):
+        doc=Document();doc.add_heading('目录',0)
+        start=doc.add_paragraph();field(start,' TOC \\o "1-3" \\h \\z \\u ',label='')
+        # Move the TOC end control below all rows, as in Word-generated TOCs.
+        ending=start._p[-1];start._p.remove(ending)
+        p=doc.add_paragraph();link=OxmlElement('w:hyperlink');link.set(qn('w:anchor'),'_TocExample')
+        run=text_run(link,'正文前文');run.append(OxmlElement('w:tab'));p._p.append(link);field(p,' PAGEREF _TocExample \\h ',label='4')
+        end=doc.add_paragraph();end._p.append(ending)
+        doc.add_heading('正文前文',1)
+        doc.save(self.source);before=signature(self.source)
+        class TocModel(Model):
+            def chat_json(self,prompt,**kwargs):
+                return {'translation':'Contents'} if prompt.split('【待译原文】\n')[-1].split('\n【')[0]=='目录' else super().chat_json(prompt,**kwargs)
+        result=self.translate(doc,TocModel());self.assertTrue(result['translation_complete'])
+        self.assertEqual(result['untranslated'],0);self.assertEqual(signature(result['path']),before)
+        out=Document(result['path']);self.assertIn('Body before',out.paragraphs[2].text);self.assertTrue(out.paragraphs[2].text.endswith('\t4'))
+        self.assertEqual(out.paragraphs[2]._p.find(qn('w:hyperlink')).get(qn('w:anchor')),'_TocExample')
+        self.assertEqual(len(out.paragraphs[2]._p.findall('.//'+qn('w:tab'))),1)
+    def test_dimension_shorthand_is_also_valid_during_residual_repair(self):
+        class Model:
+            def chat_json(self,*args,**kwargs):return {'translations':[{'source':'三维','translation':'3D'}]}
+        value=repair_residual(Model(),'三维环境',{'translation':'三维 environments'})
+        self.assertEqual(value['translation'],'3D environments')
+        validate_translation('三维环境',value['translation'])
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
         self.root=Path(self.tmp.name);self.source=self.root/'original.docx'

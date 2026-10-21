@@ -89,7 +89,8 @@ def _build_glossary_text(terms) -> str:
     if not terms:
         return "（无相关术语）"
     return '\n'.join(f'- {e.zh}: {e.en}（{"已确认" if e.priority == 1 else "待确认"}）'
-                     f'；别名：{", ".join(e.variants)}；机翻候选：{", ".join(e.machine_variants + e.wrong_variants)}'
+                     +('；分类：人名，按已确认标准保留姓名拼写与顺序，正确别名仍可使用' if e.category=='person' else '')
+                     +f'；别名：{", ".join(e.variants)}；机翻候选：{", ".join(e.machine_variants + e.wrong_variants)}'
                      f'；说明：{e.note[:250]}' for e in terms)[:7000]
 
 

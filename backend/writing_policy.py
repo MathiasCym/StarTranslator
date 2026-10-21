@@ -8,7 +8,9 @@ from decimal import Decimal
 from datetime import date
 
 
-NUMBER = re.compile(r'\d+(?:[.,]\d+)*')
+# A comma groups exactly three digits. A model followed by a comma and year
+# ("A8,2023") contains two facts, never the number 82,023.
+NUMBER = re.compile(r'\d{1,3}(?:,\d{3})+(?:\.\d+)?(?![\d,])|\d+(?:\.\d+)*')
 SCALE = re.compile(r'\s*(万亿|亿|万|thousand|million|billion|trillion)(?![A-Za-z])', re.I)
 SCALES = {'万': 10000, '亿': 100000000, '万亿': 1000000000000,
           'thousand': 1000, 'million': 1000000, 'billion': 1000000000, 'trillion': 1000000000000}
@@ -41,7 +43,7 @@ def numeric_values(text):
     return Counter(value for value, _, _ in numeric_tokens(text)[1])
 
 
-def _calendar_numeric_tokens(text):
+def _calendar_numeric_tokens(text, *, bare_months=False):
     """Keep dates as complete facts, without treating decimals/versions as dates.
 
     Numeric month shorthand requires calendar context. In particular a dated
@@ -65,6 +67,8 @@ def _calendar_numeric_tokens(text):
     def add(match, year, month, day=None):
         add_dates(match,[(year,month,day)])
     # Shared month/year ranges represent two dates, not a date plus a quantity.
+    for m in re.finditer(r'(?<!\d)([1-9]\d{3})\s*年\s*(\d{1,2})\s*月\s*(?:至|到|[-–—~])\s*(\d{1,2})\s*月',text):
+        add_dates(m,[(m[1],m[2],None),(m[1],m[3],None)])
     for m in re.finditer(r'(?<!\d)([1-9]\d{3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]?\s*(?:至|到|[-–—~])\s*(\d{1,2})\s*[日号]',text):
         add_dates(m,[(m[1],m[2],m[3]),(m[1],m[2],m[4])])
     for m in re.finditer(r'(?<![A-Za-z0-9_.])([1-9]\d{3})\s*年\s*(\d{1,2})\s*月(?:\s*(\d{1,2})\s*[日号])?',text):
@@ -75,6 +79,8 @@ def _calendar_numeric_tokens(text):
     names['sept']=9
     month=r'('+'|'.join(sorted(names,key=len,reverse=True))+r')\.?'
     # Longer forms first, so a day is never silently reduced to month precision.
+    for m in re.finditer(r'\b'+month+r'\s*(?:[-–—]|to|through|and)\s*'+month+r'\s*,?\s*([1-9]\d{3})\b',text,re.I):
+        add_dates(m,[(m[3],names[m[1].casefold()],None),(m[3],names[m[2].casefold()],None)])
     for m in re.finditer(r'\b'+month+r'\s+(\d{1,2})(?:st|nd|rd|th)?\s*[-–—]\s*(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*([1-9]\d{3})\b',text,re.I):
         add_dates(m,[(m[4],names[m[1].casefold()],m[2]),(m[4],names[m[1].casefold()],m[3])])
     for m in re.finditer(r'\b(\d{1,2})(?:st|nd|rd|th)?\s*[-–—]\s*(\d{1,2})(?:st|nd|rd|th)?\s+'+month+r'\s*,?\s*([1-9]\d{3})\b',text,re.I):
@@ -90,6 +96,14 @@ def _calendar_numeric_tokens(text):
         add(m,None,names[m[1].casefold()],m[2])
     for m in re.finditer(r'\b(\d{1,2})(?:st|nd|rd|th)?\s+'+month+r'\b',text,re.I):
         add(m,None,names[m[2].casefold()],m[1])
+    for m in re.finditer(r'(?<!\d)(\d{1,2})\s*月(?!\s*\d)',text):
+        add(m,None,m[1])
+    if bare_months:
+        # Only a source month fact enables standalone English month names.
+        # Lowercase "may" remains a modal unless preceded by calendar wording.
+        for m in re.finditer(r'\b'+month+r'\b',text,re.I):
+            if m[1]=='may' and not re.search(r'\b(?:in|by|during|until|through|of|early|late)\s*$',text[:m.start()],re.I):continue
+            add(m,None,names[m[1].casefold()])
     compact=re.compile(r'(?<![A-Za-z0-9_.])([1-9]\d{3})([./-])(\d{1,2})(?:\2(\d{1,2}))?(?!\d|[./-]\d)')
     for m in compact.finditer(text):
         before,after=text[max(0,m.start()-24):m.start()],text[m.end():]
@@ -126,14 +140,47 @@ def _translation_numeric_values(text):
     return Counter(value for value,_,_ in _calendar_numeric_tokens(text)[1])
 
 
+def _written_quantity_digits(source, translation):
+    """Recognize spelled quantities backed by a numeric source fact.
+
+    This is an analysis copy only: never rewrite English, identifiers or runs.
+    Match a whole compound number so 'twenty-four' cannot count as four.
+    """
+    from .text_integrity import prose
+    small='zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen'.split()
+    tens='twenty thirty forty fifty sixty seventy eighty ninety'.split()
+    values={word:i for i,word in enumerate(small)}
+    values.update({word:(i+2)*10 for i,word in enumerate(tens)})
+    unit='(?:'+'|'.join(small[1:10])+')'
+    below='(?:'+'|'.join(tens)+')(?:[- ]'+unit+')?|(?:'+'|'.join(small)+')'
+    compound='(?:(?:'+unit+'|a) hundred(?: (?:and )?(?:'+below+'))?|'+below+')'
+    pattern=re.compile(r'(?<![A-Za-z0-9_-])('+compound+r')(?: (thousand|million|billion|trillion))?(?![A-Za-z0-9_-])',re.I)
+    expected=_translation_numeric_values(source)
+    replacements=[]
+    for match in pattern.finditer(prose(translation)):
+        value=0
+        for word in re.split(r'[- ]+',match[1].lower()):
+            if word=='hundred':value=(value or 1)*100
+            elif word not in {'and','a'}:value+=values[word]
+        value=Decimal(value)*SCALES.get((match[2] or '').lower(),1)
+        if value in expected:replacements.append((match.start(),match.end(),format(value,'f')))
+    for start,end,value in reversed(replacements):translation=translation[:start]+value+translation[end:]
+    return translation
+
+
 def translation_numeric_tokens(source, translation):
     """Calendar shorthand adds a label digit, not a factual quantity.
 
     Only explicit Chinese calendar labels permit it. Existing source identifiers
     remain counted, and codes embedded in model names/versions are never removed.
     """
-    text, tokens = _calendar_numeric_tokens(translation)
+    text, tokens = _calendar_numeric_tokens(_written_quantity_digits(source,translation),
+        bare_months=bool(re.search(r'\d\s*月',source)))
     ignored = []
+    for label,number in [('二维','2'),('三维','3'),('四维','4')]:
+        allowed=source.count(label)
+        matches=list(re.finditer(r'(?<![A-Za-z0-9_])'+number+r'[- ]?D(?![A-Za-z0-9_])',text,re.I))
+        ignored.extend((m.start(),m.end()) for m in matches[:allowed])
     # An explicitly named Chinese five-year plan already encodes its ordinal.
     # Ignore only the exact equivalent English name, never arbitrary new digits.
     chinese = {11:'十一',12:'十二',13:'十三',14:'十四',15:'十五',16:'十六',17:'十七',18:'十八',19:'十九',20:'二十'}
@@ -151,6 +198,23 @@ def translation_numeric_tokens(source, translation):
         matches = list(pattern.finditer(text))
         extra = max(0, len(matches) - len(list(pattern.finditer(source))))
         ignored.extend((m.start(), m.end()) for m in matches[:min(allowed, extra)])
+    # Written Chinese counters can become Arabic digits in English. Account
+    # only for extra target digits, so original numeric identifiers still count.
+    counters=Counter()
+    digits={c:n for n,chars in enumerate(['零〇','一','二两','三','四','五','六','七','八','九']) for c in chars}
+    for match in re.finditer(r'([零〇一二两三四五六七八九十百千]+)(?=个|台|套|座|块|条|位|家|项|组|对|种|次)',source):
+        # Approximate ranges such as 一两台 / 两三套 are not exact counts.
+        if len(match[1])>1 and not any(c in match[1] for c in '十百千'):continue
+        value,current=0,0
+        for char in match[1]:
+            if char in digits:current=digits[char]
+            else:value+=(current or 1)*{'十':10,'百':100,'千':1000}[char];current=0
+        counters[Decimal(value+current)]+=1
+    eligible=[token for token in tokens if not any(token[1]>=a and token[2]<=b for a,b in ignored)]
+    extra=Counter(v for v,_,_ in eligible)-_translation_numeric_values(source)
+    for value,count in counters.items():
+        matches=[(a,b) for v,a,b in eligible if v==value]
+        ignored.extend(matches[:min(count,extra[value])])
     return text, [(value, start, end) for value, start, end in tokens if not any(start >= a and end <= b for a, b in ignored)]
 
 
@@ -235,7 +299,7 @@ def instructions():
     return (Path(__file__).parent / 'skills/translation-rules.md').read_text(encoding='utf-8')
 
 
-def validate_translation(source, translation):
+def validate_translation(source, translation, *, allow_reflow=False):
     from .text_integrity import validate_identifiers
     validate_identifiers(source, translation)
     if '```' in translation and '```' not in source:
@@ -251,7 +315,7 @@ def validate_translation(source, translation):
             return '、'.join(label(value)+(f'（{count}处）' if count>1 else '') for value,count in values.items()) or '无'
         raise ValueError('生成的英文与中文原稿存在数值差异，需要核对。'
             +' 原稿需保留：'+describe(expected-actual)+'；译文多出：'+describe(actual-expected)+'。')
-    missing_units = quantity_units(source) - quantity_units(translation)
+    missing_units = quantity_units(source) - quantity_units(_written_quantity_digits(source,translation))
     if missing_units:
         required = '、'.join(f'{value} {unit}' for value, unit in missing_units)
         raise ValueError('译文未保留与原数值对应的单位，需要修正：'+required+'。')
@@ -267,5 +331,23 @@ def validate_translation(source, translation):
             if len(re.findall(pattern,translation,re.I)) >= len(re.findall(pattern,source,re.I)):
                 continue
         pattern = r'(?<![A-Za-z0-9])' + re.escape(token) + r'(?![A-Za-z0-9])'
+        if allow_reflow:
+            # PDF text layers frequently omit spaces between separate English
+            # words. Accept only whitespace insertion: every original letter,
+            # digit and punctuation mark must remain, in the same order.
+            inner=r'\s*'.join(re.escape(char) for char in token)
+            if any(token.endswith(a) for a in {'GPU','CPU','LED','LCD','OLED','API','SDK','IC','FPGA','PCB'}):
+                inner+=r'(?:s|[’\']s)?'
+            pattern=r'(?<![A-Za-z0-9])'+inner+r'(?![A-Za-z0-9])'
+            # A storage quantity joined to a brand is two facts, not one model
+            # code. English may put the brand before its capacity or in brackets.
+            joined=re.fullmatch(r'(\d+(?:KB|MB|GB|TB|Kbit|Mbit|Gbit))([A-Z][a-z].*)',token)
+            parts=list(joined.groups()) if joined else token.split('.') if '.' in token and not re.search(r'\d\.\d',token) else []
+            if len(parts)>1:
+                needed=len(re.findall(re.escape(token),source,re.I))
+                if all(len(re.findall(r'(?<![A-Za-z0-9])'+r'\s*'.join(re.escape(c) for c in part)+r'(?![A-Za-z0-9])',translation,re.I))>=needed for part in parts if part):
+                    continue
+        if token in {'GPU','CPU','LED','LCD','OLED','API','SDK','IC','FPGA','PCB','PM'}:
+            pattern=r'(?<![A-Za-z0-9])'+re.escape(token)+r'(?:s|[’\']s)?(?![A-Za-z0-9])'
         if len(re.findall(pattern, translation, re.I)) < len(re.findall(pattern, source, re.I)):
             raise ValueError(f'译文未保留原文中的型号或缩写 {token}，请重新生成。')

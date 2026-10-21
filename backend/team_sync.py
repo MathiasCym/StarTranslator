@@ -178,7 +178,8 @@ def merge(base,local,remote):
         elif len(ours or [])==len(theirs or [])==1 and len(before or [])<=1:
             old=(before or [{}])[0];a=ours[0];z=theirs[0];entry={}
             for field in a.keys()|z.keys():
-                original,x,y=old.get(field),a.get(field),z.get(field)
+                default='term' if field=='category' else None
+                original,x,y=old.get(field,default),a.get(field,default),z.get(field,default)
                 if x==y: entry[field]=x
                 elif x==original: entry[field]=y
                 elif y==original: entry[field]=x
@@ -223,18 +224,22 @@ def preview(data):
 
 
 def save_local(path,entries,expected):
+    path=str(path)
     if not store.is_table(path): return store.save(entries,expected,path=path)
     # Retain custom spreadsheet columns and the existing workbook template.
-    table=writer.load_table(path);columns=table['columns'];remaining=list(table['rows']);rows=[]
+    table=writer.load_table(path);columns=list(table['columns']);remaining=list(table['rows']);rows=[]
+    if 'category' not in columns and any(e.get('category')=='person' for e in entries):columns.append('category')
     zh=columns.index('zh');en=columns.index('en')
     for entry in entries:
         source=next((row for row in remaining if row[zh]==entry['zh'] and row[en]==entry['en']),None)
         candidates=[row for row in remaining if row[zh]==entry['zh']]
         if source is None and len(candidates)==1: source=candidates[0]
         row=list(source) if source is not None else ['']*len(columns)
+        row+=['']*(len(columns)-len(row))
         if source is not None: remaining.remove(source)
         for i,column in enumerate(columns):
-            if column in entry:
+            if column=='category':row[i]=entry.get('category','term')
+            elif column in entry:
                 value=entry[column];row[i]='\n'.join(value) if column in LIST_FIELDS else str(value)
         rows.append(row)
     store.edit_table(path,rows,columns=columns,expected=expected)

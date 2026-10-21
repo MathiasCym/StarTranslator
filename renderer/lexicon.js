@@ -1,14 +1,15 @@
 function installLexicon({ $, action, callApi, esc, basename }) {
   // Both views edit the same rows, with one fingerprint and one save action.
   const state = { path: '', columns: [], header: [], rows: [], fingerprint: '', dirty: false,
-    busy: false, selected: -1, page: 0, view: 'list', visibleColumns: new Set(['zh', 'en', 'note']) }
+    busy: false, selected: -1, page: 0, view: 'list', visibleColumns: new Set(['zh', 'en', 'note', 'category']) }
   const names = { zh: '中文术语', en: '标准英文', variants: '正确别名', machine_variants: '机翻候选',
-    wrong_variants: '已确认错译', note: '解释 / 备注', priority: '确认状态', source: '来源' }
+    wrong_variants: '已确认错译', note: '解释 / 备注', priority: '确认状态', source: '来源', category: '分类' }
   const fields = { termZh: 'zh', termEn: 'en', termAliases: 'variants', termMachine: 'machine_variants',
-    termWrong: 'wrong_variants', termNote: 'note' }
+    termWrong: 'wrong_variants', termNote: 'note', termCategory: 'category' }
   const listFields = ['variants', 'machine_variants', 'wrong_variants'], pageSize = 40
   let suggesting = false
   const cell = (row, key) => String(row?.[state.columns.indexOf(key)] ?? '')
+  const category = row => ['person','人名'].includes(cell(row,'category').trim().toLowerCase()) ? 'person' : 'term'
   const lines = text => text.split(/\r?\n/).map(value => value.trim()).filter(Boolean)
   const selectedRow = () => state.rows[state.selected]
   async function dirtyGuard(accept = '放弃修改') {
@@ -30,10 +31,12 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     $('openTeamSync').disabled = !loaded || state.busy || state.dirty
     $('addTerm').disabled = !loaded || state.busy
     $('deleteTerm').disabled = !selected || state.busy
+    $('termCategory').disabled = !selected || state.busy
+    $('termCategoryFilter').disabled = state.busy
     $('saveLexicon').disabled = !loaded || !state.dirty || state.busy
     $('termForm').querySelectorAll('textarea,button').forEach(element => { element.disabled = !selected || state.busy })
     $('suggestVariants').disabled = !selected || state.busy || suggesting
-    $('tableBody').querySelectorAll('textarea,button').forEach(element => { element.disabled = state.busy })
+    $('tableBody').querySelectorAll('textarea,select,button').forEach(element => { element.disabled = state.busy })
     $('lexiconColumnOptions').querySelectorAll('input').forEach(element => { element.disabled = state.busy })
     $('lexiconDirtyBadge').textContent = state.dirty ? '未保存' : loaded ? '已保存' : '未读取'
     $('lexiconDirtyBadge').classList.toggle('dirty', state.dirty)
@@ -68,7 +71,8 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     markDirty()
   }
   function filteredRows() {
-    return rankTermRows(state.rows, state.columns, $('termSearch').value)
+    const filter=$('termCategoryFilter').value
+    return rankTermRows(state.rows, state.columns, $('termSearch').value).filter(({row})=>filter==='all'||category(row)===filter)
   }
   function pageRows() {
     const filtered = filteredRows(), pages = Math.max(1, Math.ceil(filtered.length / pageSize))
@@ -85,7 +89,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
       const aliases = lines(cell(row, 'variants')).length, wrong = lines(cell(row, 'wrong_variants')).length
       return '<button class="term-card' + (index === state.selected ? ' active' : '') + '" data-term="' + index + '" role="listitem" aria-current="' + (index === state.selected) + '">' +
         '<span class="term-card-zh" title="' + esc(cell(row, 'zh') || '新术语') + '">' + esc(cell(row, 'zh') || '新术语') + '</span><span class="term-card-en" title="' + esc(cell(row, 'en') || '尚未填写标准英文') + '">' + esc(cell(row, 'en') || '尚未填写标准英文') + '</span>' +
-        (aliases || wrong ? '<span class="term-card-tags">' + (aliases ? '<span>' + aliases + ' 个别名</span>' : '') +
+        (aliases || wrong || category(row)==='person' ? '<span class="term-card-tags">' + (category(row)==='person'?'<span>人名</span>':'') + (aliases ? '<span>' + aliases + ' 个别名</span>' : '') +
           (wrong ? '<span class="wrong-tag">' + wrong + ' 项错译</span>' : '') + '</span>' : '') + '</button>'
     }).join('') || '<div class="lexicon-empty">没有匹配的术语<br><span>试试其他关键词，或新增术语。</span></div>'
     $('termRows').querySelectorAll('[data-term]').forEach(button => { button.onclick = () => {
@@ -95,6 +99,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     $('termRows').scrollTop = scroll
   }
   function resizeCell(element) {
+    if(element.tagName!=='TEXTAREA')return
     element.style.height = 'auto'
     const minimum = element.closest('table.grid') ? 36 : 50
     element.style.height = Math.min(160, Math.max(minimum, element.scrollHeight + 2)) + 'px'
@@ -121,11 +126,11 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     $('tableHead').innerHTML = '<tr>' + columns.map(({ key, index }) => '<th' + (key === 'zh' ? ' class="grid-zh"' : '') + '>' +
       esc(names[key] || state.header[index] || '附加字段') + '</th>').join('') + '<th class="grid-actions">操作</th></tr>'
     $('tableBody').innerHTML = rows.map(({ row, index }) => '<tr>' + columns.map(({ key, index: column }) =>
-      '<td' + (key === 'zh' ? ' class="grid-zh"' : '') + '><textarea aria-label="' + esc(names[key] || state.header[column] || '附加字段') +
-      '" data-r="' + index + '" data-c="' + column + '" rows="1" title="' + esc(row[column]) + '">' + esc(row[column]) + '</textarea></td>').join('') +
+      '<td' + (key === 'zh' ? ' class="grid-zh"' : '') + '>' + (key==='category'?'<select aria-label="分类" data-r="'+index+'" data-c="'+column+'"><option value="term"'+(category(row)==='term'?' selected':'')+'>普通术语</option><option value="person"'+(category(row)==='person'?' selected':'')+'>人名</option></select>':'<textarea aria-label="' + esc(names[key] || state.header[column] || '附加字段') +
+      '" data-r="' + index + '" data-c="' + column + '" rows="1" title="' + esc(row[column]) + '">' + esc(row[column]) + '</textarea>')+'</td>').join('') +
       '<td class="grid-actions"><button class="btn ghost sm" data-detail="' + index + '">详情</button><button class="btn ghost sm danger" data-delete="' + index + '">删除</button></td></tr>').join('') ||
       '<tr><td colspan="' + (columns.length + 1) + '"><div class="lexicon-empty">没有匹配的术语</div></td></tr>'
-    $('tableBody').querySelectorAll('textarea').forEach(element => {
+    $('tableBody').querySelectorAll('textarea,select').forEach(element => {
       resizeCell(element)
       element.oninput = () => {
         const column = Number(element.dataset.c)
@@ -143,7 +148,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     const row = selectedRow()
     $('termForm').hidden = !row; $('termEmpty').hidden = !!row
     $('termHeading').textContent = row ? cell(row, 'zh') || '新术语' : '选择一个术语'
-    for (const [id, key] of Object.entries(fields)) { $(id).value = cell(row, key); resizeCell($(id)) }
+    for (const [id, key] of Object.entries(fields)) { $(id).value = key==='category'?category(row):cell(row, key); resizeCell($(id)) }
     $('termForm').scrollTop = 0
     availability()
   }
@@ -165,7 +170,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
   function setData(result, keepPosition = false) {
     state.path = result.path; state.columns = [...(result.columns || [])]; state.header = [...(result.header || state.columns)]
     state.rows = result.rows || []; state.fingerprint = result.fingerprint; state.dirty = false
-    if (!keepPosition) { $('termSearch').value = ''; state.page = 0; state.selected = state.rows.length ? 0 : -1 }
+    if (!keepPosition) { $('termSearch').value = ''; $('termCategoryFilter').value='all'; state.page = 0; state.selected = state.rows.length ? 0 : -1 }
     else state.selected = Math.min(state.selected, state.rows.length - 1)
     $('lexiconPath').textContent = result.path; $('lexiconFile').textContent = basename(result.path); $('lexiconFile').title = result.path
     $('lexiconKind').textContent = /\.(xlsx|xlsm)$/i.test(result.path) ? 'Excel 词库' : /\.(csv|tsv)$/i.test(result.path) ? '表格词库' : 'JSON 词库'
@@ -192,6 +197,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     state.selected = rows[0]?.index ?? -1
     render(); $('termRows').scrollTop = 0; $('lexiconGridPane').querySelector('.gridwrap').scrollTop = 0
   }
+  $('termCategoryFilter').onchange=$('termSearch').oninput
   for (const [id, key] of Object.entries(fields)) $(id).oninput = () => {
     if (!selectedRow() || state.busy) return
     changeCell(selectedRow(), key, $(id).value)
@@ -207,6 +213,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
   action('addTerm', () => {
     if (state.busy || !state.path) return
     const row = state.columns.map(key => key === 'priority' ? '2' : key === 'source' ? '团队维护' : '')
+    if($('termCategoryFilter').value==='person')row[ensureColumn('category')]='person'
     state.rows.unshift(row); state.selected = 0; state.page = 0; $('termSearch').value = ''
     markDirty(); render(); status('填写新术语的中文和标准英文，再保存词库。')
     if (state.view === 'list') $('termZh').focus(); else $('tableBody').querySelector('textarea')?.focus()

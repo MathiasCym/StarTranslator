@@ -55,6 +55,13 @@ class GlossaryEntry:
     source: str = ""
     machine_variants: list[str] = field(default_factory=list)
     wrong_variants: list[str] = field(default_factory=list)
+    category: str = 'term'            # term=普通术语 person=人名
+
+    def __post_init__(self):
+        categories={'':'term','term':'term','术语':'term','普通术语':'term','person':'person','人名':'person'}
+        if not isinstance(self.category,str) or self.category.strip().casefold() not in categories:
+            raise ValueError('分类应为普通术语或人名。')
+        self.category=categories[self.category.strip().casefold()]
 
     def all_forms(self) -> list[str]:
         seen, out = set(), []
@@ -66,7 +73,10 @@ class GlossaryEntry:
         return out
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        result=asdict(self)
+        # Legacy ordinary terms keep their exact public/sync/cache identity.
+        if self.category=='term':result.pop('category')
+        return result
 
 
 @dataclass

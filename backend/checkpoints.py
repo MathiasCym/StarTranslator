@@ -22,7 +22,7 @@ def digest(value):
 @lru_cache(maxsize=2)
 def policy(stage):
     names = ['writing_policy.py', 'document_context.py', 'llm/client.py', 'text_integrity.py']
-    names += (['translation.py', 'translation_batch.py', 'translation_residual.py', 'replacer/styled_text.py']
+    names += (['translation.py', 'translation_policy.py', 'translation_batch.py', 'translation_residual.py', 'replacer/styled_text.py']
               if stage == 'translation' else ['matcher/__init__.py', 'matcher/judge.py', 'matcher/batch.py'])
     # Checkout line endings must not change the meaning of a resumable policy.
     return digest([hashlib.sha256((Path(__file__).parent/name).read_bytes().replace(b'\r\n',b'\n')).hexdigest() for name in names])
@@ -31,7 +31,7 @@ def policy(stage):
 def context_identity(glossary, references, client, reference_path=None):
     def normal(path): return os.path.normcase(os.path.abspath(path))
     current=normal(reference_path) if reference_path else None
-    return {'glossary': digest([asdict(entry) for entry in glossary.entries]),
+    return {'glossary': digest([entry.to_dict() for entry in glossary.entries]),
         'references': sorted((os.path.normcase(os.path.abspath(path)),
             [(seg.locator, seg.text) for seg in segments]) for path, segments in getattr(references, 'by_path', {}).items()),
         'model': {key: getattr(client, key, '') for key in ('provider', 'base_url', 'model', 'api_format')},
@@ -57,14 +57,17 @@ class Checkpoint:
                 # Source/model/glossary/references/styles remain in the identity;
                 # every resumed paragraph still passes today's content checks.
                 if stage=='translation':
-                    for old_policy in ('e70d058be4e421fe6cc5ed3f7fee27bdd31e342576ce3d47145039279f088bf5',
+                    for old_policy in ('697989bcd6621c21d2512fde97c2aa4d63f81808dd31d97f136ade66a48032e6',
+                            '9151ff216813ae95cbbd4f78bd4194828243ec6017623064543ee9cd05bd6649',
+                            'e70d058be4e421fe6cc5ed3f7fee27bdd31e342576ce3d47145039279f088bf5',
                             '2dbc35c2e107202d597ff58e7d2bf3baff4ac9e807e2afd4dcc7e40a98e1a664',
                             '20631795cfac42022cdebcb50c6f52e8d44cdf72d7dfbc51129d27399cd58c47',
                             'cce7e89f4fc5d122f2f32566e846b3f5d6868984403ab0aee2a8b8808d0ae6bf',
                             'e3803df46fe2e75c773fb753ac815277ea9bdf6d9fcba0df316833dc855671ad',
                             '0b812f78dc872c18d916ec6b046062e9c7dfa7bd8372a133ba4343244fc86cc0',
                             'd52442f83508e6b572652942e65ca8199efeed7f0cd2e8555df75a01c21b15fa',
-                            'bd9a72b7c87a1fe9bd68460883b8f1fdf2e3a4618d99dcc2d30b5954eb98e464'):
+                            'bd9a72b7c87a1fe9bd68460883b8f1fdf2e3a4618d99dcc2d30b5954eb98e464',
+                            'b207ba2040b108b8d22cb6ff5e7106a820e17bc9b104f6bf5e91b95c79aefeb8'):
                         legacy=digest({'policy':old_policy,'input':identity})
                         if legacy==self.scope:continue
                         known={key for key,_ in rows}

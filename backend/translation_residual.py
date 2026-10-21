@@ -6,7 +6,8 @@ from .llm.client import LLMResponseInvalid,LLMUnavailable
 
 
 def _mappings(answer,batch):
-    from .writing_policy import numeric_values
+    from .writing_policy import _translation_numeric_values, translation_numeric_tokens
+    from collections import Counter
     items=answer.get('translations') if isinstance(answer,dict) else None
     if not isinstance(items,list):raise LLMResponseInvalid('补译未返回有效对应关系。')
     mappings={}
@@ -16,7 +17,8 @@ def _mappings(answer,batch):
         value=item['translation'].strip()
         if not value or CHINESE.search(value) or '```' in value or item['source'] in mappings:
             raise ValueError('补译仍含中文或重复内容。')
-        if numeric_values(value)-numeric_values(item['source']):raise ValueError('补译不得重复加入周围已有的数字。')
+        numeric=Counter(token for token,_,_ in translation_numeric_tokens(item['source'],value)[1])
+        if numeric-_translation_numeric_values(item['source']):raise ValueError('补译不得重复加入周围已有的数字。')
         mappings[item['source']]=value
     if set(mappings)!=set(batch):raise ValueError('补译遗漏了中文片段。')
     return mappings

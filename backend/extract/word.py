@@ -148,7 +148,9 @@ def _paragraph_spans(paragraph, fields):
     def field_reason():
         for field in fields:
             command = field['instruction'].strip().split(None, 1)
-            if not field['result'] or not command or command[0].upper() != 'HYPERLINK':
+            # TOC display labels are cached prose, not instructions or page
+            # references. Nested PAGEREF fields remain protected by this loop.
+            if not field['result'] or not command or command[0].upper() not in {'HYPERLINK','TOC'}:
                 return '动态域结果由 Word 生成，已保护域指令和结果；周围正文仍可翻译。'
         return ''
 
@@ -156,7 +158,7 @@ def _paragraph_spans(paragraph, fields):
         nonlocal group_parent, group_reason
         for node in container:
             if node.tag == qn('w:r'):
-                structural = [n for n in node if n.tag not in TEXT | {qn('w:rPr')}]
+                structural = [n for n in node if n.tag not in TEXT | {qn('w:rPr')} or n.tag==qn('w:tab')]
                 if structural:
                     flush()
                     for child in node:
@@ -213,7 +215,7 @@ def word_paragraphs(document):
                 paragraph = Paragraph(child, parent)
                 simple = not fields and all(
                     n.tag in {qn('w:pPr'), qn('w:r')} and (
-                        n.tag == qn('w:pPr') or all(c.tag in TEXT | {qn('w:rPr')} for c in n))
+                        n.tag == qn('w:pPr') or all(c.tag in TEXT | {qn('w:rPr')} and c.tag!=qn('w:tab') for c in n))
                     for n in child)
                 spans = [paragraph] if simple else _paragraph_spans(paragraph, fields)
                 if not simple: span_groups.append(spans)
@@ -300,6 +302,13 @@ def word_paragraphs(document):
             if contains_chinese(node.text or '') and any(p.tag in {'{'+c+'}strCache','{'+c+'}strLit','{'+c+'}tx'} for p in node.iterancestors()):
                 blocked.append((f'word_chart/{len(blocked)}',node.text,'chart',None,'Word 图表关联的文字仍需处理，已保留原数据与图表关系。'))
     document._star_word_text_parts=text_parts
+    from .word_numbering import used_levels, NumberingLabel
+    numbering, levels = used_levels(document)
+    for index, level in enumerate(levels):
+        label = level.find(qn('w:lvlText'))
+        if label is not None and contains_chinese(label.get(qn('w:val'), '')):
+            paragraphs.append((f'numbering/{index}/label', NumberingLabel(label, document), 'numbering', None, index+1))
+            text_parts.add(str(numbering.partname).lstrip('/'))
     return paragraphs, blocked
 
 

@@ -345,7 +345,13 @@ def pdf_document(path):
         stream = item.get_contents()
         if stream is not None and len(stream.get_data()) > MAX_TEXT: raise ValueError(f'PDF 第 {page} 页内容过大，请拆分处理。')
         text = item.extract_text() or ''
-        if not text.strip(): missing.append(page); continue
+        if not text.strip():
+            missing.append(page)
+            from .pdf_links import mark_page,append_page_links
+            paragraph=document.document.add_paragraph(f'Original PDF page {page}: no readable text layer. OCR is required.')
+            paragraph.paragraph_format.page_break_before=page>1
+            mark_page(paragraph,page);append_page_links(document.document,reader,item)
+            continue
         first = True
         for line in re.split(r'\n\s*\n',text):
             locator = f'body/{len(document.paragraphs)}'
@@ -354,12 +360,20 @@ def pdf_document(path):
                 paragraph.paragraph_format.page_break_before = first and page > 1
                 paragraph.paragraph_format.space_after = Pt(8)
                 paragraph.runs[0].font.name = 'Arial'; paragraph.runs[0].font.size = Pt(11)
+                if first:
+                    from .pdf_links import mark_page
+                    mark_page(paragraph,page)
                 first = False
+        # PDF annotations are not returned by extract_text(). Preserve their
+        # targets separately instead of guessing which translated English words
+        # match a source rectangle. The output is explicitly a reflowed Word.
+        from .pdf_links import append_page_links
+        append_page_links(document.document,reader,item)
     if not document.paragraphs: raise ValueError('PDF 未发现可读取的文字层，可能是扫描件。请先进行 OCR，或使用原始 Word / PPT 文档。')
     if missing: document.blocked.append(('pdf/scans','[未读取文字的页面：'+','.join(map(str,missing))+']','image',None,'这些页面没有可读取文字层，需要 OCR；未计入正文翻译。'))
     document.blocked.append(('pdf/layout','[PDF 图像与原始版式]','image',None,'PDF 以文字层重新排入 Word；图片、图表、复杂表格和原始版式不重建。'))
     document.writer = lambda destination,values: document.document.save(str(destination))
-    document.note = 'PDF 文字层按原页顺序输出为可编辑 Word，采用重新排版；图片、复杂表格和扫描页不自动重建。'
+    document.note = 'PDF 文字层按原页顺序输出为可编辑 Word，采用重新排版；原链接与页间跳转集中保留在各页正文之后；图片、复杂表格和扫描页不自动重建。'
     return document
 
 

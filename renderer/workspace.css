@@ -368,6 +368,10 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
 .term-card-tags > span { padding: 1px 4px; }
 .term-detail-head { padding: 8px 12px; }
 .term-detail-head h4 { font-size: 18px; }
+.term-detail-actions { display:flex; align-items:center; flex-wrap:wrap; gap:6px; flex-shrink:0; }
+.term-detail-actions label { font-size:14px; color:var(--fg2); }
+.term-detail-actions select, #termCategoryFilter { min-height:34px; padding:5px 8px; width:auto; }
+.lexicon-card table.grid select { width:100%; min-width:100px; min-height:36px; }
 .lexicon-card .term-form { padding: 12px; gap: 10px; }
 .lexicon-card .term-form textarea { min-height: 50px; font-size: 16px; line-height: 1.45; padding: 6px 8px; }
 .lexicon-card .term-grid { gap: 8px; }
@@ -387,6 +391,8 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
   .lexicon-share-actions select { max-width: 145px; }
   .lexicon-share-actions .btn { font-size: 14px; padding: 5px 7px; }
   .lexicon-toolbar { gap: 6px; }
+  .lexicon-toolbar { flex-wrap:wrap; }
+  .term-detail-actions { max-width:175px; justify-content:flex-end; }
   .lexicon-toolbar > input { min-width: 120px; }
   .lexicon-views button { padding: 5px 7px; font-size: 14px; }
   .lexicon-card .lexicon-layout { grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr); gap: 8px; }

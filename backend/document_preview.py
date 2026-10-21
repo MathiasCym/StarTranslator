@@ -16,7 +16,7 @@ SLOTS=threading.BoundedSemaphore(2)
 LOCK=threading.RLock()
 RENDER_LOCKS={}
 MAX_HTML=64*1024*1024
-PREVIEW_FORMAT='pages-5'
+PREVIEW_FORMAT='pages-7'
 CSP="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"
 FRAME_SCRIPT=r'''
 (()=>{
@@ -26,6 +26,7 @@ zoom=new URLSearchParams(location.search).get('zoom')||'fit';muteUntil=remotePag
 function send(data){parent.postMessage({channel,token,...data},'*')}
 function list(){return [...document.querySelectorAll('.slide-container,.page-wrapper')].filter(p=>p.querySelector('.slide,.page'))}
 function scale(){
+ if(window._starWordPaginating){setTimeout(scale,100);return;}
  pages=list();
  currentPage=Math.max(0,Math.min(pages.length-1,currentPage));
  pages.forEach((w,i)=>{w.hidden=i!==currentPage});
@@ -83,6 +84,43 @@ def prepare(raw,kind,page=None,total=None):
             del node.attrib['src']
     head=dom.find('head');body=dom.find('body')
     if head is None or body is None: raise ValueError('文档组件未生成完整页面。')
+    if kind=='.docx':
+        # Retain the compiler's sections, footnotes and page controls, replacing
+        # only its row-atomic table split. No source text is dropped or reflowed
+        # into a different column; split fragments retain their colgroup.
+        for node in dom.xpath('//script'):
+            script=node.text or ''
+            start=script.find('      // #7b00: when the overflowing child is a <table>')
+            end=script.find('      // Mirror the table case',start)
+            if start>=0 and end>start:
+                node.text=script[:start]+'''      var firstOverflow=children[splitIdx];
+      if(firstOverflow){
+        var continuation=firstOverflow.tagName==='TABLE'?starSplitWordTable(firstOverflow,body,availH):starSplitWordParagraph(firstOverflow,body,availH);
+        if(continuation){children=Array.from(body.children);splitIdx=children.indexOf(continuation);}
+      }
+'''+script[end:]
+                node.text=node.text.replace('if(ch>maxBodyH-fh+2 && visibleCount>1)',
+                    "if(ch>starWordAvailableHeight(p,b,maxBodyH)-fh+2 && (visibleCount>1 || starWordTableCanSplit(b)))")
+                node.text=node.text.replace('var availH=maxBodyH-fnH;',
+                    'var availH=starWordAvailableHeight(page,body,maxBodyH)-fnH;')
+                node.text=node.text.replace('if(sch>maxBodyH-sfH+2)',
+                    'if(sch>starWordAvailableHeight(sp,sb_,maxBodyH)-sfH+2)')
+                node.text=node.text.replace('if(again){if(window._wpSync)paginate();else setTimeout(paginate,0);}',
+                    'window._starWordPaginating=again; if(again){if(window._wpSync)paginate();else setTimeout(paginate,0);}')
+                # The viewer must not hide or transform continuation pages while
+                # the compiler is still measuring them for further splits.
+                node.text='window._starWordPaginating=true;\n'+node.text
+        helper=html.Element('script');helper.text=Path(__file__).with_name('word_preview.js').read_text('utf-8');head.append(helper)
+        style=html.Element('style');style.text='th,td{overflow-wrap:break-word;word-break:normal}td.star-long-token,th.star-long-token{overflow-wrap:anywhere}.star-short-label{white-space:nowrap;overflow-wrap:normal}'
+        head.append(style)
+        import re
+        for cell in dom.xpath('//td|//th'):
+            if re.search(r'[^\s]{35}',cell.text_content()):cell.set('class',(cell.get('class','')+' star-long-token').strip())
+            elif len(cell)==1 and re.fullmatch(r'[A-Za-z][A-Za-z-]{2,13}',cell.text_content().strip()):
+                cell.set('class',(cell.get('class','')+' star-short-label').strip())
+        for label in dom.xpath('//li/span[1]'):
+            if re.fullmatch(r'\s*\d+(?:\.\d+)*[.)]\s*',label.text_content()):
+                label.set('style',label.get('style','')+';padding-right:.35em')
     if page is not None:
         body.set('data-star-page',str(page));body.set('data-star-total',str(total))
     style=html.Element('style');style.text=FRAME_CSS;head.append(style)

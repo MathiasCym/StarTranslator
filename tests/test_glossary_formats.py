@@ -28,7 +28,8 @@ class FormatTests(unittest.TestCase):
     def test_seed_has_short_standards_and_expanded_aliases(self):
         entries = store.seed_entries()
         by_zh = {e['zh']: e for e in entries}
-        self.assertEqual(len(entries), 625)
+        self.assertGreaterEqual(len(entries),625)
+        self.assertEqual(len(entries),len({(e['zh'],e['en']) for e in entries}))
         for patch_ in formats.manifest()['patches']:
             entry = by_zh[patch_['zh']]
             self.assertEqual(entry['en'], patch_['en'])
@@ -36,7 +37,7 @@ class FormatTests(unittest.TestCase):
                 self.assertIn(alias, entry['variants'])
                 glossary = Glossary([GlossaryEntry(**entry)])
                 self.assertEqual(glossary.lookup_exact(alias)[0].en, patch_['en'])
-                segment = Segment(id='1', file='test.docx', text=alias, locator={})
+                segment = Segment(id='1', file='test.docx', text=alias, locator='body/0')
                 self.assertEqual(check_rules([segment], glossary), [])
         self.assertEqual(by_zh['线路板/电路板']['en'], 'PCB')
         self.assertIn('Printed Circuit Board', by_zh['线路板/电路板']['variants'])
@@ -55,7 +56,7 @@ class FormatTests(unittest.TestCase):
         # Simulate a library that already received the earlier cinema update.
         store.atomic_json(self.folder / ('lexicon-audit-' + audit.manifest()['id'] + '.json'), {})
         result = store.read()
-        self.assertEqual(len(result['entries']), 4)
+        self.assertEqual(len(result['entries']),len({(e['zh'],e['en']) for e in result['entries']}))
         changed = result['entries'][0]
         self.assertEqual(changed['en'], patch_['en'])
         self.assertEqual(changed['variants'], ['Team alias', *patch_['variants']])

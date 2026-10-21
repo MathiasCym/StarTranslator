@@ -144,6 +144,7 @@
     <details id="lexiconImportReport" class="lexicon-import-report" hidden><summary id="lexiconImportSummary">查看导入差异</summary><div id="lexiconImportConflicts"></div></details>
     <div class="lexicon-toolbar">
       <input type="search" id="termSearch" aria-label="搜索术语" placeholder="搜索中文、英文、别名或备注…">
+      <label class="sr-only" for="termCategoryFilter">按分类筛选</label><select id="termCategoryFilter" aria-label="按分类筛选"><option value="all">全部分类</option><option value="term">普通术语</option><option value="person">人名</option></select>
       <div class="lexicon-views" role="group" aria-label="术语显示方式"><button class="active" id="lexiconListView" aria-pressed="true">列表与详情</button><button id="lexiconGridView" aria-pressed="false">表格编辑</button></div>
       <button id="addTerm" class="btn primary sm">＋ 新增术语</button>
     </div>
@@ -151,7 +152,7 @@
       <div class="lexicon-layout" id="lexiconListPane">
         <div class="lexicon-list"><div class="lexicon-section-head"><span>中文 / 标准英文</span><span id="lexiconMatches"></span></div><div id="termRows" class="term-rows" role="list" aria-label="术语列表"></div></div>
         <div class="term-detail">
-          <div class="term-detail-head"><div><span class="lexicon-eyebrow">术语详情</span><h4 id="termHeading">选择一个术语</h4></div><button class="btn ghost sm danger" id="deleteTerm">删除本条</button></div>
+          <div class="term-detail-head"><div><span class="lexicon-eyebrow">术语详情</span><h4 id="termHeading">选择一个术语</h4></div><div class="term-detail-actions"><label for="termCategory">分类</label><select id="termCategory" aria-label="条目分类"><option value="term">普通术语</option><option value="person">人名</option></select><button class="btn ghost sm danger" id="deleteTerm">删除本条</button></div></div>
           <p class="lexicon-empty" id="termEmpty">选择左侧条目查看详情，或点击“新增术语”。</p>
           <div class="term-form" id="termForm" hidden>
             <div class="term-grid"><label>中文术语<textarea id="termZh" rows="2" placeholder="例如：逐点校正"></textarea></label><label>标准英文<textarea id="termEn" rows="2" placeholder="例如：pixel-level calibration"></textarea></label></div>

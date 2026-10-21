@@ -13,6 +13,8 @@ from backend.llm.client import LLMUnavailable
 from backend.matcher import check_segments
 from backend.extract import extract
 from backend import workflow
+from zipfile import ZipFile
+from lxml import etree
 
 class Model:
     def __init__(self,text='The main screen is 87 feet across with a 12Kx10K canvas.',missing=None,failures=0):
@@ -28,12 +30,61 @@ class Model:
         return []
 
 class PdfResidualTests(unittest.TestCase):
+    def test_reflow_identifier_policy_does_not_leak_into_word_or_powerpoint(self):
+        from backend.translation_policy import validate_for_file
+        source,target='LEDDome和300TBDellPowerScale','LED Dome and Dell PowerScale with 300 TB'
+        validate_for_file('source.PDF',source,target)
+        for filename in ['source.docx','source.pptx','source.xlsx','source.txt',None]:
+            with self.subTest(filename=filename),self.assertRaises(ValueError):
+                validate_for_file(filename,source,target)
+        for filename in ['source.pdf','source.docx','source.pptx']:
+            with self.subTest(filename=filename),self.assertRaises(ValueError):
+                validate_for_file(filename,'型号VX1000','Model VX2000')
+
+    def test_pdf_reflow_does_not_confuse_joined_words_with_changed_identifiers(self):
+        from backend.writing_policy import validate_translation
+        pairs=[('场馆地址1252DistrictDrive。','Venue address: 1252 District Drive.'),
+            ('LEDDome采用NVIDIARTXPROGPU。','The LED Dome uses NVIDIA RTX PRO GPUs.'),
+            ('使用200Mbit和300TBDellPowerScale。','Use 200 Mbit and 300 TB Dell PowerScale.'),
+            ('使用300TBDellPowerScale。','Use Dell PowerScale with 300 TB of storage.'),
+            ('COSM.CosmiscomingtoCleveland。','COSM. "Cosm is coming to Cleveland."'),
+            ('COSM.CosmiscomingtoCleveland。','COSM. Cosm is coming to Cleveland.')]
+        for source,target in pairs:
+            with self.subTest(source=source):validate_translation(source,target,allow_reflow=True)
+        for source,target in [('VX1000。','VX 2000.'),('NVIDIARTXPROGPU。','NVIDIA RTX PRO CPUs.'),
+                ('200Mbit。','200 Mbyte.'),('VX1000。','VX1000s.'),
+                ('300TBDellPowerScale。','Dell PowerScale with 300 GB.'),('300TBDellPowerScale。','300 TB of storage.')]:
+            with self.subTest(source=source),self.assertRaises(ValueError):validate_translation(source,target,allow_reflow=True)
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.g=Glossary([])
         self.env=patch.dict(os.environ,{'NOVATERM_DATA_DIR':str(self.root/'data')});self.env.start()
     def tearDown(self):self.env.stop();self.tmp.cleanup()
     def pdf(self,text):
         p=self.root/'source.pdf';pdf_fixture(p,text);return p
+    def test_pdf_annotation_targets_survive_reflow_and_final_review_save(self):
+        from pypdf import PdfReader,PdfWriter
+        from pypdf.annotations import Link
+        source=self.pdf('主屏直径为87英尺，整体画布为12Kx10K。')
+        reader=PdfReader(source);writer=PdfWriter();writer.append(reader)
+        uri='https://example.test/原始目标?q=unchanged'
+        writer.add_annotation(0,Link(rect=(0,0,100,20),url=uri))
+        writer.add_annotation(0,Link(rect=(0,30,100,50),target_page_index=0))
+        writer.write(source);before=store.fingerprint(source)
+        result=translate_file(source,self.g,None,client=Model())
+        self.assertTrue(result['translation_complete']);self.assertEqual(store.fingerprint(source),before)
+        output=Document(result['path'])
+        self.assertIn(uri,[r.target_ref for r in output.part.rels.values() if r.is_external])
+        w='{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
+        bookmarks={n.get(w+'name') for n in output.element.iter(w+'bookmarkStart')}
+        self.assertEqual(output.paragraphs[0]._p[0].tag,w+'pPr')
+        targets={n.get(w+'anchor') for n in output.element.iter(w+'hyperlink') if n.get(w+'anchor')}
+        self.assertEqual(targets,{'_StarPDFPage_1'});self.assertLessEqual(targets,bookmarks)
+        job={'id':'pdf-link-save','cancel':threading.Event()}
+        with patch('backend.workflow.store.load_glossary',return_value=self.g):
+            workflow.run(job,dict(kind='check',paths=[result['path']],use_llm=False))
+        saved=workflow.apply_report(dict(report_id=job['id'],path=result['path'],save_unchanged=True))
+        self.assertIn(uri,[r.target_ref for r in Document(saved['output']).part.rels.values() if r.is_external])
+        self.assertEqual(store.fingerprint(source),before)
     def test_physical_pdf_line_wraps_are_translated_together(self):
         source=self.pdf('主屏直径为87英尺，\n整体画布为12Kx10K。');before=store.fingerprint(source);model=Model()
         result=translate_file(source,self.g,None,client=model)

@@ -323,6 +323,27 @@ class QualityGateTests(unittest.TestCase):
         for source,target in invalid:
             with self.subTest(source=source,target=target):
                 with self.assertRaises(ValueError):validate_translation(source,target)
+    def test_partial_months_ranges_and_model_year_separators_preserve_facts(self):
+        from backend.writing_policy import validate_translation
+        valid=[('4月获奖','Awarded in April'),('3月获得认证','Certified in March'),
+            ('8月公布三年期研究项目','A three-year research project announced in August'),
+            ('7月培训','Training in July'),('5月可能交付','Delivery may take place in May'),
+            ('2024年6月至7月交流','Exchanges from June to July 2024'),
+            ('2024年6月至7月交流','Exchanges in June 2024 and July 2024'),
+            ('Audi A8，2023年交付','Audi A8, delivered in 2023'),
+            ('两位PM参加','The two PMs attended'),
+            ('1,234,567台设备','1,234,567 devices')]
+        for source,target in valid:
+            with self.subTest(source=source):validate_translation(source,target)
+        invalid=[('4月获奖','Awarded in May'),('4月获奖','Awarded in April and June'),
+            ('7月培训','Training'),('7月培训','Training in July 2024'),
+            ('2024年6月至7月交流','Exchanges from June to August 2024'),
+            ('2024年6月至7月交流','Exchanges from June to July 2025'),
+            ('Audi A8，2023年交付','Audi A9, delivered in 2023'),
+            ('1,234,567台设备','1,234,568 devices'),('PM参加','PNs attended')]
+        for source,target in invalid:
+            with self.subTest(source=source),self.assertRaises(ValueError):validate_translation(source,target)
+
     def test_numeric_equality_does_not_hide_wrong_or_missing_units(self):
         from backend.writing_policy import validate_translation
         valid=[('亮度500尼特','Brightness 500 nits'),('长度500毫米','Length 500 millimeters'),

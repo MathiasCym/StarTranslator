@@ -48,6 +48,7 @@ class Glossary:
                 seen[(e.zh, e.en.lower())] = e
             else:
                 current = seen[(e.zh, e.en.lower())]
+                if e.category=='person':current.category='person'
                 for field in ('source', 'note'):
                     value = getattr(e, field)
                     if value and value not in getattr(current, field):
@@ -79,6 +80,7 @@ class Glossary:
                 priority=item.get("priority", 1),
                 note=item.get("note", ""),
                 source=item.get("source", "人工修正"),
+                category=item.get('category','term'),
             )
             by_zh[entry.zh] = entry
         self.entries = list(by_zh.values())
@@ -99,6 +101,7 @@ class Glossary:
                 wrong_variants=item.get("wrong_variants", []),
                 note=item.get("note", ""),
                 source=item.get("source", ""),
+                category=item.get('category','term'),
             )
             for item in raw
         ]
@@ -175,7 +178,8 @@ def _rows_to_entries(rows) -> list[GlossaryEntry]:
                 variants=_split_list(get('variants')),
                 machine_variants=_split_list(get('machine_variants')),
                 wrong_variants=_split_list(get('wrong_variants')),
-                priority=priority, source=get('source') if 'source' in index_of else "用户导入"))
+                priority=priority, source=get('source') if 'source' in index_of else "用户导入",
+                category=get('category') or 'term'))
         return entries
 
     # 位置回退：旧的三列语义

@@ -19,8 +19,8 @@ import re
 import shutil
 import tempfile
 
-HEADER = ["中文", "英文", "备注", "正确别名", "机翻候选", "已确认错译", "确认状态", "来源"]
-HEADER_FIELDS = ["zh", "en", "note", "variants", "machine_variants", "wrong_variants", "priority", "source"]
+HEADER = ["中文", "英文", "备注", "正确别名", "机翻候选", "已确认错译", "确认状态", "来源", "分类"]
+HEADER_FIELDS = ["zh", "en", "note", "variants", "machine_variants", "wrong_variants", "priority", "source", "category"]
 
 # 那些一格存放多条、以换行分隔的字段。
 LIST_FIELDS = ("variants", "machine_variants", "wrong_variants")
@@ -35,6 +35,7 @@ FIELD_ALIASES = {
     "wrong_variants": {"已确认错译", "确认错译", "错译", "wrong_variants", "wrong variant"},
     "priority": {"确认状态", "确认", "状态", "priority"},
     "source": {"来源", "source"},
+    "category": {"分类", "类别", "category"},
 }
 _ALIAS_TO_FIELD = {alias.casefold(): field
                    for field, aliases in FIELD_ALIASES.items()

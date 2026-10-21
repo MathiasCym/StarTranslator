@@ -78,7 +78,8 @@ def validate(entries):
             if not isinstance(values, list) or len(values) > 100 or any(not isinstance(v,str) or len(v)>300 for v in values):
                 raise ValueError(f'第 {i} 条变体应为文本列表')
             item[key] = list(dict.fromkeys(v.strip() for v in values if v.strip()))
-        result.append(GlossaryEntry(**item).to_dict())
+        try:result.append(GlossaryEntry(**item).to_dict())
+        except ValueError as error:raise ValueError(f'第 {i} 条{error}') from None
     return result
 
 
@@ -216,7 +217,7 @@ def save(entries, expected, path=None):
 def table_rows(result):
     """把 read 的结果排成可供界面编辑的网格行。
 
-    JSON 词库没有列布局概念，统一按 8 列标准布局暴露，避免界面编辑时
+    JSON 词库没有列布局概念，统一按标准布局暴露，避免界面编辑时
     把变体/优先度等富字段丢掉。Excel/CSV 则沿用文件自身列布局。
     """
     from .writer import HEADER_FIELDS
@@ -224,7 +225,7 @@ def table_rows(result):
 
 
 def table_columns(result):
-    """界面应展示的列：JSON 用标准 8 列，表格文件用其自身列。"""
+    """界面应展示的列：JSON 用标准列，表格文件用其自身列。"""
     from .writer import HEADER_FIELDS
     return result.get('columns') or HEADER_FIELDS
 
@@ -272,7 +273,8 @@ def edit_table(path, rows, columns=None, expected=None):
 def _save_table(path, entries, expected):
     """按「词条」写回表格主词库（供 save() 调用）。writer 自做指纹校验。"""
     from . import writer
-    columns = read(path).get('columns') or writer.HEADER_FIELDS
+    columns = list(read(path).get('columns') or writer.HEADER_FIELDS)
+    if 'category' not in columns and any(e.get('category')=='person' for e in entries):columns.append('category')
     rows = _entries_to_rows(entries, columns)
     try:
         with edit_lock(path):

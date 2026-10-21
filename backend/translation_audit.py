@@ -17,7 +17,17 @@ def saved_residuals(path):
     # Inspect text nodes only: relationship targets, field instructions, paths,
     # author metadata and document properties are never translation candidates.
     from docx import Document
-    reachable = {str(p.partname).lstrip('/') for p in Document(path).part.package.parts}
+    document = Document(path)
+    reachable = {str(p.partname).lstrip('/') for p in document.part.package.parts}
+    from .extract.word_numbering import used_levels, EAST_ASIAN
+    from docx.oxml.ns import qn
+    _, levels = used_levels(document)
+    for index, level in enumerate(levels):
+        fmt = level.find(qn('w:numFmt'))
+        if fmt is not None and fmt.get(qn('w:val')) in EAST_ASIAN:
+            remaining.append(dict(slide=None, para=None, locator=f'numbering/{index}/format',
+                text='中文自动编号', source='numbering', editable=False,
+                reason='列表仍使用中文数字编号，需要转换为英文文档的数字编号。'))
     covered = Counter(c for s in segments if s.source != 'image' for c in CHINESE.findall(prose(s.text)))
     w = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
     a = 'http://schemas.openxmlformats.org/drawingml/2006/main'
