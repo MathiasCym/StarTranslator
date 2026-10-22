@@ -98,6 +98,29 @@ class AsyncLanTests(unittest.TestCase):
         self.assertEqual([f['comparison_index'] for f in value['result']['report']['files']],[0,1])
         self.assertNotIn(str(self.root),json.dumps(value))
         self.assertEqual(outputs[1]['path'],second)
+    def test_shared_manual_advice_is_not_unfinished_model_work(self):
+        path=self.doc('advice.docx','Finished')
+        output={'path':path,'needs_review':1,'untranslated':0,'layout_warnings':[{'reason':'Cached page is unverified'}]}
+        job={'id':'manual-advice','kind':'translate_review','status':'complete','result':{'outputs':[output],
+            'report':{'files':[{'path':path}],'findings':[],'stats':{'model_status':'complete'}}}}
+        self.assertFalse(lan_service.public(job)['can_resume'])
+        output['untranslated']=1
+        self.assertTrue(lan_service.public(job)['can_resume'])
+        job.update(status='partial',can_resume=False);output['untranslated']=0
+        self.assertFalse(lan_service.public(job)['can_resume'])
+        job.update(status='running',can_resume=True)
+        self.assertFalse(lan_service.public(job)['can_resume'])
+    def test_archived_shared_draft_awaiting_confirmation_does_not_request_model_resume(self):
+        app=lan_service.create_app(True);client=app.test_client();client.get('/shared/session')
+        session=next(iter(lan_service.SESSIONS.values()));session['jobs'].append('archived-advice')
+        row={'kind':'translate_review','status':'complete','can_resume':False,'awaiting_confirmation':True,'outputs':[],'errors':[]}
+        with patch('backend.history.record',return_value=row):
+            response=client.get('/shared/jobs/archived-advice')
+            self.assertEqual(response.status_code,200);self.assertTrue(response.json['archived']);self.assertFalse(response.json['can_resume']);self.assertTrue(response.json['can_restore_report'])
+            row.update(status='partial',can_resume=True)
+            self.assertTrue(client.get('/shared/jobs/archived-advice').json['can_resume'])
+            row.update(status='complete',can_resume=False,awaiting_confirmation=False)
+            self.assertFalse(client.get('/shared/jobs/archived-advice').json['can_restore_report'])
     def test_parallel_review_keeps_order_and_context(self):
         segments=[Segment(str(i),'sample','Screen count 214,000',f'slide{i}/p0',slide=i+1,file_path='sample.pptx') for i in range(6)]
         peak=[0];active=[0];lock=threading.Lock()

@@ -274,6 +274,13 @@ server.listen(0,'127.0.0.1',async()=>{
   await sr("[...$('jobs').querySelectorAll('button')].find(b=>b.textContent==='继续未完成任务').click()");await wait(200)
   assert.equal(sharedResumes,1);assert.equal(await sr('selected'),'shared-restored-fixture')
   result.checks.push('shared resume button submits owned task and displays resumed progress')
+  sharedJobs=[{id:'shared-resume-fixture',kind:'translate_review',status:'complete',message:'已完成，报告可恢复',downloads:[],can_resume:false,can_restore_report:true,percent:100}]
+  await sr('refresh()');await wait(100)
+  assert((await sr("$('jobs').textContent")).includes('恢复校对报告'))
+  assert(!(await sr("$('jobs').textContent")).includes('继续未完成任务'))
+  await sr("[...$('jobs').querySelectorAll('button')].find(b=>b.textContent==='恢复校对报告').click()");await wait(200)
+  assert.equal(sharedResumes,2)
+  result.checks.push('shared report restoration remains available after restart without presenting completed work as interrupted')
   for(const value of progressCases){
    sharedJobs=[{...value,id:'progress-fixture',kind:'translate',phase:'translate',status:'running',message:'处理 1/1：progress-fixture.docx',percent:30,downloads:[]}]
    await sr('refresh()')

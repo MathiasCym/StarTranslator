@@ -104,7 +104,8 @@ def owned_job(job_id):
         state='interrupted' if row['status'] in ('running','queued') else row['status']
         job={'id':job_id,'kind':row['kind'],'status':state,'phase':state,'percent':100 if state=='complete' else 0,
              'message':'共享服务已重启，本机记录和断点保留。','archived':True,
-             'resume_pending':state in ('interrupted','partial','failed','cancelled') or row.get('awaiting_confirmation',False),
+             'resume_pending':row.get('can_resume',state in ('interrupted','partial','failed','cancelled')),
+             'restore_report':row.get('awaiting_confirmation',False),
              'result':{'outputs':row.get('outputs',[]),'errors':row.get('errors',[])},'error':''}
     return job
 
@@ -148,9 +149,12 @@ def public(job):
         finding['file_index'] = paths.index(original['file_path']) if original.get('file_path') in paths else -1
     # A saved browser session can revisit any of its retained tasks and reports.
     value['downloads'] = [{'index':i, 'name':Path(p).name} for i,p in enumerate(download_files(job))]
-    value['can_resume'] = job['status'] not in ('queued','running') and (job.get('resume_pending') or job['status'] in ('failed','partial','cancelled') or
-        bool((job.get('result') or {}).get('errors')) or (report_of(job).get('stats') or {}).get('model_status') in ('partial','unavailable','cancelled') or
-        any(o.get('needs_review') for o in (job.get('result') or {}).get('outputs',[])))
+    resumable=job.get('can_resume')
+    if type(resumable) is not bool:
+        result={**(job.get('result') or {}),'stats':raw_report.get('stats') or (job.get('result') or {}).get('stats',{})}
+        resumable=job.get('resume_pending') or job['status']=='interrupted' or workflow.can_resume_processing({**job,'result':result},job['status'])
+    value['can_resume'] = job['status'] not in ('queued','running') and bool(resumable)
+    value['can_restore_report'] = bool(job.get('archived') and job.get('restore_report'))
     return value
 
 
