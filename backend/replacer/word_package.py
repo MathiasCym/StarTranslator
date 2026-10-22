@@ -32,9 +32,19 @@ def save_word(source, document, destination):
     with ZipFile(source) as before, ZipFile(buffer) as generated, ZipFile(destination,'w') as output:
         output.comment=before.comment
         names=set(generated.namelist())
+        parts={}
         for info in before.infolist():
+            if not (info.filename.startswith('word/') and info.filename.endswith('.xml')):continue
             original=before.read(info.filename)
             data=generated.read(info.filename) if info.filename in allowed and info.filename in names else original
             if data!=original and signature(data)!=signature(original):
                 raise ValueError('Word 链接、域控件或嵌入对象发生变化，已阻止覆盖原有信息。')
-            output.writestr(info,data)
+            parts[info.filename]=data
+        # Validate immutable structures first. Only then contain broken input
+        # references; valid fields, instructions, links and bookmarks stay intact.
+        from ..word_references import protect_parts
+        protected,warnings=protect_parts(parts)
+        document._star_reference_warnings=warnings
+        for info in before.infolist():
+            data=protected.get(info.filename,parts.get(info.filename))
+            output.writestr(info,before.read(info.filename) if data is None else data)

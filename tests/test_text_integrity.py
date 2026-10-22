@@ -49,7 +49,9 @@ class TextIntegrityTests(unittest.TestCase):
         p=doc.add_paragraph();link=OxmlElement('w:hyperlink');link.set(qn('w:anchor'),'_TocExample')
         run=text_run(link,'正文前文');run.append(OxmlElement('w:tab'));p._p.append(link);field(p,' PAGEREF _TocExample \\h ',label='4')
         end=doc.add_paragraph();end._p.append(ending)
-        doc.add_heading('正文前文',1)
+        heading=doc.add_heading('正文前文',1)
+        bookmark=OxmlElement('w:bookmarkStart');bookmark.set(qn('w:id'),'77');bookmark.set(qn('w:name'),'_TocExample');heading._p.append(bookmark)
+        bookmark=OxmlElement('w:bookmarkEnd');bookmark.set(qn('w:id'),'77');heading._p.append(bookmark)
         doc.save(self.source);before=signature(self.source)
         class TocModel(Model):
             def chat_json(self,prompt,**kwargs):

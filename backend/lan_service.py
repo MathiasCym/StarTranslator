@@ -136,7 +136,8 @@ def public(job):
     working = (workflow.REPORTS.get(job['id']) or {}).get('working_paths',{})
     for raw,output in zip((job.get('result') or {}).get('outputs',[]),(value.get('result') or {}).get('outputs',[])):
         saved=working.get(raw.get('path'))
-        if saved and Path(saved).is_file(): output.update(path=Path(saved).name,staged=False)
+        output['draft']=job.get('kind')=='translate_review' and not raw.get('review_exported')
+        if saved and Path(saved).is_file(): output.update(path=Path(saved).name,staged=False,draft=False)
     raw_report = report_of(job)
     report = report_of(value)
     paths = [f['path'] for f in raw_report.get('files',[])]

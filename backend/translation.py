@@ -507,6 +507,8 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             pdf_manifest=manifest(document.document)
         notify('layout','正在写入译文，保留原有图片、图表与对象位置')
         save_office(path,document,staged,changed)
+        reference_warnings=getattr(document,'_star_reference_warnings',[])
+        layout_warnings+=reference_warnings
         if Path(path).suffix.lower()=='.docx':
             box_adjustments,box_warnings=getattr(document,'_star_word_layout_result',([],[]))
             layout_adjustments+=box_adjustments;layout_warnings+=box_warnings
@@ -577,6 +579,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             'format_review':visual_audit if is_pptx else None,
             'image_review':image_review,
             'pdf_manifest':pdf_manifest,'output_audit':output_audit,
+            'reference_warnings':reference_warnings,
             'comparison_id':__import__('backend.comparison',fromlist=['safe_create']).safe_create(segments,by_locator,path,destination),
             'total':len(todo), 'untranslated':untranslated, 'needs_review':pending_count, 'translation_mode':translation_mode,
             'review_items':review_items, 'status':'needs_review' if pending_count else 'complete',

@@ -93,7 +93,7 @@ server.listen(0,'127.0.0.1',async()=>{
   for(const origin of ['completion','report']) {
    previewNotice=origin==='completion'?'兼容排版预览：可能与 Word/WPS 实际分页、文本框和字体显示不同。':''
    if(origin==='report')await run('openReport()')
-   await run(origin==='completion'?"$('completionFiles').querySelector('[data-comparison]').click()":"$('reportCompare').click()")
+   await run(origin==='completion'?"$('completionCompare').click()":"$('reportCompare').click()")
    await until(()=>run("$('comparisonDialog').open"));await enter()
    await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true});await wait(1100)
    assert.equal(await run("[...$('comparisonDialog').querySelectorAll('.pc-status')].every(p=>p.hidden)"),!previewNotice,'Compatible renderer notice must remain visible after ready; actual pages must not show it')

@@ -373,6 +373,8 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
     result.update(auto_reviewed=True, review_status=stats['model_status'], corrected=0, translation_path=translated_path)
     result['review_exported'] = False
     if on_export and not cancel.is_set(): on_export()
+    for issue in result.get('reference_warnings',[]):
+        if issue['reason'] not in stats['warnings']:stats['warnings'].append(issue['reason'])
     result['warnings'] += [{'reason': warning, 'text': ''} for warning in stats['warnings']]
     result['needs_review'] = len(result['review_items']) + len(result.get('layout_warnings',[])) + (1 if stats['model_status'] != 'complete' else 0)
     result['status'] = 'needs_review' if result['needs_review'] else 'complete'
@@ -409,6 +411,7 @@ def publish_combined_report(job, reviews, outcome):
         local['output_options'][output['path']] = {'mode':output.get('output_mode','both'),
             'translation_complete':output.get('translation_complete',True),
             'comparison_id':output.get('comparison_id'),
+            'reference_warnings':output.get('reference_warnings',[]),
             'source':output['source'], 'target_dir':output['target_dir'], 'staged':output.get('staged',False),
             'translation_mode':output.get('translation_mode','faithful')}
         if output.get('pdf_manifest') is not None:
@@ -575,6 +578,14 @@ def _apply_report(data, report, progress=None, client=None):
     layout_adjustments, fitting_warnings = fit_document(document,changed_locators,original_layout) if is_pptx else ([],[])
     def visual_progress(message,done=0,total=0): notify('render',done,total,message)
     visual_options = {'progress':visual_progress} if progress else {}
+    reference_changes={}
+    reference_warnings=[*option.get('reference_warnings',[]),*getattr(document,'_star_reference_warnings',[])]
+    if Path(input_path).suffix.lower()=='.docx':
+        from .word_references import inspect_file
+        reference_changes,issues=inspect_file(input_path)
+        reference_warnings+=issues
+    reference_warnings=list({(i['locator'],i['reason']):i for i in reference_warnings}.values())
+    fitting_warnings+=reference_warnings
     notify('write',message='正在生成文档，原文件保持不变')
     if not overwrite or managed_output:
         out = Path(option['output']) if managed_output and option.get('output') else output_path(
@@ -587,7 +598,7 @@ def _apply_report(data, report, progress=None, client=None):
         fd, temporary = tempfile.mkstemp(prefix='.star-review-',suffix=out.suffix,dir=out.parent)
         os.close(fd)
         try:
-            if done or Path(input_path).suffix.lower() == '.pdf': save_office(input_path,document,temporary,changed_locators)
+            if done or Path(input_path).suffix.lower() == '.pdf' or reference_changes: save_office(input_path,document,temporary,changed_locators)
             else: shutil.copyfile(input_path,temporary)
             if Path(input_path).suffix.lower()=='.docx':
                 box_adjustments,box_warnings=getattr(document,'_star_word_layout_result',([],[]))
@@ -700,6 +711,7 @@ def _apply_report(data, report, progress=None, client=None):
     content_warnings=[f'已保存可用文件；仍有 {len(pending_translation)} 处翻译待核对，请查看报告中的对应位置。'] if pending_translation else []
     if final_residuals:content_warnings.append(f'输出复查仍发现 {len(final_residuals)} 处可见中文，已保留内容和原有链接；当前文件不能视为完整英文。')
     content_warnings.extend('输出复查：'+i['reason'] for i in (output_audit or {}).get('issues',[]))
+    content_warnings.extend(dict.fromkeys(i['reason'] for i in reference_warnings))
     pending_images=sum(f.file_path==path and f.source=='image' and not f.applied for f in report['findings'])
     if pending_images:
         content_warnings.append('原 PDF 仍有图片文字或读取问题未解决，请查看报告中的图片位置；有效文件已保存。')

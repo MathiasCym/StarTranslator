@@ -262,6 +262,7 @@ function consumeCompleted(result, submitted) {
 function loadReport(report, outputs = []) {
   state.report = report; state.selected.clear(); state.edits = {}; state.savedReviewFiles.clear()
   state.exportRecords = outputs.map(output => ({ path: output.path, layoutWarnings: output.layout_warnings || [],
+    draft:report.kind==='translate_review'&&!output.review_exported,reportPath:output.path,
     staged: output.staged, targetDir: output.target_dir, comparison_id: output.comparison_id,
     text: output.staged ? '译文已暂存，确认建议后保存最终文件' : output.review_status === 'complete' ? '译文已保存，校对建议尚未应用' : '译文已保存，校对未完成' }))
   $('reportStatus').value = 'pending'; $('reportFilter').value = 'all'; $('searchBox').value = ''
@@ -333,7 +334,7 @@ function renderCheckCompletion() {
   $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : notStarted ? '文件已保留 · 校对尚未开始' : interrupted ? `${label}已结束 · 部分检查未完成` : manualPending ? `${label}处理完成 · ${manualPending} 处待人工核对` : `${label}完成`
   $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分。' : interrupted ? '可用文件和已完成部分已保留，未完成原因见下方；可查看报告并保存当前文件。' : untranslated ? `仍有 ${untranslated} 处未译中文，可继续补译或在报告中填写英文；已完成内容和当前文件均保留。` : manualPending ? `自动处理已结束，${manualPending} 处内容需要人工确认，具体位置和原因已列在报告中；可以继续保存文件。` : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，建议由你确认后应用。'
   $('completionSummary').innerHTML = [[files.length, '文档'], [s.segments ?? 0, '检查段落'], [findings.length, '审校建议'], [findings.filter(f => f.applied).length, '已替换建议']].map(([n, label]) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`).join('')
-  $('completionFiles').innerHTML = files.map(f => esc(f.name || basename(f.path))).join(' · ') + state.outputs.filter(o => o.comparison_id).map(o => `<button class="btn ghost sm comparison-button" data-comparison="${o.comparison_id}">${PageComparison.buttonContent}<span>· ${esc(basename(o.path))}</span></button>`).join('')
+  $('completionFiles').textContent = files.map(f => f.source?basename(f.source):f.name||basename(f.path||'')).join(' · ')
   $('completionFiles').title = files.map(f => f.path).join('\n')
   $('completionDetails').textContent = combined ? `已翻译 ${state.outputs.reduce((n, o) => n + (o.translated || 0), 0)} 段，校对 ${s.judged || 0} 段${manualPending ? `；另有 ${manualPending} 处待人工核对` : ''}。原稿保留，校对建议由你确认后应用。${r.output_mode === 'final' ? state.exportRecords.some(o => o.staged) ? '当前译文暂存，确认后保存最终文件。' : '最终文件已保存。' : ''}` : ''
   $('completionDetails').hidden = !combined
@@ -341,7 +342,7 @@ function renderCheckCompletion() {
 }
 function renderCompletionOutput() {
   const outputs = (state.exportRecords || []).filter(r => r.path), chosen = $('completionOutput').value
-  $('completionOutput').innerHTML = outputs.map((r, i) => `<option value="${i}">${esc(basename(r.path))}</option>`).join('')
+  $('completionOutput').innerHTML = outputs.map((r, i) => `<option value="${i}">${esc(basename(r.path))}${r.staged||r.draft?' · 翻译初稿':' · 已保存稿'}</option>`).join('')
   $('completionOutput').hidden = outputs.length < 2
   $('completionOutput').value = chosen && Number(chosen) < outputs.length ? chosen : String(outputs.length - 1)
   const output = outputs[Number($('completionOutput').value)], source = state.report?.files?.[0]?.path || ''
@@ -353,6 +354,12 @@ function renderCompletionOutput() {
   $('completionOpenFile').hidden = !output
   $('completionOpenFile').textContent = output?.staged ? '预览暂存译文' : '打开文件'
   $('completionOpenFile').onclick = () => output && openResult('openFile', output.path)
+  const compare=$('completionCompare'),draft=!!(output?.staged||output?.draft)
+  compare.hidden=!output?.comparison_id
+  compare.innerHTML=PageComparison.buttonContent+`<span>· ${draft?'初稿':'已保存稿'}</span>`
+  compare.title=output?`对照中文原稿与${draft?'翻译初稿':'当前保存的文件'}：${basename(output.path)}`:''
+  if(output?.comparison_id)compare.dataset.comparison=output.comparison_id
+  else delete compare.dataset.comparison
 }
 $('completionOutput').onchange = renderCompletionOutput
 function openReport() {
@@ -431,8 +438,11 @@ async function exportReport(overwrite = false, saveCurrent = false) {
         if (task.status !== 'complete') throw new Error(task.error || '保存未完成。')
         const r = task.result
         state.savedReviewFiles.add(path)
-        results.push({ path: r.output, comparison_id: r.comparison_id, layoutWarnings: r.layout_warnings || [], text: (state.report.kind === 'translate_review' ? r.overwritten ? '已更新校对文件，' : '校对文件已保存，' : r.overwritten ? '已覆盖原文件，' : '已另存，') + `替换 ${r.applied_count} 处` + (r.failed.length ? `；${r.failed.length} 项未完成` : '') + (r.content_warnings?.length ? '；'+r.content_warnings.join('；') : '') })
-        if (state.report.kind === 'translate_review') state.exportRecords = state.exportRecords.filter(record => (state.report.output_mode !== 'final' || record.path !== path) && record.path !== r.output)
+        results.push({ path: r.output,reportPath:path, comparison_id: r.comparison_id, layoutWarnings: r.layout_warnings || [], text: (state.report.kind === 'translate_review' ? r.overwritten ? '已更新校对文件，' : '校对文件已保存，' : r.overwritten ? '已覆盖原文件，' : '已另存，') + `替换 ${r.applied_count} 处` + (r.failed.length ? `；${r.failed.length} 项未完成` : '') + (r.content_warnings?.length ? '；'+r.content_warnings.join('；') : '') })
+        if (state.report.kind === 'translate_review') {
+          state.exportRecords = state.exportRecords.filter(record => record.path!==path&&record.reportPath!==path&&record.path!==r.output)
+          state.outputs=state.outputs.map(output=>output.path===path||output.reportPath===path?{...output,path:r.output,reportPath:path,comparison_id:r.comparison_id,staged:false,review_exported:true}:output)
+        }
         for (const { index, finding } of r.finding_updates || []) { state.report.findings[index] = finding; if (!finding.editable || finding.applied) { state.selected.delete(index); delete state.edits[index] } }
       }
       catch (error) { results.push({ text: `${basename(path)}：${error.message}` }) }
@@ -460,10 +470,10 @@ function renderReportOutputs() {
   $('reportOpenFile').onclick = () => output && openResult('openFile', output.path)
   const compare=$('reportCompare')
   compare.hidden=!output?.comparison_id;compare.disabled=!!state.exportBusy
-  compare.innerHTML=PageComparison.buttonContent
+  compare.innerHTML=PageComparison.buttonContent+`<span>· ${output?.staged||output?.draft?'初稿':'已保存稿'}</span>`
   if(output?.comparison_id)compare.dataset.comparison=output.comparison_id
   else delete compare.dataset.comparison
-  compare.title=output?.staged?'对照中文原稿与当前暂存译文':'对照中文原稿与最新保存的译文'
+  compare.title=output?.staged||output?.draft?'对照中文原稿与翻译初稿':'对照中文原稿与当前保存的文件'
   $('exportResults').hidden = !records.length
   $('exportResults').innerHTML = records.slice().reverse().map(r => `<div>${esc(r.text)}${r.path ? '<p class="fpath">' + esc(basename(r.path)) + '</p>' : ''}${layoutWarningMarkup(r.layoutWarnings)}</div>`).join('')
 }

@@ -81,6 +81,23 @@ class AsyncLanTests(unittest.TestCase):
     def test_maintenance_cannot_start_new_task(self):
         task_queue.MAINTENANCE=True
         with self.assertRaisesRegex(ValueError,'校验'):workflow.start({'kind':'check','paths':[self.doc('sample.docx','test')],'use_llm':False})
+    def test_shared_comparison_version_tracks_each_saved_document_without_exposing_paths(self):
+        first=self.doc('first-draft.docx','First');second=self.doc('second-draft.docx','Second')
+        saved=self.doc('second-checked.docx','Saved second')
+        outputs=[{'path':first,'comparison_id':'first-id','staged':True},{'path':second,'comparison_id':'second-id','staged':True}]
+        job={'id':'comparison-version','kind':'translate_review','status':'complete','result':{'outputs':outputs,
+            'report':{'files':[{'path':first},{'path':second}],'findings':[]}}}
+        workflow.REPORTS[job['id']]={'working_paths':{}}
+        value=lan_service.public(job)
+        self.assertTrue(all(o['draft'] for o in value['result']['outputs']))
+        workflow.REPORTS[job['id']]['working_paths'][second]=saved
+        value=lan_service.public(job)
+        self.assertTrue(value['result']['outputs'][0]['draft'])
+        self.assertFalse(value['result']['outputs'][1]['draft'])
+        self.assertEqual(value['result']['outputs'][1]['path'],'second-checked.docx')
+        self.assertEqual([f['comparison_index'] for f in value['result']['report']['files']],[0,1])
+        self.assertNotIn(str(self.root),json.dumps(value))
+        self.assertEqual(outputs[1]['path'],second)
     def test_parallel_review_keeps_order_and_context(self):
         segments=[Segment(str(i),'sample','Screen count 214,000',f'slide{i}/p0',slide=i+1,file_path='sample.pptx') for i in range(6)]
         peak=[0];active=[0];lock=threading.Lock()

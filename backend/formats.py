@@ -345,6 +345,7 @@ def pdf_document(path):
     if len(reader.pages) > 2000: raise ValueError('PDF 页数过多，请拆分处理。')
     document = TextDocument(path)
     document._star_pdf_headers=set()
+    document._star_reference_warnings=[]
     section=document.document.sections[0]
     section.page_width=Pt(595.3);section.page_height=Pt(841.9)
     section.top_margin=section.bottom_margin=Pt(48)
@@ -377,10 +378,14 @@ def pdf_document(path):
         text=join_link_wraps(text,destinations(reader,item)[0])
         for block in page_blocks(text,repeated):
             locator = f'body/{len(document.paragraphs)}'
-            paragraph = document.add(locator,block.text,'text',page)
+            from .word_references import printed_toc, warning
+            value=printed_toc(block.text) if block.kind=='toc' else block.text
+            if value!=block.text:
+                document._star_reference_warnings.append(warning(locator,cached=block.text,page=page,printed=True))
+            paragraph = document.add(locator,value,'text',page)
             # Pure dates/page numbers need no language check, but must still be
             # present in the output after separating them from translatable text.
-            if paragraph is None:paragraph=document.document.add_paragraph(block.text)
+            if paragraph is None:paragraph=document.document.add_paragraph(value)
             if paragraph is not None:
                 paragraph.paragraph_format.page_break_before = first and page > 1
                 paragraph.paragraph_format.space_after = Pt(6)
