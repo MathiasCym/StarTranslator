@@ -40,7 +40,7 @@ def destinations(reader, page):
     return external, internal
 
 
-def append_page_links(document,reader,page):
+def append_page_links(document,reader,page,visible_text=''):
     external,internal=destinations(reader,page)
     if not external and not internal:return
     def paragraph(label):
@@ -55,12 +55,24 @@ def append_page_links(document,reader,page):
         style=OxmlElement('w:rStyle');style.set(qn('w:val'),'Hyperlink');props.append(style)
         size=OxmlElement('w:sz');size.set(qn('w:val'),'18');props.append(size);run.append(props)
         value=OxmlElement('w:t');value.text=text;run.append(value);node.append(run);p._p.append(node)
-    for uri in external:
-        p=paragraph('Source link: ')
+    compact_links=None
+    for index,uri in enumerate(external,1):
         try: scheme=urlsplit(uri).scheme.lower()
         except ValueError:scheme=''
-        if scheme in {'http','https','mailto'}:link(p,uri,uri=uri)
-        else:p.add_run(uri)
+        if uri in visible_text and scheme in {'http','https','mailto'}:
+            # The full address is already in the page body. Keep a clickable
+            # destination without printing every long citation URL a second time.
+            if compact_links is None:compact_links=paragraph('Original PDF source links: ')
+            else:compact_links.add_run(' · ')
+            host=urlsplit(uri).hostname or 'Email'
+            try:host=host.encode('idna').decode('ascii')
+            except UnicodeError:host='Source'
+            label=f'[{index}] '+host
+            link(compact_links,label,uri=uri)
+        else:
+            p=paragraph('Source link: ')
+            if scheme in {'http','https','mailto'}:link(p,uri,uri=uri)
+            else:p.add_run(uri)
     if internal:
         p=paragraph('Original PDF pages: ')
         for i,number in enumerate(internal):

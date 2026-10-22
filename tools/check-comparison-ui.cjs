@@ -14,13 +14,14 @@ const {app,BrowserWindow,screen,ipcMain}=runtime,assert=require('node:assert/str
 const result={passed:false,target,companyDocumentsSent:false,existingInstallationModified:false,checks:[],screenshots:[]}
 fs.mkdirSync(out,{recursive:true});app.setPath('userData',path.join(out,label+'-profile'))
 const wait=ms=>new Promise(r=>setTimeout(r,ms))
+let previewNotice=''
 const styles=fs.readFileSync(path.join(target,'renderer/index.html'),'utf8').match(/<link rel="stylesheet"[^>]+>/g).join('').replaceAll('href="','href="/')
 const server=http.createServer((req,res)=>{
  const name=new URL(req.url,'http://localhost').pathname
  if(name==='/v1/models'){res.setHeader('Content-Type','application/json');return res.end(JSON.stringify({data:[{id:'ui-only'}]}))}
  if(name.startsWith('/api/comparisons/qa/preview/')) {
   const token=new URL(req.url,'http://localhost').searchParams.get('preview_token'),english=name.endsWith('output')
-  return res.end(`<html><head><meta charset="UTF-8"></head><body style="margin:0;background:#fff;color:#153a55;font:32px Arial"><div style="padding:60px"><h1>${english?'Project Research':'项目调研'}</h1><p>${english?'Complete English document page':'完整中文原稿页面'}</p></div><script>parent.postMessage({channel:'star-page-preview',token:${JSON.stringify(token)},type:'ready',total:3},'*')</script></body></html>`)
+  return res.end(`<html><head><meta charset="UTF-8"></head><body style="margin:0;background:#fff;color:#153a55;font:32px Arial"><div style="padding:60px"><h1>${english?'Project Research':'项目调研'}</h1><p>${english?'Complete English document page':'完整中文原稿页面'}</p></div><script>parent.postMessage({channel:'star-page-preview',token:${JSON.stringify(token)},type:'ready',total:3,notice:${JSON.stringify(previewNotice)}},'*')</script></body></html>`)
  }
  if(name==='/')return res.end(`<html><head><meta charset="UTF-8">${styles}</head><body><dialog id="comparisonDialog" class="shared-dialog comparison-dialog"><div class="panel-head"><h3>原文与译文</h3><button id="close" class="btn ghost">关闭</button></div><p id="comparisonNote">原稿 → 最新译文</p><div class="comparison-filters"><input placeholder="搜索原文或译文"></div><div class="comparison-scroll"><table><tr><td>中文原稿</td><td>Corrected English</td></tr></table></div></dialog><script src="/shared/comparison-view.js"></script><script>const d=document.querySelector('#comparisonDialog');document.querySelector('#close').onclick=()=>d.close();function openViewer(){PageComparison.open(d,document.querySelector('.comparison-filters'),document.querySelector('.comparison-scroll'),{source_name:'source.pptx',output_name:'checked.pptx'},{source:'/frame',output:'/frame'})}openViewer()</script></body></html>`)
  if(name==='/frame')return res.end('<html><body style="background:white;color:black">Complete document page</body></html>')
@@ -90,10 +91,13 @@ server.listen(0,'127.0.0.1',async()=>{
   const actualBounds=win.getBounds()
   await run(`state.job={id:'qa',status:'complete'};state.outputs=[{path:'C:/qa/checked.docx',comparison_id:'qa',translated:1}];loadReport({report_id:'qa',kind:'translate_review',output_mode:'final',files:[{path:'C:/qa/checked.docx',name:'checked.docx'}],stats:{model_status:'complete',segments:1,judged:1,rule_hits:0,llm_hits:0},errors:[],findings:[]},state.outputs);showCheckCompletion()`)
   for(const origin of ['completion','report']) {
+   previewNotice=origin==='completion'?'兼容排版预览：可能与 Word/WPS 实际分页、文本框和字体显示不同。':''
    if(origin==='report')await run('openReport()')
    await run(origin==='completion'?"$('completionFiles').querySelector('[data-comparison]').click()":"$('reportCompare').click()")
    await until(()=>run("$('comparisonDialog').open"));await enter()
    await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true});await wait(1100)
+   assert.equal(await run("[...$('comparisonDialog').querySelectorAll('.pc-status')].every(p=>p.hidden)"),!previewNotice,'Compatible renderer notice must remain visible after ready; actual pages must not show it')
+   if(previewNotice){result.noticeRects=await run("[...$('comparisonDialog').querySelectorAll('.pc-pane')].map(p=>{const a=p.querySelector('.pc-status').getBoundingClientRect(),b=p.querySelector('iframe').getBoundingClientRect();return {notice:{top:a.top,bottom:a.bottom,height:a.height},frame:{top:b.top,bottom:b.bottom,height:b.height}}})");assert(result.noticeRects.every(r=>r.notice.bottom<=r.frame.top+.5&&r.frame.height>100),'Renderer notice must not overlap or squeeze out the document page')}
    const shot=path.join(out,label+'-actual-'+origin+'-fullscreen.png');fs.writeFileSync(shot,(await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG());result.screenshots.push(shot)
    assert.equal(await run("document.fullscreenElement.closest('#comparisonDialog')!==null"),true,'Fullscreen must contain only the comparison, not the application root')
    assert.equal(await run(`(()=>{const d=$('comparisonDialog');return [...d.querySelectorAll('#closeComparison,[data-expand],.pc-frame')].every(e=>{const r=e.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return e===hit||e.contains(hit)})})()`),true,'App header or completion/report panel covers comparison controls/pages')

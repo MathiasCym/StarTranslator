@@ -93,7 +93,7 @@ window.PageComparison = (() => {
     }
     if(data.type==='error'){clearTimeout(p.timer);p.status.hidden=false;p.status.textContent=String(data.message||'页面预览未完成').slice(0,500);return}
     if(data.type==='ready'){
-      const first=!p.ready;clearTimeout(p.timer);p.ready=true;p.status.hidden=true;p.total=Math.max(1,Math.min(10000,Number(data.total)||1));p.number.max=p.total;p.pane.querySelector('[data-count]').textContent='/ '+p.total
+      const first=!p.ready;clearTimeout(p.timer);p.ready=true;p.status.textContent=String(data.notice||'').slice(0,300);p.status.hidden=!p.status.textContent;p.status.classList.toggle('pc-preview-notice',!!p.status.textContent);p.total=Math.max(1,Math.min(10000,Number(data.total)||1));p.number.max=p.total;p.pane.querySelector('[data-count]').textContent='/ '+p.total
       if(first)send(p,{type:'zoom',value:v.box.querySelector('select').value});return
     }
     if(data.type==='position'&&p.ready){

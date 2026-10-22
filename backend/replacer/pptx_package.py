@@ -5,6 +5,12 @@ from zipfile import ZipFile
 def save_office(source, document, destination, changed):
     if Path(source).suffix.lower() != '.pptx':
         if Path(source).suffix.lower() == '.docx':
+            from .word_textboxes import fit_textboxes
+            try: adjustments,warnings=fit_textboxes(document,changed)
+            except (ValueError,TypeError,ArithmeticError,OSError):
+                adjustments=[]
+                warnings=[{'slide':None,'locator':'word/textboxes','reason':'该文档的文本框排版参数无法安全测量，已保留内容，请在 Word/WPS 中核对。'}]
+            document._star_word_layout_result=(adjustments,warnings)
             from ..extract.word import sync_word_parts
             sync_word_parts(document)
             from .word_package import save_word

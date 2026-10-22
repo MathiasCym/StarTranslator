@@ -336,44 +336,78 @@ def epub_document(path):
 
 def pdf_document(path):
     from pypdf import PdfReader
+    from .pdf_reflow import extract_page, page_blocks, compact, join_link_wraps, fit_contents
+    from .pdf_links import mark_page, append_page_links, destinations
+    from .pdf_images import append_images
+    from collections import Counter
     reader = PdfReader(path)
     if reader.is_encrypted and not reader.decrypt(''): raise ValueError('PDF 已加密，请先提供可直接打开的未加密文件。')
     if len(reader.pages) > 2000: raise ValueError('PDF 页数过多，请拆分处理。')
     document = TextDocument(path)
-    missing = []
+    document._star_pdf_headers=set()
+    section=document.document.sections[0]
+    section.page_width=Pt(595.3);section.page_height=Pt(841.9)
+    section.top_margin=section.bottom_margin=Pt(48)
+    section.left_margin=section.right_margin=Pt(48)
+    missing, pages, contents = [], [], []
     for page, item in enumerate(reader.pages,1):
         stream = item.get_contents()
         if stream is not None and len(stream.get_data()) > MAX_TEXT: raise ValueError(f'PDF 第 {page} 页内容过大，请拆分处理。')
-        text = item.extract_text() or ''
+        pages.append(extract_page(item))
+    headers=Counter(compact(line) for text in pages for line in text.splitlines()[:1] if 0<len(line.strip())<100)
+    repeated={line for line,n in headers.items() if n>1}
+    for page, (item,text) in enumerate(zip(reader.pages,pages),1):
         if not text.strip():
             missing.append(page)
-            from .pdf_links import mark_page,append_page_links
-            paragraph=document.document.add_paragraph(f'Original PDF page {page}: no readable text layer. OCR is required.')
+            # Keep the original-page anchor without inserting an obsolete OCR
+            # instruction into a picture whose text can now be reviewed below.
+            paragraph=document.document.add_paragraph()
             paragraph.paragraph_format.page_break_before=page>1
-            mark_page(paragraph,page);append_page_links(document.document,reader,item)
+            mark_page(paragraph,page)
+            count,failures=append_images(document.document,item,page)
+            if not count and not failures and item.get_contents() is not None and item.get_contents().get_data().strip():
+                if not hasattr(document.document,'_star_pdf_image_failures'):document.document._star_pdf_image_failures=[]
+                reason=f'PDF 第 {page} 页有内容但没有可读文字层或可保留位图，可能含矢量轮廓文字；请对照原稿。'
+                document.document._star_pdf_image_failures.append(dict(locator=f'pdf-image/{page}/unreadable',slide=page,para=None,
+                    source_text='',translation='',reason=reason,image=True,unreadable_page=True,retained_source=True))
+            for reason in failures:document.blocked.append((f'pdf/image/{page}',reason,'image',page,reason))
+            append_page_links(document.document,reader,item)
             continue
         first = True
-        for line in re.split(r'\n\s*\n',text):
+        text=join_link_wraps(text,destinations(reader,item)[0])
+        for block in page_blocks(text,repeated):
             locator = f'body/{len(document.paragraphs)}'
-            paragraph = document.add(locator,line.strip(),'text',page)
+            paragraph = document.add(locator,block.text,'text',page)
+            # Pure dates/page numbers need no language check, but must still be
+            # present in the output after separating them from translatable text.
+            if paragraph is None:paragraph=document.document.add_paragraph(block.text)
             if paragraph is not None:
                 paragraph.paragraph_format.page_break_before = first and page > 1
-                paragraph.paragraph_format.space_after = Pt(8)
-                paragraph.runs[0].font.name = 'Arial'; paragraph.runs[0].font.size = Pt(11)
+                paragraph.paragraph_format.space_after = Pt(6)
+                paragraph.runs[0].font.name = 'Arial'
+                if block.kind=='header':document._star_pdf_headers.add(locator)
+                paragraph.runs[0].font.size = Pt(9 if block.kind in {'header','footer','reference'} else 13 if block.kind=='heading' else 11)
+                if block.kind=='toc':contents.append(paragraph)
+                if block.kind=='heading':
+                    paragraph.runs[0].bold=True
+                    paragraph.paragraph_format.keep_with_next=True
                 if first:
-                    from .pdf_links import mark_page
                     mark_page(paragraph,page)
                 first = False
+        _,failures=append_images(document.document,item,page)
+        for index,reason in enumerate(failures):document.blocked.append((f'pdf/image/{page}/{index}',reason,'image',page,reason))
         # PDF annotations are not returned by extract_text(). Preserve their
         # targets separately instead of guessing which translated English words
         # match a source rectangle. The output is explicitly a reflowed Word.
-        from .pdf_links import append_page_links
-        append_page_links(document.document,reader,item)
-    if not document.paragraphs: raise ValueError('PDF 未发现可读取的文字层，可能是扫描件。请先进行 OCR，或使用原始 Word / PPT 文档。')
-    if missing: document.blocked.append(('pdf/scans','[未读取文字的页面：'+','.join(map(str,missing))+']','image',None,'这些页面没有可读取文字层，需要 OCR；未计入正文翻译。'))
-    document.blocked.append(('pdf/layout','[PDF 图像与原始版式]','image',None,'PDF 以文字层重新排入 Word；图片、图表、复杂表格和原始版式不重建。'))
-    document.writer = lambda destination,values: document.document.save(str(destination))
-    document.note = 'PDF 文字层按原页顺序输出为可编辑 Word，采用重新排版；原链接与页间跳转集中保留在各页正文之后；图片、复杂表格和扫描页不自动重建。'
+        append_page_links(document.document,reader,item,visible_text=text)
+    if not document.paragraphs and not getattr(document.document,'_star_pdf_images',[]): raise ValueError('PDF 未发现可读取的文字层，可能是扫描件。请先进行 OCR，或使用原始 Word / PPT 文档。')
+    if missing: document.blocked.append(('pdf/scans','[无可读文字层的页面：'+','.join(map(str,missing))+']','image',None,'这些页面未计入正文翻译；保留的位图另行检查，复杂扫描版式与矢量轮廓文字需对照原 PDF。'))
+    document.blocked.append(('pdf/layout','[PDF 原始版式]','image',None,'PDF 文字与图片按原页归组重新排入 Word；图片中文独立识别与核验，未能安全处理的位置单独提示，复杂表格与原始版式不自动重建。'))
+    def writer(destination,values):
+        fit_contents(document.document,contents)
+        document.document.save(str(destination))
+    document.writer = writer
+    document.note = 'PDF 文字层按原页顺序输出为可编辑 Word，采用重新排版；原图像在所属页文字之后保留，图片中文独立识别、翻译并对照核验；原链接与页间跳转集中保留。不能安全覆盖的图片文字、复杂表格与无文字层页面会保留并提示。'
     return document
 
 

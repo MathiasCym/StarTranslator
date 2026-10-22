@@ -54,6 +54,7 @@ dialog#comparison > .comparison-scroll { flex: 1; min-height: 0; height: auto; }
 .pc-pane-head small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #abc2d5; font-size: 14px; }
 .pc-frame { width: 100%; border: 0; flex: 1; min-height: 0; background: #071422; }
 .pc-status { padding: 20px; color: #abc2d5; font-size: 15px; overflow-wrap: anywhere; }
+.pc-status.pc-preview-notice { flex-shrink: 0; margin: 0; padding: 6px 12px; font-size: 14px; line-height: 1.4; }
 .pc-nav { display: flex; justify-content: center; align-items: center; gap: 9px; padding: 6px 10px; border-top: 1px solid #7bc9f033; font-size: 15px; }
 .pc-nav input { width: 58px!important; padding: 4px!important; text-align: center; font-size: 15px; }
 .pc-nav button { flex-shrink: 0; }

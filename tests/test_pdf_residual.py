@@ -96,7 +96,8 @@ class PdfResidualTests(unittest.TestCase):
         model=Model('The main screen is 87 feet across with a 12Kx10K 画布.',{'画布':'canvas'},2)
         result=translate_file(source,self.g,None,client=model)
         self.assertEqual(model.repairs,3);self.assertEqual(result['untranslated'],0)
-        self.assertEqual(result['status'],'complete');self.assertEqual(Document(result['path']).paragraphs[0].text,'The main screen is 87 feet across with a 12Kx10K canvas.')
+        self.assertTrue(result['translation_complete']);self.assertEqual(result['output_audit']['status'],'partial')
+        self.assertEqual(Document(result['path']).paragraphs[0].text,'The main screen is 87 feet across with a 12Kx10K canvas.')
     def test_many_residual_phrases_are_batched_and_keep_existing_english(self):
         text='Existing English '+ ' / '.join(chr(0x4e10+i) for i in range(40))+' 87 feet'
         model=Model();result=repair_residual(model,text,{'translation':text},self.g,allow_source=True)

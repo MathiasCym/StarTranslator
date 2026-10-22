@@ -16,7 +16,7 @@ SLOTS=threading.BoundedSemaphore(2)
 LOCK=threading.RLock()
 RENDER_LOCKS={}
 MAX_HTML=64*1024*1024
-PREVIEW_FORMAT='pages-7'
+PREVIEW_FORMAT='pages-8'
 CSP="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"
 FRAME_SCRIPT=r'''
 (()=>{
@@ -35,7 +35,7 @@ function scale(){
   p.style.transformOrigin='top left';p.style.transform='scale('+factor+')';
   w.style.width=width*factor+'px';w.style.height=height*factor+'px';w.style.minHeight='0';
  });
- if(pages.length){send({type:'ready',total:remoteTotal||pages.length});ready=true;position()}
+ if(pages.length){send({type:'ready',total:remoteTotal||pages.length,notice:document.body.dataset.starPreviewNotice||''});ready=true;position()}
 }
 function position(){
  if(!ready)return;
@@ -85,6 +85,7 @@ def prepare(raw,kind,page=None,total=None):
     head=dom.find('head');body=dom.find('body')
     if head is None or body is None: raise ValueError('文档组件未生成完整页面。')
     if kind=='.docx':
+        body.set('data-star-preview-notice','兼容排版预览：可能与 Word/WPS 实际分页、文本框和字体显示不同。')
         # Retain the compiler's sections, footnotes and page controls, replacing
         # only its row-atomic table split. No source text is dropped or reflowed
         # into a different column; split fragments retain their colgroup.
@@ -162,6 +163,13 @@ def preview(comparison_id,side,page=1):
                     total=len(etree.fromstring(archive.read('ppt/presentation.xml')).findall('.//{http://schemas.openxmlformats.org/presentationml/2006/main}sldId'))
                 if type(page) is not int or not 1<=page<=total:raise ValueError('预览页码超出范围。')
             digest=store.fingerprint(source);folder=comparison.folder()/comparison_id;folder.mkdir(parents=True,exist_ok=True)
+            if source.suffix.lower()=='.docx':
+                from . import word_native_preview
+                native=word_native_preview.preview(source,folder/(side+'-native'),digest,page)
+                if store.fingerprint(source)!=digest: raise ValueError('文件在读取期间发生变化，请重试预览。')
+                if native is not None:
+                    raw,native_total=native
+                    return prepare(raw,'.native-word',page,native_total)
             name=side+(f'-page-{page}' if total is not None else '')
             cached=folder/(name+'.html');stamp=folder/(name+'.sha256')
             cache_key=PREVIEW_FORMAT+'\n'+digest

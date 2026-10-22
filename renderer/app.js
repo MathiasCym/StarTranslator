@@ -228,9 +228,9 @@ function chooseCombinedOutput() {
   })
 }
 function renderJobPhase(job) {
-  const labels = { preparing: '准备', translate: '翻译', repair:'补译与核对',layout:'文字排版',consistency:'全文一致性',format:'格式对照',check: '校对', export: '保存', complete: '完成' }
+  const labels = { preparing: '准备', translate: '翻译', repair:'补译与核对',image_text:'图片文字核对',output_check:'实际输出复查',layout:'文字排版',consistency:'全文一致性',format:'格式对照',check: '校对', export: '保存', complete: '完成' }
   const phase = labels[job.phase] || '处理'
-  const unit=job.phase==='format'?'页':'段',elapsed=job.activity_at?Math.max(0,Math.floor(Date.now()/1000-job.activity_at)):0
+  const unit=job.phase==='image_text'?'张':['format','output_check'].includes(job.phase)?'页':'段',elapsed=job.activity_at?Math.max(0,Math.floor(Date.now()/1000-job.activity_at)):0
   $('jobDetail').textContent = job.status === 'queued' ? '等待前面的任务完成，可随时取消' : [job.total?`${phase}：${job.done} / ${job.total} ${unit}`:phase,job.detail||(job.phase==='check'?'正在准备校对译文…':'正在处理文档…'),elapsed>=8?`本步骤已等待 ${elapsed} 秒`:''].filter(Boolean).join(' · ')
   const percent = Number.isFinite(job.percent) ? job.percent : job.total ? 100 * job.done / job.total : null
   const progress = $('jobProgress'), track = $('jobProgressTrack')
@@ -243,7 +243,7 @@ function renderJobPhase(job) {
   track.classList.toggle('indeterminate', percent === null)
   progress.setAttribute('aria-valuetext', percent === null ? phase + '中' : phase + '：' + Math.round(progress.value) + '%')
   $('jobStages').querySelectorAll('[data-phase]').forEach(chip => {
-    const active = chip.dataset.phase === (['repair','layout','consistency'].includes(job.phase)?'translate':job.phase)
+    const active = chip.dataset.phase === (job.phase==='output_check'?'format':['repair','layout','consistency','image_text'].includes(job.phase)?'translate':job.phase)
     chip.classList.toggle('active', active)
     if (active) chip.setAttribute('aria-current', 'step'); else chip.removeAttribute('aria-current')
   })

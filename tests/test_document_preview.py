@@ -20,6 +20,10 @@ class DocumentPreviewTests(unittest.TestCase):
         self.temp=tempfile.TemporaryDirectory();self.root=Path(self.temp.name)
         self.env=patch.dict(os.environ,{'NOVATERM_DATA_DIR':str(self.root/'data')});self.env.start()
         self.picture=self.root/'picture.png';Image.new('RGB',(150,80),'#23a0ce').save(self.picture)
+        # Exercise the compatible renderer independently of whichever Office
+        # applications happen to be installed on this test computer.
+        native=patch('backend.word_native_preview.preview',return_value=None)
+        native.start();self.addCleanup(native.stop)
     def tearDown(self):self.env.stop();self.temp.cleanup()
     def pair(self,kind='.docx'):
         source=self.root/('中文原稿'+kind);output=self.root/('English'+kind)
@@ -67,6 +71,18 @@ class DocumentPreviewTests(unittest.TestCase):
         d=Document(output);d.paragraphs[0].text='Confirmed corrected English';d.save(output);comparison.update(ident,str(output))
         new=document_preview.preview(ident,'output');self.assertIn('Confirmed corrected English',new);self.assertNotEqual(old,new)
         self.assertEqual(original,document_preview.preview(ident,'source'));self.assertFalse(comparison.read(ident)['output_changed'])
+    def test_word_native_pages_do_not_pass_through_the_html_word_reflow(self):
+        source,output,ident=self.pair();before=store.fingerprint(output)
+        raw='<html><head></head><body data-star-renderer="native-word"><div class="page-wrapper"><div class="page"><img src="data:image/png;base64,AA=="></div></div></body></html>'
+        with patch('backend.word_native_preview.preview',return_value=(raw,21)) as render,patch('backend.document_preview.subprocess.run') as officecli:
+            result=document_preview.preview(ident,'output',3)
+        self.assertEqual(render.call_args.args[-1],3);officecli.assert_not_called()
+        self.assertIn('data-star-page="3"',result);self.assertIn('data-star-total="21"',result)
+        self.assertNotIn('starSplitWordTable',result);self.assertNotIn('兼容排版预览',result)
+        self.assertEqual(before,store.fingerprint(output))
+    def test_compatible_word_preview_identifies_the_layout_limitation(self):
+        _,_,ident=self.pair();result=document_preview.preview(ident,'output')
+        self.assertIn('data-star-preview-notice="兼容排版预览',result)
     def test_legacy_record_recovers_original_from_history(self):
         source,output,ident=self.pair();value=comparison.read(ident);value={k:v for k,v in value.items() if not k.startswith('_')}
         store.atomic_json(comparison.folder()/(ident+'.json'),value);shutil.rmtree(comparison.folder()/ident)

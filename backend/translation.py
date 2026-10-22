@@ -148,6 +148,20 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
             partial=getattr(error,'partial_result',None)
             if partial and partial['translation'].strip()!=piece.strip() and re.search(r'[A-Za-z]',partial['translation']):candidate=partial
             if attempt:
+                if (segment is not None and Path(segment.file_path or segment.file).suffix.lower()=='.pdf'
+                        and candidate and not contains_chinese(candidate['translation'])):
+                    # A PDF may glue an English reference title into an apparent
+                    # model ID. Preserve that English verbatim and translate only
+                    # Chinese instead of rolling the entire unit back to source.
+                    from .pdf_reflow import recover_chinese
+                    try:
+                        result, recovered_runs = recover_chinese(client,piece,groups,glossary,lambda:check_cancel(cancel))
+                    except (ValueError,LLMResponseInvalid,LLMTruncated):
+                        pass
+                    except LLMUnavailable as recovery_error:
+                        raise TranslationNeedsReview('PDF 局部补译连接未完成：'+str(recovery_error),candidate,service_error=True) from recovery_error
+                    else:
+                        return recovered_runs, False
                 raise TranslationNeedsReview(str(error), candidate) from error
             prompt += '\n【重新生成要求】\n' + str(error)
             if candidate:
@@ -196,7 +210,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     by_locator = {loc: para for loc,para,*_ in paragraphs}
     todo = [s for s in segments if s.editable and contains_chinese(s.text)]
     blocked = [s for s in segments if not s.editable]
-    if not todo:
+    if not todo and not (Path(path).suffix.lower()=='.pdf' and getattr(document.document,'_star_pdf_images',[])):
         raise ValueError('未发现可翻译的中文段落。图片或复杂结构中的文字暂不自动翻译。')
     client = client or LLMClient()
     is_pptx = Path(path).suffix.lower() == '.pptx'
@@ -216,6 +230,27 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             groups = slice_groups(prepared[segment.locator],0,len(segment.text),visual_keys=True)
             value = checkpoint.get(translation_key(segment,segment.text,groups))
             if isinstance(value,dict): cached_whole[segment.locator] = value
+        # Older PDF checkpoints recorded only the first occurrence of a shared
+        # header. Reuse its validated English at the other header locations,
+        # remapping to each paragraph's own uniform style. Other text, Word and
+        # PPT never enter this aliasing path.
+        pdf_headers=getattr(document,'_star_pdf_headers',set())
+        header_values={}
+        for segment in todo:
+            value=cached_whole.get(segment.locator)
+            if segment.locator in pdf_headers and value and not value.get('needs_style'):
+                text=value.get('translation','')
+                if isinstance(text,str) and text and not contains_chinese(text):
+                    try:validate(segment.text,text)
+                    except ValueError:continue
+                    header_values[segment.text]=text
+        for segment in todo:
+            if segment.locator not in pdf_headers or segment.locator in cached_whole or segment.text not in header_values:continue
+            groups=slice_groups(prepared[segment.locator],0,len(segment.text),visual_keys=True)
+            if len(groups)!=1:continue
+            value={'translation':header_values[segment.text],'runs':[{'id':groups[0]['id'],'text':header_values[segment.text]}],'needs_style':False}
+            cached_whole[segment.locator]=value
+            checkpoint.put(translation_key(segment,segment.text,groups),value)
     groups_by_page = {}
     from .consistency import DocumentTranslationMemory
     document_memory = DocumentTranslationMemory(segments, glossary)
@@ -314,6 +349,9 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                         runs, local_style = document_memory.translate(seg, piece, piece_groups,
                             translate_piece,
                             lambda: check_cancel(cancel))
+                        if checkpoint and seg.locator in getattr(document,'_star_pdf_headers',set()):
+                            checkpoint.put(translation_key(seg,piece,piece_groups),
+                                {'translation':''.join(r['text'] for r in runs),'runs':runs,'needs_style':local_style})
                         if len(piece_groups)==1:
                             memory[cache_key]=''.join(r['text'] for r in runs)
                     page_context.remember(seg, piece, ''.join(r['text'] for r in runs))
@@ -457,8 +495,19 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     # Finish the whole document in private staging before choosing/publishing its name.
     with tempfile.TemporaryDirectory(prefix='star-translation-private-') as tmp:
         staged=Path(tmp)/('translated'+Path(path).suffix if is_pptx else 'translated'+__import__('backend.formats',fromlist=['output_extension']).output_extension(path))
+        image_review=None;pdf_manifest=None;output_audit=None
+        if Path(path).suffix.lower()=='.pdf':
+            from .pdf_image_text import review_images
+            image_review=review_images(document,path,client,glossary,segments,
+                check_cancel=lambda:check_cancel(cancel),progress=lambda _,message,n,t:notify('image_text',message,n,t))
+            review_items.extend(image_review['issues'])
+            from .pdf_quality import manifest
+            pdf_manifest=manifest(document.document)
         notify('layout','正在写入译文，保留原有图片、图表与对象位置')
         save_office(path,document,staged,changed)
+        if Path(path).suffix.lower()=='.docx':
+            box_adjustments,box_warnings=getattr(document,'_star_word_layout_result',([],[]))
+            layout_adjustments+=box_adjustments;layout_warnings+=box_warnings
         visual_warnings=[];visual_audit={'status':'pending' if defer_visual else 'not_requested'}
         if is_pptx:
             visual_warnings,visual_adjustments=([],[]) if defer_visual else review_pptx(path,staged,document,changed,original_layout,client,cancel,workers=workers,
@@ -487,9 +536,13 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                     source_text='',translation=item['text'],retained_source=True,
                     reason='输出复查仍发现中文：'+(item.get('reason') or '自动补译未完成，已保留当前内容。')))
                 recorded.add(item['locator'])
+        if pdf_manifest is not None:
+            from .pdf_quality import audit
+            output_audit=audit(staged,pdf_manifest,source=path,client=client,cancel=cancel,
+                progress=lambda message,n,t:notify('output_check',message,n,t))
         if fingerprint(path)!=before:raise ValueError('翻译过程中原文件被修改，请重新加载再翻译。')
         with OUTPUT_LOCK:
-            destination=output_path(path,output_dir,'English_Draft' if review_items else 'English')
+            destination=output_path(path,output_dir,'English_Draft' if review_items or (output_audit or {}).get('issues') else 'English')
             try:
                 # Staging may be on another volume, so publish through a same-directory temporary file.
                 import shutil
@@ -505,7 +558,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             except Exception:
                 if destination.exists():destination.unlink()
                 raise
-    pending_count=len(review_items)
+    pending_count=len(review_items)+len((output_audit or {}).get('issues',[]))
     # The same advisory pass serves single translation and the review workflow.
     # It never modifies the output or turns a completed translation into a failure.
     from dataclasses import replace
@@ -520,11 +573,13 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             'checkpoint_available':checkpoint.available if checkpoint else False,
             'format_review_deferred':is_pptx and defer_visual,
             'format_review':visual_audit if is_pptx else None,
+            'image_review':image_review,
+            'pdf_manifest':pdf_manifest,'output_audit':output_audit,
             'comparison_id':__import__('backend.comparison',fromlist=['safe_create']).safe_create(segments,by_locator,path,destination),
             'total':len(todo), 'untranslated':untranslated, 'needs_review':pending_count, 'translation_mode':translation_mode,
             'review_items':review_items, 'status':'needs_review' if pending_count else 'complete',
             'consistency_items':consistency_items, 'consistency_hits':len(consistency_items),
             'remaining_chinese':remaining,'layout_adjustments':layout_adjustments,
-            'skipped':len(blocked),'warnings':([{'reason':checkpoint.warning,'text':''}] if checkpoint and checkpoint.warning else [])+[{'text':s.text[:100],'reason':s.not_editable_reason,'slide':s.slide} for s in blocked],
+            'skipped':len(blocked),'warnings':([{'reason':checkpoint.warning,'text':''}] if checkpoint and checkpoint.warning else [])+[{'text':s.text[:100],'reason':s.not_editable_reason,'slide':s.slide} for s in blocked]+[{'reason':'输出复查：'+i['reason'],'text':i['text'],'slide':i['slide']} for i in (output_audit or {}).get('issues',[])],
             'layout_warnings':[*layout_warnings,*style_warnings], 'layout_checked':is_pptx and not visual_warnings if is_pptx else False,
             'layout_note':'保留图片与对象位置、尺寸和字体；同类样式在每页使用统一字号，需确认的位置列在版式提示中。' if is_pptx else getattr(document,'note','保留段落、表格及局部文字样式。')}

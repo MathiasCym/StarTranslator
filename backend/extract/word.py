@@ -309,6 +309,7 @@ def word_paragraphs(document):
         if label is not None and contains_chinese(label.get(qn('w:val'), '')):
             paragraphs.append((f'numbering/{index}/label', NumberingLabel(label, document), 'numbering', None, index+1))
             text_parts.add(str(numbering.partname).lstrip('/'))
+    document._star_word_layout_paragraphs = paragraphs
     return paragraphs, blocked
 
 

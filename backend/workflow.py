@@ -49,6 +49,7 @@ def can_resume_processing(job, outcome):
     if processing in ('partial', 'unavailable', 'cancelled', 'not_started'):
         return True
     return any(output.get('untranslated') or output.get('review_error') or
+        any(item.get('retryable') for item in (output.get('output_audit') or {}).get('issues',[])) or
         any(item.get('service_unavailable') for item in output.get('review_items', []))
         for output in result.get('outputs', []))
 
@@ -174,6 +175,8 @@ def run(job,data):
                     def activity(phase,message,done=0,total=0):
                         if phase=='translate' and job.get('phase')=='translate':done,total=job.get('done',0),job.get('total',0)
                         ranges={'preparing':(0,.02),'translate':(.02,.43 if combined else .70),
+                            'image_text':(.50 if combined else .80,.04 if combined else .15),
+                            'output_check':(.54 if combined else .95,.01 if combined else .025),
                             'repair':(.45 if combined else .72,.05 if combined else .08),
                             'layout':(.50 if combined else .80,.04),'consistency':(.54 if combined else .98,.01),
                             'format':(.84,.14)}
@@ -249,13 +252,14 @@ def run(job,data):
                       'findings':[f.to_dict() for f in findings],
                       'segments':[s.to_dict() for s in all_segments], 'completed_paths':stats['completed_files']}
             with LOCK:
-                REPORTS[job['id']] = {'segments':all_segments,'hashes':hashes,'findings':findings}
+                REPORTS[job['id']] = {'segments':all_segments,'hashes':hashes,'findings':findings,
+                    'use_llm':bool(data.get('use_llm',True)),'_quality_client':data.get('_client')}
                 job['result'] = result
                 job.pop('partial_findings',None)
             job['message'] = '校对完成' if stats['model_status'] in ('complete','not_requested') else '规则检查已完成，模型复核未完成'
         outcome = ('cancelled' if job['cancel'].is_set() else 'failed'
                    if data['kind'] in ('translate', 'translate_review') and not outputs and errors else 'partial'
-                   if errors or (data['kind'] in ('translate','translate_review') and any(o.get('translation_complete') is False for o in outputs))
+                   if errors or (data['kind'] in ('translate','translate_review') and any(o.get('translation_complete') is False or (o.get('output_audit') or {}).get('status')=='partial' for o in outputs))
                    or (data['kind']=='translate_review' and any(o.get('review_status')!='complete' for o in outputs)) else 'complete')
     except Cancelled as error:
         outcome = 'cancelled'
@@ -325,6 +329,21 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
             slide=segment.slide,para=segment.para,source=segment.source,found_text=segment.text,
             reason='翻译待核对：'+issue.get('reason','自动修复未完成，已保留原文。')+' 其余内容已继续处理；可保存文件，也可填写确认后的英文再替换。',
             kind='grammar',method='rule',editable=segment.editable,context=segment.text))
+    # Image issues have no editable Word paragraph. Show them explicitly rather
+    # than silently dropping them or asking English proofreading to translate them.
+    for issue in (result.get('image_review') or {}).get('issues',[]):
+        retained=('原 PDF 与可用译文已保留；该图未能写入当前译文。' if issue.get('missing_image') else
+            '原 PDF 与可用译文已保留；该页内容未能完整写入当前译文。' if issue.get('unreadable_page') else '原图与可用译文已保留。')
+        manual.append(Finding(segment_id='image:'+issue['locator'],file=Path(translated_path).name,file_path=translated_path,
+            slide=issue.get('slide'),para=None,source='image',found_text=issue.get('source_text') or '[PDF image not verified]',
+            reason='图片文字检查未完成：'+issue['reason']+' '+retained,
+            kind='grammar',method='rule',editable=False,context=issue.get('source_text') or ''))
+    for index,issue in enumerate((result.get('output_audit') or {}).get('issues',[])):
+        if issue['kind']=='source' and any(i['reason']==issue['reason'] for i in (result.get('image_review') or {}).get('issues',[])):continue
+        manual.append(Finding(segment_id=f'quality:{index}',file=Path(translated_path).name,file_path=translated_path,
+            slide=issue.get('slide'),para=None,source='quality',found_text=issue.get('text') or '[Output check incomplete]',
+            reason='输出复查：'+issue['reason']+' 当前文件可正常保存；再次保存时会自动重新核实。',
+            kind='grammar',method='rule',editable=False,context=issue.get('text') or ''))
     stats['manual_review'] = len(manual)
     if manual:
         findings.extend(manual)
@@ -333,7 +352,7 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
         pending_files={f.file_path for f in manual}
         stats['completed_files']=[path for path in stats.get('completed_files',[]) if path not in pending_files]
         stats['findings']=len(findings);stats['model_status']='partial' if stats['model_status']=='complete' else stats['model_status']
-        stats['warnings'].insert(0,f'{len(manual)} 处翻译问题自动修复后仍待核对，已在报告逐条标出；文件可正常保存，已完成部分可继续使用。')
+        stats['warnings'].insert(0,f'{len(manual)} 处翻译或输出检查仍待核对，已在报告逐条标出；文件可正常保存，已完成部分可继续使用。')
         if on_finding:on_finding([f.to_dict() for f in manual])
     guard_source()
     if store.fingerprint(translated_path)!=before:raise ValueError('译文在校对期间被外部修改，已停止写入以保留修改。')
@@ -361,7 +380,7 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
     final = result['path']
     for segment in segments: segment.file_path = final; segment.file = Path(final).name
     for finding in findings: finding.file_path = final; finding.file = Path(final).name
-    return {'local': {'segments':segments,'hashes':{final:store.fingerprint(final)},'findings':findings},
+    return {'_quality_client':client,'local': {'segments':segments,'hashes':{final:store.fingerprint(final)},'findings':findings},
             'stats':stats,'output':result}
 
 
@@ -392,6 +411,9 @@ def publish_combined_report(job, reviews, outcome):
             'comparison_id':output.get('comparison_id'),
             'source':output['source'], 'target_dir':output['target_dir'], 'staged':output.get('staged',False),
             'translation_mode':output.get('translation_mode','faithful')}
+        if output.get('pdf_manifest') is not None:
+            local['output_options'][output['path']].update(pdf_manifest=output['pdf_manifest'],output_audit=output.get('output_audit'))
+            local['_quality_client']=next((r.get('_quality_client') for r in reviews if r['output']['path']==output['path']),None)
     checked = {r['output']['path']:len(r['local']['segments']) for r in reviews}
     files = [{'path':o['path'],'name':Path(o['path']).name,'source':o['source'],'segments':checked.get(o['path'],0),'review_available':o['path'] in checked}
              for o in result.get('outputs',[])]
@@ -471,6 +493,19 @@ def _apply_report(data, report, progress=None, client=None):
     para_map = {loc:para for loc,para,*_ in paragraphs}
     done, failed, changed_locators, applied_indices = [], [], [], set()
     final_residuals=[]
+    output_audit=None
+    origin=option.get('source') or path
+    pdf_source=origin if Path(origin).suffix.lower()=='.pdf' else None
+    pdf_expected=option.get('pdf_manifest')
+    pdf_client=None
+    if pdf_source and report.get('use_llm',True):
+        import copy
+        frozen=client if client is not None else report.get('_quality_client')
+        pdf_client=copy.copy(frozen) if frozen is not None else LLMClient() if report.get('use_llm',True) else None
+        if hasattr(pdf_client,'cancel'):pdf_client.cancel=None
+    if pdf_source and pdf_expected is None:
+        from .pdf_quality import manifest
+        pdf_expected=manifest(document.document if hasattr(document,'document') else document)
     is_pptx = Path(path).suffix.lower() == '.pptx'
     original_layout = capture_layout(document,[s.locator for s in segments.values()]) if is_pptx else None
     original_styles=capture_styles(paragraphs) if is_pptx else None
@@ -554,16 +589,23 @@ def _apply_report(data, report, progress=None, client=None):
         try:
             if done or Path(input_path).suffix.lower() == '.pdf': save_office(input_path,document,temporary,changed_locators)
             else: shutil.copyfile(input_path,temporary)
+            if Path(input_path).suffix.lower()=='.docx':
+                box_adjustments,box_warnings=getattr(document,'_star_word_layout_result',([],[]))
+                layout_adjustments+=box_adjustments;fitting_warnings+=box_warnings
             visual_warnings,visual_adjustments=review_pptx(input_path,temporary,document,changed_locators,original_layout,client or LLMClient(),reference=option.get('source'),**visual_options) if is_pptx else ([],[])
             layout_adjustments+=visual_adjustments
             if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators)
             if visual_warnings:logging.getLogger(__name__).warning('Private format follow-up: %s',[(w.get('slide'),w.get('locator')) for w in visual_warnings])
             notify('validate',message='正在检查输出文件完整性')
             structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
-            layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings else structure_warnings
+            layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings or not is_pptx else structure_warnings
             from .translation_audit import saved_residuals
             notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
             final_residuals=saved_residuals(temporary)
+            if pdf_source:
+                from .pdf_quality import audit
+                output_audit=audit(temporary,pdf_expected,source=pdf_source,client=pdf_client,
+                    progress=lambda message,n,t:notify('render',n,t,message))
             if store.fingerprint(path) != report['hashes'][path]:
                 raise ValueError('导出时原文件已变化，请重新校对。')
             if store.fingerprint(input_path) != input_hash:
@@ -587,16 +629,23 @@ def _apply_report(data, report, progress=None, client=None):
         os.close(fd)
         try:
             save_office(input_path,document,temporary,changed_locators)
+            if Path(input_path).suffix.lower()=='.docx':
+                box_adjustments,box_warnings=getattr(document,'_star_word_layout_result',([],[]))
+                layout_adjustments+=box_adjustments;fitting_warnings+=box_warnings
             visual_warnings,visual_adjustments=review_pptx(input_path,temporary,document,changed_locators,original_layout,client or LLMClient(),reference=option.get('source'),**visual_options) if is_pptx else ([],[])
             layout_adjustments+=visual_adjustments
             if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators)
             if visual_warnings:logging.getLogger(__name__).warning('Private format follow-up: %s',[(w.get('slide'),w.get('locator')) for w in visual_warnings])
             notify('validate',message='正在检查输出文件完整性')
             structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
-            layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings else structure_warnings
+            layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings or not is_pptx else structure_warnings
             from .translation_audit import saved_residuals
             notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
             final_residuals=saved_residuals(temporary)
+            if pdf_source:
+                from .pdf_quality import audit
+                output_audit=audit(temporary,pdf_expected,source=pdf_source,client=pdf_client,
+                    progress=lambda message,n,t:notify('render',n,t,message))
             def guard_original():
                 if store.fingerprint(path) != report['hashes'][path]:
                     raise ValueError('覆盖前原文件已变化，请重新校对。')
@@ -619,6 +668,7 @@ def _apply_report(data, report, progress=None, client=None):
             comparison.update(option['comparison_id'], output)
         except Exception:
             logging.getLogger(__name__).exception('Could not refresh text comparison')
+    if output_audit is not None:option['output_audit']=output_audit
     changed = {segment.id for segment in segments.values() if segment.locator in para_map and para_map[segment.locator].text!=segment.text}
     for segment_id in changed:
         segment = segments[segment_id]
@@ -629,6 +679,9 @@ def _apply_report(data, report, progress=None, client=None):
     for index, finding in enumerate(report['findings']):
         if finding.file_path != path:
             continue
+        if finding.source=='quality' and output_audit is not None:
+            finding.reason=('当前保存文件的实际页面与结构复查已通过。' if output_audit['status']=='complete' else
+                '当前保存文件仍有输出检查待核对：'+'；'.join(i['reason'] for i in output_audit['issues']))
         if finding.segment_id in changed:
             finding.context = page_context.report_context(segments[finding.segment_id])
             if index in applied_indices:
@@ -646,6 +699,10 @@ def _apply_report(data, report, progress=None, client=None):
     pending_translation=[f for f in report['findings'] if f.file_path==path and f.reason.startswith('翻译待核对：') and not f.applied]
     content_warnings=[f'已保存可用文件；仍有 {len(pending_translation)} 处翻译待核对，请查看报告中的对应位置。'] if pending_translation else []
     if final_residuals:content_warnings.append(f'输出复查仍发现 {len(final_residuals)} 处可见中文，已保留内容和原有链接；当前文件不能视为完整英文。')
+    content_warnings.extend('输出复查：'+i['reason'] for i in (output_audit or {}).get('issues',[]))
+    pending_images=sum(f.file_path==path and f.source=='image' and not f.applied for f in report['findings'])
+    if pending_images:
+        content_warnings.append('原 PDF 仍有图片文字或读取问题未解决，请查看报告中的图片位置；有效文件已保存。')
     return {'output':output,'report_path':path,'comparison_id':option.get('comparison_id'),'applied_count':len(done),'failed':failed,'overwritten':overwrite,'finding_updates':updates,'content_warnings':content_warnings,
-            'remaining_chinese':final_residuals,'untranslated':len(final_residuals),
-            'layout_warnings':layout_warnings,'layout_adjustments':layout_adjustments,'layout_checked':is_pptx and not layout_warnings,'needs_review':len(layout_warnings)+len(final_residuals)}
+            'remaining_chinese':final_residuals,'untranslated':len(final_residuals),'output_audit':output_audit,
+            'layout_warnings':layout_warnings,'layout_adjustments':layout_adjustments,'layout_checked':is_pptx and not layout_warnings,'needs_review':len(layout_warnings)+len(final_residuals)+pending_images+len((output_audit or {}).get('issues',[]))}

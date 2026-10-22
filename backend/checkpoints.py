@@ -22,8 +22,11 @@ def digest(value):
 @lru_cache(maxsize=2)
 def policy(stage):
     names = ['writing_policy.py', 'document_context.py', 'llm/client.py', 'text_integrity.py']
-    names += (['translation.py', 'translation_policy.py', 'translation_batch.py', 'translation_residual.py', 'replacer/styled_text.py']
-              if stage == 'translation' else ['matcher/__init__.py', 'matcher/judge.py', 'matcher/batch.py'])
+    if stage=='pdf-image':names+=['pdf_image_text.py','pdf_image_ocr.py','image_ocr.ps1','translation_policy.py']
+    elif stage=='pdf-output':names+=['pdf_quality.py','word_native_preview.py','word_render.ps1','pdf_image_ocr.py','image_ocr.ps1']
+    else:
+        names += (['translation.py', 'translation_policy.py', 'translation_batch.py', 'translation_residual.py', 'replacer/styled_text.py']
+                  if stage == 'translation' else ['matcher/__init__.py', 'matcher/judge.py', 'matcher/batch.py'])
     # Checkout line endings must not change the meaning of a resumable policy.
     return digest([hashlib.sha256((Path(__file__).parent/name).read_bytes().replace(b'\r\n',b'\n')).hexdigest() for name in names])
 
@@ -67,7 +70,16 @@ class Checkpoint:
                             '0b812f78dc872c18d916ec6b046062e9c7dfa7bd8372a133ba4343244fc86cc0',
                             'd52442f83508e6b572652942e65ca8199efeed7f0cd2e8555df75a01c21b15fa',
                             'bd9a72b7c87a1fe9bd68460883b8f1fdf2e3a4618d99dcc2d30b5954eb98e464',
-                            'b207ba2040b108b8d22cb6ff5e7106a820e17bc9b104f6bf5e91b95c79aefeb8'):
+                            'b207ba2040b108b8d22cb6ff5e7106a820e17bc9b104f6bf5e91b95c79aefeb8',
+                            # Validated predecessor before PDF header aliasing;
+                            # content/model/number/style checks remain identical.
+                            '8c232f7b6275f93e127c8d5da966f9a634270b1ed9927889b2959b820cd78356',
+                            # Adding a separate PDF-image pass does not invalidate
+                            # already validated paragraph text or inline styles.
+                            '28c24624fc3b708a49c2b69665d0a0e3fd1931b77b29744d02297f4f937de396',
+                            # Saved-output verification is separate from the
+                            # already validated text/style translation policy.
+                            'a43b018a8f62e194c9cd5279a784e44b788b4bcb0d793648477d38faacb6efec'):
                         legacy=digest({'policy':old_policy,'input':identity})
                         if legacy==self.scope:continue
                         known={key for key,_ in rows}
