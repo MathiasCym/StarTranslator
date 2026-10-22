@@ -61,11 +61,41 @@ class RecoveryTests(unittest.TestCase):
         self.assertEqual([e[2] for e in active],sorted(e[2] for e in active))
         self.assertEqual(active[-1][2:],(2,2))
         self.assertFalse(any('模型正在翻译第' in e[1] for e in events))
+        self.assertFalse(any('已处理' in e[1] for e in active))
         events.clear();never=ResumeModel([])
         second=translate_file(source,Glossary([]),None,client=never,workers=1,activity=lambda *v:events.append(v))
         self.assertTrue(second['translation_complete']);self.assertGreater(second['resumed_segments'],0)
         self.assertEqual(never.prompts,[])
         self.assertFalse(any('等待模型响应' in e[1] for e in events))
+        self.assertFalse(any('已处理' in e[1] for e in events if e[0]=='translate'))
+
+    def test_parallel_activity_keeps_counts_separate_and_resume_has_no_fake_requests(self):
+        import threading
+        from backend.llm.client import LLMClient
+        barrier=threading.Barrier(3,timeout=10)
+        local=threading.local()
+        class ParallelModel(LLMClient):
+            provider='compatible';base_url='http://127.0.0.1:1/v1';model='parallel-progress';api_format='openai'
+            def __init__(self,resume=False):self.calls=0;self.resume=resume
+            def chat_json(self,prompt,**kwargs):
+                if self.resume:raise AssertionError('Verified resume must not call the model')
+                self.calls+=1
+                if not getattr(local,'started',False):
+                    local.started=True;barrier.wait()
+                return {'translation':'Hello.'}
+        source=self.document(*(['你好']*36));events=[]
+        first=translate_file(source,Glossary([]),None,client=ParallelModel(),workers=3,activity=lambda *v:events.append(v))
+        active=[e for e in events if e[0]=='translate']
+        self.assertTrue(first['translation_complete'])
+        self.assertTrue(any('等待模型响应 3 处' in e[1] for e in active))
+        self.assertFalse(any('已处理' in e[1] or ' / ' in e[1] for e in active))
+        self.assertEqual([e[2] for e in active],sorted(e[2] for e in active))
+        self.assertEqual(active[-1][2:],(36,36))
+        events.clear()
+        resumed=translate_file(source,Glossary([]),None,client=ParallelModel(resume=True),workers=1,activity=lambda *v:events.append(v))
+        self.assertEqual(resumed['resumed_segments'],36)
+        self.assertTrue(any('核对可用断点' in e[1] for e in events))
+        self.assertFalse(any('等待模型响应' in e[1] or '已处理' in e[1] for e in events if e[0]=='translate'))
 
     def test_cinema_quantities_decimal_formats_and_chinese_units_are_equivalent(self):
         for source, text in [('21.4万块，市场潜力巨大', '214,000 screens offer significant market potential.'),

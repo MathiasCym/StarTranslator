@@ -265,7 +265,9 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 if progress:progress(completed_count[0],len(todo))
             counts=Counter(active.values())
             detail='；'.join(f'{label} {n} 处' for label,n in counts.items())
-            notify('translate',f'已处理 {completed_count[0]} / {len(todo)} 处；'+(detail or '正在整理已验证译文与样式'),completed_count[0],len(todo))
+            # Counts are structured progress fields, rendered once by each UI.
+            # Detail describes actual activity, including concurrent requests.
+            notify('translate',detail or '正在整理已验证译文与样式',completed_count[0],len(todo))
     for index, seg in enumerate(todo):
         # All text on one slide is sequential; Word uses context-aware blocks.
         key = seg.slide if seg.slide is not None else index // 12

@@ -167,6 +167,24 @@ server.listen(0,'127.0.0.1',async()=>{
   result.checks.push('report controls fit compact windows; file picker keeps at least eight visible rows')
   setViewport(1280,820)
   await run("$('translationHelpButton').click();state.files=['C:/qa/sample.pdf'];renderFiles()");await wait(150);assert.equal(await run("$('translationHelp').open"),false)
+  const progressCases=[
+   {done:61,total:173,detail:'等待模型响应 3 处'},
+   {done:2,total:173,detail:'等待模型响应 1 处'},
+   {done:80,total:173,detail:'核对可用断点 1 处'},
+   {done:81,total:173,detail:'保留成果，准备重试 1 处'},
+   {done:82,total:173,detail:'校验模型返回内容 2 处'},
+   {done:173,total:173,detail:'正在整理已验证译文与样式'}
+  ]
+  await run("busy(true);$('workspace').hidden=true;$('jobStages').hidden=false;$('jobMessage').textContent='处理 1/1：progress-fixture.docx'")
+  for(const value of progressCases){
+   await run(`renderJobPhase(${JSON.stringify({...value,phase:'translate',status:'running'})})`)
+   const text=await run("$('jobDetail').textContent")
+   assert.equal(text,`翻译：${value.done} / ${value.total} 段 · ${value.detail}`)
+   assert.equal((text.match(/\d+ \/ \d+/g)||[]).length,1)
+  }
+  await run(`renderJobPhase(${JSON.stringify({...progressCases[0],phase:'translate',status:'running'})})`)
+  await snap('progress-count-once');await run("busy(false);$('workspace').hidden=false")
+  result.checks.push('desktop progress shows one completed count and retains sequential/concurrent/resume/retry/validation activity')
   const resumeOptions={kind:'check',paths:['C:/qa/unfinished.docx'],references:[],pairs:{},workers:3,use_llm:false,combined_output:'final',translation_mode:'faithful'}
   let resumedRequest
   ipcMain.removeHandler('api');ipcMain.handle('api',(_event,{method,path:apiPath,body})=>{
@@ -240,6 +258,14 @@ server.listen(0,'127.0.0.1',async()=>{
   await sr("[...$('jobs').querySelectorAll('button')].find(b=>b.textContent==='继续未完成任务').click()");await wait(200)
   assert.equal(sharedResumes,1);assert.equal(await sr('selected'),'shared-restored-fixture')
   result.checks.push('shared resume button submits owned task and displays resumed progress')
+  for(const value of progressCases){
+   sharedJobs=[{...value,id:'progress-fixture',kind:'translate',phase:'translate',status:'running',message:'处理 1/1：progress-fixture.docx',percent:30,downloads:[]}]
+   await sr('refresh()')
+   const text=await sr("$('jobs').querySelector('.hint').textContent")
+   assert.equal(text,`${value.detail} · ${value.done} / ${value.total} 段`)
+   assert.equal((text.match(/\d+ \/ \d+/g)||[]).length,1)
+  }
+  result.checks.push('shared progress shows one completed count and preserves all translation activity states')
   await sr("(()=>{const d=new DataTransfer();d.items.add(new File([''],'demo.pptx'));$('files').files=d.files;$('files').dispatchEvent(new Event('change'));$('translationHelpButton').click()})()")
   for(const w of [900,480]){shared.setContentSize(w,850);await wait(100);const rect=await sr("(()=>{const r=$('translationHelp').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth}})()");assert(rect.left>=0&&rect.right<=rect.width&&rect.bottom<=850,JSON.stringify(rect))}
   result.checks.push('floating help geometry; Escape focus; source file changes close modal; shared 480/900px')
