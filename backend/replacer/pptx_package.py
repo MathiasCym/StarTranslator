@@ -29,6 +29,8 @@ def save_office(source, document, destination, changed):
         part = slide.notes_slide.part if match[2].startswith('notes/') else slide.part
         parts[str(part.partname).lstrip('/')] = part
     with ZipFile(source, 'r') as original, ZipFile(destination, 'w') as output:
+        if set(parts)-set(original.namelist()):
+            raise ValueError('幻灯片内部文件位置发生变化，无法安全写回，请重新读取原稿。')
         from ..extract.pptx_extra import changed_extra_parts
         extras = changed_extra_parts(document, changed, original)
         output.comment = original.comment

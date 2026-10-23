@@ -538,6 +538,11 @@ def _apply_report(data, report, progress=None, client=None):
                 failed.append({'segment_id':segment_id,'index':finding_index,
                                'reason':'这条建议会重复补入相邻文字已有的数字，已跳过；请结合上下文修改建议。'})
                 continue
+            if (finding.method=='llm' and new==finding.suggested
+                    and page_context.duplicates_neighbor_label(segment,old,new)):
+                failed.append({'segment_id':segment_id,'index':finding_index,
+                               'reason':'这条建议会重复补入同一文本框已有的独立标题，已跳过；其他有效修改仍可保存。'})
+                continue
             import re
             pattern = _form_pattern(old) if finding.method in ('rule', 'consistency') else re.compile(re.escape(old),re.I)
             matches = list(pattern.finditer(segment.text))

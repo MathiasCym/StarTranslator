@@ -76,7 +76,7 @@ body > main { padding:16px 20px 20px; }
 #referenceList { max-height:140px; }
 .result-toolbar select { max-width:190px; }
 .results-grid { grid-template-columns:minmax(0,1fr) 280px; }
-.result-destination .btn { font-size:14px; white-space:normal; min-height:38px; }
+.result-destination .btn { font-size:14px; white-space:nowrap; min-height:40px; }
 .modal-card { max-width:calc(100vw - 32px); max-height:calc(100dvh - 32px); }
 .model-card { width:min(1120px,calc(100vw - 40px)); height:min(760px,calc(100dvh - 40px)); }
 .lexicon-card { width:min(1240px,calc(100vw - 40px)); padding:18px; gap:10px; }

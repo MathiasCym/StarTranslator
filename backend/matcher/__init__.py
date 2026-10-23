@@ -147,7 +147,8 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
                         added = numeric_values(hit['suggested']) - numeric_values(hit['found'])
                         aligned = references.aligned_text(seg) if references and hasattr(references,'aligned_text') else ''
                         verified = bool(added and aligned and not (added - numeric_values(aligned)))
-                        if not verified and page_context.duplicates_neighbor_number(seg, hit['found'], hit['suggested']):
+                        if ((not verified and page_context.duplicates_neighbor_number(seg, hit['found'], hit['suggested']))
+                                or page_context.duplicates_neighbor_label(seg,hit['found'],hit['suggested'])):
                             stats['discarded_context_hits'] += 1
                             continue
                         if any(f.segment_id==seg.id and f.found_text.casefold()==hit['found'].casefold() for f in findings):

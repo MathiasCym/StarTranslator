@@ -24,6 +24,8 @@ class DocumentPreviewTests(unittest.TestCase):
         # applications happen to be installed on this test computer.
         native=patch('backend.word_native_preview.preview',return_value=None)
         native.start();self.addCleanup(native.stop)
+        native_ppt=patch('backend.pptx_native_preview.preview',return_value=None)
+        native_ppt.start();self.addCleanup(native_ppt.stop)
     def tearDown(self):self.env.stop();self.temp.cleanup()
     def pair(self,kind='.docx'):
         source=self.root/('中文原稿'+kind);output=self.root/('English'+kind)
@@ -83,6 +85,17 @@ class DocumentPreviewTests(unittest.TestCase):
     def test_compatible_word_preview_identifies_the_layout_limitation(self):
         _,_,ident=self.pair();result=document_preview.preview(ident,'output')
         self.assertIn('data-star-preview-notice="兼容排版预览',result)
+    def test_ppt_native_image_is_the_page_and_bypasses_compatible_html(self):
+        source,output,ident=self.pair('.pptx');before=store.fingerprint(output)
+        raw='<html><head></head><body data-star-renderer="native-pptx"><div class="slide-container"><div class="slide"><img src="data:image/png;base64,AA=="></div></div></body></html>'
+        with patch('backend.pptx_native_preview.preview',return_value=(raw,2)) as render,patch('backend.document_preview.subprocess.run') as officecli:
+            result=document_preview.preview(ident,'output',2)
+        self.assertEqual(render.call_args.args[-2:],(2,2));officecli.assert_not_called()
+        self.assertIn('data-star-page="2"',result);self.assertIn('data-star-renderer="native-pptx"',result)
+        self.assertNotIn('兼容排版预览',result);self.assertEqual(before,store.fingerprint(output))
+    def test_ppt_compatible_preview_discloses_its_different_renderer(self):
+        _,_,ident=self.pair('.pptx');result=document_preview.preview(ident,'output')
+        self.assertIn('未使用 PowerPoint 实际页面',result)
     def test_legacy_record_recovers_original_from_history(self):
         source,output,ident=self.pair();value=comparison.read(ident);value={k:v for k,v in value.items() if not k.startswith('_')}
         store.atomic_json(comparison.folder()/(ident+'.json'),value);shutil.rmtree(comparison.folder()/ident)

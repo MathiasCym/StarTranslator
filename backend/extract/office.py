@@ -27,6 +27,14 @@ def open_office(path):
             blocked.append(('drawings', f'[{images} 个图片/绘图对象]', 'image', None, '图片内文字未做 OCR，需人工检查。'))
     else:
         document = Presentation(path)
+        # python-pptx renames slide parts to slide1, slide2, ... on first access
+        # to `slides`. Real decks may have reordered/deleted slides with other
+        # part names. Our surgical writer must keep the original relationship
+        # targets, otherwise it can write another page or leave Chinese behind.
+        original_parts=[(rel.target_part,rel.target_part.partname)
+                        for rel in document.part.rels.values() if rel.reltype.endswith('/slide')]
+        slides=document.slides
+        for part,name in original_parts:part.partname=name
         from ..replacer.pptx_geometry import walk_shapes, bounds
         def shapes(items, prefix, slide):
             for key,shape,transform in walk_shapes(items,prefix):
@@ -52,7 +60,7 @@ def open_office(path):
                     # Preserve unsupported embedded diagrams without claiming coverage.
                     if 'graphicFrame' in shape._element.tag:
                         blocked.append((key,'[嵌入图示]','image',slide,'嵌入图示内文字暂不支持自动处理。'))
-        for s,slide in enumerate(document.slides,1):
+        for s,slide in enumerate(slides,1):
             shapes(slide.shapes,f'slide{s}',s)
             if slide.has_notes_slide and slide.notes_slide.notes_text_frame:
                 for p,para in enumerate(slide.notes_slide.notes_text_frame.paragraphs):

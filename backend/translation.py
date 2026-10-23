@@ -143,6 +143,12 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
                 text = page_context.repair_quantity(segment, piece, text)
             result = {**result, 'translation': text}
             validate_for_file(segment.file_path or segment.file if segment is not None else None,piece,text)
+            if segment is not None and Path(segment.file_path or segment.file).suffix.lower()=='.pptx':
+                from .pptx_content import validate_labels
+                try: validate_labels(getattr(segment,'text',piece),piece,text)
+                except ValueError:
+                    candidate = None  # A rejected duplicate must not reenter via best-effort recovery.
+                    raise
             break
         except (ValueError, LLMResponseInvalid, LLMTruncated) as error:
             partial=getattr(error,'partial_result',None)
@@ -196,7 +202,10 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     def notify(phase,message,done=0,total=0):
         if activity:activity(phase,message,done,total)
     def validate(source,target):
-        return validate_for_file(path,source,target)
+        validate_for_file(path,source,target)
+        if Path(path).suffix.lower()=='.pptx':
+            from .pptx_content import validate_labels
+            validate_labels(source,source,target)
     translation_system(translation_mode)
     notify('preparing','正在读取文档，记录原稿文字、样式与页面结构')
     if Path(path).suffix.lower() != '.pptx': translation_mode = 'faithful'
@@ -290,6 +299,9 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                     text=whole['translation']
                     if contains_chinese(text):raise ValueError('Incomplete checkpoint')
                     validate(seg.text,text)
+                    if is_pptx and not whole.get('coherence_checked'):
+                        from .pptx_content import cross_line_repetitions
+                        if cross_line_repetitions(seg.text,text):raise ValueError('段内重复需要复核')
                     runs=response_runs(whole,text,slice_groups(groups,0,len(seg.text),visual_keys=True))
                 except (ValueError,KeyError,TypeError):pass
                 else:
@@ -316,6 +328,8 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 if len(piece_groups) > 1:
                     prompt += '\n【需保留的原文样式片段】\n' + json.dumps([{'id':g['id'],'text':g['text']} for g in piece_groups], ensure_ascii=False)
                     prompt += '\n返回 {"translation":"完整英文", "runs":[{"id":原片段ID,"text":"对应英文片段"}]}。runs拼接必须等于translation。'
+                if is_pptx and any(c in seg.text for c in '\n\v'):
+                    prompt+='\n当前仅翻译【待译原文】这一行；同一段落的其他行也只是上下文，不得提前补入其他行的品牌、地点、日期或动作。'
                 try:
                     if service_failures >= 2:
                         raise LLMUnavailable(service_error)
@@ -333,6 +347,9 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                                     text = cached['translation']
                                     if contains_chinese(text): raise ValueError('Incomplete checkpoint')
                                     validate(piece,text)
+                                    if is_pptx:
+                                        from .pptx_content import validate_labels
+                                        validate_labels(seg.text,piece,text)
                                     if cached.get('needs_style'):
                                         # Keep validated English; retry only its
                                         # emphasis mapping instead of retranslating.
@@ -356,6 +373,13 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                                 {'translation':''.join(r['text'] for r in runs),'runs':runs,'needs_style':local_style})
                         if len(piece_groups)==1:
                             memory[cache_key]=''.join(r['text'] for r in runs)
+                    if is_pptx:
+                        from .pptx_content import validate_labels
+                        try:validate_labels(seg.text,piece,''.join(r['text'] for r in runs))
+                        except ValueError:
+                            # A repeated phrase may be valid on another slide,
+                            # but borrow a label already present on this one.
+                            runs,local_style=mapped_translation(request_client,prompt,piece,piece_groups,cancel,glossary,page_context,seg,translation_mode)
                     page_context.remember(seg, piece, ''.join(r['text'] for r in runs))
                     service_failures = 0
                     paragraph_changed = True
@@ -388,6 +412,31 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                     local_styles.append({'slide': seg.slide, 'text': f'第 {seg.para} 段',
                         'reason': '该段沿用主要字体样式，请核对局部颜色、加粗等强调。'})
                 append_runs(styled,runs)
+            if is_pptx and paragraph_changed and not retained_source and not local_issues:
+                from .pptx_content import cross_line_repetitions
+                drafted=''.join(r['text'] for r in styled)
+                repeats=cross_line_repetitions(seg.text,drafted)
+                if repeats:
+                    processing(seg,'正在复核段内换行与新增重复')
+                    full_groups=slice_groups(groups,0,len(seg.text),visual_keys=True)
+                    prompt=(f'【待译原文】\n{seg.text}\n【逐行初稿】\n{drafted}\n'
+                            f'【疑似跨行重复】\n{repeats}\n'+page_context.prompt(seg)+
+                            '\n对照完整原段落复核各行。仅消除翻译时从别行重复补入的信息；原稿本来重复或中英双语同义重复的内容保留。'
+                            '每行保留各自动作、事实、日期、地点及修饰，保持原来的换行数量与顺序，不合并信息。'
+                            '\n【需保留的原文样式片段】\n'+json.dumps([{'id':g['id'],'text':g['text']} for g in full_groups],ensure_ascii=False)+
+                            '\n返回完整 JSON translation 和 runs，片段拼接等于完整英文。')
+                    try:
+                        repaired,approx=mapped_translation(request_client,prompt,seg.text,full_groups,cancel,glossary,page_context,seg,translation_mode)
+                        text=''.join(r['text'] for r in repaired)
+                        if len(re.split(r'[\n\v]',text))!=len(re.split(r'[\n\v]',seg.text)):
+                            raise ValueError('完整段落复核没有保留原有换行。')
+                        styled=repaired
+                        if checkpoint:checkpoint.put(translation_key(seg,seg.text,full_groups),
+                            {'translation':text,'runs':repaired,'needs_style':approx,'coherence_checked':True})
+                        if approx:local_styles.append({'slide':seg.slide,'locator':seg.locator,'reason':'段内重复已复核，请核对强调样式。'})
+                    except (ValueError,LLMUnavailable) as error:
+                        local_styles.append({'slide':seg.slide,'locator':seg.locator,
+                            'reason':'段内重复复核未完成，已保留完整译文，请核对：'+str(error)})
             results.append((index, seg, groups, styled, paragraph_changed, retained_source, local_issues, local_styles))
             processing(seg,finished=True)
         return results

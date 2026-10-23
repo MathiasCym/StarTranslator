@@ -91,16 +91,19 @@ def _run(args, folder, cancel, timeout=180, progress=None):
         errors.close()
 
 
-def render_pages(path, folder, cancel=None, progress=None):
+def render_pages(path, folder, cancel=None, progress=None, *, native_only=False, page=None):
     folder=Path(folder).resolve();folder.mkdir(parents=True,exist_ok=True)
     snapshot=folder/'document.pptx';shutil.copyfile(path,snapshot)
     while not RENDER_LOCK.acquire(timeout=.2):_cancel(cancel)
     try:
         try:
             if os.name!='nt':raise RuntimeError('Native renderer unavailable')
-            _run(['powershell.exe','-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',
-                  Path(__file__).with_name('pptx_render.ps1'),'-InputFile',snapshot,'-OutputFolder',folder],folder,cancel,**({'progress':progress} if progress else {}))
+            args=['powershell.exe','-NoProfile','-NonInteractive','-STA','-ExecutionPolicy','Bypass','-File',
+                  Path(__file__).with_name('pptx_render.ps1'),'-InputFile',snapshot,'-OutputFolder',folder]
+            if page is not None:args+=['-Page',page]
+            _run(args,folder,cancel,**({'progress':progress} if progress else {}))
         except RuntimeError:
+            if native_only:raise
             binary=officecli_bridge.ensure_component('before_translation')
             from .document_preview import prepare
             from lxml import html
@@ -238,6 +241,7 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
             if len(original['pages'])!=len(document.slides) or len(current['pages'])!=len(document.slides):
                 return [pending],adjustments
             audit.update(pages=len(current['pages']),renderer='powerpoint' if original.get('native') and current.get('native') else 'officecli')
+            native_rendering=bool(original.get('native') and current.get('native'))
             objects=_objects(document,snapshots);readability_feedback=[]
             native_seen,image_seen,incomplete_pages=set(),set(),set()
             vision_unavailable=threading.Event()
@@ -335,6 +339,8 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                 save_office(source,document,output,changed)
                 notify('正在重新渲染并检查调整后的页面')
                 revised=render_pages(output,folder/f'output-{attempt}',cancel,**({'progress':lambda n,t:notify('正在重新渲染调整后的页面',n,t)} if progress else {}))
+                native_rendering=native_rendering and bool(revised.get('native'))
+                if not native_rendering:audit['renderer']='officecli'
                 if len(revised['pages'])!=len(document.slides):return [*issues,pending],adjustments
                 affected={i['slide'] for i in issues if i.get('locator') in constraints}|{i['slide'] for i in growth}
                 objects=_objects(document,snapshots)
@@ -351,6 +357,11 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                 best_issues.append({'slide':None,'text':'','reason':'已完成可用的本机版式检查；当前模型未完成图像对照，请核对页面视觉效果。'})
                 notify('页面渲染完成；当前模型未完成图像审查，已保留本机排版检查结果',len(document.slides),len(document.slides))
             audit['status']='partial' if vision_unavailable.is_set() or incomplete_pages else 'complete'
+            audit['native_verified']=native_rendering
+            if not audit['native_verified']:
+                best_issues.append({'slide':None,'text':'PowerPoint 实际版式未核实','kind':'compatible_render',
+                    'reason':'本机 PowerPoint 页面渲染不可用；模型检查使用兼容渲染，无法确认实际 PowerPoint/WPS 的字体、换行和对象位置，请打开文件核对。'})
+                audit['status']='partial'
             return best_issues,best_adjustments
         except Exception as error:
             _cancel(cancel)

@@ -240,6 +240,18 @@ server.listen(0,'127.0.0.1',async()=>{
   })
   await run(`state.outputs=[{path:'C:/qa/first-draft.pptx',comparison_id:'first-id',staged:true,target_dir:'C:/qa'},{path:'C:/qa/second-draft.pptx',comparison_id:'second-id',staged:true,target_dir:'C:/qa'}];loadReport({report_id:'comparison-save',kind:'translate_review',output_mode:'final',files:state.outputs.map(o=>({path:o.path,name:basename(o.path)})),stats:{model_status:'complete',segments:2,judged:2,rule_hits:0,llm_hits:0},errors:[],findings:[]},state.outputs);renderReport();$('reportModal').hidden=false`)
   assert.equal(await run("$('reportCompare').hidden"),false)
+  for(const [w,h] of [[942,655],[1280,820],[1493,900],[1920,1040],[2560,1390]]){
+   setViewport(w,h);await wait(120)
+   for(const staged of [true,false]){
+    await run(`state.exportRecords.forEach(r=>{r.staged=${staged};r.draft=false;r.path='C:/qa/'+('很长的输出文件名称'.repeat(8))+'.pptx'});renderReportOutputs()`)
+    const buttons=await run(`(()=>{const ids=['reportOpenFolder','reportOpenFile','reportCompare'];return ids.map(id=>{const b=$(id),r=b.getBoundingClientRect(),s=getComputedStyle(b);return {id,w:r.width,h:r.height,left:r.left,right:r.right,top:r.top,bottom:r.bottom,scroll:b.scrollWidth-b.clientWidth,nowrap:s.whiteSpace,text:b.textContent}})})()`)
+    assert(buttons.every(b=>b.h>=38&&b.h<=48&&b.scroll<2&&b.nowrap==='nowrap'&&b.right<=w&&b.bottom<=h),JSON.stringify({w,staged,buttons}))
+    assert(Math.abs(buttons[0].h-buttons[1].h)<1&&Math.abs(buttons[0].top-buttons[1].top)<1,JSON.stringify(buttons))
+    assert(buttons[2].top>=buttons[0].bottom&&buttons[2].w>buttons[0].w*1.9,JSON.stringify(buttons))
+   }
+  }
+  setViewport(1280,820);await snap('report-balanced-output-buttons')
+  await run(`state.exportRecords.forEach((r,i)=>{r.staged=true;r.path=i?'C:/qa/second-draft.pptx':'C:/qa/first-draft.pptx'});renderReportOutputs()`)
   await run('renderCheckCompletion()')
   assert((await run("$('completionCompare').textContent")).includes('初稿'))
   await run('exportReport(false,true)')

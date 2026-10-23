@@ -21,11 +21,11 @@ def digest(value):
 
 @lru_cache(maxsize=2)
 def policy(stage):
-    names = ['writing_policy.py', 'document_context.py', 'llm/client.py', 'text_integrity.py']
+    names = ['writing_policy.py', 'document_context.py', 'pptx_content.py', 'llm/client.py', 'text_integrity.py']
     if stage=='pdf-image':names+=['pdf_image_text.py','pdf_image_ocr.py','image_ocr.ps1','translation_policy.py']
     elif stage=='pdf-output':names+=['pdf_quality.py','word_native_preview.py','word_render.ps1','pdf_image_ocr.py','image_ocr.ps1']
     else:
-        names += (['translation.py', 'translation_policy.py', 'translation_batch.py', 'translation_residual.py', 'replacer/styled_text.py']
+        names += (['translation.py', 'translation_policy.py', 'translation_batch.py', 'translation_residual.py', 'replacer/styled_text.py', 'extract/office.py', 'replacer/pptx_package.py']
                   if stage == 'translation' else ['matcher/__init__.py', 'matcher/judge.py', 'matcher/batch.py'])
     # Checkout line endings must not change the meaning of a resumable policy.
     return digest([hashlib.sha256((Path(__file__).parent/name).read_bytes().replace(b'\r\n',b'\n')).hexdigest() for name in names])
@@ -79,7 +79,10 @@ class Checkpoint:
                             '28c24624fc3b708a49c2b69665d0a0e3fd1931b77b29744d02297f4f937de396',
                             # Saved-output verification is separate from the
                             # already validated text/style translation policy.
-                            'a43b018a8f62e194c9cd5279a784e44b788b4bcb0d793648477d38faacb6efec'):
+                            'a43b018a8f62e194c9cd5279a784e44b788b4bcb0d793648477d38faacb6efec',
+                            # 2.2.2: reused text still passes current label,
+                            # cross-line, number and style validation on read.
+                            '40bbb9e111085fb038e7cba66d45d29ab37ea0f62aeeb1b060172163039f2692'):
                         legacy=digest({'policy':old_policy,'input':identity})
                         if legacy==self.scope:continue
                         known={key for key,_ in rows}

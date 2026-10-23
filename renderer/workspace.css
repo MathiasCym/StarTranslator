@@ -41,9 +41,11 @@ body.results-view #translationPanel { display: flex; flex-direction: column; fle
 .suggestion-text { width: 100%; min-height: 78px; resize: vertical; margin-top: 6px; }
 .suggestion-card .ctx { margin-top: 12px; white-space: pre-wrap; }
 .result-side { display: flex; flex-direction: column; gap: 14px; min-height: 0; padding-left: 18px; border-left: 1px solid var(--line); }
-.result-destination { flex: none; display: grid; grid-template-columns: minmax(0,1.55fr) minmax(0,1fr); gap: 8px; }
+.result-destination { flex: none; display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
 .result-destination :is(h4,select,.fpath) { grid-column: 1/-1; }
 .result-destination .btn { font-size: 15px; padding-inline: 7px; white-space: nowrap; min-height: 42px; }
+.result-destination #reportCompare { grid-column: 1/-1; }
+.result-destination #reportCompare span { overflow-wrap: normal; white-space: nowrap; }
 .result-destination h4 { font-size: 18px; }
 .result-destination .fpath { font-size: 13px; color: var(--fg2); overflow-wrap: anywhere; max-height: 3.2em; overflow: hidden; }
 .result-destination select { width: 100%; min-width: 0; font-size: 14px; text-overflow: ellipsis; }

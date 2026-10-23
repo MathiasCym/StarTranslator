@@ -62,6 +62,15 @@ class DocumentContext:
         neighbors = [s for s in self.related(segment) if s.id != segment.id]
         return any(value in numeric_values(s.text) for value in added for s in neighbors)
 
+    def duplicates_neighbor_label(self, segment, found, suggested):
+        from pathlib import Path
+        if Path(segment.file_path or segment.file).suffix.lower()!='.pptx':return False
+        from .pptx_content import validate_labels
+        original='\n'.join(s.text for s in self.related(segment) if self.frame(s)==self.frame(segment))
+        try:validate_labels(original,found,suggested)
+        except ValueError:return True
+        return False
+
     def report_context(self, segment):
         return '\n'.join(s.text for s in self.related(segment))
 

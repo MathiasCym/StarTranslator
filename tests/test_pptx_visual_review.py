@@ -41,7 +41,17 @@ class VisualTests(unittest.TestCase):
         for i in range(len(Presentation(path).slides)):
             png=folder/f'page-{i+1}.png';Image.new('RGB',(128,72),'white').save(png)
             pages.append({'image':png,'file':png.name,'shapes':[]})
-        return {'pages':pages,'native':False}
+        return {'pages':pages,'native':True}
+
+    def test_compatible_images_do_not_claim_native_layout_verified(self):
+        deck,source=self.deck(1);out=self.folder/'out.pptx';save_office(source,deck,out,[]);audit={}
+        def compatible(*args,**kwargs):return {**self.renderer(*args,**kwargs),'native':False}
+        class Vision:
+            def chat_images_json(_,prompt,**kwargs):return {'reviewed':True,'issues':[]}
+        with patch.object(visual,'render_pages',side_effect=compatible):
+            issues,_=visual.review_pptx(source,out,deck,[],{},Vision(),audit=audit)
+        self.assertEqual(audit['status'],'partial');self.assertFalse(audit['native_verified'])
+        self.assertEqual(audit['image_pages'],1);self.assertIn('兼容渲染',issues[-1]['reason'])
     def test_a_crowded_frame_does_not_shrink_spacious_peers_or_other_pages(self):
         deck,source=self.deck();original=capture_layout(deck,[])
         short=deck.slides[0].shapes[0];long=deck.slides[0].shapes[1]

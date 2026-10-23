@@ -57,7 +57,9 @@ def finish(job, data):
         exported_sources = {item['source'] for item in row.get('exports',[])}
         row['drafts'] = [{'path':item['path'],'source':item['source']} for item in outputs if item.get('staged') and item['source'] not in exported_sources]
         row['awaiting_confirmation'] = bool(row['drafts'])
-        if row['status'] == 'complete' and (row['errors'] or row['counts'].get('needs_review') or row['counts'].get('model_status') in ('partial', 'unavailable', 'cancelled')):
+        row['processing_status'] = job['status']
+        processing = row['counts'].get('review_processing_status', row['counts'].get('model_status'))
+        if row['status'] == 'complete' and (row['errors'] or processing in ('partial', 'unavailable', 'cancelled','not_started')):
             row['status'] = 'partial'
         # Stats can contain explanatory text; keep history metadata compact.
         row['counts'] = {k: v for k, v in row['counts'].items() if isinstance(v, (int, float, str))}
@@ -154,7 +156,24 @@ def query(preset='all', start='', end='', kind='', text='', page=0, active_ids=(
         total = db.execute('SELECT COUNT(*) FROM tasks' + where, params).fetchone()[0]
         page = min(page, max(0, (total - 1) // 30))
         rows = [json.loads(raw[0]) for raw in db.execute('SELECT payload FROM tasks' + where + ' ORDER BY started DESC,id DESC LIMIT 30 OFFSET ?', [*params, page * 30])]
-    return {'records': rows, 'total': total, 'page': page, 'page_size': 30}
+    return {'records': [display_record(row) for row in rows], 'total': total, 'page': page, 'page_size': 30}
+
+
+def display_record(row):
+    """Correct legacy warning-only badges without rewriting the historical log.
+
+    Never infer success merely from the existence of an output or a selection:
+    old records need explicit completed processing and no resumable failure.
+    New records retain the workflow's authoritative outcome.
+    """
+    counts = row.get('counts') or {}
+    processing = counts.get('review_processing_status', counts.get('model_status'))
+    if (row.get('status') == 'partial' and 'processing_status' not in row
+            and row.get('can_resume') is False and processing == 'complete'
+            and not row.get('errors') and not counts.get('errors') and not counts.get('truncated')
+            and not counts.get('residual_chinese') and not counts.get('untranslated')):
+        row = {**row, 'status':'complete'}
+    return row
 
 
 def resume_options(job_id):

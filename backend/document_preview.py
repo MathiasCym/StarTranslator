@@ -16,7 +16,7 @@ SLOTS=threading.BoundedSemaphore(2)
 LOCK=threading.RLock()
 RENDER_LOCKS={}
 MAX_HTML=64*1024*1024
-PREVIEW_FORMAT='pages-8'
+PREVIEW_FORMAT='pages-9'
 CSP="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'"
 FRAME_SCRIPT=r'''
 (()=>{
@@ -122,6 +122,8 @@ def prepare(raw,kind,page=None,total=None):
         for label in dom.xpath('//li/span[1]'):
             if re.fullmatch(r'\s*\d+(?:\.\d+)*[.)]\s*',label.text_content()):
                 label.set('style',label.get('style','')+';padding-right:.35em')
+    if kind=='.pptx' and total is not None:
+        body.set('data-star-preview-notice','兼容排版预览：未使用 PowerPoint 实际页面，字体、换行和对象位置可能不同；请以实际打开的文件为准。')
     if page is not None:
         body.set('data-star-page',str(page));body.set('data-star-total',str(total))
     style=html.Element('style');style.text=FRAME_CSS;head.append(style)
@@ -163,6 +165,13 @@ def preview(comparison_id,side,page=1):
                     total=len(etree.fromstring(archive.read('ppt/presentation.xml')).findall('.//{http://schemas.openxmlformats.org/presentationml/2006/main}sldId'))
                 if type(page) is not int or not 1<=page<=total:raise ValueError('预览页码超出范围。')
             digest=store.fingerprint(source);folder=comparison.folder()/comparison_id;folder.mkdir(parents=True,exist_ok=True)
+            if source.suffix.lower()=='.pptx':
+                from . import pptx_native_preview
+                native=pptx_native_preview.preview(source,folder/(side+'-native'),digest,page,total)
+                if store.fingerprint(source)!=digest:raise ValueError('文件在读取期间发生变化，请重试预览。')
+                if native is not None:
+                    raw,native_total=native
+                    return prepare(raw,'.native-pptx',page,native_total)
             if source.suffix.lower()=='.docx':
                 from . import word_native_preview
                 native=word_native_preview.preview(source,folder/(side+'-native'),digest,page)
