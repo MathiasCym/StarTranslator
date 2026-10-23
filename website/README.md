@@ -7,7 +7,7 @@
 在项目目录运行：
 
 ```powershell
-node website/build.cjs --version 2.0.12
+node website/build.cjs --version 2.2.3
 node website/verify.cjs
 node website/preview.cjs
 ```
@@ -22,6 +22,6 @@ node website/preview.cjs
 
 ## 发布与更新
 
-仅将 `website/dist` 的静态内容放到既有网站托管目录。重新构建后以相同方式更新页面。本次未执行远端发布或修改 GitHub。
+仅将 `website/dist` 的静态内容放到既有网站托管目录。重新构建后以相同方式更新页面。桌面文件的更新与远端托管发布分别处理；未明确要求时不执行远端托管发布。
 
 旧的 `publish.cjs`、`prepare-assets.cjs` 为此前安装包托管方案保留，不属于当前流程，请勿用于本次更新。当前预览工具仅提供静态说明，不提供安装包路由。
