@@ -434,6 +434,7 @@ def publish_combined_report(job, reviews, outcome):
     files = [{'path':o['path'],'name':Path(o['path']).name,'source':o['source'],'segments':checked.get(o['path'],0),'review_available':o['path'] in checked}
              for o in result.get('outputs',[])]
     stats['findings'] = len(local['findings'])
+    if result.get('outputs') and all(o.get('direction')=='en-zh' for o in result['outputs']):stats['target_language']='zh'
     public = {'kind':'translate_review','report_id':job['id'],'files':files,'errors':errors,'stats':stats,
         'output_mode':next((o.get('output_mode') for o in result.get('outputs',[])), 'both'),
         'findings':[f.to_dict() for f in local['findings']], 'segments':[s.to_dict() for s in local['segments']]}
