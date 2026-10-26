@@ -163,6 +163,7 @@ body > main { padding:16px 20px 20px; }
 }
 @media(max-height:620px) and (min-width:920px) {
   body:has(#workspace:not([hidden])) .workspace-heading { display:none; }
+  .task-options { gap:6px; }
   .document-direction select { min-height:32px; padding-block:4px; font-size:14px; }
 }
 @media(max-width:919px) {
