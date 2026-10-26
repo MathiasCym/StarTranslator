@@ -1,5 +1,6 @@
 const $ = id => document.getElementById(id)
 const state = { mode: 'check', files: [], references: [], pairs: {}, report: null, selected: new Set(),
+  direction: localStorage.getItem('nova.direction') === 'en-zh' ? 'en-zh' : 'zh-en',
   outputDir: localStorage.getItem('nova.exportDir') || '', job: null, busy: false, outputs: [], edits: {}, exportRecords: [], savedReviewFiles: new Set() }
 let lastSequence = -1, modelProvider = 'compatible'
 let currentVersion = '', changelogLoaded = false
@@ -7,6 +8,7 @@ let integrityBusy = false, integrityResult = null, integrityFocus = null
 const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 const basename = path => String(path || '').split(/[\\/]/).pop()
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+window.StarTextTranslation.mount({ button: $('openTextTranslation'), request: callApi, prefix: '/api/jobs' })
 function toast(message, error = false) {
   const box = $('toast')
   box.innerHTML = ''
@@ -50,7 +52,12 @@ function setMode(mode) {
   state.edits = {}; state.outputs = []; state.exportRecords = []; state.savedReviewFiles.clear()
   $('modeCheck').classList.toggle('active', mode === 'check'); $('modeTranslate').classList.toggle('active', mode === 'translate')
   $('modeCheck').setAttribute('aria-pressed', String(mode === 'check')); $('modeTranslate').setAttribute('aria-pressed', String(mode === 'translate'))
-  $('dropTitle').textContent = mode === 'check' ? '添加英文译文' : '添加中文原稿'
+  const reverse = state.direction === 'en-zh'
+  $('dropTitle').textContent = mode === 'check' ? (reverse ? '添加中文译文' : '添加英文译文') : (reverse ? '添加英文原稿' : '添加中文原稿')
+  $('documentDirection').value = state.direction
+  $('documentDirectionLabel').textContent = mode === 'check' ? '校对语言' : '翻译方向'
+  $('documentDirection').options[0].textContent = mode === 'check' ? '英文' : '中文 → 英文'
+  $('documentDirection').options[1].textContent = mode === 'check' ? '中文' : '英文 → 中文'
   $('workspaceHint').textContent = mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
   $('llmOption').hidden = mode !== 'check'
   $('translationOptions').hidden = mode !== 'translate' || !state.files.some(path => /\.pptx$/i.test(path))
@@ -58,6 +65,9 @@ function setMode(mode) {
   $('runCombined').hidden = mode !== 'translate'
   $('scopeHint').textContent = mode === 'check' ? '修改由你确认，支持另存或覆盖原文件。' : '译文单独保存；图片内文字需手动处理。'
   showWorkspace()
+}
+$('documentDirection').onchange = () => {
+  state.direction = $('documentDirection').value; localStorage.setItem('nova.direction', state.direction); setMode(state.mode)
 }
 function showWorkspace() {
   document.body.classList.remove('results-view')
@@ -170,7 +180,7 @@ function busy(value) {
   state.busy = value
   $('translationOptions').disabled = value
   $('jobProgressTrack').classList.toggle('active', value)
-  for (const id of ['modeCheck', 'modeTranslate', 'openLexicon', 'openModel', 'runCombined']) $(id).disabled = value || (id === 'runCombined' && !state.files.length)
+  for (const id of ['modeCheck', 'modeTranslate', 'documentDirection', 'openLexicon', 'openModel', 'runCombined']) $(id).disabled = value || (id === 'runCombined' && !state.files.length)
   $('jobPanel').hidden = !value; $('runBtn').disabled = value || !state.files.length
 }
 async function runTask(combined = false, restored = null) {
@@ -190,7 +200,7 @@ async function runTask(combined = false, restored = null) {
   $('liveFindings').hidden = true; $('liveFindings').innerHTML = ''
   $('jobStages').hidden = kind !== 'translate_review'; renderJobPhase({ phase: 'preparing' })
   try {
-    state.job = await callApi('POST', '/api/jobs', restored || { kind, ...submitted, translation_mode:document.querySelector('[name=translationMode]:checked').value, combined_output: combinedOutput, use_llm: $('useLlm').checked, workers:$('parallelWork').checked?3:1,output_dir: state.outputDir || null })
+    state.job = await callApi('POST', '/api/jobs', restored || { kind, ...submitted, direction: state.direction, translation_mode:document.querySelector('[name=translationMode]:checked').value, combined_output: combinedOutput, use_llm: $('useLlm').checked, workers:$('parallelWork').checked?3:1,output_dir: state.outputDir || null })
     let failures = 0
     while (['queued','running'].includes(state.job.status)) {
       await delay(600)
@@ -300,11 +310,11 @@ function showCheckCompletion() {
 }
 function reviewCompletionState(report, job) {
   const stats = report.stats || {}, findings = report.findings || []
-  const manual = findings.filter(f => f.reason?.startsWith('翻译待核对：'))
+  const manual = findings.filter(f => f.reason?.startsWith('翻译待核对：') || f.reason?.startsWith('英译中未完成：'))
   const manualTotal = stats.manual_review ?? manual.length
   const manualPending = manual.filter(f => !f.applied).length
-  const untranslated = findings.filter(f => !f.applied && /[\u3400-\u9fff]/.test(f.found_text || '') &&
-    (f.reason?.startsWith('翻译待核对：') || f.reason?.startsWith('未译中文：'))).length
+  const untranslated = findings.filter(f => !f.applied && (f.reason?.startsWith('英译中未完成：') || /[\u3400-\u9fff]/.test(f.found_text || '') &&
+    (f.reason?.startsWith('翻译待核对：') || f.reason?.startsWith('未译中文：')))).length
   const unreviewed = Math.max(0, (stats.unreviewed || 0) - manualTotal)
   // Older reports used "partial" for both human decisions and failed calls.
   const processing = stats.review_processing_status ||
@@ -326,6 +336,7 @@ function renderCheckCompletion() {
   const s = r.stats || {}, files = r.files || [], findings = r.findings || []
   const combined = r.kind === 'translate_review', label = combined ? '翻译并校对' : '校对'
   const { cancelled, interrupted, notStarted, manualPending, untranslated, errors, canResume } = reviewCompletionState(r, state.job)
+  const reverseOutput = s.target_language === 'zh' || (r.outputs || []).some(output => output.direction === 'en-zh')
   $('completionResume').hidden = !canResume
   $('completionResume').textContent = untranslated && !interrupted && !cancelled ? '继续未完成翻译' : '从断点继续'
   $('completionIssue').hidden = !errors.length
@@ -333,6 +344,8 @@ function renderCheckCompletion() {
   $('completionExportLog').hidden = !interrupted
   $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : notStarted ? '文件已保留 · 校对尚未开始' : interrupted ? `${label}已结束 · 部分检查未完成` : manualPending ? `${label}处理完成 · ${manualPending} 处待人工核对` : `${label}完成`
   $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分。' : interrupted ? '可用文件和已完成部分已保留，未完成原因见下方；可查看报告并保存当前文件。' : untranslated ? `仍有 ${untranslated} 处未译中文，可继续补译或在报告中填写英文；已完成内容和当前文件均保留。` : manualPending ? `自动处理已结束，${manualPending} 处内容需要人工确认，具体位置和原因已列在报告中；可以继续保存文件。` : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，建议由你确认后应用。'
+  if (reverseOutput && untranslated && !cancelled && !interrupted) $('reviewCompleteNotice').textContent = `仍有 ${untranslated} 处英文未完成翻译，可继续补译或在报告中填写中文；当前文件和完成部分已保留。`
+  if (reverseOutput && s.model_status === 'not_requested') $('reviewCompleteNotice').textContent = '已读取中文文档。当前关闭深度审校，尚未执行中文语义检查。'
   $('completionSummary').innerHTML = [[files.length, '文档'], [s.segments ?? 0, '检查段落'], [findings.length, '审校建议'], [findings.filter(f => f.applied).length, '已替换建议']].map(([n, label]) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`).join('')
   const remaining = findings.filter(f => !f.applied).length
   const needsSave = combined && state.exportRecords.some(o => o.staged)
@@ -535,6 +548,7 @@ async function resumeHistoryTask(row) {
   if (!await confirmResultNavigation('将从本机断点继续处理这项任务，已保存的输出文件保留。','继续任务')) return
   const data = await callApi('GET','/api/history/'+encodeURIComponent(row.id)+'/resume')
   $('historyModal').hidden = true
+  state.direction = data.direction === 'en-zh' ? 'en-zh' : 'zh-en'
   setMode(data.kind === 'check' ? 'check' : 'translate')
   await runTask(false,data)
 }

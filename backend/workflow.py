@@ -55,8 +55,13 @@ def can_resume_processing(job, outcome):
 
 
 def start(data):
+    if data.get('kind') == 'text':
+        from .text_translation import start as start_text
+        return start_text(data)
     if data.get('kind') not in ('check','translate','translate_review'):
         raise ValueError('任务类型不正确')
+    if not isinstance(data.get('direction', 'zh-en'), str) or data.get('direction', 'zh-en') not in ('zh-en', 'en-zh'):
+        raise ValueError('翻译方向不正确')
     if data.get('translation_mode','faithful') not in TRANSLATION_MODES:raise ValueError('翻译方式不正确')
     if data.get('combined_output', 'both') not in ('both', 'final'):
         raise ValueError('输出方式不正确')
@@ -76,7 +81,7 @@ def start(data):
             raise ValueError('待处理任务已满，请等待部分任务完成。')
         job = {'id':uuid.uuid4().hex,'kind':data['kind'],'status':'queued','done':0,'total':0,
                'message':'正在排队等待处理','phase':'preparing','percent':0,'result':None,'error':'','cancel':threading.Event(),
-               '_history_data':{key:data[key] for key in ('kind','paths','output_dir','translation_mode') if key in data}}
+               '_history_data':{key:data[key] for key in ('kind','paths','output_dir','translation_mode','direction') if key in data}}
         JOBS[job['id']] = job
         for key in list(JOBS):
             if len(JOBS) <= task_queue.MAX_RETAINED: break
@@ -114,7 +119,8 @@ def cancel(job_id):
         else:
             job['message'] = '正在结束任务…'
             return snapshot(job)
-    try: history.finish({**job,'status':'cancelled'},job['_history_data'])
+    try:
+        if job['kind'] != 'text': history.finish({**job,'status':'cancelled'},job['_history_data'])
     except Exception: logging.getLogger(__name__).exception('Could not save cancelled queued task')
     with LOCK:
         job.update(status='cancelled', phase='cancelled', message='已取消排队任务')
@@ -139,7 +145,7 @@ def run(job,data):
     outcome = 'failed'
     job.setdefault('kind', data['kind'])
     if data.get('_client') is not None: data['_client'].cancel = job['cancel']
-    if data['kind']=='check' and data.get('use_llm',True):
+    if data['kind']=='check' and data.get('use_llm',True) and data.get('direction','zh-en')=='zh-en':
         try:
             check_cancel(job['cancel'])
             if all(predominantly_chinese(path) for path in data['paths']):
@@ -189,7 +195,7 @@ def run(job,data):
                         progress(done,total,f'处理 {index+1}/{len(paths)}：{Path(path).name}',phase,
                             100*(index+start+span*done/max(1,total))/len(paths),message)
                     result = translate_file(path,glossary,references,folder,client=data.get('_client'),cancel=job['cancel'],workers=data.get('workers',3),translation_mode=data.get('translation_mode','faithful'),
-                        activity=activity,defer_visual=combined,
+                        activity=activity,defer_visual=combined,**({'direction':'en-zh'} if data.get('direction')=='en-zh' else {}),
                         progress=lambda n,t:progress(n,t,f'翻译 {index+1}/{len(paths)}：{Path(path).name}',
                             'translate',100*(index+(.02+(.43 if combined else .70)*n/max(1,t)))/len(paths),job.get('detail','正在翻译')))
                     result.update(staged=final_only, output_mode=data.get('combined_output', 'both'),
@@ -246,14 +252,17 @@ def run(job,data):
                 with LOCK:
                     partial.extend(items)
                     job['partial_findings'] = partial
-            findings, stats = check_segments(all_segments,glossary,bool(data.get('use_llm',True)),
+            checker = check_segments
+            if data.get('direction')=='en-zh':
+                from .reverse_translation import check_segments as checker
+            findings, stats = checker(all_segments,glossary,bool(data.get('use_llm',True)),
                 client=data.get('_client'),references=references,progress=progress,cancel=job['cancel'],on_finding=on_finding,workers=data.get('workers',3),expect_english=True)
             result = {'report_id':job['id'],'files':files,'errors':errors,'stats':stats,
                       'findings':[f.to_dict() for f in findings],
                       'segments':[s.to_dict() for s in all_segments], 'completed_paths':stats['completed_files']}
             with LOCK:
                 REPORTS[job['id']] = {'segments':all_segments,'hashes':hashes,'findings':findings,
-                    'use_llm':bool(data.get('use_llm',True)),'_quality_client':data.get('_client')}
+                    'use_llm':bool(data.get('use_llm',True)),'_quality_client':data.get('_client'),'direction':data.get('direction','zh-en')}
                 job['result'] = result
                 job.pop('partial_findings',None)
             job['message'] = '校对完成' if stats['model_status'] in ('complete','not_requested') else '规则检查已完成，模型复核未完成'
@@ -289,6 +298,9 @@ def run(job,data):
 
 def auto_review(result, glossary, references, cancel, progress, on_finding=None, on_export=None, client=None, workers=3, format_progress=None):
     """Produce suggestions; applying any review change requires a user action."""
+    if result.get('direction')=='en-zh':
+        from .reverse_translation import auto_review as reverse_review
+        return reverse_review(result,glossary,references,cancel,progress,on_finding,on_export,client,workers,format_progress)
     check_cancel(cancel)
     def guard_source():
         if result.get('source_fingerprint') and store.fingerprint(result['source'])!=result['source_fingerprint']:
@@ -414,6 +426,7 @@ def publish_combined_report(job, reviews, outcome):
             'reference_warnings':output.get('reference_warnings',[]),
             'source':output['source'], 'target_dir':output['target_dir'], 'staged':output.get('staged',False),
             'translation_mode':output.get('translation_mode','faithful')}
+        if output.get('direction')=='en-zh':local['output_options'][output['path']]['direction']='en-zh'
         if output.get('pdf_manifest') is not None:
             local['output_options'][output['path']].update(pdf_manifest=output['pdf_manifest'],output_audit=output.get('output_audit'))
             local['_quality_client']=next((r.get('_quality_client') for r in reviews if r['output']['path']==output['path']),None)
@@ -464,6 +477,7 @@ def _apply_report(data, report, progress=None, client=None):
     if overwrite and Path(path).suffix.lower() == '.pdf':
         raise ValueError('PDF 的处理结果保存为 Word，不能覆盖原 PDF。请使用另存。')
     option = report.get('output_options',{}).get(path,{})
+    reverse = option.get('direction', report.get('direction'))=='en-zh'
     final_only = option.get('mode') == 'final'
     managed_output = bool(option)
     if path not in report['hashes'] or store.fingerprint(path)!=report['hashes'][path]:
@@ -498,7 +512,7 @@ def _apply_report(data, report, progress=None, client=None):
     final_residuals=[]
     output_audit=None
     origin=option.get('source') or path
-    pdf_source=origin if Path(origin).suffix.lower()=='.pdf' else None
+    pdf_source=origin if Path(origin).suffix.lower()=='.pdf' and not reverse else None
     pdf_expected=option.get('pdf_manifest')
     pdf_client=None
     if pdf_source and report.get('use_llm',True):
@@ -533,12 +547,12 @@ def _apply_report(data, report, progress=None, client=None):
             finding_index, finding = choice
             if finding.applied:
                 raise ValueError('这项改正已应用到原文件，无需重复覆盖。')
-            if (finding.method == 'llm' and new == finding.suggested and not finding.numeric_addition_verified
+            if (not reverse and finding.method == 'llm' and new == finding.suggested and not finding.numeric_addition_verified
                     and page_context.duplicates_neighbor_number(segment, old, new)):
                 failed.append({'segment_id':segment_id,'index':finding_index,
                                'reason':'这条建议会重复补入相邻文字已有的数字，已跳过；请结合上下文修改建议。'})
                 continue
-            if (finding.method=='llm' and new==finding.suggested
+            if (not reverse and finding.method=='llm' and new==finding.suggested
                     and page_context.duplicates_neighbor_label(segment,old,new)):
                 failed.append({'segment_id':segment_id,'index':finding_index,
                                'reason':'这条建议会重复补入同一文本框已有的独立标题，已跳过；其他有效修改仍可保存。'})
@@ -552,6 +566,9 @@ def _apply_report(data, report, progress=None, client=None):
             from .text_integrity import IDENTIFIERS, validate_identifiers
             try:
                 validate_identifiers(old,new)
+                if reverse:
+                    from .reverse_translation import validate_revision
+                    validate_revision(old,new)
                 if any((a<token.end() and b>token.start()) or (a==b and token.start()<a<token.end())
                         for a,b,_ in candidates for token in IDENTIFIERS.finditer(segment.text)):
                     raise ValueError('该项会改动网址、邮箱或路径，已保留原信息；其余建议继续应用。')
@@ -583,6 +600,7 @@ def _apply_report(data, report, progress=None, client=None):
     layout_adjustments, fitting_warnings = fit_document(document,changed_locators,original_layout) if is_pptx else ([],[])
     def visual_progress(message,done=0,total=0): notify('render',done,total,message)
     visual_options = {'progress':visual_progress} if progress else {}
+    if reverse:visual_options['target_language']='zh'
     reference_changes={}
     reference_warnings=[*option.get('reference_warnings',[]),*getattr(document,'_star_reference_warnings',[])]
     if Path(input_path).suffix.lower()=='.docx':
@@ -595,7 +613,7 @@ def _apply_report(data, report, progress=None, client=None):
     if not overwrite or managed_output:
         out = Path(option['output']) if managed_output and option.get('output') else output_path(
             option.get('source',path) if final_only else path,
-            option.get('target_dir') if managed_output else data.get('output_dir'),'English_checked' if final_only else 'checked',
+            option.get('target_dir') if managed_output else data.get('output_dir'),('Chinese_checked' if reverse else 'English_checked') if final_only else 'checked',
             extension=Path(input_path).suffix if final_only else None)
         existing_hash = store.fingerprint(out) if out.exists() else None
         if existing_hash and store.fingerprint(out) != input_hash:
@@ -617,7 +635,10 @@ def _apply_report(data, report, progress=None, client=None):
             layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings or not is_pptx else structure_warnings
             from .translation_audit import saved_residuals
             notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
-            final_residuals=saved_residuals(temporary)
+            if reverse:
+                from .reverse_translation import audit_saved
+                output_audit=audit_saved(temporary,para_map)
+            else:final_residuals=saved_residuals(temporary)
             if pdf_source:
                 from .pdf_quality import audit
                 output_audit=audit(temporary,pdf_expected,source=pdf_source,client=pdf_client,
@@ -657,7 +678,10 @@ def _apply_report(data, report, progress=None, client=None):
             layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings or not is_pptx else structure_warnings
             from .translation_audit import saved_residuals
             notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
-            final_residuals=saved_residuals(temporary)
+            if reverse:
+                from .reverse_translation import audit_saved
+                output_audit=audit_saved(temporary,para_map)
+            else:final_residuals=saved_residuals(temporary)
             if pdf_source:
                 from .pdf_quality import audit
                 output_audit=audit(temporary,pdf_expected,source=pdf_source,client=pdf_client,

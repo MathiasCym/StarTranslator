@@ -216,7 +216,7 @@ def _native_issues(source,output,number,objects):
     return issues
 
 
-def review_pptx(source,output,document,changed,snapshots,client,cancel=None,reference=None,workers=1,progress=None,audit=None):
+def review_pptx(source,output,document,changed,snapshots,client,cancel=None,reference=None,workers=1,progress=None,audit=None,target_language='en'):
     """Review every page, apply one safe cohort step, rerender affected pages once.
 
     Missing rendering/vision is incomplete, never a successful check. Temporary
@@ -261,7 +261,8 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                     try:
                         prompt=f'第 {number} 页；页面宽高为 {document.slide_width/12700:g} × {document.slide_height/12700:g} 点，所有坐标与尺寸单位为点。译文对象清单：\n'+json.dumps(objects[number-1],ensure_ascii=False)+'\n本机对先前建议的测量反馈（请修正方案）：'+json.dumps([v for v in readability_feedback if v['slide']==number],ensure_ascii=False)
                         for attempt in range(2):
-                            result=client.chat_images_json(prompt,images=[first['image'],second['image']],system=SYSTEM,max_tokens=3200)
+                            system=SYSTEM if target_language=='en' else SYSTEM.replace('原中文','原英文').replace('中文原稿','英文原稿').replace('英文已经','中文译文已经')+'\n本次是英译中。中文为预期译文，不得将中文当作漏译，不改写正文或要求英文输出。'
+                            result=client.chat_images_json(prompt,images=[first['image'],second['image']],system=system,max_tokens=3200)
                             _cancel(cancel)
                             if _valid_result(result):break
                             if not attempt:

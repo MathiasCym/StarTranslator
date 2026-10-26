@@ -33,6 +33,8 @@ body > main { padding:16px 20px 20px; }
 .task-heading { padding-bottom:8px; }
 .task-heading h3 { font-size:20px; }
 .task-option-row { gap:4px; }
+.document-direction { display:flex; align-items:center; justify-content:space-between; gap:10px; font-size:var(--font-detail); }
+.document-direction select { width:auto; min-width:160px; }
 .output-row { grid-template-columns:minmax(0,1fr) auto; gap:8px; }
 .output-row label { grid-column:1/-1; }
 .output-row input { grid-column:1; }
@@ -161,6 +163,7 @@ body > main { padding:16px 20px 20px; }
 }
 @media(max-height:620px) and (min-width:920px) {
   body:has(#workspace:not([hidden])) .workspace-heading { display:none; }
+  .document-direction select { min-height:32px; padding-block:4px; font-size:14px; }
 }
 @media(max-width:919px) {
   .topbar { height:auto; min-height:104px; padding-left:12px; align-items:flex-start; position:relative; }

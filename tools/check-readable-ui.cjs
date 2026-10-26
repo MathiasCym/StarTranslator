@@ -386,6 +386,49 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("$('lexiconImportReport').hidden"),true)
   await run("$('closeLexicon').click()")
   result.checks.push('automatic glossary migration displays additions, retained conflicts, backup and recoverable errors; current-term link and reload work without footer overlap')
+  // Exercise the real editor mounted by the application, including a long
+  // result, target direction and close/reopen while a background task runs.
+  const textRequests=[]
+  ipcMain.removeHandler('api');ipcMain.handle('api',(_event,{method,path:apiPath,body})=>{
+    if(apiPath==='/api/jobs'&&method==='POST'){
+      textRequests.push(body)
+      return {id:'text-fixture',kind:'text',status:'running',done:0,total:1,message:'正在对照原文复核',percent:0}
+    }
+    if(apiPath==='/api/jobs/text-fixture')return {id:'text-fixture',kind:'text',status:'complete',done:1,total:1,message:'文本翻译完成',result:{translation:'点间距为 2.5 mm。',complete:true,blocks:[]}}
+    return {}
+  })
+  await run("$('openTextTranslation').click()")
+  for(const [w,h] of [[942,560],[1280,820],[1600,998]]){
+    setViewport(w,h);await wait(100)
+    const geometry=await run("(()=>{const d=document.querySelector('.text-translator'),r=d.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight,overflow:d.scrollHeight-d.clientHeight,editors:[...d.querySelectorAll('textarea')].map(t=>({height:t.clientHeight,width:t.clientWidth})),actions:[...d.querySelectorAll('footer button')].filter(b=>b.getClientRects().length).map(b=>({top:b.getBoundingClientRect().top,bottom:b.getBoundingClientRect().bottom}))}})()")
+    assert(geometry.left>=0&&geometry.right<=geometry.width&&geometry.top>=0&&geometry.bottom<=geometry.height&&geometry.overflow<2,JSON.stringify(geometry))
+    assert(geometry.editors.every(e=>e.height>=100&&e.width>200),JSON.stringify(geometry))
+    assert(geometry.actions.every(e=>e.bottom<=geometry.bottom&&e.top>=geometry.top),JSON.stringify(geometry))
+  }
+  await run("(()=>{const d=document.querySelector('.text-translator');d.querySelector('[data-direction]').value='en-zh';d.querySelector('[data-source]').value='The pixel pitch is 2.5 mm.';d.querySelector('[data-source]').dispatchEvent(new Event('input'));d.querySelector('[data-start]').click()})()")
+  await wait(100)
+  assert.equal(textRequests[0].direction,'en-zh');assert.equal(textRequests[0].kind,'text')
+  await run("document.querySelector('.text-translator [data-close]').click();$('openTextTranslation').click()")
+  await wait(900)
+  assert.equal(await run("document.querySelector('.text-translator [data-target]').value"),'点间距为 2.5 mm。')
+  assert.equal(await run("document.querySelector('.text-translator [data-copy]').disabled"),false)
+  await run("document.querySelector('.text-translator [data-swap]').click()")
+  assert.equal(await run("document.querySelector('.text-translator [data-direction]').value"),'zh-en')
+  assert.equal(await run("document.querySelector('.text-translator [data-source]').value"),'点间距为 2.5 mm。')
+  await snap('text-translator')
+  await run("document.querySelector('.text-translator').close()")
+  assert.equal(await run('document.activeElement.id'),'openTextTranslation')
+  const reversePending=await run("reviewCompletionState({stats:{manual_review:1,unreviewed:1,model_status:'partial',review_processing_status:'complete'},findings:[{found_text:'Untranslated English',reason:'英译中未完成：模型中断'}]}, {status:'complete',can_resume:true})")
+  assert.equal(reversePending.manualPending,1);assert.equal(reversePending.untranslated,1)
+  result.checks.push('free text editor: actual desktop entry, 942/1280/1600px layouts, English-Chinese request, verified output, copy enabled, swap direction and reopen during processing')
+  await sr("$('openTextTranslation').click()")
+  for(const w of [480,900]){
+    shared.setContentSize(w,850);await wait(100)
+    const r=await sr("(()=>{const d=document.querySelector('.text-translator'),r=d.getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom,width:innerWidth,height:innerHeight,overflow:d.scrollHeight-d.clientHeight}})()")
+    assert(r.left>=0&&r.right<=r.width&&r.bottom<=r.height&&r.overflow<2,JSON.stringify(r))
+  }
+  await sr("document.querySelector('.text-translator').close()")
+  result.checks.push('shared free text editor at 480/900px: responsive stacked/pair layout with visible controls')
   desktop.webContents.debugger.attach('1.3')
   await desktop.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]})
   assert.equal(await run("getComputedStyle($('dropzone'),'::before').animationName"),'none')

@@ -8,7 +8,7 @@ from uuid import uuid4
 from .glossary.store import data_dir
 
 RESUME_FIELDS = ('kind','paths','references','pairs','glossary_imports','output_dir',
-                 'translation_mode','combined_output','use_llm','workers')
+                 'translation_mode','combined_output','use_llm','workers','direction')
 
 
 @contextmanager

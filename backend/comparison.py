@@ -13,7 +13,7 @@ def folder():
     return store.data_dir() / 'comparisons'
 
 
-def create(segments, paragraphs, source, output):
+def create(segments, paragraphs, source, output, direction='zh-en'):
     comparison_id = uuid.uuid4().hex
     rows = []
     for segment in segments:
@@ -24,6 +24,7 @@ def create(segments, paragraphs, source, output):
     value = {'id':comparison_id, 'source_name':Path(source).name, 'output_name':Path(output).name,
         'output_path':str(output), 'output_hash':store.fingerprint(output), 'rows':rows,
         '_source_path':str(Path(source).absolute()), '_source_hash':store.fingerprint(source)}
+    if direction=='en-zh':value['direction']='en-zh'
     snapshot_source(value,source)
     store.atomic_json(folder() / (comparison_id + '.json'), value)
     return comparison_id
@@ -78,8 +79,8 @@ def remove(comparison_id):
     (folder()/(comparison_id+'.json')).unlink(missing_ok=True)
 
 
-def safe_create(*args):
-    try: return create(*args)
+def safe_create(*args, **kwargs):
+    try: return create(*args, **kwargs)
     except Exception:
         import logging
         logging.getLogger(__name__).exception('Could not save text comparison; translated document is retained')

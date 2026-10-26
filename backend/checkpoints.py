@@ -22,7 +22,8 @@ def digest(value):
 @lru_cache(maxsize=2)
 def policy(stage):
     names = ['writing_policy.py', 'document_context.py', 'pptx_content.py', 'llm/client.py', 'text_integrity.py']
-    if stage=='pdf-image':names+=['pdf_image_text.py','pdf_image_ocr.py','image_ocr.ps1','translation_policy.py']
+    if stage in ('translation-zh', 'review-zh'):names+=['reverse_translation.py','text_translation.py','replacer/styled_text.py','extract/office.py','replacer/pptx_package.py']
+    elif stage=='pdf-image':names+=['pdf_image_text.py','pdf_image_ocr.py','image_ocr.ps1','translation_policy.py']
     elif stage=='pdf-output':names+=['pdf_quality.py','word_native_preview.py','word_render.ps1','pdf_image_ocr.py','image_ocr.ps1']
     else:
         names += (['translation.py', 'translation_policy.py', 'translation_batch.py', 'translation_residual.py', 'replacer/styled_text.py', 'extract/office.py', 'replacer/pptx_package.py']
@@ -82,7 +83,10 @@ class Checkpoint:
                             'a43b018a8f62e194c9cd5279a784e44b788b4bcb0d793648477d38faacb6efec',
                             # 2.2.2: reused text still passes current label,
                             # cross-line, number and style validation on read.
-                            '40bbb9e111085fb038e7cba66d45d29ab37ea0f62aeeb1b060172163039f2692'):
+                            '40bbb9e111085fb038e7cba66d45d29ab37ea0f62aeeb1b060172163039f2692',
+                            # 2.2.5 Chinese-English processing is unchanged;
+                            # the new reverse direction has its own stage.
+                            'e7980d7cba760b3393e13b13de28ede40dfc5df643009c791415af9b2c98a927'):
                         legacy=digest({'policy':old_policy,'input':identity})
                         if legacy==self.scope:continue
                         known={key for key,_ in rows}

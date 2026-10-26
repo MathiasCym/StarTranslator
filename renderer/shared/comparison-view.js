@@ -112,6 +112,8 @@ window.PageComparison = (() => {
       const opening=String(++sequence)
       for(const side of ['source','output']) {
         const p=v.panes[side];p.ready=false;p.page=1;p.total=0;p.number.value=1;p.status.hidden=false;p.status.textContent='正在准备完整页面…'
+        const label=metadata.direction==='en-zh'?(side==='source'?'英文原稿':'处理后中文'):(side==='source'?'中文原稿':'处理后英文')
+        p.pane.querySelector('strong').textContent=label;p.frame.title=label+'页面'
         p.pane.querySelector('small').textContent=metadata[side+'_name'];p.pane.querySelector('[data-count]').textContent='/ —'
         p.token=opening+'-'+side
         const url=new URL(urls[side],location.href);url.searchParams.set('preview_token',p.token)

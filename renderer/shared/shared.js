@@ -3,6 +3,10 @@ const $ = id => document.getElementById(id)
 const esc = x => String(x ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 let csrf = '', jobs = [], selected = '', comparison = null, lastDetail = '', polling = false, comparisonBase = ''
 const labels = {translate:'翻译',check:'校对',translate_review:'翻译并校对',queued:'排队中',running:'处理中',complete:'已完成',failed:'未完成',cancelled:'已取消',partial:'部分完成',interrupted:'已中断'}
+window.StarTextTranslation.mount({ button: $('openTextTranslation'), prefix: '/shared/text/jobs',
+  request: (method, path, body) => api(path, { method, ...(body ? { body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } } : {}) }),
+  ready: async () => { await sharedSessionReady; if (!csrf) throw Error('共享会话未就绪，请刷新页面重试。') }
+})
 async function api(path, options = {}) {
   const response = await fetch(path,{...options,headers:{'X-Star-CSRF':csrf,...options.headers}})
   const data = await response.json()
@@ -32,7 +36,7 @@ $('form').onsubmit = async event => {
   const form = new FormData(), kind = document.querySelector('[name=kind]:checked').value
   for (const file of $('files').files) form.append('files',file)
   for (const file of $('references').files) form.append('references',file)
-  form.append('options',JSON.stringify({kind,translation_mode:document.querySelector('[name=translationMode]:checked').value,combined_output:$('outputMode').value,use_llm:$('useLlm').checked,workers:$('parallelWork').checked?3:1}))
+  form.append('options',JSON.stringify({kind,direction:$('documentDirection').value,translation_mode:document.querySelector('[name=translationMode]:checked').value,combined_output:$('outputMode').value,use_llm:$('useLlm').checked,workers:$('parallelWork').checked?3:1}))
   $('submit').disabled = true; $('uploadProgress').hidden = false; setProgress($('uploadProgress'),0,true)
   try {
     const job = await new Promise((resolve,reject) => {
@@ -156,7 +160,7 @@ function openComparison() {
 function renderComparison(){const q=$('compareSearch').value.toLowerCase(),p=$('comparePage').value;$('comparisonRows').innerHTML=comparison.rows.filter(r=>(!p||String(r.slide)===p)&&(!q||(r.source+' '+r.translation).toLowerCase().includes(q))).map(r=>`<tr><td><small>${r.slide?'第 '+r.slide+' 页 · ':''}段 ${r.para||''}${!r.editable?' · '+esc(r.note||'需人工检查'):''}</small>${esc(r.source)}</td><td>${esc(r.translation)}</td></tr>`).join('')}
 $('compareSearch').oninput=renderComparison;$('comparePage').onchange=renderComparison
 action('closeComparison',()=>$('comparison').close());action('closeDetail',()=>{selected='';$('detail').hidden=true});action('refresh',refresh)
-;(async()=>{try{csrf=(await api('/shared/session')).csrf;await refresh();setInterval(()=>refresh().catch(showError),1500)}catch(e){showError(e)}})()
+const sharedSessionReady=(async()=>{try{csrf=(await api('/shared/session')).csrf;await refresh();setInterval(()=>refresh().catch(showError),1500)}catch(e){showError(e)}})()
 
 action('cancelCleanup',()=> $('cleanupDialog').close())
 action('acceptCleanup',async()=>{const id=$('cleanupDialog').dataset.job;await api(`/shared/jobs/${id}/cleanup`,{method:'POST'});$('cleanupDialog').close();reportDrafts.delete(id);if(selected===id){selected='';$('detail').hidden=true}await refresh()})

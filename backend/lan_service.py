@@ -230,6 +230,41 @@ def create_app(testing=False):
     @app.get('/shared.css')
     def style(): return send_file(ROOT / 'shared.css')
 
+    @app.get('/text-translation.<extension>')
+    def text_widget(extension):
+        if extension not in ('css', 'js'): return '', 404
+        return send_file(ROOT / ('text-translation.' + extension))
+
+    @app.post('/shared/text/jobs')
+    def start_text():
+        session = session_for_request()
+        data = request.get_json(force=True) or {}
+        if data.get('retry_of') and data['retry_of'] not in session.get('text_jobs', []):
+            raise ValueError('任务不存在。')
+        # No remote model configuration or local paths accepted.
+        job = workflow.start({key: data[key] for key in ('text', 'direction', 'retry_of') if key in data} | {'kind': 'text'})
+        with SERVICE_LOCK:
+            session.setdefault('text_jobs', []).append(job['id'])
+            session['text_jobs'] = session['text_jobs'][-task_queue.MAX_RETAINED:]
+            persist(session)
+        return jsonify(job)
+
+    def owned_text(job_id):
+        if job_id not in session_for_request().get('text_jobs', []): raise ValueError('任务不存在。')
+        with workflow.LOCK:
+            job = workflow.JOBS.get(job_id)
+            if not job or job.get('kind') != 'text': raise ValueError('文本任务已清理，请重新输入。')
+            return workflow.snapshot(job)
+
+    @app.get('/shared/text/jobs/<job_id>')
+    def text_status(job_id): return jsonify(owned_text(job_id))
+
+    @app.post('/shared/text/jobs/<job_id>/cancel')
+    def cancel_text(job_id):
+        owned_text(job_id)
+        workflow.cancel(job_id)
+        return jsonify(ok=True)
+
     @app.get('/form-controls.css')
     def form_controls_style(): return send_file(ROOT / 'form-controls.css')
 
@@ -279,7 +314,7 @@ def create_app(testing=False):
                 references = [save_upload(f,folder/'reference') for f in refs]
                 job = workflow.start({'kind':data['kind'], 'paths':paths, 'references':references,
                     'output_dir':str(folder/'output'), 'use_llm':data.get('use_llm',True) is True,
-                    'workers':data.get('workers',3),'translation_mode':data.get('translation_mode','faithful'),
+                    'workers':data.get('workers',3),'translation_mode':data.get('translation_mode','faithful'),'direction':data.get('direction','zh-en'),
                     'combined_output':data.get('combined_output','both')})
                 session['jobs'].append(job['id'])
                 session.setdefault('folders',{})[job['id']] = str(folder)

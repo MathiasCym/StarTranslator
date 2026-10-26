@@ -198,7 +198,12 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
         return anchored_runs(text, groups, glossary)
 
 
-def translate_file(path, glossary, references, output_dir=None, client=None, progress=None, cancel=None, workers=3, translation_mode="faithful", activity=None, defer_visual=False):
+def translate_file(path, glossary, references, output_dir=None, client=None, progress=None, cancel=None, workers=3, translation_mode="faithful", activity=None, defer_visual=False, direction='zh-en'):
+    if direction == 'en-zh':
+        from .reverse_translation import translate_file as reverse_file
+        return reverse_file(path, glossary, references, output_dir, client=client, progress=progress, cancel=cancel,
+            workers=workers, translation_mode=translation_mode, activity=activity, defer_visual=defer_visual)
+    if direction != 'zh-en': raise ValueError('翻译方向不正确。')
     def notify(phase,message,done=0,total=0):
         if activity:activity(phase,message,done,total)
     def validate(source,target):
