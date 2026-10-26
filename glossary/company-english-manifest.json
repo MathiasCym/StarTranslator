@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "date": "2026-10-26",
+  "source": "公司官方术语库（仅中英配对，维护者已授权公开）",
+  "sourceSha256": "1bb865cedb5dd3b8829fd6d92f6d6b091d3886ee76466655d8ddcc8a85ae6ea3",
+  "chineseColumn": "zh-CN",
+  "englishColumn": "en-US",
+  "sourceRows": 1965,
+  "uniquePairs": 1961,
+  "ambiguousTermsExcluded": 1,
+  "added": 1880,
+  "existingMatched": 52,
+  "differentTranslationsRetained": 27,
+  "before": 635,
+  "after": 2515,
+  "existingFieldsPreserved": true,
+  "otherLanguagesImported": false
+}

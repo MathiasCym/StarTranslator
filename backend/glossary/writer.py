@@ -27,8 +27,8 @@ LIST_FIELDS = ("variants", "machine_variants", "wrong_variants")
 
 # 表头文案 → 字段名。含历史/别名写法，兼容旧表与部门 Excel。
 FIELD_ALIASES = {
-    "zh": {"中文", "中文术语", "名词（中文）", "名词(中文)", "zh", "chinese"},
-    "en": {"英文", "标准英文", "en", "english"},
+    "zh": {"中文", "中文术语", "名词（中文）", "名词(中文)", "zh", "chinese", "zh-cn", "zh_cn", "zh-hans", "zh-hans-cn"},
+    "en": {"英文", "标准英文", "en", "english", "en-us", "en_us", "en-gb", "en_gb"},
     "note": {"备注", "解释", "说明", "note"},
     "variants": {"正确别名", "别名", "同义别名", "variants", "variant"},
     "machine_variants": {"机翻候选", "机翻变体", "机翻写法", "machine_variants", "machine variant"},

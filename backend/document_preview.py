@@ -165,6 +165,11 @@ def preview(comparison_id,side,page=1):
                     total=len(etree.fromstring(archive.read('ppt/presentation.xml')).findall('.//{http://schemas.openxmlformats.org/presentationml/2006/main}sldId'))
                 if type(page) is not int or not 1<=page<=total:raise ValueError('预览页码超出范围。')
             digest=store.fingerprint(source);folder=comparison.folder()/comparison_id;folder.mkdir(parents=True,exist_ok=True)
+            if source.suffix.lower()=='.pdf':
+                from . import pdf_page_preview
+                raw,pdf_total=pdf_page_preview.preview(source,folder/(side+'-pdf'),digest,page)
+                if store.fingerprint(source)!=digest:raise ValueError('文件在读取期间发生变化，请重试预览。')
+                return prepare(raw,'.original-pdf',page,pdf_total)
             if source.suffix.lower()=='.pptx':
                 from . import pptx_native_preview
                 native=pptx_native_preview.preview(source,folder/(side+'-native'),digest,page,total)

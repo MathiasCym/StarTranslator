@@ -212,6 +212,22 @@ server.listen(0,'127.0.0.1',async()=>{
   await run(`state.job={id:'complete-fixture',status:'complete',can_resume:true};state.outputs=[];loadReport({report_id:'complete-fixture',kind:'translate_review',files:[{path:'C:/qa/final.pptx',name:'final.pptx'}],stats:{model_status:'complete',segments:278,judged:278},errors:[],findings:[{found_text:'typo',suggested:'type',method:'llm',editable:true}]},[]);showCheckCompletion()`)
   assert.equal(await run("$('reviewCompleteTitle').textContent"),'翻译并校对完成')
   assert.equal(await run("$('completionResume').hidden&&$('completionExportLog').hidden&&$('completionIssue').hidden"),true)
+  assert.equal(await run("$('completionReviewTitle').textContent"),'下一步：查看 1 项校对建议')
+  for(const [w,h] of [[942,655],[1280,820],[1493,900],[1920,1040]]){
+   setViewport(w,h);await wait(100)
+   const guide=await run("(()=>{const b=$('viewReport'),r=b.getBoundingClientRect(),p=$('completionReviewStep').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,pTop:p.top,pBottom:p.bottom,overflow:b.scrollWidth-b.clientWidth,hit:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.id}})()")
+   assert(guide.left>=0&&guide.right<=w&&guide.top>=0&&guide.bottom<=h&&guide.overflow<2&&guide.hit==='viewReport',JSON.stringify({w,h,guide}))
+  }
+  setViewport(1280,820)
+  await run("$('viewReport').click()");await wait(100)
+  assert.equal(await run("$('reportModal').hidden"),false)
+  await run("$('reportModal').hidden=true;state.report.findings[0].applied=true;renderCheckCompletion()")
+  assert.equal(await run("$('completionReviewTitle').textContent"),'1 项建议已应用')
+  await run("state.report.findings=[];state.exportRecords=[{path:'C:/qa/staged.pptx',staged:true,targetDir:'C:/qa'}];renderCheckCompletion()")
+  assert.equal(await run("$('completionReviewTitle').textContent"),'下一步：确认并保存译文')
+  await run("state.exportRecords=[];renderCheckCompletion()")
+  assert.equal(await run("$('completionReviewTitle').textContent"),'本次没有替换建议')
+  result.checks.push('completion guide shows pending/applied/zero suggestions and staged save; primary report action is visible, unobstructed and opens the report at four widths')
   await snap('completion-success')
   await run(`state.job={id:'manual-fixture',status:'partial',can_resume:true};loadReport({report_id:'manual-fixture',kind:'translate_review',files:[{path:'C:/qa/final.pptx',name:'final.pptx'}],stats:{model_status:'partial',segments:278,judged:274,unreviewed:4,errors:0},errors:[],findings:Array.from({length:4},(_,i)=>({found_text:'English '+i,suggested:'',reason:'翻译待核对：请确认日期。',method:'rule',editable:true,applied:false}))},[]);showCheckCompletion()`)
   assert((await run("$('reviewCompleteTitle').textContent")).includes('4 处待人工核对'))
@@ -316,6 +332,21 @@ server.listen(0,'127.0.0.1',async()=>{
   await sr("$('comparison').close()")
   sharedJobs=[{id:'shared-comparison',kind:'translate_review',status:'complete',message:'完成',percent:100,downloads:[],result:{outputs:[{path:'first-draft.pptx',comparison_id:'first-id',draft:true},{path:'second-draft.pptx',comparison_id:'second-id',draft:true}],report:{files:[{name:'first',comparison_index:0},{name:'second',comparison_index:1}],stats:{model_status:'complete'},findings:[]}}}]
   await sr("selected='shared-comparison';lastDetail='';refresh()");await wait(100)
+  assert.equal(await sr("$('jumpToReview').textContent"),'查看校对报告')
+  sharedJobs[0].result.report.findings=[{file_index:0,editable:true,method:'llm',found_text:'Old',suggested:'New',reason:'Example'}]
+  await sr('refresh()');await wait(100)
+  assert((await sr("document.querySelector('.review-guide').textContent")).includes('有 1 项校对建议'))
+  for(const w of [480,900]){
+   shared.setContentSize(w,850);await wait(100)
+   const guide=await sr("(()=>{const b=$('jumpToReview'),r=b.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth,overflow:b.scrollWidth-b.clientWidth}})()")
+   assert(guide.left>=0&&guide.right<=guide.width&&guide.overflow<2,JSON.stringify(guide))
+  }
+  await sr("$('jumpToReview').click()");await wait(150)
+  assert.equal(await sr('document.activeElement.id'),'sharedReviewHeading')
+  sharedJobs[0].result.report.findings[0].applied=true
+  await sr('refresh()');await wait(100)
+  assert.equal(await sr("$('jumpToReview').textContent"),'查看校对报告')
+  result.checks.push('shared completion guide counts remaining suggestions, wraps at 480px and moves keyboard focus to the report; applied advice is not unfinished processing')
   assert.equal(await sr("$('reportCompare').hidden"),false)
   assert((await sr("$('reportCompare').textContent")).includes('初稿'))
   await sr("$('reportFile').value='1';$('reportFile').dispatchEvent(new Event('change'));$('reportCompare').click()");await wait(100)

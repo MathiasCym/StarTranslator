@@ -334,6 +334,12 @@ function renderCheckCompletion() {
   $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : notStarted ? '文件已保留 · 校对尚未开始' : interrupted ? `${label}已结束 · 部分检查未完成` : manualPending ? `${label}处理完成 · ${manualPending} 处待人工核对` : `${label}完成`
   $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分。' : interrupted ? '可用文件和已完成部分已保留，未完成原因见下方；可查看报告并保存当前文件。' : untranslated ? `仍有 ${untranslated} 处未译中文，可继续补译或在报告中填写英文；已完成内容和当前文件均保留。` : manualPending ? `自动处理已结束，${manualPending} 处内容需要人工确认，具体位置和原因已列在报告中；可以继续保存文件。` : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，建议由你确认后应用。'
   $('completionSummary').innerHTML = [[files.length, '文档'], [s.segments ?? 0, '检查段落'], [findings.length, '审校建议'], [findings.filter(f => f.applied).length, '已替换建议']].map(([n, label]) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`).join('')
+  const remaining = findings.filter(f => !f.applied).length
+  const needsSave = combined && state.exportRecords.some(o => o.staged)
+  $('completionReviewTitle').textContent = remaining ? `下一步：查看 ${remaining} 项校对建议` : needsSave ? '下一步：确认并保存译文' : findings.length ? `${findings.length} 项建议已应用` : '本次没有替换建议'
+  $('completionReviewHint').textContent = remaining ? '请打开报告查看修改原因与上下文，选择采纳、编辑或保留当前译文。建议不会自动应用。' : needsSave ? '打开报告查看检查范围，再点击“保存译文”输出最终文件。' : '仍可打开报告核对检查范围、提示和已采用的修改。'
+  $('completionReviewStep').classList.toggle('has-suggestions',remaining > 0 || needsSave)
+  $('viewReport').textContent = remaining ? '查看并处理校对建议' : needsSave ? '查看报告并保存译文' : '查看校对报告'
   $('completionFiles').textContent = files.map(f => f.source?basename(f.source):f.name||basename(f.path||'')).join(' · ')
   $('completionFiles').title = files.map(f => f.path).join('\n')
   $('completionDetails').textContent = combined ? `已翻译 ${state.outputs.reduce((n, o) => n + (o.translated || 0), 0)} 段，校对 ${s.judged || 0} 段${manualPending ? `；另有 ${manualPending} 处待人工核对` : ''}。原稿保留，校对建议由你确认后应用。${r.output_mode === 'final' ? state.exportRecords.some(o => o.staged) ? '当前译文暂存，确认后保存最终文件。' : '最终文件已保存。' : ''}` : ''

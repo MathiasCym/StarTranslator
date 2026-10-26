@@ -4,7 +4,7 @@ from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from backend.glossary import store,writer,exchange
 from backend.server import app
-from openpyxl import load_workbook
+from openpyxl import load_workbook,Workbook
 
 
 def entry(zh='逐点校正',en='pixel-level calibration',**kwargs):
@@ -119,6 +119,31 @@ class ExchangeTests(unittest.TestCase):
         original=[entry(note='第一行\n第二行')];incoming=[entry(note='新增一行\n再一行')]
         once,_=exchange.merge_entries(original,incoming);twice,report=exchange.merge_entries(once,incoming)
         self.assertEqual(once,twice);self.assertEqual(report['updated'],0)
+    def test_locale_headers_import_only_chinese_and_english_in_any_order(self):
+        for headers,row in [
+            (['zh-CN','en-US','es-ES','fr-FR','ja-JP'],['示例术语','example term','ejemplo','exemple','例']),
+            (['fr-FR','EN_gb','zh-Hans','ko'],['exemple','example term','示例术语','예'])]:
+            book=Workbook();sheet=book.active;sheet.append(headers);sheet.append(row)
+            source=self.root/'languages.xlsx';book.save(source);book.close();before=source.read_bytes()
+            imported=exchange.load_import(source)
+            self.assertEqual(len(imported),1)
+            self.assertEqual((imported[0]['zh'],imported[0]['en']),('示例术语','example term'))
+            self.assertEqual(imported[0]['note'],'')
+            self.assertEqual(source.read_bytes(),before)
+    def test_locale_workbook_merge_retains_confirmation_and_is_repeatable(self):
+        original=[entry('示例姓名','Example Name',category='person',priority=1,note='已确认姓名',variants=['E. Name'])]
+        book=Workbook();sheet=book.active;sheet.append(['zh-CN','en-US','es-ES'])
+        sheet.append(['示例姓名','Example Name','otro']);sheet.append(['新增术语','new term','otro'])
+        source=self.root/'languages.xlsx';book.save(source);book.close()
+        incoming=exchange.load_import(source)
+        merged,report=exchange.merge_entries(original,incoming)
+        self.assertEqual(report['added'],1)
+        self.assertEqual(merged[0],{**original[0],'source':'用户导入'})
+        repeated,report=exchange.merge_entries(merged,incoming)
+        self.assertEqual(merged,repeated);self.assertEqual(report['added'],0);self.assertEqual(report['updated'],0)
+    def test_multiple_english_columns_need_explicit_selection(self):
+        source=self.root/'multiple.csv';source.write_text('zh-CN,en-US,en-GB\n示例,example,sample\n',encoding='utf-8-sig')
+        with self.assertRaisesRegex(ValueError,'重复字段'):exchange.load_import(source)
     def test_empty_export_is_a_valid_shareable_file(self):
         for ext in ('json','xlsx'):
             target=self.root/f'empty.{ext}';self.assertEqual(exchange.export_file(str(target),'')['count'],0)
