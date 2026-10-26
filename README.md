@@ -14,6 +14,8 @@
 
 ## 功能一览
 
+本版实施范围与正式交付证据见 [PDF 原件对照与术语补全](docs/pdf-original-comparison.md) 和 [2.2.4 验收记录](docs/validation-2.2.4.md)。
+
 | 功能 | 可以完成的工作 |
 | --- | --- |
 | 文档翻译 | 翻译 Word、PPT、Excel、PDF 文字层、文本、Markdown、HTML、JSON、EPUB 和字幕，结合参考材料与术语库生成英文。 |
