@@ -14,7 +14,7 @@
 
 ## 功能一览
 
-本次修复范围见 [本机词库自动补全](docs/bundled-glossary-updates.md)；PDF 原件对照与术语引入的历史证据见 [2.2.4 验收记录](docs/validation-2.2.4.md)。
+本次修复范围见 [本机词库自动补全](docs/bundled-glossary-updates.md)，正式附件及实际旧版升级后自动迁移见 [2.2.5 验收记录](docs/validation-2.2.5.md)。
 
 | 功能 | 可以完成的工作 |
 | --- | --- |
