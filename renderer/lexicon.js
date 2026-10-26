@@ -178,12 +178,32 @@ function installLexicon({ $, action, callApi, esc, basename }) {
   }
   async function load(keepPosition = false) {
     setData(await callApi('GET', '/api/glossary/table'), keepPosition)
-    await refreshGlossary()
+    state.bundledUpdate = (await refreshGlossary()).bundled_update || null
+  }
+  function showConflicts(conflicts,summary) {
+    $('lexiconImportReport').hidden=!conflicts.length; $('lexiconImportReport').open=false
+    $('lexiconImportSummary').textContent=summary
+    $('lexiconImportConflicts').innerHTML=conflicts.map((item,index)=>'<div class="lexicon-import-conflict"><div><strong>'+esc(item.zh)+'</strong><p>当前：'+esc(item.existing.join(' / '))+'</p><p>参考译法：'+esc(item.incoming)+'</p><p class="hint">'+esc(item.reason)+'</p></div><button class="btn ghost sm" data-import-conflict="'+index+'">查看本机条目</button></div>').join('')
+    $('lexiconImportConflicts').querySelectorAll('[data-import-conflict]').forEach(button=>{button.onclick=()=>{
+      if(state.busy)return
+      const item=conflicts[Number(button.dataset.importConflict)]
+      $('termSearch').value=item.zh;state.page=0
+      state.selected=filteredRows()[0]?.index ?? -1
+      $('lexiconImportReport').open=false;setView('list');$('termEn').focus()
+    }})
+  }
+  function showBundledUpdate(fallback) {
+    const update=state.bundledUpdate
+    if(!update){showConflicts([],'');status(fallback);return}
+    const conflicts=update.conflicts||[]
+    showConflicts(conflicts,'查看 '+conflicts.length+' 项自动补全差异（已保留本机译法）')
+    status(update.error?'自动补全未完成，当前词库仍可使用：'+update.error:
+      '已自动补全 '+update.added+' 条；原有内容保留。'+(update.backups?.length?'原文件已备份。':'')+(conflicts.length?'另有 '+conflicts.length+' 项译法分歧，可展开查看。':''),!!update.error)
   }
   action('openLexicon', () => operation(async () => {
     $('lexiconModal').hidden = false
     $('lexiconImportReport').hidden = true
-    await load(); status('词库已就绪。')
+    await load(); showBundledUpdate('词库已就绪。')
   }, '正在读取术语库…'))
   action('closeLexicon', async () => {
     if (!await dirtyGuard('放弃并关闭')) return
@@ -234,7 +254,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
   }, '正在保存词库…'))
   action('reloadLexicon', async () => {
     if (!await dirtyGuard('放弃并重新读取')) return
-    return operation(async () => { await load(); status('已重新读取最新词库。') }, '正在重新读取…')
+    return operation(async () => { await load(); showBundledUpdate('已重新读取最新词库。') }, '正在重新读取…')
   })
   action('revealLexicon', () => state.path && window.api.openFolder(state.path))
   for (const [id, create] of [['createShared', true], ['connectShared', false]]) action(id, async () => {
@@ -249,7 +269,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
   action('useLocal', async () => {
     if (!await dirtyGuard('放弃并切换')) return
     return operation(async () => {
-      await callApi('POST', '/api/lexicon/select', {}); await load(); $('lexiconManagement').open = false; status('已切换为本机词库。')
+      await callApi('POST', '/api/lexicon/select', {}); await load(); $('lexiconManagement').open = false; showBundledUpdate('已切换为本机词库。')
     }, '正在切换词库…')
   })
   action('importTerms', () => {
@@ -260,16 +280,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
       const result = await callApi('POST', '/api/lexicon/import', { paths, fingerprint: state.fingerprint,rows:state.rows,columns:state.columns })
       await load(); $('lexiconManagement').open = false
       const conflicts=result.conflicts || []
-      $('lexiconImportReport').hidden=!conflicts.length; $('lexiconImportReport').open=false
-      $('lexiconImportSummary').textContent='查看 '+conflicts.length+' 项导入差异（已保留当前译法与标记）'
-      $('lexiconImportConflicts').innerHTML=conflicts.map((item,index)=>'<div class="lexicon-import-conflict"><div><strong>'+esc(item.zh)+'</strong><p>当前：'+esc(item.existing.join(' / '))+'</p><p>导入：'+esc(item.incoming)+'</p><p class="hint">'+esc(item.reason)+'</p></div><button class="btn ghost sm" data-import-conflict="'+index+'">查看本机条目</button></div>').join('')
-      $('lexiconImportConflicts').querySelectorAll('[data-import-conflict]').forEach(button=>{button.onclick=()=>{
-        if(state.busy)return
-        const item=conflicts[Number(button.dataset.importConflict)]
-        $('termSearch').value=item.zh;state.page=0
-        state.selected=filteredRows()[0]?.index ?? -1
-        $('lexiconImportReport').open=false;setView('list');$('termEn').focus()
-      }})
+      showConflicts(conflicts,'查看 '+conflicts.length+' 项导入差异（已保留当前译法与标记）')
       status('已导入并保存：新增 '+result.added+' 条，补充 '+result.updated+' 条，'+result.unchanged+' 条保持不变。'+(conflicts.length?'有 '+conflicts.length+' 项差异，可展开查看。':''))
     }, '正在导入术语…')
   })

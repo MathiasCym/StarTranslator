@@ -155,6 +155,9 @@ def active_path():
         if selected:
             if not Path(selected).is_file():
                 raise ValueError('共享术语库不可访问，请连接共享目录或切回本机词库。')
+            if Path(selected).resolve() == (folder/'lexicon.json').resolve():
+                from .bundled import upgrade_local as upgrade_bundled
+                upgrade_bundled(Path(selected))
             return Path(selected)
     path = folder / 'lexicon.json'
     if not path.exists():
@@ -167,6 +170,8 @@ def active_path():
     upgrade_corrections(path)
     from .bit_depth import upgrade_local as upgrade_bit_depth
     upgrade_bit_depth(path)
+    from .bundled import upgrade_local as upgrade_bundled
+    upgrade_bundled(path)
     return path
 
 
@@ -176,7 +181,12 @@ def read(path=None):
         return _read_table(path)
     raw = path.read_bytes()
     entries = validate(json.loads(raw.decode('utf-8-sig')))
-    return {'path': str(path), 'entries': entries, 'fingerprint': hashlib.sha256(raw).hexdigest()}
+    result = {'path': str(path), 'entries': entries, 'fingerprint': hashlib.sha256(raw).hexdigest()}
+    from .bundled import status as bundled_status
+    update = bundled_status(path)
+    if update:
+        result['bundled_update'] = update
+    return result
 
 
 def _read_table(path):

@@ -64,11 +64,13 @@ class FormatTests(unittest.TestCase):
             self.assertEqual(changed[field], old[field])
         self.assertEqual(changed['wrong_variants'], ['bad form'])
         self.assertEqual(result['entries'][1], custom)
-        self.assertEqual(next(self.folder.glob('*.bak')).read_bytes(), raw)
+        self.assertEqual(Path(str(local)+'.before-'+formats.manifest()['id']+'.bak').read_bytes(), raw)
+        backups={p.name for p in self.folder.glob('*.bak')}
         # Deliberate later edits/deletions are not undone on every launch.
         saved = store.save([custom], result['fingerprint'])
         self.assertEqual(store.read()['entries'], [custom])
-        self.assertEqual(len(list(self.folder.glob('*.bak'))), 2)
+        self.assertEqual({p.name for p in self.folder.glob('*.bak')},backups|{'lexicon.json.bak'})
+        self.assertEqual(json.loads(Path(str(local)+'.bak').read_text('utf-8-sig')),result['entries'])
 
     def test_shared_file_requires_explicit_merge_and_current_fingerprint(self):
         patch_ = formats.manifest()['patches'][0]
