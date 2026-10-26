@@ -53,7 +53,8 @@ def validate(source, target, direction):
         validate_translation(source, target)
     else:
         words = re.findall(r'[A-Za-z]{2,}', prose(source))
-        if not contains_chinese(target) and (len(words) >= 2 or any(word.islower() and len(word) > 5 for word in words)):
+        if not contains_chinese(target) and (len(words) >= 2 and any(word.islower() for word in words)
+                or len(words) == 1 and words[0].islower() and len(words[0]) > 5):
             raise ValueError('译文仍保留完整英文正文，未完成英译中。')
         # Calendar/quantity equivalences already validated by the mature
         # Chinese-English policy work in reverse as well. Never run the

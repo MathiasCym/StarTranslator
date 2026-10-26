@@ -65,6 +65,9 @@ class TextTranslationTests(unittest.TestCase):
                 self.assertFalse(list(Path(self.temp.name).rglob('*')), 'Free text must not create document/checkpoint/history files')
 
     def test_reverse_calendar_units_codes_and_identifiers(self):
+        text.validate('John Smith', 'John Smith', 'en-zh')
+        text.validate('Aegisolve, Inc.', 'Aegisolve, Inc.', 'en-zh')
+        with self.assertRaises(ValueError): text.validate('The screen is waterproof.', 'The screen is waterproof.', 'en-zh')
         text.validate('H2 strategy: 9 May 2025, 2 million LED panels.', '下半年战略：2025年5月9日，200万块 LED 屏。', 'en-zh')
         text.validate('MEETING AGENDA', '会议议程', 'en-zh')
         text.validate('HDMI 2.1 at 60 Hz, see https://example.com/中文?q=1', 'HDMI 2.1，60 赫兹，参见 https://example.com/中文?q=1', 'en-zh')
