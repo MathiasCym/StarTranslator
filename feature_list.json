@@ -1,0 +1,124 @@
+{
+  "version": "1.1",
+  "project": "StarTranslator reverse translation quality",
+  "description": "Repair confirmed English-to-Chinese regressions, repeat actual-model format acceptance, then deliver one patch release.",
+  "test_command": "python-runtime/python.exe -X utf8 -B tools/run-regressions.py",
+  "created": "2026-10-26",
+  "features": [
+    {
+      "id": "feat-001",
+      "category": "bugfix",
+      "priority": 1,
+      "description": "Saved reverse outputs retain accurate pending translation and quality status.",
+      "steps": [
+        "Reproduce incomplete translation saved as untranslated=0",
+        "Preserve pending positions and completed edits",
+        "Test partial, resolved, and repeated saves"
+      ],
+      "test_command": "python-runtime/python.exe -X utf8 -B tests/test_reverse_translation.py",
+      "test_status": "passed",
+      "test_output": "569 canonical backend tests pass; final actual-model 13-extension acceptance and 12-extension zero-request text/review recovery pass. See docs/validation-2.2.7.md for sample scope and PDF audit adjudication.",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-002",
+      "category": "bugfix",
+      "priority": 1,
+      "description": "Robust Chinese proofreading locations and stable recovery across regenerated draft paths.",
+      "steps": [
+        "Safely accept unique exact substring suggestions",
+        "Retry malformed model output without losing valid findings",
+        "Bind checkpoints to original source and aligned content, not temporary draft names"
+      ],
+      "test_command": "python-runtime/python.exe -X utf8 -B tests/test_reverse_translation.py",
+      "test_status": "passed",
+      "test_output": "569 canonical backend tests pass; final actual-model 13-extension acceptance and 12-extension zero-request text/review recovery pass. See docs/validation-2.2.7.md for sample scope and PDF audit adjudication.",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-003",
+      "category": "bugfix",
+      "priority": 1,
+      "description": "PDF-specific coherent text blocks and reverse fact validation without large English fallbacks.",
+      "steps": [
+        "Preserve physical line evidence and URLs",
+        "Avoid translating fragmented clauses independently",
+        "Bounded repairs isolate a failed unit rather than retaining a whole page",
+        "Read and render actual saved output"
+      ],
+      "test_command": "python-runtime/python.exe -X utf8 -B tests/test_reverse_translation.py",
+      "test_status": "passed",
+      "test_output": "569 canonical backend tests pass; final actual-model 13-extension acceptance and 12-extension zero-request text/review recovery pass. See docs/validation-2.2.7.md for sample scope and PDF audit adjudication.",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-004",
+      "category": "bugfix",
+      "priority": 1,
+      "description": "Translate inline HTML/EPUB/subtitle semantic units without duplicating negation across styling tags.",
+      "steps": [
+        "Group contiguous prose by structural boundary",
+        "Map translated spans back to original styles and syntax",
+        "Regression-check original Chinese-to-English adapters"
+      ],
+      "test_command": "python-runtime/python.exe -X utf8 -B tests/test_reverse_translation.py",
+      "test_status": "passed",
+      "test_output": "569 canonical backend tests pass; final actual-model 13-extension acceptance and 12-extension zero-request text/review recovery pass. See docs/validation-2.2.7.md for sample scope and PDF audit adjudication.",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-005",
+      "category": "bugfix",
+      "priority": 2,
+      "description": "Concurrent first-use glossary initialization does not fail queued tasks.",
+      "steps": [
+        "Serialize only in-process initialization",
+        "Keep external write-conflict and fingerprint protections",
+        "Test simultaneous first loads"
+      ],
+      "test_command": "python-runtime/python.exe -X utf8 -B tests/test_glossary_bundled.py",
+      "test_status": "passed",
+      "test_output": "569 canonical backend tests pass; final actual-model 13-extension acceptance and 12-extension zero-request text/review recovery pass. See docs/validation-2.2.7.md for sample scope and PDF audit adjudication.",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-006",
+      "category": "bugfix",
+      "priority": 2,
+      "description": "Semantic emphasis stays on corresponding Chinese words, especially negative safety warnings.",
+      "steps": [
+        "Inspect styled runs against original emphasis",
+        "Repair style mapping independently from accepted translation",
+        "Preserve PPT and Word colors, bold and font hierarchy"
+      ],
+      "test_command": "python-runtime/python.exe -X utf8 -B tests/test_reverse_translation.py",
+      "test_status": "passed",
+      "test_output": "569 canonical backend tests pass; final actual-model 13-extension acceptance and 12-extension zero-request text/review recovery pass. See docs/validation-2.2.7.md for sample scope and PDF audit adjudication.",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-007",
+      "category": "functional",
+      "priority": 3,
+      "description": "Repeat real-model multi-format and failure/recovery acceptance before patch release.",
+      "steps": [
+        "Fresh isolated runs for all 13 supported extensions and free text",
+        "Native Word/PPT render and guarded Excel baseline comparison",
+        "Repeat risky fixtures without cached translations",
+        "Full regressions and release checks",
+        "One version, original CI installer, domestic original deltas and actual old-client upgrade"
+      ],
+      "test_command": "See RELEASING.md and private QA run manifests",
+      "test_status": "passed",
+      "test_output": "Source tests, actual model matrix, native pages, recovery and UI checks pass; formal CI and original domestic patch upgrade acceptance remain.",
+      "status": "in_progress",
+      "passes": false
+    }
+  ]
+}

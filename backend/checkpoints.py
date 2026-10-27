@@ -22,7 +22,7 @@ def digest(value):
 @lru_cache(maxsize=2)
 def policy(stage):
     names = ['writing_policy.py', 'document_context.py', 'pptx_content.py', 'llm/client.py', 'text_integrity.py']
-    if stage in ('translation-zh', 'review-zh'):names+=['reverse_translation.py','text_translation.py','replacer/styled_text.py','extract/office.py','replacer/pptx_package.py']
+    if stage in ('translation-zh', 'review-zh'):names+=['reverse_translation.py','reverse_entities.py','text_translation.py','formats.py','pdf_reflow.py','pdf_links.py','replacer/styled_text.py','extract/office.py','replacer/pptx_package.py']
     elif stage=='pdf-image':names+=['pdf_image_text.py','pdf_image_ocr.py','image_ocr.ps1','translation_policy.py']
     elif stage=='pdf-output':names+=['pdf_quality.py','word_native_preview.py','word_render.ps1','pdf_image_ocr.py','image_ocr.ps1']
     else:

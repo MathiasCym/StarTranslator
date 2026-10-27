@@ -52,6 +52,7 @@ class TextDocument:
         self.document = Document()
         self.paragraphs, self.blocked, self.values = [], [], {}
         self.writer = None
+        self._star_inline_groups = []
         self.normalize = literal
         self.note = '保留文件结构；仅修改可读正文。'
 
@@ -79,10 +80,12 @@ class TextDocument:
 def spans_document(path, text, encoding, spans, note='保留编码、段落及非正文内容。'):
     document = TextDocument(path)
     replacements = []
+    positions = []
     for index, (start, end, value, render) in enumerate(spans):
         locator = f'text/{index}'
         if document.add(locator, value) is not None:
             replacements.append((start, end, locator, render))
+            positions.append((start,end,locator))
     def writer(destination, values):
         result = text
         for start, end, locator, render in reversed(replacements):
@@ -90,7 +93,26 @@ def spans_document(path, text, encoding, spans, note='保留编码、段落及�
                 result = result[:start] + render(values[locator]) + result[end:]
         destination.write_bytes(result.encode(encoding))
     document.writer, document.note = writer, note
+    if Path(path).suffix.lower() in {'.html','.htm','.md','.markdown','.srt','.ass'}:
+        document._star_inline_groups = inline_groups(text,positions,Path(path).suffix.lower())
     return document
+
+
+def inline_groups(text,positions,kind):
+    """Metadata only: reverse translation can join prose around inline markup.
+
+    Original extraction/writers and Chinese-to-English segmentation are intact.
+    Block tags, code, cue boundaries and physical subtitle/Markdown lines stop a
+    group. IDs, attributes, targets and markup never become translatable text.
+    """
+    groups=[];previous=None
+    boundary=re.compile(r'</?(?:p|div|h[1-6]|li|td|th|tr|section|article|title|body|head|ul|ol|table|blockquote|br|hr|script|style|pre|code|svg|math)\b|<!--',re.I)
+    for start,end,locator in positions:
+        gap=text[previous:start] if previous is not None else ''
+        stop=previous is None or bool(boundary.search(gap)) or kind in {'.md','.markdown','.srt','.ass'} and bool(re.search(r'[\r\n]|\\[Nn]',gap))
+        if stop:groups.append([])
+        groups[-1].append(locator);previous=end
+    return [group for group in groups if len(group)>1]
 
 
 def literal(value): return value
@@ -320,6 +342,7 @@ def epub_document(path):
                 locator = f'epub/{page}/{index}'
                 if document.add(locator,value,'text',page) is not None: replacements.append((start,end,locator,render))
             contents[name] = (text,encoding,replacements)
+            document._star_inline_groups += inline_groups(text,[(a,b,loc) for a,b,loc,_ in replacements],'.html')
     def writer(destination,values):
         changed = {}
         for name,(text,encoding,replacements) in contents.items():

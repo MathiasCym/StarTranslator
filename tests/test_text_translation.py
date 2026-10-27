@@ -64,7 +64,26 @@ class TextTranslationTests(unittest.TestCase):
                 self.assertEqual(job['done'], job['total'])
                 self.assertFalse(list(Path(self.temp.name).rglob('*')), 'Free text must not create document/checkpoint/history files')
 
+    def test_reviewer_correction_is_validated_without_retranslating_accepted_facts(self):
+        client=Client([{'translation':'灰度精度为10位。'},
+            {'ok':False,'issues':['采用已确认术语灰阶'],'corrected_translation':'灰阶精度为10位。'},OK])
+        job=self.run_job('The grayscale accuracy is 10-bit.','en-zh',client)
+        self.assertTrue(job['result']['complete']);self.assertEqual(job['result']['translation'],'灰阶精度为10位。')
+        self.assertEqual(len(client.calls),3)
+        self.assertEqual(sum('待译原文' in prompt for prompt,_ in client.calls),1)
+
     def test_reverse_calendar_units_codes_and_identifiers(self):
+        text.validate('The pixel pitch is2.5 mm.','点间距为2.5毫米。','en-zh')
+        text.validate('The temperature is-10 to40 °C.','温度为-10至40°C。','en-zh')
+        text.validate('The controller model to40 supports 60 Hz.','控制器型号to40支持60Hz。','en-zh')
+        for original,target in [('The pixel pitch is2.5 mm.','点间距为2.5。'),
+                ('The controller model to40 supports 60 Hz.','控制器型号to41支持60Hz。'),('is2.5','是2.5')]:
+            with self.assertRaises(ValueError):text.validate(original,target,'en-zh')
+        for source,target in [('The grayscale accuracy is 10-bit.','灰阶精度为10位。'),
+                ('灰阶精度为10bit。','灰阶精度为10位。'),('灰阶精度为10位。','灰阶精度为10-bit。'),
+                ('The grayscale accuracy is 10-bit.','灰阶精度为10比特。')]:
+            text.validate(source,target,'en-zh')
+        with self.assertRaises(ValueError):text.validate('10位专家','10-bit experts','en-zh')
         text.validate('John Smith', 'John Smith', 'en-zh')
         text.validate('Aegisolve, Inc.', 'Aegisolve, Inc.', 'en-zh')
         with self.assertRaises(ValueError): text.validate('The screen is waterproof.', 'The screen is waterproof.', 'en-zh')

@@ -1,5 +1,5 @@
 """Default-library upgrades preserve edits, deletions and valid-file operation."""
-import copy,json,os,sys,tempfile,unittest
+import copy,json,os,sys,tempfile,unittest,time
 from pathlib import Path
 from unittest.mock import patch
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -24,6 +24,17 @@ class BundledGlossaryTests(unittest.TestCase):
             stub=patch.object(bundled,name,return_value=value);stub.start();self.addCleanup(stub.stop)
     def read(self):return json.loads(self.path.read_text('utf-8-sig'))
     def run_upgrade(self):bundled.upgrade_local(self.path);return bundled.status(self.path)
+
+    def test_concurrent_first_loads_finish_all_local_migrations_without_lock_failure(self):
+        from concurrent.futures import ThreadPoolExecutor
+        from backend.glossary import corrections
+        merge=corrections.merge
+        def slow(entries):time.sleep(.05);return merge(entries)
+        with patch.object(corrections,'merge',side_effect=slow),ThreadPoolExecutor(max_workers=5) as pool:
+            results=list(pool.map(lambda _:store.load_glossary(),range(5)))
+        self.assertEqual(len({len(g.entries) for g in results}),1)
+        self.assertTrue(all(any(e.zh=='已有术语' for e in g.entries) for g in results))
+        self.assertFalse(Path(str(self.path)+'.lock').exists())
 
     def test_missing_terms_are_added_with_exact_existing_fields_and_backup(self):
         before=self.path.read_bytes();report=self.run_upgrade()

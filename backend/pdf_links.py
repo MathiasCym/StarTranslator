@@ -46,6 +46,8 @@ def append_page_links(document,reader,page,visible_text=''):
     def paragraph(label):
         p=document.add_paragraph();p.paragraph_format.space_after=Pt(2)
         r=p.add_run(label);r.font.name='Arial';r.font.size=Pt(9)
+        if not hasattr(document,'_star_pdf_link_labels'):document._star_pdf_link_labels=[]
+        document._star_pdf_link_labels.append((r,label))
         return p
     def link(p,text,uri=None,anchor=None):
         node=OxmlElement('w:hyperlink')

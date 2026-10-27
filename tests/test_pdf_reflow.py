@@ -31,6 +31,12 @@ class PdfReflowTests(unittest.TestCase):
         self.assertEqual(result,'Hollywood Park, USA\n[32] COSM. NHL and Cosm announce multi-year partnership.')
         self.assertEqual(compact(result),compact(plain))
 
+    def test_positioned_sentence_gap_separates_email_from_following_prose(self):
+        plain='Support:service@example.com.Readthespecificationat'
+        layout='Support: service@example.com.    Read the specification at'
+        self.assertEqual(restore_spaces(plain,layout),'Support: service@example.com. Read the specification at')
+        self.assertEqual(restore_spaces(plain,plain),plain)
+
     def test_positioned_text_cannot_replace_or_reorder_source_characters(self):
         plain='VX1000 200 Mbit\nChapter 2\nChapter 3'
         layout='VX2000 200 Mbyte\nChapter 3\nChapter 2'

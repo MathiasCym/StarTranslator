@@ -66,10 +66,14 @@ def finish(job, data):
         db.execute('UPDATE tasks SET status=?,payload=? WHERE id=?', (row['status'], json.dumps(row, ensure_ascii=False), job['id']))
 
 
-def exported(report_id, source, output, count, failed, overwrite, comparison_id=None):
+def exported(report_id, source, output, count, failed, overwrite, comparison_id=None,quality=None):
     stamp = time.time()
     event = {'id': uuid4().hex, 'at': datetime.fromtimestamp(stamp).astimezone().isoformat(),
              'source': source, 'path': output, 'replaced': count, 'errors': failed, 'overwrite': overwrite, 'comparison_id':comparison_id}
+    if quality is not None:
+        event['quality']={'untranslated':int(quality.get('untranslated',0)),
+            'needs_review':int(quality.get('needs_review',0)),
+            'audit':(quality.get('output_audit') or {}).get('status')}
     with connection() as db:
         merge_export(db, report_id, event, stamp)
 
@@ -106,6 +110,29 @@ def merge_export(db, report_id, event, stamp):
     row['last_output_at'] = max(item['at'] for item in events)
     row['errors'].extend(event['errors'])
     if event['errors'] and row['status'] == 'complete': row['status'] = 'partial'
+    if 'quality' in event:
+        # Reverse translation can be completed by an explicitly accepted manual
+        # correction. Only current successful saves of every source can clear a
+        # pending badge; model/transport/cancel/write failures remain resumable.
+        import ntpath
+        normal=lambda value:ntpath.normcase(ntpath.normpath(value))
+        latest={normal(item['source']):item['quality'] for item in events if 'quality' in item}
+        sources={normal(value) for value in row.get('paths',[])}
+        if sources and sources<=latest.keys():
+            values=[latest[source] for source in sources]
+            pending=sum(value['untranslated'] for value in values)
+            previous=row['counts'].get('manual_review',0)
+            row['counts']['untranslated']=pending
+            row['counts']['needs_review']=sum(value['needs_review'] for value in values)
+            row['counts'].setdefault('manual_review_total',previous)
+            row['counts']['manual_review']=pending
+            row['counts']['unreviewed']=max(0,row['counts'].get('unreviewed',0)-max(0,previous-pending))
+            processing=row['counts'].get('review_processing_status',row['counts'].get('model_status'))
+            if (row['status']=='partial' and processing=='complete' and not row['errors']
+                    and not row['counts'].get('errors') and not row['counts'].get('truncated')
+                    and not row['counts'].get('unreviewed') and not pending
+                    and all(value['audit']=='complete' for value in values)):
+                row.update(status='complete',can_resume=False)
     db.execute('UPDATE tasks SET status=?,payload=? WHERE id=?', (row['status'], json.dumps(row, ensure_ascii=False), report_id))
 
 

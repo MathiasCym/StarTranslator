@@ -462,7 +462,8 @@ def apply_report(data, progress=None, client=None):
             result = _apply_report(data, report, progress=progress, client=client)
             option = report.get('output_options',{}).get(data['path'],{})
             source = option.get('source',data['path'])
-            try: history.exported(data['report_id'], source, result['output'], result['applied_count'], result['failed'], result['overwritten'],option.get('comparison_id'))
+            try: history.exported(data['report_id'], source, result['output'], result['applied_count'], result['failed'], result['overwritten'],option.get('comparison_id'),
+                **({'quality':result} if option.get('direction',report.get('direction'))=='en-zh' else {}))
             except Exception: logging.getLogger(__name__).exception('Could not save export history')
             return result
     finally:
@@ -611,6 +612,10 @@ def _apply_report(data, report, progress=None, client=None):
     reference_warnings=list({(i['locator'],i['reason']):i for i in reference_warnings}.values())
     fitting_warnings+=reference_warnings
     notify('write',message='正在生成文档，原文件保持不变')
+    reverse_pending = [{'translation':finding.found_text, 'locator':segments[finding.segment_id].locator
+                        if finding.segment_id in segments else None}
+        for index,finding in enumerate(report['findings']) if reverse and finding.file_path==path
+        and finding.reason.startswith('英译中未完成：') and not finding.applied and index not in applied_indices]
     if not overwrite or managed_output:
         out = Path(option['output']) if managed_output and option.get('output') else output_path(
             option.get('source',path) if final_only else path,
@@ -638,7 +643,7 @@ def _apply_report(data, report, progress=None, client=None):
             notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
             if reverse:
                 from .reverse_translation import audit_saved
-                output_audit=audit_saved(temporary,para_map)
+                output_audit=audit_saved(temporary,para_map,reverse_pending)
             else:final_residuals=saved_residuals(temporary)
             if pdf_source:
                 from .pdf_quality import audit
@@ -681,7 +686,7 @@ def _apply_report(data, report, progress=None, client=None):
             notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
             if reverse:
                 from .reverse_translation import audit_saved
-                output_audit=audit_saved(temporary,para_map)
+                output_audit=audit_saved(temporary,para_map,reverse_pending)
             else:final_residuals=saved_residuals(temporary)
             if pdf_source:
                 from .pdf_quality import audit
@@ -737,7 +742,8 @@ def _apply_report(data, report, progress=None, client=None):
                     finding.editable = False
                     finding.not_editable_reason = '原文已被本次改正更新。'
         updates.append({'index':index,'finding':finding.to_dict()})
-    pending_translation=[f for f in report['findings'] if f.file_path==path and f.reason.startswith('翻译待核对：') and not f.applied]
+    pending_translation=[f for f in report['findings'] if f.file_path==path
+        and f.reason.startswith(('翻译待核对：','英译中未完成：')) and not f.applied]
     content_warnings=[f'已保存可用文件；仍有 {len(pending_translation)} 处翻译待核对，请查看报告中的对应位置。'] if pending_translation else []
     if final_residuals:content_warnings.append(f'输出复查仍发现 {len(final_residuals)} 处可见中文，已保留内容和原有链接；当前文件不能视为完整英文。')
     content_warnings.extend('输出复查：'+i['reason'] for i in (output_audit or {}).get('issues',[]))
@@ -746,5 +752,5 @@ def _apply_report(data, report, progress=None, client=None):
     if pending_images:
         content_warnings.append('原 PDF 仍有图片文字或读取问题未解决，请查看报告中的图片位置；有效文件已保存。')
     return {'output':output,'report_path':path,'comparison_id':option.get('comparison_id'),'applied_count':len(done),'failed':failed,'overwritten':overwrite,'finding_updates':updates,'content_warnings':content_warnings,
-            'remaining_chinese':final_residuals,'untranslated':len(final_residuals),'output_audit':output_audit,
+            'remaining_chinese':final_residuals,'untranslated':len(pending_translation) if reverse else len(final_residuals),'output_audit':output_audit,
             'layout_warnings':layout_warnings,'layout_adjustments':layout_adjustments,'layout_checked':is_pptx and not layout_warnings,'needs_review':len(layout_warnings)+len(final_residuals)+pending_images+len((output_audit or {}).get('issues',[]))}

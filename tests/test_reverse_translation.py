@@ -155,5 +155,186 @@ class ReverseTests(unittest.TestCase):
         self.assertEqual(result['result']['stats']['target_language'],'zh')
         self.assertEqual(Document(source).paragraphs[0].text,TARGET)
 
+    def test_save_preserves_pending_reverse_translation_until_it_is_resolved(self):
+        source=self.root/'partial.docx';doc=Document();doc.add_paragraph(SOURCE)
+        doc.add_paragraph('The warranty applies only to indoor displays.');doc.save(source)
+        model=Model()
+        with patch('backend.workflow.LLMClient',return_value=model):
+            job=workflow.start({'kind':'translate_review','direction':'en-zh','paths':[str(source)],'combined_output':'final'})
+            result=asyncio.run(task_queue.wait(job['id'],.005))
+        self.assertEqual(result['status'],'partial');self.assertTrue(result['can_resume'])
+        output=result['result']['outputs'][0]
+        self.assertEqual(output['untranslated'],1)
+        self.assertEqual(output['output_audit']['status'],'partial')
+        data={'report_id':job['id'],'path':output['path'],'save_unchanged':True}
+        first=workflow.apply_report(data)
+        self.assertEqual(first['untranslated'],1)
+        self.assertGreaterEqual(first['needs_review'],1)
+        self.assertTrue(any('翻译待核对' in warning for warning in first['content_warnings']))
+        self.assertEqual(__import__('backend.history',fromlist=['record']).record(job['id'])['status'],'partial')
+        report=result['result']['report'];index=next(i for i,f in enumerate(report['findings']) if f['reason'].startswith('英译中未完成：'))
+        fixed=workflow.apply_report({**data,'edits':[{'index':index,'text':'保修仅适用于室内显示屏。'}]})
+        self.assertFalse(fixed['failed']);self.assertEqual(fixed['untranslated'],0)
+        self.assertEqual(fixed['output_audit']['status'],'complete')
+        recorded=__import__('backend.history',fromlist=['record']).record(job['id'])
+        self.assertEqual(recorded['status'],'complete');self.assertFalse(recorded['can_resume'])
+        again=workflow.apply_report(data)
+        self.assertEqual(again['untranslated'],0)
+        self.assertIn('保修仅适用于室内显示屏。',Document(again['output']).paragraphs[1].text)
+
+    def test_chinese_review_accepts_only_uniquely_locatable_substring(self):
+        from backend.reverse_translation import check_segments
+        class Local(Model):
+            def chat_json(self,prompt,system='',**options):
+                self.calls.append((prompt,system))
+                return {'reviewed':True,'suggestions':[{'original':'点间距','replacement':'像素间距','reason':'统一术语'}]}
+        source=self.root/'target.docx';doc=Document();doc.add_paragraph(TARGET);doc.save(source)
+        findings,stats=check_segments(extract(source),self.glossary,client=Local())
+        self.assertEqual(stats['model_status'],'complete');self.assertEqual(len(findings),1)
+        self.assertEqual(findings[0].found_text,'点间距');self.assertEqual(findings[0].suggested,'像素间距')
+        doc=Document();doc.add_paragraph('点间距与点间距必须一致。');doc.save(source)
+        findings,stats=check_segments(extract(source),self.glossary,client=Local())
+        self.assertEqual(findings,[]);self.assertEqual(stats['model_status'],'partial')
+
+    def test_review_retries_bad_location_without_hiding_or_repeating_transport_failure(self):
+        from backend.reverse_translation import check_segments
+        class Repair(Model):
+            def chat_json(self,prompt,system='',**options):
+                self.calls.append((prompt,system))
+                return {'reviewed':True,'suggestions':[{'original':'不存在' if len(self.calls)==1 else TARGET,'replacement':'像素间距为 2.5 mm。','reason':'统一术语'}]}
+        source=self.root/'target.docx';doc=Document();doc.add_paragraph(TARGET);doc.save(source);model=Repair()
+        findings,stats=check_segments(extract(source),self.glossary,client=model)
+        self.assertEqual(len(model.calls),2);self.assertEqual(stats['model_status'],'complete');self.assertEqual(len(findings),1)
+
+    def test_combined_review_checkpoints_survive_new_draft_paths(self):
+        source=self.doc()
+        for iteration in range(2):
+            model=Model()
+            with patch('backend.workflow.LLMClient',return_value=model):
+                job=workflow.start({'kind':'translate_review','direction':'en-zh','paths':[str(source)],'combined_output':'final'})
+                result=asyncio.run(task_queue.wait(job['id'],.005))
+            self.assertEqual(result['status'],'complete',result.get('error'))
+            if iteration:
+                self.assertEqual(model.calls,[])
+                self.assertEqual(result['result']['stats']['resumed_segments'],2)
+                self.assertEqual(result['result']['outputs'][0]['resumed_segments'],2)
+
+    def test_pdf_recovers_only_whitespace_before_reverse_numeric_validation(self):
+        from test_file_formats import pdf_fixture
+        from backend.reverse_translation import pdf_source_text
+        class PdfModel(Model):
+            def chat_json(self,prompt,system='',**options):
+                data=json.loads(prompt)
+                if 'PDF英文文字层' in data:
+                    self.calls.append((prompt,system));return {'text':SOURCE}
+                return super().chat_json(prompt,system,**options)
+        source=self.root/'joined.pdf';pdf_fixture(source,'The pixel pitch is2.5 mm.');model=PdfModel()
+        result=translate_file(source,self.glossary,None,client=model,direction='en-zh')
+        self.assertTrue(result['translation_complete'],result['review_items'])
+        self.assertIn(TARGET,'\n'.join(s.text for s in extract(result['path'])))
+        again=PdfModel();result=translate_file(source,self.glossary,None,client=again,direction='en-zh')
+        self.assertEqual(result['resumed_segments'],1);self.assertEqual(again.calls,[])
+        class Unsafe(PdfModel):
+            def chat_json(self,*a,**kw):return {'text':'The pixel pitch is 3.5 mm.'}
+        with self.assertRaisesRegex(ValueError,'空格未能安全'):
+            pdf_source_text('The pixel pitch is2.5 mm.',Unsafe(),threading.Event())
+
+    def test_inline_markup_is_translated_as_one_sentence_in_each_container(self):
+        english='Do not disconnect the power supply while the LED display is updating.'
+        class Inline(Model):
+            def chat_json(self,prompt,system='',**options):
+                data=json.loads(prompt)
+                if data.get('待译原文')==english:
+                    self.calls.append((prompt,system));groups=data['原文样式片段']
+                    return {'translation':'请勿在LED显示屏更新期间断开电源。','runs':[{'id':groups[0]['id'],'text':'请勿'},{'id':groups[1]['id'],'text':'在LED显示屏更新期间断开电源。'}]}
+                return super().chat_json(prompt,system,**options)
+        tail=english[len('Do not'):]
+        fixtures={'.html':'<p><strong>Do not</strong>'+tail+'</p>',
+            '.md':'**Do not**'+tail+'\n',
+            '.srt':'1\n00:00:01,000 --> 00:00:03,000\n<i>Do not</i>'+tail+'\n',
+            '.ass':'[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:01.00,0:00:03.00,Default,,0,0,0,,{\\b1}Do not{\\b0}'+tail+'\n'}
+        for ext,text in fixtures.items():
+            with self.subTest(ext=ext):
+                source=self.root/('inline'+ext);source.write_text(text,'utf-8');model=Inline()
+                result=translate_file(source,self.glossary,None,client=model,direction='en-zh')
+                self.assertTrue(result['translation_complete'],result['review_items'])
+                actual=''.join(s.text for s in extract(result['path']) if s.editable)
+                self.assertEqual(actual,'请勿在LED显示屏更新期间断开电源。')
+                self.assertEqual(result['translated'],result['total'])
+                second=Inline();again=translate_file(source,self.glossary,None,client=second,direction='en-zh')
+                self.assertEqual(second.calls,[]);self.assertEqual(again['resumed_segments'],again['total'])
+
+    def test_semantic_emphasis_repair_keeps_fixed_translation_and_negative_scope(self):
+        english='Do not disconnect the power supply while the LED display is updating.'
+        chinese='在LED显示屏更新时，请勿断开电源。'
+        class Emphasis(Model):
+            def chat_json(self,prompt,system='',**options):
+                self.calls.append((prompt,system));data=json.loads(prompt)
+                if '译文样式片段' in data:
+                    return {'ok':True,'issues':[]}  # An optimistic model cannot bypass the deterministic negation anchor.
+                if '已确定中文' in data:return {'anchors':[{'id':0,'text':'请勿'}]}
+                if '原文' in data:return {'ok':True,'issues':[]}
+                return {'translation':chinese,'runs':[{'id':0,'text':'在LED显示屏更新时，请勿'},{'id':1,'text':'断开电源。'}]}
+        source=self.root/'warning.docx';doc=Document();p=doc.add_paragraph();r=p.add_run('Do not');r.bold=True;r.font.color.rgb=RGBColor(255,0,0);p.add_run(english[6:]);doc.save(source)
+        model=Emphasis();result=translate_file(source,self.glossary,None,client=model,direction='en-zh')
+        self.assertTrue(result['translation_complete'],result['review_items'])
+        paragraph=Document(result['path']).paragraphs[0]
+        self.assertEqual(paragraph.text,chinese)
+        self.assertEqual(''.join(r.text for r in paragraph.runs if r.bold),'请勿')
+        self.assertEqual(sum('待译原文' in prompt for prompt,_ in model.calls),1)
+
+    def test_unknown_person_names_are_not_guessed_in_translation_or_review(self):
+        class Names(Model):
+            translations=0;reviews=0
+            def chat_json(self,prompt,system='',**options):
+                data=json.loads(prompt.split('\n上次检查：')[0]);self.calls.append((prompt,system))
+                if '候选及英文原文语境' in data:return {'people':['Chen Yiming']}
+                if '中文译文' in data:
+                    self.reviews+=1
+                    return {'reviewed':True,'suggestions':[{'original':'Chen Yiming','replacement':'陈一鸣','reason':'翻译人名'}] if self.reviews==1 else []}
+                if '待译原文' in data:
+                    self.translations+=1
+                    text='陈一鸣批准了报告。' if self.translations==1 else 'Chen Yiming批准了报告。'
+                    return {'translation':text,'runs':[{'id':0,'text':text}]}
+                return {'ok':True,'issues':[]}
+        source=self.root/'person.docx';doc=Document();doc.add_paragraph('Chen Yiming approves the report.');doc.save(source)
+        model=Names()
+        with patch('backend.workflow.LLMClient',return_value=model):
+            job=workflow.start({'kind':'translate_review','direction':'en-zh','paths':[str(source)],'combined_output':'final'})
+            result=asyncio.run(task_queue.wait(job['id'],.005))
+        self.assertEqual(result['status'],'complete',result.get('error'))
+        self.assertEqual(model.translations,2);self.assertEqual(model.reviews,2)
+        self.assertEqual(result['result']['report']['findings'],[])
+        output=result['result']['outputs'][0]
+        self.assertIn('Chen Yiming',Document(output['path']).paragraphs[0].text)
+
+    def test_pure_ppt_layout_changes_do_not_inflate_translation_count(self):
+        source=self.root/'partial.pptx';deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
+        box=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(6),Inches(3));box.text_frame.paragraphs[0].text=SOURCE
+        box.text_frame.add_paragraph().text='The warranty applies only to indoor displays.';deck.save(source)
+        def visual(src,out,document,changed,*args,**options):
+            changed.append('slide1/shape0/p1');return [],[]
+        with patch('backend.pptx_visual_review.review_pptx',side_effect=visual),patch('backend.officecli_bridge.inspect',return_value={}),patch('backend.officecli_bridge.compare',return_value=[]):
+            result=translate_file(source,self.glossary,None,client=Model(),direction='en-zh')
+        self.assertEqual(result['translated'],1);self.assertEqual(result['untranslated'],1);self.assertEqual(result['total'],2)
+
+    def test_pdf_logical_paragraphs_keep_headings_without_sentence_tail_fragments(self):
+        from backend.reverse_translation import pdf_source_text
+        source='Verification and H2 Strategy\nH2 strategy: improve the 10-bit grayscale\naccuracy.\nThe refresh rate is 60 Hz.'
+        class Logical(Model):
+            def chat_json(self,*args,**options):return {'paragraphs':source.splitlines()}
+        target=pdf_source_text(source,Logical(),threading.Event())
+        self.assertEqual(target,'Verification and H2 Strategy\nH2 strategy: improve the 10-bit grayscale accuracy.\nThe refresh rate is 60 Hz.')
+
+    def test_person_substring_and_wrapped_name_are_not_mistaken_for_a_title(self):
+        from types import SimpleNamespace
+        from backend.reverse_entities import identify,validate_names
+        class Person(Model):
+            def chat_json(self,*args,**options):return {'people':['Chen Yiming']}
+        terms=identify([SimpleNamespace(text='Chen Yiming\nTechnical Report',editable=True)],self.glossary,Person(),threading.Event())
+        self.assertEqual(terms,{'Chen Yiming':'Chen Yiming'})
+        validate_names('Chen\nYiming approves this.','Chen Yiming批准此事。',terms)
+        with self.assertRaises(ValueError):validate_names('Chen\nYiming approves this.','陈一鸣批准此事。',terms)
+
 
 if __name__=='__main__':unittest.main()

@@ -5,12 +5,14 @@ import json
 import os
 import shutil
 import tempfile
+import threading
 from pathlib import Path
 
 from .loader import Glossary, _load_any
 from ..models import GlossaryEntry
 
 FIELDS = set(GlossaryEntry.__dataclass_fields__)
+INITIALIZE_LOCK = threading.RLock()
 
 
 class Conflict(ValueError):
@@ -147,6 +149,13 @@ def seed_entries():
 
 
 def active_path():
+    # Startup, queued jobs and glossary UI may arrive together. Serialize only
+    # our in-process migrations; external edits still use fingerprint/file locks.
+    with INITIALIZE_LOCK:
+        return _active_path()
+
+
+def _active_path():
     folder = data_dir()
     folder.mkdir(parents=True, exist_ok=True)
     settings = folder / 'lexicon-settings.json'

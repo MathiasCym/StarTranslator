@@ -37,6 +37,13 @@ def restore_spaces(plain, layout):
         protected = set()
         for match in IDENTIFIERS.finditer(original):
             a, b = len(compact(original[:match.start()])), len(compact(original[:match.end()]))
+            # A PDF may omit the gap after an email's sentence-ending period,
+            # making the regex consume the following sentence as a TLD. Only a
+            # gap independently present in positioned extraction can split it.
+            if '@' in match[0] and '://' not in match[0]:
+                end = re.match(r'(.+?@[A-Za-z0-9.-]+?\.[A-Za-z]{2,12})\.(?=[A-Z])',match[0])
+                if end and a+len(compact(end[0])) in additional:
+                    b=a+len(compact(end[1]))
             protected.update(range(a+1, b))
         for match in re.finditer(r'[A-Za-z0-9]+(?:[-_/][A-Za-z0-9]+)*', original):
             token = match[0]
