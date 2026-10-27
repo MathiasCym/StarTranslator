@@ -14,7 +14,7 @@
 
 ## 功能一览
 
-本次功能与使用范围见 [中英双向翻译](docs/bidirectional-translation.md)，测试及交付记录见 [2.2.7 验收](docs/validation-2.2.7.md)。已有本机词库的补全机制见 [本机词库自动补全](docs/bundled-glossary-updates.md)，此前正式附件及实际升级记录见 [2.2.6 验收](docs/validation-2.2.6.md)。
+本次功能与使用范围见 [中英双向翻译](docs/bidirectional-translation.md)，正式附件及旧版小包升级记录见 [2.2.7 验收](docs/validation-2.2.7.md)。已有本机词库的补全机制见 [本机词库自动补全](docs/bundled-glossary-updates.md)，此前正式附件及实际升级记录见 [2.2.6 验收](docs/validation-2.2.6.md)。
 
 | 功能 | 可以完成的工作 |
 | --- | --- |

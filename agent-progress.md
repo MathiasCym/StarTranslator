@@ -46,3 +46,10 @@
 - 12-extension text/review recovery zero model attempts; public quality tool en-zh fresh 12 requests then immediate forbidden-resume sent=blocked=0; free text both directions passes. PPT image work may re-request; do not claim zero-request PPT visual cache.
 - UI/readability/fullscreen/real default and four display scenarios pass. Fixed test fixture zoom after destroying the app window to prevent same-origin zoom bleed; no product scale change. 116 maintenance and 1 actual small updater restart test pass.
 - Prepared version 2.2.7 once, date 2026-10-27, docs/changelog and ignored formal-2-2-7-20261026 delivery scripts. Pending: one source commit/API exact-tree publication, CI originals, domestic original patches for 2.2.4/.5/.6, actual isolated old 2.2.6 update, payload/runtime checks and final record/docs-only commit. Real install and profile remain untouched.
+
+## 2026-10-27 — completed 2.2.7 delivery
+
+- Product commit e67fa83291a8a5eadedd673b7689dcd399398beb, tree 964bbc50041afd2af1f8d2212dcce055ca26f8db. GitHub API exact-tree fallback matched local Git; canonical commit aligned, original local commit archived.
+- CI 40432410416 and public-mirror job successful. Original installer dist/StarTranslator-Setup-2.2.7.exe: 144311902 bytes, SHA-256 0a0528dc01b13568eee228903f268e62a59c100594b2117dd0a0987109a5f125. Fresh extraction 1296 checked, recovery/new backend/source matching, 105 packaged tests, setup images and actual default window passed.
+- Domestic formal original deltas 2.2.4/.5/.6 anonymously downloaded over direct session with no GitHub; same bytes/digests as original release. Actual old 2.2.6 component downloaded/applied 1481539-byte delta; final manifest matched, personal fixture and glossary preserved, owned update cache cleaned. Upgraded real app 2.2.7 and actual glossary 2515 with personal notes/aliases passed. Real installation untouched.
+- No unresolved delivery items. PDF bitmap/original layout, spreadsheet native exporter limitations, and PPT visual re-request boundaries remain explicitly documented. Final step is docs-only commit/mirror of this completed record; no product rebuild or version change.

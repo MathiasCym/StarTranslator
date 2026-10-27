@@ -116,9 +116,9 @@
       ],
       "test_command": "See RELEASING.md and private QA run manifests",
       "test_status": "passed",
-      "test_output": "Source tests, actual model matrix, native pages, recovery and UI checks pass; formal CI and original domestic patch upgrade acceptance remain.",
-      "status": "in_progress",
-      "passes": false
+      "test_output": "Delivered 2.2.7: 569 backend, 116 maintenance, 1 actual updater restart, 105 packaged tests; 13-extension real-model gate and 12-extension zero-request text/review recovery. CI 40432410416, domestic originals and actual isolated 2.2.6 upgrade passed. See docs/validation-2.2.7.md.",
+      "status": "completed",
+      "passes": true
     }
   ]
 }
