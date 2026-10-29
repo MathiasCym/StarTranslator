@@ -119,6 +119,22 @@
       "test_output": "Delivered 2.2.7: 569 backend, 116 maintenance, 1 actual updater restart, 105 packaged tests; 13-extension real-model gate and 12-extension zero-request text/review recovery. CI 40432410416, domestic originals and actual isolated 2.2.6 upgrade passed. See docs/validation-2.2.7.md.",
       "status": "completed",
       "passes": true
+    },
+    {
+      "id": "feat-008",
+      "category": "ui",
+      "priority": 2,
+      "description": "Make the LAN text translation entry visible in the new-task card and deliver one 2.3.2 patch.",
+      "steps": [
+        "Move the existing entry without changing translation or document processing",
+        "Verify first-screen visibility and clicking on narrow and desktop screens",
+        "Verify formal installer, original domestic small updates and isolated old-client upgrade"
+      ],
+      "test_command": "node tools/check-readable-ui.cjs",
+      "test_status": "passed",
+      "test_output": "Delivered 2.3.2: CI 40826921607, 569 backend/116 maintenance/105 packaged tests; actual packaged LAN entry and both text directions pass. Original domestic deltas and isolated 2.2.7 upgrade, data retention, cache cleanup and actual 2.3.2 launch passed.",
+      "status": "completed",
+      "passes": true
     }
   ]
 }
