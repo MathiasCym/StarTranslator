@@ -18,9 +18,9 @@ test('mapping is exact and cannot redirect maintenance to another repository or 
  assert.throws(()=>validate({...config,aliases:config.aliases.slice(1)}))
  const altered=structuredClone(config);altered.aliases[0].display='3.0.0';assert.throws(()=>validate(altered))
 })
-test('all eight historical sections use new display numbers and the current section is unique',()=>{
+test('all approved historical sections use new display numbers without changing update identities',()=>{
  const headings=[...changelog.matchAll(/^## \[([^\]]+)\]/gm)].map(m=>m[1])
- for(const item of config.aliases){assert.equal(headings.filter(v=>v===item.display).length,1);assert(!headings.includes(item.original));assert(section(changelog,item.display).includes('1. '))}
+ for(const item of config.aliases){assert.equal(headings.filter(v=>v===item.display).length,1);assert(!headings.includes(item.original));assert(section(changelog,item.display).length>20)}
  assert(section(changelog,'2.1.7').includes('Word'))
  assert(section(changelog,'2.1.0').includes('增量更新'))
  assert(!section(changelog,'2.1.7').startsWith('历史编号：'))
@@ -34,7 +34,7 @@ test('a historical title always states both display version and original update 
 test('maintenance updates only title and body, retaining tags, publication state and all assets',async()=>{
  const p=provider(),before=new Map([...p.values].map(([k,v])=>[k,protectedState(v)]))
  const plans=await planProvider(p,config,changelog),result=await applyProvider(p,plans)
- assert.equal(result.length,9);assert.equal(p.calls.length,9)
+ assert.equal(result.length,11);assert.equal(p.calls.length,11)
  for(const [tag,value] of p.values)assert.deepEqual(protectedState(value),before.get(tag))
  assert.equal(p.values.get('v2.1.7').name,'星译官 v2.1.7')
 })
@@ -70,6 +70,20 @@ test('title changes cannot alter the updater version or its validated download a
  const after=candidate(item,'2.0.15')
  assert.equal(after.version,'2.0.16');assert.equal(after.sha256,before.sha256);assert.equal(after.url,before.url)
  assert.equal(after.size,before.size);assert.equal(after.filename,before.filename)
+})
+
+test('the bidirectional milestone aliases preserve 2.2.6 and 2.2.7 update compatibility',async()=>{
+ const {candidate}=require('../../lib/github-updates')
+ for(const [original,display] of [['2.2.6','2.3.0'],['2.2.7','2.3.1']]){
+  const item=release(original,30),before=candidate(item,'2.2.5')
+  Object.assign(item,presentation({original,display},'Original feature notes'))
+  const after=candidate(item,'2.2.5')
+  assert.equal(item.tag_name,'v'+original);assert(item.name.includes(display)&&item.name.includes(original))
+  for(const key of ['version','sha256','url','size','filename'])assert.equal(after[key],before[key])
+ }
+ const p=provider();await applyProvider(p,await planProvider(p,config,changelog))
+ assert.equal(p.values.get('v2.2.6').name,'星译官 v2.3.0（原 v2.2.6）')
+ assert.equal(p.values.get('v2.2.7').name,'星译官 v2.3.1（原 v2.2.7）')
 })
 test('GitHub credentials only go to fixed owned endpoints without following redirects',async()=>{
  const requests=[],client=github('fixture-token',async(url,options)=>{

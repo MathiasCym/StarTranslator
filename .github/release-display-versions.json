@@ -10,6 +10,8 @@
     { "original": "2.0.14", "display": "2.1.4" },
     { "original": "2.0.15", "display": "2.1.5" },
     { "original": "2.0.16", "display": "2.1.6" },
-    { "original": "2.0.17", "display": "2.1.7" }
+    { "original": "2.0.17", "display": "2.1.7" },
+    { "original": "2.2.6", "display": "2.3.0" },
+    { "original": "2.2.7", "display": "2.3.1" }
   ]
 }

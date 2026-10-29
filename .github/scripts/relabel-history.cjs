@@ -7,8 +7,10 @@ const normal=value=>String(value||'').replace(/\r\n/g,'\n').trim()
 
 function validate(config){
  assert.equal(config.schema,1);assert.equal(config.repository,REPOSITORY)
- assert.equal(config.canonical,'2.1.7');assert.equal(config.aliases.length,8)
- config.aliases.forEach((item,i)=>assert.deepEqual(item,{original:'2.0.'+(10+i),display:'2.1.'+i}))
+ assert.equal(config.canonical,'2.1.7')
+ const approved=[...Array.from({length:8},(_,i)=>({original:'2.0.'+(10+i),display:'2.1.'+i})),
+  {original:'2.2.6',display:'2.3.0'},{original:'2.2.7',display:'2.3.1'}]
+ assert.deepEqual(config.aliases,approved,'Only explicitly approved display aliases may be changed')
  return config
 }
 function section(changelog,version){
