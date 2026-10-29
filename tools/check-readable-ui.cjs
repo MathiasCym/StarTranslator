@@ -425,6 +425,12 @@ server.listen(0,'127.0.0.1',async()=>{
   const reversePending=await run("reviewCompletionState({stats:{manual_review:1,unreviewed:1,model_status:'partial',review_processing_status:'complete'},findings:[{found_text:'Untranslated English',reason:'英译中未完成：模型中断'}]}, {status:'complete',can_resume:true})")
   assert.equal(reversePending.manualPending,1);assert.equal(reversePending.untranslated,1)
   result.checks.push('free text editor: actual desktop entry, 942/1280/1600px layouts, English-Chinese request, verified output, copy enabled, swap direction and reopen during processing')
+  for(const w of [360,480,900,1280]){
+   shared.setContentSize(w,850);await sr('scrollTo(0,0)');await wait(100)
+   const entry=await sr("(()=>{const b=$('openTextTranslation'),r=b.getBoundingClientRect(),s=getComputedStyle(b);return {inTaskCard:!!b.closest('.prepare'),primary:b.classList.contains('primary'),type:b.type,description:$('textEntryHint').textContent,visible:r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&b.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)),horizontal:document.documentElement.scrollWidth-innerWidth}})()")
+   assert(entry.inTaskCard&&entry.primary&&entry.type==='button'&&entry.visible&&entry.horizontal<2,JSON.stringify({width:w,...entry}));assert(entry.description.includes('无需上传文件'))
+  }
+  result.checks.push('shared text entry is prominent in the new-task card and visible without scrolling at 360/480/900/1280px')
   await sr("$('openTextTranslation').click()")
   for(const w of [480,900]){
     shared.setContentSize(w,850);await wait(100)
