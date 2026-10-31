@@ -184,9 +184,9 @@
       ],
       "test_command": "See tests/test_text_languages.py, tools/check-readable-ui.cjs and docs/multilingual-text.md",
       "test_status": "passed",
-      "test_output": "Local implementation checks passed: 584 backend checks; final 11 multilingual/13 original text tests; actual configured DeepSeek 56 prose pairs and 8 official-term ring pairs; UI state retention and 2240/150% real-entry presentation. Formal next-release packaging and upgrade gates pending.",
-      "status": "in_progress",
-      "passes": false
+      "test_output": "Delivered 2.3.5: CI 41232729984; 584 backend/128 maintenance/136 packaged tests. Inline desktop/LAN workspace, actual DeepSeek 56 sentence pairs and 8 supplied-term ring pairs pass. Domestic original deltas, actual isolated 2.3.4 apply, packaged text generation/review, 14 native picker cases, glossary/data retention and cache cleanup pass. See docs/validation-2.3.5.md.",
+      "status": "completed",
+      "passes": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 # 主界面文本翻译与多语言检查
 
-本批并入 2.3.5，与文件选择窗口关闭问题的修复一起交付，正在完成正式构建及国内升级验收。既有正式版、真实安装与配置保持不变。
+本批并入 2.3.5，与文件选择窗口关闭问题的修复一起交付，已完成正式构建、国内原小包及隔离旧版实际升级验收。既有正式版、真实安装与配置保持不变。
 
 ## 功能
 
@@ -23,4 +23,4 @@
 
 初次真实日译俄暴露了句末标点并入网址，以及模型把合法标点／等价单位误列为错误的问题。仅将确能唯一匹配原地址的新增末尾标点与地址分开，保留原地址字节；不能匹配的地址改变继续拒绝。复核规则明确允许自然标点、正常词形变化和等价单位，真实组合随后通过。
 
-证据保存在忽略的 `dist/qa/text-workspace-20261101`：`real-e8xwbpu4/result.json` 为 56 组合，`real-d48xervq/result.json` 为 8 个官方短词组，另有失败与修复后的预检记录、`final-regressions.log` 和公开词库核查。界面检查在 `dist/qa/readability`，真实窗口在 `dist/qa/presentation/text-workspace-2240-*`。正式 CI、原安装包、国内小包及实际旧版升级仍须在下一次发布时完成。
+证据保存在忽略的 `dist/qa/text-workspace-20261101`：`real-e8xwbpu4/result.json` 为 56 组合，`real-d48xervq/result.json` 为 8 个官方短词组，另有失败与修复后的预检记录、`final-regressions.log` 和公开词库核查。界面检查在 `dist/qa/readability`，真实窗口在 `dist/qa/presentation/text-workspace-2240-*`。正式 CI、原安装包、国内原小包、2.3.4 实际升级及包内界面／后台闭环已通过，详见 [2.3.5 验收](validation-2.3.5.md)。
