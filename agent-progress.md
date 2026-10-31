@@ -77,3 +77,11 @@
 - User requested removal of visible legacy directory branding, all 8 official glossary languages for reference only, no saved model profile limit and LAN scrollbar repair. All-language public term publication explicitly authorized; original XLSX stays private.
 - Source tests: 573 backend, 122 maintenance and actual small-updater restart passed; catalog all source cells exact, 1965 rows, bilingual 2515 unchanged. 6 directory migration tests and actual main/Python startup pass with original encrypted bytes and old references. UI 8-language searches, paging, focus and narrow layout pass. LAN multiple addresses folded, common display checks running.
 - Version selected ONCE: 2.3.3. Do not bump again. Remaining: full CI original installer, fresh payload checks, domestic deltas from actual recent 2.2.6/2.2.7/2.3.2, isolated old-client apply, package migration/new catalog, final records and docs-only sync. No real user data modified.
+
+
+## 2026-10-31 — completed 2.3.3 delivery
+
+- Product source 6fe1eccecb08332ec00b4ad85f4aa11e2d50ad12, CI 41188876137 Windows/domestic success. Original installer 144448178 bytes, SHA-256 0bbcb6eb69bea93faa09ea69cd6d5a2e2c8845391f5bb30533d5ae120ecef99d. 1298 fresh payload files and recovery copies exact; 125 packaged tests, setup images, actual default window and package migration passed.
+- Source: 573 backend, 122 maintenance, actual updater restart, all original glossary language cells exact, actual profile migration and checkpoint/history database reuse, common display matrices passed.
+- Domestic original 2.2.6/2.2.7/2.3.2 deltas anonymous direct read match GitHub. Actual original 2.3.2 updater applied 1585559 bytes, full target manifest exact, personal data retained and cache cleaned. Actual upgraded 2.3.3 opened, 2515 bilingual and 1965 multilingual/8 language searches passed. Real user profile/installation, model/proxy and source workbook untouched.
+- No required product work remains; commit/mirror final docs and tracking only, no rebuild or version bump. Evidence dist/qa/formal-2-3-3-20261031.

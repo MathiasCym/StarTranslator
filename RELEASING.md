@@ -188,7 +188,7 @@ GitHub 正式发行版：
 
 ## 安装器维护补充：目录
 
-`build/installer.nsh` 将安装文件夹固定为英文 `StarTranslator`，不改变产品显示名称、应用 ID 或用户数据目录规则。
+`build/installer.nsh` 将安装文件夹固定为英文 `StarTranslator`，产品显示名称与应用 ID 保持兼容。2.3.3 起正常启动将默认用户数据迁至 `%APPDATA%\StarTranslator`，以旧目录兼容链接保留历史和旧更新程序的绝对引用；不能批量删除这些兼容名称。迁移占用、冲突或回滚时保留可用数据并提示，安装／渲染模式与测试自定义路径不迁移真实资料。`tools/check-user-data.cjs` 验证实际应用及包内迁移。
 安装脚本提供自定义目录选择页，因此配置中的 `allowToChangeInstallationDirectory: false` 只关闭原内置页，并不禁止用户选择目录。
 升级时若原目录末级为 `NovaTerm Checker`、`novaterm-checker` 或 `星译官`，默认改用同级 `StarTranslator`；其他自定义目录和显式 `/D` 参数保持不变。
 旧安装注册表在卸载旧程序前不会被改写，避免旧卸载器误操作新目录。安装包使用原有升级卸载流程保留用户数据，不直接重命名或递归移动旧目录。

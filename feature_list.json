@@ -148,10 +148,10 @@
         "CI original installer, domestic original deltas and isolated old-client upgrade"
       ],
       "test_command": "See tools/check-user-data.cjs, tools/check-readable-ui.cjs and RELEASING.md",
-      "test_status": "in_progress",
-      "test_output": "573 backend and 122 maintenance checks, native updater restart and targeted catalog/profile/migration checks pass. Formal delivery pending.",
-      "status": "in_progress",
-      "passes": false
+      "test_status": "passed",
+      "test_output": "Delivered 2.3.3: CI 41188876137; 573 backend/122 maintenance/125 packaged tests. Original domestic deltas and isolated 2.3.2 native apply, data retention, cache cleanup, actual migrated profile and 8-language UI search pass. See docs/validation-2.3.3.md.",
+      "status": "completed",
+      "passes": true
     }
   ]
 }
