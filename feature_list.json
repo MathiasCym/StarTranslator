@@ -165,10 +165,10 @@
         "Deliver original CI patch and verify isolated old-client upgrade"
       ],
       "test_command": "node --test tests/test_user_data_path.js; node tools/check-user-data.cjs; node tools/check-readable-ui.cjs",
-      "test_status": "in_progress",
-      "test_output": "9 migration tests, 4 catalog backend tests, real application migration and all eight language UI checks passed; formal release pending.",
-      "status": "in_progress",
-      "passes": false
+      "test_status": "passed",
+      "test_output": "Delivered 2.3.4: CI 41218648525; 573 backend/125 maintenance/125 packaged tests. Actual empty-target migration preserves encrypted bytes and legacy references. Domestic originals and isolated 2.3.3 native apply, personal content, cache cleanup, actual upgraded app and eight-language direct filtering/search pass. Source blanks remain blanks; see docs/validation-2.3.4.md.",
+      "status": "completed",
+      "passes": true
     }
   ]
 }

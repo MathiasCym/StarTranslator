@@ -92,3 +92,10 @@
 - Reproduced real installed 2.3.3 in isolation: existing empty StarTranslator directory caused legacy fallback. Actual source catalog and current read-only HTTP response contain all source values; default selected source row has six genuinely missing language cells. Preserve these gaps, never fabricate translations.
 - 9 directory tests, 4 backend catalog tests, actual main/Python migration with empty target and 8-language UI default/filter/search/missing-source checks passed. User data untouched; company models not called.
 - One version selected: 2.3.4. CI original installer, domestic original deltas and actual isolated old-client upgrade still required.
+
+## 2026-11-01 — 2.3.4 delivery verified
+
+- Product source `d1e6ebe7ec5e9dc27e014b8d6f7402198237ae2a`, tree `894356220cce012399c90fb1a84ab421f955227c`; formal CI 41218648525 and domestic mirror both succeeded. 573 backend, 125 maintenance, native restart and desktop checks passed; local formal payload passed 125 tests, 1,298 integrity items, setup images and real default-window checks.
+- Confirmed actual old archive migration bug when branded directory is empty; formal package migration through real entry preserves all tested encrypted bytes, settings, history and old absolute references. Original workbook cells match exactly; 82 Chinese/English-only rows and one additional Korean gap remain missing, no generated translations.
+- Domestic original patches for 2.2.7/2.3.2/2.3.3 anonymously match GitHub bytes. Actual original 2.3.3 updater applied 1,117,715-byte patch to isolated installation; final manifest matches formal installer, personal document/glossary unchanged, owned cache cleaned. Actual upgraded app starts with 2,515 personal terms, notes/aliases and all eight-language no-query filters/search. No real profile or installation modified.
+- Original installer retained in `dist/StarTranslator-Setup-2.3.4.exe`; exact size/hash and truthful scope in `docs/validation-2.3.4.md`. Final changes are documentation only; no rebuild or version increase. Private evidence in `dist/qa/formal-2-3-4-20261031` and presentation/migration records.
