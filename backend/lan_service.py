@@ -235,6 +235,12 @@ def create_app(testing=False):
         if extension not in ('css', 'js'): return '', 404
         return send_file(ROOT / ('text-translation.' + extension))
 
+    @app.get('/shared/text/languages')
+    def text_languages():
+        session_for_request()
+        from .text_languages import metadata
+        return jsonify(metadata())
+
     @app.post('/shared/text/jobs')
     def start_text():
         session = session_for_request()
@@ -242,7 +248,7 @@ def create_app(testing=False):
         if data.get('retry_of') and data['retry_of'] not in session.get('text_jobs', []):
             raise ValueError('任务不存在。')
         # No remote model configuration or local paths accepted.
-        job = workflow.start({key: data[key] for key in ('text', 'direction', 'retry_of') if key in data} | {'kind': 'text'})
+        job = workflow.start({key: data[key] for key in ('text', 'direction', 'retry_of','source_language','target_language') if key in data} | {'kind': 'text'})
         with SERVICE_LOCK:
             session.setdefault('text_jobs', []).append(job['id'])
             session['text_jobs'] = session['text_jobs'][-task_queue.MAX_RETAINED:]

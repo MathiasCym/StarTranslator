@@ -8,7 +8,33 @@ let integrityBusy = false, integrityResult = null, integrityFocus = null
 const esc = value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
 const basename = path => String(path || '').split(/[\\/]/).pop()
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
-window.StarTextTranslation.mount({ button: $('openTextTranslation'), request: callApi, prefix: '/api/jobs' })
+let textViewSnapshot = null
+function textSurface(open) {
+  if (open) {
+    if (state.busy || state.exportBusy || state.choosingOutput) { toast('请先完成当前文档任务。'); return false }
+    if (!textViewSnapshot) {
+      textViewSnapshot = { reportOpen: !$('reportModal').hidden, results: document.body.classList.contains('results-view') }
+      $('reportModal').hidden = true
+    }
+    document.body.classList.add('text-view'); document.body.classList.remove('results-view')
+  } else {
+    const previous = textViewSnapshot; textViewSnapshot = null
+    document.body.classList.remove('text-view')
+    if (previous) { document.body.classList.toggle('results-view',previous.results); $('reportModal').hidden = !previous.reportOpen }
+  }
+  document.querySelector('.workspace-heading h2').textContent = open ? '文本工作台' : '文档工作台'
+  for (const [id,active] of [['modeCheck',!open && state.mode === 'check'],['modeTranslate',!open && state.mode === 'translate'],['openTextTranslation',open]]) {
+    $(id).classList.toggle('active',active); $(id).setAttribute('aria-pressed',String(active))
+  }
+  $('workspaceHint').textContent = open ? '选择语言，直接输入或粘贴文本' : state.mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
+  return true
+}
+const textEditor = window.StarTextTranslation.mount({ button: $('openTextTranslation'), host: $('textWorkspace'), request: callApi, prefix: '/api/jobs', languagesPath:'/api/text/languages',
+  onOpen: () => textSurface(true), onClose: () => textSurface(false), ready: async () => {
+    for (let attempt = 0; attempt < 60; attempt++) { if (await window.api.backendPort()) return; await delay(500) }
+    throw Error('本地服务尚未就绪，请稍后重新打开文本翻译。')
+  } })
+function leaveTextSurface() { if (textViewSnapshot) textEditor.close() }
 function toast(message, error = false) {
   const box = $('toast')
   box.innerHTML = ''
@@ -71,6 +97,7 @@ $('documentDirection').onchange = () => {
   state.direction = $('documentDirection').value; localStorage.setItem('nova.direction', state.direction); setMode(state.mode)
 }
 function showWorkspace() {
+  leaveTextSurface()
   document.body.classList.remove('results-view')
   $('workspace').hidden = false; $('reportModal').hidden = true; $('reviewCompletePanel').hidden = true; $('translationPanel').hidden = true; $('taskFailurePanel').hidden = true
   renderFiles()
@@ -96,6 +123,7 @@ async function confirmResultNavigation(message, accept = '完成并返回') {
   return true
 }
 async function requestMode(mode) {
+  leaveTextSurface()
   if (mode === state.mode) return
   if (!await confirmResultNavigation(`切换到${mode === 'check' ? '校对' : '翻译'}后，将离开当前结果界面，尚未应用的修改不会写入文档。已保存的文件和历史记录会保留。`,
     state.exportRecords.some(output => output.staged) ? '仍然切换' : '完成并切换')) return
@@ -121,6 +149,7 @@ for (const id of ['failureExportLog', 'completionExportLog', 'translationExportL
   } finally { $(id).disabled = false }
 })
 function showTaskFailure(error) {
+  leaveTextSurface()
   const errors = state.job?.result?.errors || []
   state.lastFailure = error?.message?.trim() || errors.map(e => `${e.path ? basename(e.path) + '：' : ''}${e.error || '未提供错误说明'}`).join('\n') || '任务未能完成，可导出错误日志排查。'
   document.body.classList.remove('results-view')
@@ -178,10 +207,11 @@ dropzone.addEventListener('drop', async event => { try { const paths = await Pro
 window.addEventListener('dragover', event => event.preventDefault()); window.addEventListener('drop', event => event.preventDefault())
 
 function busy(value) {
+  if (value) leaveTextSurface()
   state.busy = value
   $('translationOptions').disabled = value
   $('jobProgressTrack').classList.toggle('active', value)
-  for (const id of ['modeCheck', 'modeTranslate', 'documentDirection', 'openLexicon', 'openModel', 'runCombined']) $(id).disabled = value || (id === 'runCombined' && !state.files.length)
+  for (const id of ['modeCheck', 'modeTranslate', 'openTextTranslation', 'documentDirection', 'openLexicon', 'openModel', 'runCombined']) $(id).disabled = value || (id === 'runCombined' && !state.files.length)
   $('jobPanel').hidden = !value; $('runBtn').disabled = value || !state.files.length
 }
 async function runTask(combined = false, restored = null) {

@@ -1,4 +1,7 @@
-"""Read-only multilingual reference, deliberately separate from matching/translation."""
+"""Read-only multilingual reference; free text can use its supplied language pairs.
+
+It remains independent of the editable bilingual glossary and document writers.
+"""
 import json
 from pathlib import Path
 from .loader import DEFAULT_PATH

@@ -1,32 +1,34 @@
 /* The same plain-text editor is used by desktop and the owned LAN session. */
 ;(() => {
-  window.StarTextTranslation = { mount({ button, request, prefix, ready = async () => {} }) {
-    const dialog = document.createElement('dialog')
-    dialog.className = 'text-translator'
+  window.StarTextTranslation = { mount({ button, request, prefix, host, languagesPath, onOpen = () => true, onClose = () => {}, ready = async () => {} }) {
+    const dialog = host || document.createElement('section')
+    dialog.className = 'text-translator text-inline'
+    dialog.hidden = true
     dialog.setAttribute('aria-labelledby', 'textTranslationTitle')
-    dialog.innerHTML = `<header class="text-heading"><div><h2 id="textTranslationTitle">文本翻译</h2><p>使用当前模型与术语库，完整翻译并对照复核。</p></div><button type="button" data-close>关闭</button></header>
-      <div class="text-toolbar"><label>翻译方向 <select data-direction aria-label="文本翻译方向"><option value="zh-en">中文 → 英文</option><option value="en-zh">英文 → 中文</option></select></label><button type="button" data-swap>交换原文与译文</button><button type="button" data-clear>清空</button></div>
+    dialog.innerHTML = `<header class="text-heading"><div><h2 id="textTranslationTitle">文本翻译</h2><p>自然表达已内置，词语以术语准确为主；翻译后对照原文复核。</p></div><button type="button" data-close>返回文档</button></header>
+      <div class="text-toolbar"><label>源语言 <select data-source-language aria-label="文本源语言"></select></label><button type="button" data-swap aria-label="交换语言，已有完整译文时同时交换文本">⇄ 交换</button><label>目标语言 <select data-target-language aria-label="文本目标语言"></select></label><button type="button" data-clear>清空</button></div>
       <div class="text-editors"><label><span class="text-editor-heading">原文 <span data-count>0 / 20,000 字符</span></span><textarea data-source maxlength="20000" placeholder="粘贴或输入需要翻译的文本…" spellcheck="false"></textarea></label><label><span class="text-editor-heading">译文</span><textarea data-target readonly placeholder="译文将在这里显示…" spellcheck="false"></textarea></label></div>
       <div class="text-feedback"><progress max="100" hidden aria-label="文本翻译进度"></progress><p data-status role="status" aria-live="polite">保留段落、数字、型号及网址；每次最多 20,000 字符。</p><p data-error role="alert" hidden></p></div>
       <footer class="text-actions"><button type="button" data-copy disabled>复制译文</button><button type="button" data-retry hidden>重试未完成段落</button><button type="button" data-cancel hidden>取消翻译</button><button type="button" data-start class="primary">开始翻译</button></footer>`
-    document.body.append(dialog)
+    if (!host) document.querySelector('main').append(dialog)
     const find = selector => dialog.querySelector(selector)
-    const source = find('[data-source]'), target = find('[data-target]'), direction = find('[data-direction]')
+    const source = find('[data-source]'), target = find('[data-target]'), sourceLanguage = find('[data-source-language]'), targetLanguage = find('[data-target-language]')
     const status = find('[data-status]'), errorBox = find('[data-error]'), progress = find('progress')
-    let active = null, busy = false, complete = false, submitting = false, polling = false, inputSnapshot = null
+    let active = null, busy = false, complete = false, submitting = false, polling = false, inputSnapshot = null, languagesReady = false, opening = false
+    const matches = () => inputSnapshot && source.value === inputSnapshot.text && sourceLanguage.value === inputSnapshot.source_language && targetLanguage.value === inputSnapshot.target_language
     function message(text, error = false) {
       if (error) { errorBox.textContent = text; errorBox.hidden = false }
       else { status.textContent = text; errorBox.hidden = true }
     }
     function controls() {
       const locked = busy || submitting
-      source.disabled = direction.disabled = locked
-      find('[data-start]').disabled = locked || !source.value.trim()
-      find('[data-swap]').disabled = locked || !complete
+      source.disabled = sourceLanguage.disabled = targetLanguage.disabled = locked
+      find('[data-start]').disabled = locked || !languagesReady || sourceLanguage.value === targetLanguage.value || !source.value.trim()
+      find('[data-swap]').disabled = locked || !languagesReady
       find('[data-clear]').disabled = locked
       find('[data-cancel]').hidden = !busy
       find('[data-copy]').disabled = !target.value || locked
-      find('[data-retry]').hidden = locked || !active || complete || !inputSnapshot || source.value !== inputSnapshot.text || direction.value !== inputSnapshot.direction
+      find('[data-retry]').hidden = locked || !active || complete || !matches()
       dialog.setAttribute('aria-busy', String(locked))
     }
     function show(job) {
@@ -34,7 +36,7 @@
       progress.hidden = !busy
       progress.value = job.percent || 0
       if (job.result) { target.value = job.result.translation; complete = job.result.complete === true }
-      message((busy ? `${job.done} / ${job.total} 段 · ` : '') + job.message)
+      message((busy ? `${job.done} / ${job.total} 段 · ` : '') + job.message + (job.warning ? '。' + job.warning : ''))
       if (job.error) message(job.error, true)
       else if (!busy && job.result && !complete) {
         const errors = job.result.blocks.filter(block => block.error).map(block => block.error)
@@ -62,21 +64,38 @@
       submitting = true; controls(); message('正在提交文本翻译…')
       try {
         await ready()
-        const body = { text: source.value, direction: direction.value, kind: 'text' }
+        if (!languagesReady || sourceLanguage.value === targetLanguage.value) throw Error('请选择不同的源语言和目标语言。')
+        const body = { text: source.value, source_language: sourceLanguage.value, target_language: targetLanguage.value, kind: 'text' }
         if (retry && active) body.retry_of = active
         const job = await request('POST', prefix, body)
-        inputSnapshot = { text: body.text, direction: body.direction }
+        inputSnapshot = { ...body }
         target.value = ''; complete = false; show(job)
         poll()
       } catch (error) { message(error.message, true) }
       finally { submitting = false; controls() }
     }
-    button.addEventListener('click', () => {
-      if (!dialog.open) dialog.showModal()
-      source.focus(); controls()
-    })
-    find('[data-close]').onclick = () => dialog.close()
-    dialog.addEventListener('close', () => button.focus())
+    async function open() {
+      if (opening) return
+      opening = true
+      try {
+        if (dialog.hidden && await onOpen() === false) return
+        dialog.hidden = false; button.setAttribute('aria-pressed','true'); source.focus(); controls()
+        if (!languagesReady) {
+          message('正在读取可用语言…')
+          await ready()
+          const data = await request('GET', languagesPath)
+          if (!Array.isArray(data.languages) || data.languages.length < 2) throw Error('支持的语言暂未读取，请返回后重新打开。')
+          for (const select of [sourceLanguage,targetLanguage]) select.replaceChildren(...data.languages.map(language => new Option(language.name,language.code)))
+          sourceLanguage.value = 'zh-CN'; targetLanguage.value = 'en-US'; languagesReady = true
+          message(data.warning || '保留段落、数字、型号及网址；每次最多 20,000 字符。',!!data.warning)
+          controls()
+        }
+      } catch (error) { message(error.message + ' 可再次点击“文本翻译”重试。',true) }
+      finally { opening = false }
+    }
+    function close() { dialog.hidden = true; button.setAttribute('aria-pressed','false'); onClose(); button.focus() }
+    button.addEventListener('click', open)
+    find('[data-close]').onclick = close
     find('[data-start]').onclick = () => start(false)
     find('[data-retry]').onclick = () => start(true)
     find('[data-cancel]').onclick = async () => {
@@ -84,16 +103,19 @@
       catch (error) { message(error.message, true) }
     }
     source.addEventListener('input', () => { find('[data-count]').textContent = `${source.value.length.toLocaleString()} / 20,000 字符`; controls() })
-    direction.onchange = controls
+    for (const select of [sourceLanguage,targetLanguage]) select.onchange = () => { source.lang = sourceLanguage.value; target.lang = targetLanguage.value; controls() }
     find('[data-clear]').onclick = () => {
       source.value = target.value = ''; complete = false; active = null; source.dispatchEvent(new Event('input'))
       message('保留段落、数字、型号及网址；每次最多 20,000 字符。'); source.focus()
     }
     find('[data-swap]').onclick = () => {
-      const original = source.value; source.value = target.value; target.value = original
-      direction.value = direction.value === 'zh-en' ? 'en-zh' : 'zh-en'
+      const reuse = complete && matches(), previousLanguage = sourceLanguage.value
+      sourceLanguage.value = targetLanguage.value; targetLanguage.value = previousLanguage
+      if (reuse) { const original = source.value; source.value = target.value; target.value = original }
+      else target.value = ''
       complete = false; active = null; source.dispatchEvent(new Event('input')); source.focus()
-      message('已交换文本，请点击“开始翻译”使用新的方向。')
+      source.lang = sourceLanguage.value; target.lang = targetLanguage.value
+      message(reuse ? '已交换语言与文本，请点击“开始翻译”。' : '已交换语言，请核对原文后开始翻译。')
     }
     find('[data-copy]').onclick = async () => {
       try { await navigator.clipboard.writeText(target.value); message('已复制' + (complete ? '译文。' : '当前结果；标记的未完成段落仍需重试。')) }
@@ -103,6 +125,6 @@
       if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') { event.preventDefault(); start(false) }
     })
     controls()
-    return { dialog }
+    return { element:dialog, open, close, get busy() { return busy || submitting } }
   } }
 })()

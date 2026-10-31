@@ -3,7 +3,9 @@ const $ = id => document.getElementById(id)
 const esc = x => String(x ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 let csrf = '', jobs = [], selected = '', comparison = null, lastDetail = '', polling = false, comparisonBase = ''
 const labels = {translate:'翻译',check:'校对',translate_review:'翻译并校对',queued:'排队中',running:'处理中',complete:'已完成',failed:'未完成',cancelled:'已取消',partial:'部分完成',interrupted:'已中断'}
-window.StarTextTranslation.mount({ button: $('openTextTranslation'), prefix: '/shared/text/jobs',
+window.StarTextTranslation.mount({ button: $('openTextTranslation'), host:$('textWorkspace'), prefix: '/shared/text/jobs', languagesPath:'/shared/text/languages',
+  onOpen: () => { document.body.classList.add('shared-text-view'); document.querySelector('.heading h1').textContent='文本工作台'; return true },
+  onClose: () => { document.body.classList.remove('shared-text-view'); document.querySelector('.heading h1').textContent='文档工作台' },
   request: (method, path, body) => api(path, { method, ...(body ? { body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } } : {}) }),
   ready: async () => { await sharedSessionReady; if (!csrf) throw Error('共享会话未就绪，请刷新页面重试。') }
 })

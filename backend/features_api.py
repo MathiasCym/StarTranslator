@@ -13,6 +13,12 @@ from . import history
 api = Blueprint('features',__name__)
 
 
+@api.get('/api/text/languages')
+def text_languages():
+    from .text_languages import metadata
+    return jsonify(metadata())
+
+
 @api.before_request
 def protect_team_api():
     if request.path.startswith('/api/team/'):

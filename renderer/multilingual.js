@@ -1,4 +1,4 @@
-// Reference-only data is never sent to the translation or glossary-edit APIs.
+// The reference viewer never submits glossary edits or translation requests.
 (() => {
   let data = null, page = 0, selected = '', busy = false
   const size = 40, normalize = value => String(value || '').normalize('NFKC').toLocaleLowerCase().trim()

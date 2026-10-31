@@ -3,7 +3,7 @@
   const dialog = document.getElementById('updateNoticeDialog')
   let pending = null, finishing = false, seenManually = false
   function present() {
-    if (!pending || dialog.open || document.hidden || !document.hasFocus() || state.busy || state.exportBusy || state.choosingOutput || integrityBusy || profileBusy) return
+    if (!pending || dialog.open || document.hidden || document.body.classList.contains('text-view') || !document.hasFocus() || state.busy || state.exportBusy || state.choosingOutput || integrityBusy || profileBusy) return
     if (document.querySelector('dialog[open],.modal:not([hidden])') || document.getElementById('workspace').hidden) return
     document.getElementById('updateNoticeIntro').textContent = `星译官 v${pending.version} 已发布，本次重点更新：`
     document.getElementById('updateNoticeHighlights').replaceChildren(...pending.highlights.map(text => {

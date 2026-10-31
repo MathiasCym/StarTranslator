@@ -12,6 +12,7 @@ if(typeof runtime==='string') {
 }
 const {app,BrowserWindow,ipcMain}=require('electron'),fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict')
 const root=path.resolve(__dirname,'..'),qaDir=path.join(root,'dist','qa','readability'),wait=ms=>new Promise(r=>setTimeout(r,ms)),result={passed:false,checks:[],screenshots:[],companyDocumentsSent:false}
+const textLanguages=JSON.parse(fs.readFileSync(path.join(root,'glossary/multilingual.json'))).languages
 fs.mkdirSync(qaDir,{recursive:true})
 app.setPath('userData',path.join(qaDir,'readable-ui-profile'));BrowserWindow.prototype.show=function(){}
 app.getVersion=()=>JSON.parse(fs.readFileSync(path.join(root,'package.json'))).version
@@ -26,6 +27,7 @@ const server=http.createServer((req,res)=>{
  res.setHeader('Content-Type',url.endsWith('.css')?'text/css':url.endsWith('.js')?'text/javascript':url.endsWith('.png')?'image/png':'text/html')
  if(url==='/v1/models')return res.end(JSON.stringify({data:[{id:'ui-only'}]}))
  if(url==='/shared/session'){res.setHeader('Set-Cookie','preview-test=owned; HttpOnly; SameSite=Strict; Path=/');return res.end(JSON.stringify({csrf:'ui-only'}))}
+ if(url==='/shared/text/languages')return res.end(JSON.stringify({languages:textLanguages}))
  if(url.startsWith('/preview-fixture/preview/')){
   const page=Number(new URL(req.url,'http://localhost').searchParams.get('page')||1),owned=String(req.headers.cookie||'').includes('preview-test=owned')
   previewRequests.push({page,side:url.split('/').at(-1),owned})
@@ -435,7 +437,9 @@ server.listen(0,'127.0.0.1',async()=>{
   // Exercise the real editor mounted by the application, including a long
   // result, target direction and close/reopen while a background task runs.
   const textRequests=[]
+  const documentStateBeforeText=await run("JSON.stringify({files:state.files,references:state.references,pairs:state.pairs,report:state.report,selected:[...state.selected],edits:state.edits})")
   ipcMain.removeHandler('api');ipcMain.handle('api',(_event,{method,path:apiPath,body})=>{
+    if(apiPath==='/api/text/languages')return {languages:textLanguages}
     if(apiPath==='/api/jobs'&&method==='POST'){
       textRequests.push(body)
       return {id:'text-fixture',kind:'text',status:'running',done:0,total:1,message:'正在对照原文复核',percent:0}
@@ -444,6 +448,10 @@ server.listen(0,'127.0.0.1',async()=>{
     return {}
   })
   await run("$('openTextTranslation').click()")
+  for(let n=0;n<50&&!await run("document.querySelector('.text-translator [data-source-language]').options.length===8");n++)await wait(50)
+  assert.equal(await run("document.querySelector('.text-translator').tagName"),'SECTION')
+  assert.equal(await run("!!document.querySelector('main > .text-translator')"),true)
+  assert.equal(await run("document.querySelector('.text-translator [data-humanize]')===null"),true)
   for(const [w,h] of [[942,560],[1280,820],[1600,998]]){
     setViewport(w,h);await wait(100)
     const geometry=await run("(()=>{const d=document.querySelector('.text-translator'),r=d.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight,overflow:d.scrollHeight-d.clientHeight,editors:[...d.querySelectorAll('textarea')].map(t=>({height:t.clientHeight,width:t.clientWidth})),actions:[...d.querySelectorAll('footer button')].filter(b=>b.getClientRects().length).map(b=>({top:b.getBoundingClientRect().top,bottom:b.getBoundingClientRect().bottom}))}})()")
@@ -451,19 +459,26 @@ server.listen(0,'127.0.0.1',async()=>{
     assert(geometry.editors.every(e=>e.height>=100&&e.width>200),JSON.stringify(geometry))
     assert(geometry.actions.every(e=>e.bottom<=geometry.bottom&&e.top>=geometry.top),JSON.stringify(geometry))
   }
-  await run("(()=>{const d=document.querySelector('.text-translator');d.querySelector('[data-direction]').value='en-zh';d.querySelector('[data-source]').value='The pixel pitch is 2.5 mm.';d.querySelector('[data-source]').dispatchEvent(new Event('input'));d.querySelector('[data-start]').click()})()")
+  await run("(()=>{const d=document.querySelector('.text-translator');d.querySelector('[data-source-language]').value='en-US';d.querySelector('[data-target-language]').value='zh-CN';d.querySelector('[data-source]').value='The pixel pitch is 2.5 mm.';d.querySelector('[data-source]').dispatchEvent(new Event('input'));d.querySelector('[data-start]').click()})()")
   await wait(100)
-  assert.equal(textRequests[0].direction,'en-zh');assert.equal(textRequests[0].kind,'text')
+  assert.equal(textRequests[0].source_language,'en-US');assert.equal(textRequests[0].target_language,'zh-CN');assert.equal(textRequests[0].kind,'text');assert.equal('humanize' in textRequests[0],false)
   await run("document.querySelector('.text-translator [data-close]').click();$('openTextTranslation').click()")
   await wait(900)
   assert.equal(await run("document.querySelector('.text-translator [data-target]').value"),'点间距为 2.5 mm。')
   assert.equal(await run("document.querySelector('.text-translator [data-copy]').disabled"),false)
   await run("document.querySelector('.text-translator [data-swap]').click()")
-  assert.equal(await run("document.querySelector('.text-translator [data-direction]').value"),'zh-en')
+  assert.equal(await run("document.querySelector('.text-translator [data-source-language]').value"),'zh-CN')
+  assert.equal(await run("document.querySelector('.text-translator [data-target-language]').value"),'en-US')
   assert.equal(await run("document.querySelector('.text-translator [data-source]').value"),'点间距为 2.5 mm。')
   await snap('text-translator')
-  await run("document.querySelector('.text-translator').close()")
+  await run("document.querySelector('.text-translator [data-close]').click()")
   assert.equal(await run('document.activeElement.id'),'openTextTranslation')
+  assert.equal(await run("JSON.stringify({files:state.files,references:state.references,pairs:state.pairs,report:state.report,selected:[...state.selected],edits:state.edits})"),documentStateBeforeText)
+  await run("$('openTextTranslation').click()");await wait(50)
+  await run("$(state.mode==='check'?'modeCheck':'modeTranslate').click()");await wait(50)
+  assert.equal(await run("$('textWorkspace').hidden"),true)
+  assert.equal(await run("document.body.classList.contains('text-view')"),false)
+  assert.equal(await run("JSON.stringify({files:state.files,references:state.references,pairs:state.pairs,report:state.report,selected:[...state.selected],edits:state.edits})"),documentStateBeforeText)
   const reversePending=await run("reviewCompletionState({stats:{manual_review:1,unreviewed:1,model_status:'partial',review_processing_status:'complete'},findings:[{found_text:'Untranslated English',reason:'英译中未完成：模型中断'}]}, {status:'complete',can_resume:true})")
   assert.equal(reversePending.manualPending,1);assert.equal(reversePending.untranslated,1)
   result.checks.push('free text editor: actual desktop entry, 942/1280/1600px layouts, English-Chinese request, verified output, copy enabled, swap direction and reopen during processing')
@@ -474,12 +489,14 @@ server.listen(0,'127.0.0.1',async()=>{
   }
   result.checks.push('shared text entry is prominent in the new-task card and visible without scrolling at 360/480/900/1280px')
   await sr("$('openTextTranslation').click()")
+  for(let n=0;n<50&&!await sr("document.querySelector('.text-translator [data-source-language]').options.length===8");n++)await wait(50)
+  assert.equal(await sr("document.querySelector('.text-translator').tagName"),'SECTION')
   for(const w of [480,900]){
     shared.setContentSize(w,850);await wait(100)
     const r=await sr("(()=>{const d=document.querySelector('.text-translator'),r=d.getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom,width:innerWidth,height:innerHeight,overflow:d.scrollHeight-d.clientHeight}})()")
     assert(r.left>=0&&r.right<=r.width&&r.bottom<=r.height&&r.overflow<2,JSON.stringify(r))
   }
-  await sr("document.querySelector('.text-translator').close()")
+  await sr("document.querySelector('.text-translator [data-close]').click()")
   result.checks.push('shared free text editor at 480/900px: responsive stacked/pair layout with visible controls')
   desktop.webContents.debugger.attach('1.3')
   await desktop.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]})

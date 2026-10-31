@@ -13,7 +13,7 @@ from . import task_queue
 from .glossary import store
 from .llm.client import LLMClient, LLMUnavailable, LLMResponseInvalid, LLMTruncated
 from .text_integrity import contains_chinese, prose, validate_identifiers, IDENTIFIERS
-from .translation import chunks, check_cancel, Cancelled
+from .translation import check_cancel, Cancelled
 from .writing_policy import validate_translation, quantity_units
 
 MAX_TEXT = 20000
@@ -41,12 +41,15 @@ def numeric_fact_spacing(text):
 
 def pieces(text):
     """Preserve every separator, including blank lines and surrounding spaces."""
+    from .text_languages import INLINE_CODE, protected_chunks
     for part in re.split(r'(\r\n|\r|\n)', text):
         if not part: continue
         if not part.strip():
             yield {'source': part, 'translation': part, 'status': 'complete'}
+        elif INLINE_CODE.fullmatch(part.strip()):
+            yield {'source':part,'translation':part,'status':'complete','protected':True}
         else:
-            for piece in chunks(part, 1500):
+            for piece in protected_chunks(part):
                 match = re.fullmatch(r'(\s*)(.*?)(\s*)', piece, re.S)
                 yield {'source': match[2], 'prefix': match[1], 'suffix': match[3], 'status': 'pending'}
 
@@ -104,7 +107,7 @@ def validate(source, target, direction):
                 raise ValueError('译文未保留原文中的型号或缩写 ' + code + '。')
 
 
-def translate_piece(client, source, glossary, direction, cancel, context='', activity=None, groups=None, return_result=False, mode='faithful',fixed_order=False,person_terms=None):
+def translate_piece(client, source, glossary, direction, cancel, context='', activity=None, groups=None, return_result=False, mode='faithful',fixed_order=False,person_terms=None,humanize=False,code_tokens=None):
     src, dst = DIRECTIONS[direction]
     system = (f'你是严谨的技术翻译，将{src}文本完整翻译为自然、专业的{dst}。'
         '保留事实、条件、否定、数字、日期精度、型号、技术缩写、网址、邮箱和文件路径。'
@@ -129,9 +132,20 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
         if fixed_order:system+='这些片段是同一段中被标签分开的连续正文，必须作为整句翻译，不能分别补足上下文。为保留标记，runs必须按给定ID顺序，每个ID至少一次；语法虚词可对应空字符串。不得移动标签，否定、条件和修饰词只能翻译一次。'
     if mode == 'compressed':
         system += '用户选择文案压缩：仅精简不承载事实的重复表达及宣传套话，保留全部事实、条件及限定。'
+    if humanize:
+        from .text_languages import humanizer_rules
+        system += '\n' + humanizer_rules()
+    elif code_tokens is not None:
+        system += '原文为单词或短词组时，只输出准确的对应词语或词组，不扩写解释、宣传语或完整长句。'
     prompt = json.dumps(payload, ensure_ascii=False)
     candidate = None
     last_error = ''
+    def check_text(target):
+        validate(source,target,direction)
+        if code_tokens is not None:
+            from .text_languages import INLINE_CODE
+            if Counter(code_tokens) != Counter(m[0] for m in INLINE_CODE.finditer(target)):
+                raise ValueError('译文改变了行内代码，代码必须原样保留。')
     for attempt in range(2):
         check_cancel(cancel)
         if activity: activity('正在请求翻译' if not attempt else '正在修正未通过检查的译文')
@@ -139,7 +153,7 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
             value = client.chat_json(prompt + ('\n上次检查：' + last_error if last_error else ''),
                                      system=system, max_tokens=6000)
             candidate = value.get('translation') if isinstance(value, dict) else None
-            validate(source, candidate, direction)
+            check_text(candidate)
             if direction=='en-zh':
                 from .reverse_entities import validate_names
                 validate_names(source,candidate,person_terms)
@@ -158,7 +172,7 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
             review = review_candidate(candidate)
             if isinstance(review,dict) and review.get('ok') is False and isinstance(review.get('corrected_translation'),str):
                 revised=review['corrected_translation'].strip()
-                validate(source,revised,direction)
+                check_text(revised)
                 if direction=='en-zh':validate_names(source,revised,person_terms)
                 second=review_candidate(revised)
                 if isinstance(second,dict) and second.get('ok') is True and second.get('issues')==[]:
@@ -175,12 +189,13 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
 
 def start(data):
     from . import workflow
-    direction = data.get('direction', 'zh-en')
-    if not isinstance(direction, str) or direction not in DIRECTIONS: raise ValueError('请选择中译英或英译中。')
+    from . import text_languages
+    src, dst, direction = text_languages.pair(data)
     source = data.get('text')
     if not isinstance(source, str) or not source.strip(): raise ValueError('请输入需要翻译的文本。')
+    humanize = text_languages.natural_expression(source)
     if len(source) > MAX_TEXT: raise ValueError(f'每次最多翻译 {MAX_TEXT:,} 个字符，请分次输入。')
-    blocks = list(pieces(source))
+    blocks = list(text_languages.blocks(source,pieces))
     previous_id = data.get('retry_of')
     if previous_id is not None and not isinstance(previous_id, str): raise ValueError('原文本任务不可重试。')
     if previous_id:
@@ -190,11 +205,12 @@ def start(data):
             if not previous or previous.get('kind') != 'text' or previous['status'] in ('queued', 'running'):
                 raise ValueError('原文本任务不可重试。')
             if previous.get('_source') != source or previous.get('direction') != direction:
-                raise ValueError('原文或方向已经改变，请重新开始翻译。')
+                raise ValueError('原文或语言已经改变，请重新开始翻译。')
             blocks = [dict(block) for block in previous['_blocks']]
     client = LLMClient()  # freeze the existing selected connection
     job = {'id': uuid.uuid4().hex, 'kind': 'text', 'direction': direction, 'status': 'queued',
-           'phase': 'translate', 'done': 0, 'total': sum(bool(b['source'].strip()) for b in blocks),
+           'source_language':src,'target_language':dst,'humanize':humanize,
+           'phase': 'translate', 'done': 0, 'total': sum(bool(b['source'].strip()) and not b.get('protected') for b in blocks),
            'percent': 0, 'message': '正在排队等待文本翻译', 'result': None, 'error': '',
            'cancel': threading.Event(), '_source': source, '_blocks': blocks, 'can_resume': False}
     if previous_id and previous.get('_person_terms') is not None:job['_person_terms']=dict(previous['_person_terms'])
@@ -218,7 +234,7 @@ def run(job, client):
         with workflow.LOCK: job.update(values)
     blocks = job['_blocks']
     def publish():
-        done = sum(b['status'] == 'complete' and bool(b['source'].strip()) for b in blocks)
+        done = sum(b['status'] == 'complete' and bool(b['source'].strip()) and not b.get('protected') for b in blocks)
         result = {'translation': ''.join(b.get('prefix', '') + (b.get('translation', '') if b['status'] == 'complete'
             else '【此段未完成】') + b.get('suffix', '') for b in blocks),
             'blocks': [{k: v for k, v in b.items()} for b in blocks],
@@ -228,6 +244,11 @@ def run(job, client):
         check_cancel(job['cancel'])
         update(status='running', message='正在读取当前术语库')
         glossary = store.load_glossary()
+        from . import text_languages
+        reference={}
+        if job['direction'] not in DIRECTIONS:
+            try:reference=text_languages.catalog.read()
+            except ValueError:update(warning='官方多语言词库暂不可读取，本次继续模型翻译，未引用缺失词条。')
         if job['direction']=='en-zh' and '_person_terms' not in job:
             from types import SimpleNamespace
             from .reverse_entities import identify
@@ -238,8 +259,13 @@ def run(job, client):
             context = ''.join(b['source'] for b in blocks[max(0, index-2):index])[-500:]
             context += '\n' + ''.join(b['source'] for b in blocks[index+1:index+3])[:500]
             try:
-                target = translate_piece(client, block['source'], glossary, job['direction'], job['cancel'],
-                    context, activity=lambda message: update(message=message),person_terms=job.get('_person_terms'))
+                if job['direction'] in DIRECTIONS:
+                    target = translate_piece(client, block['source'], glossary, job['direction'], job['cancel'],
+                        context, activity=lambda message: update(message=message),person_terms=job.get('_person_terms'),humanize=text_languages.natural_expression(block['source']),
+                        code_tokens=[m[0] for m in text_languages.INLINE_CODE.finditer(block['source'])])
+                else:
+                    target = text_languages.translate_piece(client,block['source'],reference,job['source_language'],job['target_language'],
+                        job['cancel'],context=context,humanize=text_languages.natural_expression(block['source']),activity=lambda message:update(message=message))
                 check_cancel(job['cancel'])
                 block.update(translation=target, status='complete'); block.pop('error', None)
             except ValueError as error:

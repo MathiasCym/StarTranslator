@@ -10,6 +10,11 @@ numbers and model codes. The application returns its existing JSON contracts,
 not Humanizer's interactive draft/audit format. Writing preferences do not turn
 valid synonyms or acceptable English into proofreading errors.
 
+The plain-text workspace also uses `text-humanizer.md` in embedded mode for all
+supported target languages. Prose receives these rules automatically; isolated
+terms and short phrases prioritize glossary wording. There is no style switch.
+Free-text multilingual validation is separate from document format handling.
+
 OfficeCLI is bundled as an unmodified, self-contained Windows x64 executable
 in `resources/officecli` (development: `vendor/officecli`). The application runs
 fixed, read-only validation and format-inspection commands before and after PPT

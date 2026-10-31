@@ -52,9 +52,10 @@
     <nav class="workspace-tabs" aria-label="工作模式">
       <button class="mode" id="modeTranslate" aria-pressed="false">翻译</button>
       <button class="mode active" id="modeCheck" aria-pressed="true">校对</button>
-      <button class="mode" id="openTextTranslation" type="button" aria-haspopup="dialog">文本翻译</button>
+      <button class="mode" id="openTextTranslation" type="button" aria-pressed="false" aria-controls="textWorkspace">文本翻译</button>
       <span id="workspaceHint">校准术语，打磨表达</span>
     </nav>
+    <section id="textWorkspace" hidden></section>
     <div id="workspace">
       <div class="workspace-documents">
       <section class="dropzone" id="dropzone">

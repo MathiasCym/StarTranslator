@@ -21,6 +21,7 @@ names+=['test_history_completion','test_pptx_native_preview','test_pptx_content'
 names+=['test_pdf_page_preview']
 names+=['test_glossary_bundled']
 names+=['test_text_translation']
+names+=['test_text_languages']
 names+=['test_reverse_translation']
 names+=['test_multilingual_catalog']
 suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromModule(importlib.import_module(name)) for name in names)

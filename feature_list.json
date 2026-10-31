@@ -169,6 +169,24 @@
       "test_output": "Delivered 2.3.4: CI 41218648525; 573 backend/125 maintenance/125 packaged tests. Actual empty-target migration preserves encrypted bytes and legacy references. Domestic originals and isolated 2.3.3 native apply, personal content, cache cleanup, actual upgraded app and eight-language direct filtering/search pass. Source blanks remain blanks; see docs/validation-2.3.4.md.",
       "status": "completed",
       "passes": true
+    },
+    {
+      "id": "feat-011",
+      "category": "functional",
+      "priority": 2,
+      "description": "Inline desktop/LAN text workspace with eight-language translation and automatic Humanizer for prose, preserving document behavior.",
+      "steps": [
+        "Keep document/report/editor state when switching the inline workspace",
+        "Support all 56 language pairs using supplied glossary pairs without generating official entries",
+        "Apply natural expression automatically to prose, prioritize precise terms for short phrases",
+        "Verify integrity, recovery, LAN ownership, actual models and desktop layouts",
+        "Deliver together with the picker fix through the next formal release and domestic small updates"
+      ],
+      "test_command": "See tests/test_text_languages.py, tools/check-readable-ui.cjs and docs/multilingual-text.md",
+      "test_status": "passed",
+      "test_output": "Local implementation checks passed: 584 backend checks; final 11 multilingual/13 original text tests; actual configured DeepSeek 56 prose pairs and 8 official-term ring pairs; UI state retention and 2240/150% real-entry presentation. Formal next-release packaging and upgrade gates pending.",
+      "status": "in_progress",
+      "passes": false
     }
   ]
 }
