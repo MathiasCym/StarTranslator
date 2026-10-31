@@ -152,6 +152,23 @@
       "test_output": "Delivered 2.3.3: CI 41188876137; 573 backend/122 maintenance/125 packaged tests. Original domestic deltas and isolated 2.3.2 native apply, data retention, cache cleanup, actual migrated profile and 8-language UI search pass. See docs/validation-2.3.3.md.",
       "status": "completed",
       "passes": true
+    },
+    {
+      "id": "feat-010",
+      "category": "functional",
+      "priority": 1,
+      "description": "Repair migration with an empty branded directory and verify visible multilingual reference without generating missing translations.",
+      "steps": [
+        "Reproduce legacy plus empty branded profile using actual installed archive",
+        "Preserve all old bytes and references during safe empty-placeholder migration",
+        "Verify first open and all eight languages without search, missing-source notices and normal searching",
+        "Deliver original CI patch and verify isolated old-client upgrade"
+      ],
+      "test_command": "node --test tests/test_user_data_path.js; node tools/check-user-data.cjs; node tools/check-readable-ui.cjs",
+      "test_status": "in_progress",
+      "test_output": "9 migration tests, 4 catalog backend tests, real application migration and all eight language UI checks passed; formal release pending.",
+      "status": "in_progress",
+      "passes": false
     }
   ]
 }

@@ -8,6 +8,9 @@ dialog#multilingualDialog[open] { display:flex; flex-direction:column; gap:12px;
 .catalog-rows, .catalog-detail { overflow:auto; min-height:0; border:1px solid #7bc9f033; border-radius:12px; padding:8px; scroll-padding:8px; }
 .catalog-row { display:flex; flex-direction:column; align-items:flex-start; text-align:left; width:100%; padding:10px; gap:4px; font:inherit; color:inherit; background:transparent; border:1px solid transparent; border-radius:8px; cursor:pointer; overflow-wrap:anywhere; }
 .catalog-row span { color:var(--muted,#abc2d5); }
+.catalog-row small { font-size:13px; color:#70d8e9; }
+.catalog-detail .catalog-missing { padding:10px; border:1px solid #e6b86666; border-radius:8px; background:#e6b8660a; margin:0 0 6px; }
+.catalog-detail .catalog-unavailable { color:var(--muted,#abc2d5); font-size:14px; }
 .catalog-row:hover, .catalog-row[aria-pressed=true] { background:#17374f; border-color:#42cfe977; }
 .catalog-row:focus-visible { outline:2px solid #59def1; outline-offset:1px; }
 .catalog-detail section { padding:10px; border-bottom:1px solid #7bc9f022; }

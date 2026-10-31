@@ -10,8 +10,8 @@ const target=path.resolve(process.argv[2]),root=path.resolve(__dirname,'..')
 fs.mkdirSync(path.join(root,'dist/qa'),{recursive:true})
 const qa=fs.mkdtempSync(path.join(root,'dist/qa','data-migration-'))
 const legacy=path.join(qa,'novaterm-checker'),current=path.join(qa,'StarTranslator'),result={passed:false,target,companyDocumentsSent:false,existingProfileModified:false}
-fs.mkdirSync(legacy)
-app.setPath('appData',qa);app.setPath('userData',legacy)
+fs.mkdirSync(legacy);fs.mkdirSync(current) // Actual upgrades may already have an empty branded directory.
+app.setPath('appData',qa);app.setPath('userData',current)
 BrowserWindow.prototype.show=function(){}
 app.getVersion=()=>JSON.parse(fs.readFileSync(path.join(target,'package.json'))).version
 if(target.endsWith('.asar'))Object.defineProperty(process,'resourcesPath',{value:path.dirname(target),configurable:true})

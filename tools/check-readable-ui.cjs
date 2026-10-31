@@ -126,12 +126,23 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("$('catalogDetail').querySelectorAll('section').length"),8)
   const catalog=await run("callApi('GET','/api/lexicon/catalog')")
   assert.equal(catalog.entries.length,1965)
+  const firstReference=await run("({text:$('catalogDetail').textContent,missing:$('catalogDetail').querySelectorAll('.catalog-unavailable').length,rows:$('catalogRows').children.length,status:$('catalogStatus').textContent})")
+  assert.equal(firstReference.missing,0,'First open must display genuine multilingual values instead of six blank cells')
+  assert.equal(firstReference.rows,40);assert(firstReference.status.includes('1883 条含小语种'),firstReference.status)
   for(const language of catalog.languages){
+   await run(`$('catalogLanguage').value=${JSON.stringify(language.code)};$('catalogSearch').value='';$('catalogLanguage').dispatchEvent(new Event('change'))`)
+   const available=await run("({count:$('catalogCount').textContent,missing:$('catalogDetail').querySelectorAll('.catalog-unavailable').length,text:$('catalogRows').querySelector('span').textContent})")
+   assert(available.count.startsWith(language.count+' / '),language.code+' must list the full source count without a search query')
+   assert(available.text,language.code+' must display translated text immediately')
    const term=catalog.entries.find(row=>row.terms[language.code]).terms[language.code]
    await run(`$('catalogLanguage').value=${JSON.stringify(language.code)};$('catalogSearch').value=${JSON.stringify(term)};$('catalogSearch').dispatchEvent(new Event('input'))`)
    assert(await run("$('catalogRows').children.length>0"),language.code+' must be searchable')
    assert(await run(`$('catalogDetail').textContent.includes(${JSON.stringify(term)})`))
   }
+  const bilingualOnly=catalog.entries.find(row=>!catalog.languages.filter(l=>!['zh-CN','en-US'].includes(l.code)).some(l=>row.terms[l.code]))
+  await run(`$('catalogLanguage').value='';$('catalogSearch').value=${JSON.stringify(bilingualOnly.terms['zh-CN'])};$('catalogSearch').dispatchEvent(new Event('input'))`)
+  const missingOriginal=await run("({text:$('catalogDetail').textContent,notice:$('catalogDetail').querySelector('.catalog-missing')?.textContent,missing:$('catalogDetail').querySelectorAll('.catalog-unavailable').length})")
+  assert(missingOriginal.notice?.includes('官方原表未提供'),JSON.stringify(missingOriginal));assert.equal(missingOriginal.missing,6)
   await run("$('catalogSearch').value='';$('catalogLanguage').value='';$('catalogSearch').dispatchEvent(new Event('input'));$('catalogNext').click()")
   assert(await run("$('catalogCount').textContent.includes('第 2 /')"))
   desktop.setMinimumSize(Math.floor(350*zoom),Math.floor(500*zoom))

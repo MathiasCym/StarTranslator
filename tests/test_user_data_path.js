@@ -14,6 +14,29 @@ test('migration preserves exact data, encrypted bytes, timestamps and old absolu
  assert(fs.lstatSync(f.old).isSymbolicLink());assert.equal(migrate(f.base).migrated,false);assert.equal(resolveExisting(f.base),f.current)
 })
 test('locked legacy directory keeps using legacy profile and reports deferred migration',t=>{const f=fixture(t);fs.mkdirSync(f.old);fs.writeFileSync(path.join(f.old,'personal'),'original');const r=migrate(f.base,{...fs,renameSync(){throw Object.assign(Error('in use'),{code:'EBUSY'})}});assert.equal(r.path,f.old);assert(r.warning);assert.equal(fs.readFileSync(path.join(f.old,'personal'),'utf8'),'original');assert(!fs.existsSync(f.current))})
+
+test('an empty branded placeholder does not prevent migration or hide the existing profile from update helpers',t=>{
+ const f=fixture(t);fs.mkdirSync(f.old);fs.mkdirSync(f.current)
+ fs.mkdirSync(path.join(f.old,'comparisons'));fs.writeFileSync(path.join(f.old,'comparisons/saved.json'),'saved reference');fs.writeFileSync(path.join(f.old,'model-profiles.json'),'opaque encrypted bytes')
+ assert.equal(resolveExisting(f.base),f.old)
+ const r=migrate(f.base);assert.equal(r.path,f.current);assert.equal(r.migrated,true);assert.equal(r.warning,'')
+ assert.equal(fs.readFileSync(path.join(f.current,'model-profiles.json'),'utf8'),'opaque encrypted bytes')
+ assert.equal(fs.readFileSync(path.join(f.old,'comparisons/saved.json'),'utf8'),'saved reference');assert(fs.lstatSync(f.old).isSymbolicLink())
+ assert.equal(resolveExisting(f.base),f.current);assert.equal(migrate(f.base).migrated,false)
+})
+
+test('a blocked empty placeholder keeps the complete old profile and reports a retry',t=>{
+ const f=fixture(t);fs.mkdirSync(f.old);fs.mkdirSync(f.current);fs.writeFileSync(path.join(f.old,'personal'),'original')
+ const r=migrate(f.base,{...fs,rmdirSync(){throw Error('in use')}});assert.equal(r.path,f.old);assert(r.warning)
+ assert.equal(fs.readFileSync(path.join(f.old,'personal'),'utf8'),'original');assert.equal(fs.readdirSync(f.current).length,0)
+})
+
+test('hidden content and unrelated directory junctions are not empty placeholders',t=>{
+ const f=fixture(t);fs.mkdirSync(f.old);fs.mkdirSync(f.current);fs.writeFileSync(path.join(f.current,'.retain'),'keep')
+ assert.equal(migrate(f.base).path,f.old);assert.equal(fs.readFileSync(path.join(f.current,'.retain'),'utf8'),'keep')
+ const g=fixture(t);fs.mkdirSync(g.old);const unrelated=path.join(g.base,'unrelated');fs.mkdirSync(unrelated);fs.symlinkSync(unrelated,g.current,'junction')
+ assert.equal(migrate(g.base).path,g.old);assert(fs.lstatSync(g.current).isSymbolicLink());assert(fs.existsSync(unrelated))
+})
 test('junction failure rolls back directory rename before continuing',t=>{const f=fixture(t);fs.mkdirSync(f.old);fs.writeFileSync(path.join(f.old,'personal'),'original');const r=migrate(f.base,{...fs,symlinkSync(){throw Error('denied')}});assert.equal(r.path,f.old);assert(r.warning);assert(!fs.existsSync(f.current));assert.equal(fs.readFileSync(path.join(f.old,'personal'),'utf8'),'original')})
 test('two independent profiles are preserved and never silently merged',t=>{const f=fixture(t);for(const p of[f.old,f.current])fs.mkdirSync(p);fs.writeFileSync(path.join(f.old,'personal'),'old');fs.writeFileSync(path.join(f.current,'personal'),'new');const r=migrate(f.base);assert.equal(r.path,f.old);assert(r.warning);assert.equal(fs.readFileSync(path.join(f.current,'personal'),'utf8'),'new')})
 test('explicit isolated data paths and special modes never migrate unrelated profiles',t=>{const f=fixture(t);fs.mkdirSync(f.old);const set=[];const app={getPath:n=>n==='appData'?f.base:path.join(f.base,'qa-profile'),setPath:(...args)=>set.push(args)};assert.equal(configure(app).path,path.join(f.base,'qa-profile'));assert.deepEqual(set,[]);app.getPath=n=>n==='appData'?f.base:f.current;assert.equal(configure(app,{move:false}).path,f.old);assert(!fs.existsSync(f.current))})

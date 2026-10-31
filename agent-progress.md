@@ -85,3 +85,10 @@
 - Source: 573 backend, 122 maintenance, actual updater restart, all original glossary language cells exact, actual profile migration and checkpoint/history database reuse, common display matrices passed.
 - Domestic original 2.2.6/2.2.7/2.3.2 deltas anonymous direct read match GitHub. Actual original 2.3.2 updater applied 1585559 bytes, full target manifest exact, personal data retained and cache cleaned. Actual upgraded 2.3.3 opened, 2515 bilingual and 1965 multilingual/8 language searches passed. Real user profile/installation, model/proxy and source workbook untouched.
 - No required product work remains; commit/mirror final docs and tracking only, no rebuild or version bump. Evidence dist/qa/formal-2-3-3-20261031.
+
+
+## 2.3.4 — empty profile placeholder and truthful multilingual reference, release pending
+
+- Reproduced real installed 2.3.3 in isolation: existing empty StarTranslator directory caused legacy fallback. Actual source catalog and current read-only HTTP response contain all source values; default selected source row has six genuinely missing language cells. Preserve these gaps, never fabricate translations.
+- 9 directory tests, 4 backend catalog tests, actual main/Python migration with empty target and 8-language UI default/filter/search/missing-source checks passed. User data untouched; company models not called.
+- One version selected: 2.3.4. CI original installer, domestic original deltas and actual isolated old-client upgrade still required.
