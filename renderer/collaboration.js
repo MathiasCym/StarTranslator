@@ -25,7 +25,11 @@ async function showLan() {
 function renderLan(){
   $('lanState').textContent=lanStatus.enabled?'共享服务已开启 · 同事可通过下面的地址使用':'共享服务已关闭'
   $('lanToggle').textContent=lanStatus.enabled?'关闭共享服务':'开启共享服务'
-  $('lanAddresses').innerHTML=(lanStatus.addresses||[]).map(address=>`<div class="shared-address"><input readonly value="${esc(address)}" aria-label="共享地址"><button class="btn ghost" data-shared="${esc(address)}">打开</button></div>`).join('')
+  const addresses=lanStatus.addresses||[]
+  const addressRow=address=>`<div class="shared-address"><input readonly value="${esc(address)}" aria-label="共享地址"><button class="btn ghost" data-shared="${esc(address)}">打开</button></div>`
+  // VPN/virtual adapters may add several addresses. Keep the first usable
+  // address visible; secondary addresses need space only when requested.
+  $('lanAddresses').innerHTML=(addresses[0]?addressRow(addresses[0]):'')+(addresses.length>1?`<details class="lan-other-addresses"><summary>其他共享地址（${addresses.length-1}）</summary>${addresses.slice(1).map(addressRow).join('')}</details>`:'')
   $('lanAddresses').querySelectorAll('[data-shared]').forEach(button=>button.onclick=()=>lanRequest(button,()=>window.api.openSharedService(button.dataset.shared)))
 }
 action('openLan',showLan);action('closeLan',()=>$('lanDialog').close())

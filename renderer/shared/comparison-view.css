@@ -12,6 +12,12 @@ dialog#lanDialog .lan-dialog-body {
   /* The scrollport includes the outer focus ring and the buttons' soft glow. */
   margin-inline: -16px; padding: 8px 16px 24px; scroll-padding: 12px;
 }
+dialog#lanDialog .lan-dialog-body > .hint { margin:8px 0 12px; }
+dialog#lanDialog label { margin:12px 0; }
+dialog#lanDialog .shared-section { margin-top:16px; padding-top:14px; }
+dialog#lanDialog .shared-section > .hint { margin:10px 0 0; }
+dialog#lanDialog .lan-other-addresses { margin:6px 0; }
+dialog#lanDialog .lan-other-addresses summary { cursor:pointer; color:var(--fg2,#abc2d5); padding:4px 0; }
 dialog#lanDialog .lan-message { color: #ff9eac; margin: 12px 0; overflow-wrap: anywhere; }
 dialog#lanDialog input[aria-invalid=true] { border-color: #ff9eac; }
 dialog#lanDialog .btn { -webkit-app-region: no-drag; }

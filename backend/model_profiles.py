@@ -1,4 +1,4 @@
-"""已保存的模型连接配置（最多 5 个）。
+"""已保存的模型连接配置。
 
 解决的问题：切换连接配置时，密钥往往只在创建时可见一次，切走再切回就得
 重新申请/重输。这里把「提供方 + 地址 + 模型 + 密钥」整套存成本机配置，
@@ -18,7 +18,6 @@ from pathlib import Path
 from .glossary import store
 from .llm import secret
 
-MAX_PROFILES = 5
 VALID_PROVIDERS = ("compatible", "intranet")
 
 
@@ -69,7 +68,7 @@ def list_profiles() -> dict:
     data = _load()
     return {
         "active": data["active"],
-        "max": MAX_PROFILES,
+        "max": None,  # Kept for old clients; null means no application limit.
         "encryption": "dpapi" if secret.available() else "plain",
         "profiles": [{**_public(p), 'pending': p.get('id') == data['active'] and
                       any(p.get(k) != (data.get('applied') or {}).get(k)
@@ -103,9 +102,6 @@ def save_profile(payload: dict) -> dict:
     existing = _find(data, profile_id) if profile_id else None
     if profile_id and existing is None:
         raise ValueError("要更新的配置不存在，请刷新后重试。")
-
-    if existing is None and len(data["profiles"]) >= MAX_PROFILES:
-        raise ValueError(f"最多保存 {MAX_PROFILES} 个模型配置，请先删除不再使用的配置。")
 
     provider = str(payload.get("provider", "")).strip().lower()
     if provider not in VALID_PROVIDERS:

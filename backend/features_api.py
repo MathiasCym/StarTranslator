@@ -179,6 +179,12 @@ def lexicon_read():
     return jsonify(store.read())
 
 
+@api.get('/api/lexicon/catalog')
+def multilingual_catalog():
+    from .glossary import catalog
+    return jsonify(catalog.read())
+
+
 @api.post('/api/lexicon')
 def lexicon_save():
     data = request.get_json(force=True) or {}

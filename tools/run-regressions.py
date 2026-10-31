@@ -22,6 +22,7 @@ names+=['test_pdf_page_preview']
 names+=['test_glossary_bundled']
 names+=['test_text_translation']
 names+=['test_reverse_translation']
+names+=['test_multilingual_catalog']
 suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromModule(importlib.import_module(name)) for name in names)
 result=unittest.TextTestRunner(verbosity=2).run(suite)
 folder=root/'dist/qa/release-200';folder.mkdir(parents=True,exist_ok=True)

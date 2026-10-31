@@ -43,10 +43,12 @@ jobs:
           PYTHONDONTWRITEBYTECODE: '1'
         run: .\python-runtime\python.exe -B tools/run-regressions.py
       - name: Installation and update regression checks
-        run: node --test tests/test_release.js tests/test_install_integrity.js tests/test_installation_repair.js tests/test_setup_worker.js tests/test_github_updates.js tests/test_electron_updates.js tests/test_public_sources.js tests/test_domestic_publish.js tests/test_release_repair.js tests/test_runtime_log.js tests/test_update_cache_cleanup.js tests/test_window_size.js tests/test_update_notifications.js tests/test_incremental_update.js tests/test_incremental_source.js
+        run: node --test tests/test_release.js tests/test_install_integrity.js tests/test_installation_repair.js tests/test_setup_worker.js tests/test_github_updates.js tests/test_electron_updates.js tests/test_public_sources.js tests/test_domestic_publish.js tests/test_release_repair.js tests/test_runtime_log.js tests/test_update_cache_cleanup.js tests/test_window_size.js tests/test_update_notifications.js tests/test_incremental_update.js tests/test_incremental_source.js tests/test_user_data_path.js
       - name: Desktop readability and dialog checks
         run: |
           node tools/check-readable-ui.cjs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          node tools/check-user-data.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tools/check-comparison-ui.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

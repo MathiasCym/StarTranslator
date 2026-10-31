@@ -166,7 +166,10 @@ def _active_path():
                 raise ValueError('共享术语库不可访问，请连接共享目录或切回本机词库。')
             if Path(selected).resolve() == (folder/'lexicon.json').resolve():
                 from .bundled import upgrade_local as upgrade_bundled
-                upgrade_bundled(Path(selected))
+                # Legacy absolute paths remain valid through the migration
+                # junction, but the UI should report the active branded path.
+                selected = folder/'lexicon.json'
+                upgrade_bundled(selected)
             return Path(selected)
     path = folder / 'lexicon.json'
     if not path.exists():

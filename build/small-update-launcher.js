@@ -3,7 +3,7 @@
 const fs=require('node:fs/promises'),path=require('node:path'),crypto=require('node:crypto')
 async function run(){
   const metadata=JSON.parse(await fs.readFile(path.join(__dirname,'update.json'),'utf8'))
-  const root=path.resolve(process.argv[2]),userData=process.argv[3]?path.resolve(process.argv[3]):path.join(process.env.APPDATA,'novaterm-checker')
+  const root=path.resolve(process.argv[2]),userData=process.argv[3]?path.resolve(process.argv[3]):require('./lib/user-data-path').resolveExisting(process.env.APPDATA)
   const manifest=JSON.parse(await fs.readFile(path.join(root,'resources/install-manifest.json'),'utf8'))
   if(manifest.version!==metadata.from)throw Error('此小包仅适用于 '+metadata.from+'，当前安装为 '+manifest.version+'。')
   if(!/^StarTranslator-Patch-\d+\.\d+\.\d+-to-\d+\.\d+\.\d+\.stpatch$/.test(metadata.filename))throw Error('更新包名称无效。')

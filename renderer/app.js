@@ -40,6 +40,7 @@ window.api.onModelStatus(updateModelStatus)
 window.api.modelStatus().then(updateModelStatus).catch(error => toast(error.message, true))
 window.api.appVersion().then(version => { currentVersion = version; $('appVersion').textContent = 'v' + version; document.title = `星译官 v${version}` })
 window.api.onBackendError(message => showTaskFailure(new Error('本地服务启动失败：' + message)))
+window.api.onDataDirectoryWarning?.(message => AppDialogs.ask({ title: '本机数据已保留', message, accept: '知道了', cancel: '稍后处理' }))
 window.api.onMaximizeChange(value => document.body.classList.toggle('maximized', !!value))
 action('winMin', () => window.api.minimize())
 action('winMax', () => window.api.toggleMaximize())
@@ -677,7 +678,7 @@ action('integrityExportLog', async () => {
   finally { $('integrityExportLog').disabled = false }
 })
 
-let profileState = { active: '', max: 5, profiles: [], editing: '' }
+let profileState = { active: '', max: null, profiles: [], editing: '' }
 let profileBusy = false, profileBaseline = ''
 const profileFields = ['modelProfileName', 'modelPreset', 'modelFormat', 'modelAuth', 'modelUrl', 'modelName', 'modelKey']
 function updateProtocolFields() {
@@ -699,7 +700,7 @@ function updateProfileControls() {
   $('modelSave').disabled = profileBusy
   $('modelUse').disabled = profileBusy || !profileState.editing
   $('modelClose').disabled = profileBusy
-  $('profileNew').disabled = profileBusy || profileState.profiles.length >= profileState.max
+  $('profileNew').disabled = profileBusy
   $('profileList').querySelectorAll('button').forEach(b => { b.disabled = profileBusy })
   $('profileList').querySelectorAll('[data-profile]').forEach(card => {
     card.setAttribute('aria-disabled', String(profileBusy)); card.tabIndex = profileBusy ? -1 : 0
@@ -715,7 +716,7 @@ async function profileRequest(fn) {
   finally { profileBusy = false; updateProfileControls() }
 }
 function renderProfiles() {
-  $('profileLimit').textContent = `${profileState.profiles.length} / ${profileState.max}`
+  $('profileLimit').textContent = `已保存 ${profileState.profiles.length} 个`
   $('profileEncryption').textContent = profileState.encryption === 'dpapi' ? '密钥由本机系统加密保存，不随软件分发。' : '当前系统不支持加密，密钥以明文保存在本机。'
   $('profileList').innerHTML = profileState.profiles.map(p => {
     const active = p.id === profileState.active

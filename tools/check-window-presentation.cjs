@@ -98,7 +98,10 @@ server.listen(0,'127.0.0.1',async()=>{
   if(!measure){assert(result.lan.width<=681&&result.lan.width>400,JSON.stringify(result.lan));assert(result.lan.centerOffset<2&&result.lan.horizontal<2&&result.lan.closeVisible,JSON.stringify(result.lan))}
   await checkFocus('#lanPort','lan-port-focus')
   await checkFocus('#lanToggle','lan-toggle-focus')
-  await run("lanStatus={enabled:true,port:8765,addresses:['http://192.168.1.10:8765']};renderLan()")
+  await run("lanStatus={enabled:true,port:8765,addresses:['http://192.168.1.10:8765','http://10.0.0.10:8765','http://127.0.0.1:8765']};renderLan()")
+  result.lan.enabled=await run("(()=>{const d=$('lanDialog'),b=d.querySelector('.lan-dialog-body');return {bodyHeight:b.clientHeight,bodyScroll:b.scrollHeight-b.clientHeight,horizontal:b.scrollWidth-b.clientWidth,dialogHeight:d.getBoundingClientRect().height}})()")
+  await capture('lan-enabled')
+  if(!measure&&result.loaded.height>=740)assert(result.lan.enabled.bodyScroll<2&&result.lan.enabled.horizontal<2,JSON.stringify(result.lan.enabled))
   await checkFocus('#lanAddresses input','lan-address-focus')
   await checkFocus('#lanRemote','lan-remote-focus')
   await run("$('closeLan').click()")

@@ -70,3 +70,10 @@
 - Actual packaged Python/backend/shared HTML from the new task-card entry completed both directions with isolated fixture model; actual compiled shared home inspected. Backend and update libraries unchanged from original 2.2.7.
 - All three original domestic deltas 2.2.5/.6/.7 anonymously read directly and matched GitHub. Original 2.2.7 updater downloaded/applied 1273734 bytes to isolated copy; 1296-file manifest exact, personal fixture and glossary retained, update cache removed. Actual upgraded app 2.3.2 launched, glossary 2515 with personal note/alias intact. Real install and model/proxy settings untouched.
 - No pending delivery items. Final step: commit/mirror completed docs and tracking only, no rebuild/version increment. Product source remains f143f36d62de91dff3766f77701b5399342d3a4d; formal evidence under dist/qa/formal-2-3-2-20261029.
+
+
+## 2026-10-31 — 2.3.3 implementation verified, formal delivery pending
+
+- User requested removal of visible legacy directory branding, all 8 official glossary languages for reference only, no saved model profile limit and LAN scrollbar repair. All-language public term publication explicitly authorized; original XLSX stays private.
+- Source tests: 573 backend, 122 maintenance and actual small-updater restart passed; catalog all source cells exact, 1965 rows, bilingual 2515 unchanged. 6 directory migration tests and actual main/Python startup pass with original encrypted bytes and old references. UI 8-language searches, paging, focus and narrow layout pass. LAN multiple addresses folded, common display checks running.
+- Version selected ONCE: 2.3.3. Do not bump again. Remaining: full CI original installer, fresh payload checks, domestic deltas from actual recent 2.2.6/2.2.7/2.3.2, isolated old-client apply, package migration/new catalog, final records and docs-only sync. No real user data modified.

@@ -67,11 +67,21 @@ class ProfileTests(unittest.TestCase):
             self.assertNotIn("sk-plain-secret", raw)
         self.assertEqual(model_profiles.active_key(), "sk-plain-secret")
 
-    def test_max_five_profiles_then_blocked(self):
-        for i in range(5):
-            model_profiles.save_profile(_profile(name=f"p{i}", base_url=f"http://127.0.0.1:{9000+i}/v1"))
-        with self.assertRaisesRegex(ValueError, "最多保存 5 个"):
-            model_profiles.save_profile(_profile(name="overflow", base_url="http://127.0.0.1:9100/v1"))
+    def test_many_profiles_reload_activate_edit_and_delete_without_limit(self):
+        ids = [model_profiles.save_profile(_profile(name=f"p{i}",
+               base_url=f"http://127.0.0.1:{9000+i}/v1", api_key=f'key-{i}'))['profile']['id']
+               for i in range(25)]
+        listed = model_profiles.list_profiles()
+        self.assertIsNone(listed['max'])
+        self.assertEqual(len(listed['profiles']), 25)
+        model_profiles.activate(ids[-1])
+        self.assertEqual(model_profiles.active_key(), 'key-24')
+        model_profiles.save_profile(_profile(id=ids[5], name='edited', api_key='edited-key'))
+        self.assertEqual(model_profiles.active_key(), 'key-24')
+        model_profiles.activate(ids[5])
+        self.assertEqual(model_profiles.active_key(), 'edited-key')
+        model_profiles.delete_profile(ids[-1])
+        self.assertEqual(len(model_profiles.list_profiles()['profiles']), 24)
 
     def test_activate_switches_and_updates_client_settings(self):
         first = model_profiles.save_profile(_profile(name="first", api_key="key-one"))["profile"]["id"]

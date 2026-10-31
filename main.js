@@ -1,6 +1,9 @@
+const specialMode = process.argv.some(arg => ['--star-render-pages', '--star-setup', '--star-uninstall'].includes(arg))
+const dataDirectory = require('./lib/user-data-path').configure(require('electron').app, { move: !specialMode })
 const runtimeLog = require('./lib/runtime-log').createLogger(() =>
   require('path').join(require('electron').app.getPath('userData'), 'logs', 'runtime.log'))
 require('./lib/runtime-log').installDiagnosticConsole(runtimeLog)
+if (dataDirectory.warning) runtimeLog.error(dataDirectory.warning)
 
 if (process.argv.includes('--star-render-pages')) {
   require('./lib/page-renderer').run().catch(() => { require('electron').app.exit(1) })
@@ -476,6 +479,9 @@ app.whenReady().then(async () => {
   if (process.platform === 'win32') app.setAppUserModelId('tech.novastar.novaterm')
   pickCustom = installFilePicker(() => mainWindow, iconPath)
   createWindow()
+  if (dataDirectory.warning) mainWindow.webContents.once('did-finish-load', () => {
+    mainWindow.webContents.send('data-directory-warning', dataDirectory.warning)
+  })
   try {
     await startBackend()
     modelMonitor.start()

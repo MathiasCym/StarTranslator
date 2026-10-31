@@ -35,7 +35,8 @@ def main():
     from backend.glossary import store
     from backend.llm.client import LLMClient,DEFAULT_BASE_URL,DEFAULT_MODEL
     from backend.translation_audit import saved_residuals
-    original_profile=Path(os.environ.get('NOVATERM_DATA_DIR') or Path(os.environ['APPDATA'])/'novaterm-checker').resolve()
+    current_profile=Path(os.environ['APPDATA'])/'StarTranslator'
+    original_profile=Path(os.environ.get('NOVATERM_DATA_DIR') or (current_profile if current_profile.exists() else Path(os.environ['APPDATA'])/'novaterm-checker')).resolve()
     os.environ['NOVATERM_DATA_DIR']=str(original_profile)
     client=LLMClient(provider='intranet',base_url=DEFAULT_BASE_URL,model=DEFAULT_MODEL) if args.company_model else LLMClient()
     from backend.llm import client as transport

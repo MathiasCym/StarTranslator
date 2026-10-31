@@ -135,6 +135,23 @@
       "test_output": "Delivered 2.3.2: CI 40826921607, 569 backend/116 maintenance/105 packaged tests; actual packaged LAN entry and both text directions pass. Original domestic deltas and isolated 2.2.7 upgrade, data retention, cache cleanup and actual 2.3.2 launch passed.",
       "status": "completed",
       "passes": true
+    },
+    {
+      "id": "feat-009",
+      "category": "functional",
+      "priority": 2,
+      "description": "Deliver branded profile migration, all-language read-only reference, unlimited model profiles and compact LAN status as 2.3.3.",
+      "steps": [
+        "Preserve encrypted user data and all legacy absolute references",
+        "Import all authorized source language cells independently of translation rules",
+        "Verify unlimited profiles and responsive catalog/LAN UI",
+        "CI original installer, domestic original deltas and isolated old-client upgrade"
+      ],
+      "test_command": "See tools/check-user-data.cjs, tools/check-readable-ui.cjs and RELEASING.md",
+      "test_status": "in_progress",
+      "test_output": "573 backend and 122 maintenance checks, native updater restart and targeted catalog/profile/migration checks pass. Formal delivery pending.",
+      "status": "in_progress",
+      "passes": false
     }
   ]
 }

@@ -41,4 +41,5 @@ contextBridge.exposeInMainWorld('api', {
   setGlossarySources: (sources) => ipcRenderer.invoke('set-glossary-sources', sources),
   onBackendReady: (cb) => ipcRenderer.on('backend-ready', (_e, port) => cb(port)),
   onBackendError: (cb) => ipcRenderer.on('backend-error', (_e, msg) => cb(msg)),
+  onDataDirectoryWarning: cb => ipcRenderer.on('data-directory-warning', (_e, msg) => cb(msg)),
 })
