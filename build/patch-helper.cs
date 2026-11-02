@@ -18,7 +18,7 @@ using System.Runtime.InteropServices;
 class PatchHelper {
  public class Entry {public string path,stage,sha256;public long size;}
  public class Manifest {public string version;public Entry[] files;}
- public class Plan {public int schema,parentPid;public string from,to,id,root,folder,baseManifest;public bool restart,elevated,showProgress,registerRecovery;public Manifest @base,target;public Entry[] changed;public string[] removed;}
+ public class Plan {public int schema,parentPid;public string from,to,id,root,folder,baseManifest,userData;public bool restart,elevated,showProgress,registerRecovery;public Manifest @base,target;public Entry[] changed;public string[] removed;}
  static JavaScriptSerializer json=new JavaScriptSerializer(){MaxJsonLength=16*1024*1024};
  static Plan plan;static string folder,root,transaction,runName,planFile,planHash;
  static List<Entry> all;static Form form;static Label label;static ProgressBar bar;
@@ -66,8 +66,9 @@ class PatchHelper {
  static void Restart(){
   if(!closed||!canRestart||!plan.restart||Cancelled())return;
   string exe=Path.Combine(root,"星译官.exe");if(!File.Exists(exe))return;
-  try{if(plan.elevated){object shell=Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application"));try{shell.GetType().InvokeMember("ShellExecute",BindingFlags.InvokeMethod,null,shell,new object[]{exe,"",root,"open",1});}finally{Marshal.FinalReleaseComObject(shell);}}
-   else Process.Start(new ProcessStartInfo(exe){WorkingDirectory=root,UseShellExecute=true});
+  string arguments=String.IsNullOrEmpty(plan.userData)?"":"--user-data-dir="+Arg(plan.userData);
+  try{if(plan.elevated){object shell=Activator.CreateInstance(Type.GetTypeFromProgID("Shell.Application"));try{shell.GetType().InvokeMember("ShellExecute",BindingFlags.InvokeMethod,null,shell,new object[]{exe,arguments,root,"open",1});}finally{Marshal.FinalReleaseComObject(shell);}}
+   else Process.Start(new ProcessStartInfo(exe,arguments){WorkingDirectory=root,UseShellExecute=true});
   }catch{Write("restart.txt","更新已完成，请手动重新打开星译官。");}
  }
  static void Validate(){

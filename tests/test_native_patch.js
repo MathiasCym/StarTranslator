@@ -22,6 +22,7 @@ test('native GUI helper applies from Roaming without generating scripts and clea
  const manifest=JSON.parse(await fs.readFile(path.join(f.target,MANIFEST))),verify=()=>verifyInstallation(f.base,manifest,'2.3.7')
  assert((await verify()).complete);assert.equal(await fs.readFile(path.join(f.base,'personal.txt'),'utf8'),'keep')
  const names=await fs.readdir(launched.folder);assert(!names.some(n=>/\.(ps1|cmd|vbs)$/i.test(n)))
+ assert.equal(JSON.parse(await fs.readFile(path.join(launched.folder,'plan.json'))).userData,path.resolve(f.profile))
  assert(JSON.parse(await fs.readFile(path.join(launched.folder,'launcher.json'))).native)
  assert(!(await cleanupAppliedPatches({root:f.base,userData:f.profile,currentVersion:'2.3.7',verifyInstalled:verify})).deferred)
  await assert.rejects(fs.stat(launched.folder),{code:'ENOENT'})
