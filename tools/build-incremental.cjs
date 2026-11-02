@@ -28,7 +28,7 @@ async function build(){
    // a disposable extracted installation. No installed program is modified.
    await require('./verify-incremental.cjs').verify({file:path.join(out,metadata.filename),base,target,output:path.join(folder,'verified-'+a.version+'.json')})
    patches.push(metadata);console.log(JSON.stringify({from:a.version,to:current,bytes:metadata.size,fullBytes:a.size}))
-   if(newer('2.0.12',a.version))smallUpdaters.push(await require('./build-small-updater.cjs').buildSmallUpdater(metadata))
+   if(needsBridge(a.version))smallUpdaters.push(await require('./build-small-updater.cjs').buildSmallUpdater(metadata))
    if(path.dirname(base)!==folder)throw Error('Unsafe QA cleanup path')
    await fs.rm(base,{recursive:true,force:true});await fs.unlink(download)
  }
@@ -39,4 +39,5 @@ async function build(){
  return index
 }
 if(require.main===module)build().catch(error=>{console.error(error.message);process.exitCode=1})
-module.exports={build}
+function needsBridge(version){return newer('2.3.7',version)}
+module.exports={build,needsBridge}

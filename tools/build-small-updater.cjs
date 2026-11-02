@@ -9,6 +9,8 @@ async function buildSmallUpdater(patch,{root=path.resolve(__dirname,'..'),output
   const payload=path.join(folder,'payload');await fs.mkdir(payload)
   await fs.copyFile(path.join(root,'build/small-update-launcher.js'),path.join(payload,'launch.js'))
   await fs.cp(path.join(root,'lib'),path.join(payload,'lib'),{recursive:true})
+  const helper=path.join(root,'vendor/update-helper/StarTranslator.Update.exe')
+  await fs.copyFile(helper,path.join(payload,'StarTranslator.Update.exe'))
   await fs.copyFile(path.join(output,patch.filename),path.join(payload,patch.filename))
   await fs.writeFile(path.join(payload,'update.json'),JSON.stringify(patch))
   const zip=path.join(folder,'payload.zip'),seven=path.join(process.env.ProgramFiles,'7-Zip/7z.exe')

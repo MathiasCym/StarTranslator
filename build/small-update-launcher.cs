@@ -57,6 +57,7 @@ class SmallUpdate {
                 if(Array.IndexOf(args,"--no-progress")>=0){form.Opacity=0;form.ShowInTaskbar=false;}
                 label.Text="正在校验并合成小包更新，请稍候…\r\n更新完成后将自动重新打开星译官。";label.SetBounds(24,22,450,54);bar.Style=ProgressBarStyle.Marquee;bar.SetBounds(24,92,442,14);form.Controls.Add(label);form.Controls.Add(bar);
                 ProcessStartInfo info=new ProcessStartInfo(Path.Combine(root,"星译官.exe"),"\""+Path.Combine(folder,"launch.js")+"\" \""+root+"\""+(args.Length>1?" \""+args[1]+"\"":"")+(Array.IndexOf(args,"--no-restart")>=0?" --no-restart":"")+(Array.IndexOf(args,"--no-progress")>=0?" --no-progress":""));
+                if(Array.IndexOf(args,"--no-recovery")>=0)info.Arguments+=" --no-recovery";
                 info.UseShellExecute=false;info.CreateNoWindow=true;info.WorkingDirectory=folder;info.RedirectStandardError=true;info.EnvironmentVariables["ELECTRON_RUN_AS_NODE"]="1";
                 using(Process child=new Process()) {
                     child.StartInfo=info;child.Start();string error="";

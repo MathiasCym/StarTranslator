@@ -1,5 +1,6 @@
 # Local runtimes and reproducible build output
 node_modules/
+vendor/update-helper/
 python-runtime/
 dist/
 website/dist/

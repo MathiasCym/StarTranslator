@@ -1,6 +1,6 @@
 {
   "name": "startranslator",
-  "version": "2.3.6",
+  "version": "2.3.7",
   "description": "星译官 —— 中英技术文档翻译与审校工作台",
   "author": {
     "name": "MathiasCym"
@@ -48,6 +48,10 @@
       "renderer/assets/**/*"
     ],
     "extraResources": [
+      {
+        "from": "vendor/update-helper",
+        "to": "update-helper"
+      },
       {
         "from": "vendor/officecli",
         "to": "officecli"

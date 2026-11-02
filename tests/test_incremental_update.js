@@ -36,10 +36,8 @@ test('Windows helper applies exact files, keeps user data and rolls back locked-
 test('detached helper confirms startup before app exit, reports progress and applies without touching login settings',{skip:process.platform!=='win32'},async t=>{
  const f=await fixture(t),{spawn}=require('node:child_process'),parent=spawn(process.execPath,['-e','setTimeout(()=>{},120000)'],{windowsHide:true,stdio:'ignore'})
  t.after(()=>{parent.kill()});const progress=[]
- const launched=await require('../lib/patch-worker').launchPatch({file:f.file,root:f.base,currentVersion:'2.0.10',userData:f.folder,parentPid:parent.pid,restart:false,showProgress:false,progress:v=>progress.push(v),spawnProcess:(exe,args,options)=>{
-  const sync=require('node:fs'),updates=path.join(f.folder,'updates'),folder=sync.readdirSync(updates).find(n=>n.startsWith('apply-')),script=path.join(updates,folder,'apply.ps1');let text=sync.readFileSync(script,'utf8')
-  text=text.replace(/RegisterRecovery \$runName \$resume/,'# No login action for this isolated test.').replace(/RemoveRecovery \$runName/,'# No login action for this isolated test.')
-  sync.writeFileSync(script,text);return spawn(exe,args,options)
+ const launched=await require('../lib/patch-worker').launchPatch({file:f.file,root:f.base,currentVersion:'2.0.10',userData:f.folder,parentPid:parent.pid,restart:false,showProgress:false,registerRecovery:false,progress:v=>progress.push(v),spawnProcess:(exe,args,options)=>{
+  assert(exe.endsWith('StarTranslator.Update.exe'));assert(!args.some(arg=>/powershell|cmd\.exe|\.ps1/i.test(arg)));return spawn(exe,args,options)
  }})
  assert(launched.started);assert(progress.some(v=>v.message.includes('合成')));assert(!await fs.stat(path.join(launched.folder,'result.json')).then(()=>true,()=>false))
  const closed=new Promise(resolve=>parent.once('exit',resolve));parent.kill();await closed;let result

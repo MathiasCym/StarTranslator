@@ -94,6 +94,7 @@ function buildRelease(root, kind = 'auto', note = '', builder) {
   const release = prepareRelease(root, kind, note)
   console.log(`[release] 准备生成 v${release.version}`)
   const runBuilder = builder || (() => {
+    require('./build-patch-helper.cjs').build()
     const cli = path.join(root, 'node_modules', 'electron-builder', 'cli.js')
     const result = spawnSync(process.execPath, ['--require', path.join(root, 'tools', 'nsis-timeout.js'), cli, '--win', 'nsis', '--x64'], {
       cwd: root, stdio: 'inherit', windowsHide: true,

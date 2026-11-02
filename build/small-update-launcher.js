@@ -15,6 +15,7 @@ async function run(){
   // Do not pass Node mode to PowerShell or the restarted desktop application.
   delete process.env.ELECTRON_RUN_AS_NODE
   await require('./lib/patch-worker').launchPatch({file,root,currentVersion:metadata.from,userData,
-    restart:!process.argv.includes('--no-restart'),showProgress:!process.argv.includes('--no-progress')})
+    helperPath:path.join(__dirname,'StarTranslator.Update.exe'),
+    registerRecovery:!process.argv.includes('--no-recovery'),restart:!process.argv.includes('--no-restart'),showProgress:!process.argv.includes('--no-progress')})
 }
 run().catch(error=>{process.stderr.write(String(error.message)+'\n');process.exitCode=1})

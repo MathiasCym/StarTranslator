@@ -122,7 +122,11 @@ GitHub 发布后查看 **Sync owned public mirror**，或发布流程的 `public
 
 ### 增量发布（2.0.10 起）
 
-2.0.10 / 2.0.11 的后台辅助程序曾使用 Windows `DETACHED_PROCESS`，在部分 Windows 11 环境会不执行脚本而直接退出。2.0.12 起改为隐藏窗口、普通进程创建与明确握手，并显示准备及替换进度。最近三个基线中早于 2.0.12 的版本同时提供 `StarTranslator-SmallUpdate-<原版>-to-<新版>.exe`：它嵌入相同小包及启动修复，复用原有 Electron 运行库，不是完整安装包。该入口与 `.stpatch` 一样必须验大小、摘要、原清单及最终清单，并验证启动器退出后替换仍执行、自动重启和缓存清理。
+2.0.10 / 2.0.11 的后台辅助程序曾使用 Windows `DETACHED_PROCESS`，在部分 Windows 11 环境会不执行脚本而直接退出。2.0.12 起使用命令行中转及握手，但 2026-11-02 在真实 2.3.5 安装中再次复现：同一脚本放在桌面成功，放在 Roaming／TEMP 时启动失败，不能由桌面隔离测试推断用户环境可用。2.3.7 起使用原生 GUI 更新辅助程序，不生成或执行 cmd／PowerShell 脚本，保留 SHA 校验、回滚、恢复登记、进度和自动重启。
+
+最近三个基线中早于 2.3.7 的版本同时提供 `StarTranslator-SmallUpdate-<原版>-to-<新版>.exe`：它嵌入同一个原始小包和原生辅助程序，复用原有 Electron 运行库，不是完整安装包。旧客户端本身的启动失败无法靠尚未安装的新版本修复；遇到此症状时退出旧程序，再运行匹配当前版本的一次性小更新入口。该入口与 `.stpatch` 一样必须验大小、摘要、原清单及最终清单，并验证启动器退出后替换仍执行、自动重启和缓存清理。已有正式附件不覆盖。
+
+原生组件由 `tools/build-patch-helper.cjs` 编译，作为 `resources/update-helper/StarTranslator.Update.exe` 随包，纳入完整性和离线恢复。正式 CI 同时运行 `tests/test_native_patch.js`：真实 Roaming 目录、执行中故障回滚、计划篡改和具体启动错误；`tools/verify-incremental.cjs` 使用同一原生程序验证完整基线。额外本机验收必须通过资源管理器启动真实旧版 GUI 可执行文件和原始小入口，在独立 Roaming 配置中完成升级；不能仅使用开发 Electron 或桌面配置代替。恢复登记、自动重启及真实安装的执行范围分别如实记录，不改系统安全策略。
 
 `tools/build-small-updater.cjs` 在 Windows 构建该入口；`small-updaters.json` 记录对应版本、大小与摘要。GitHub 和国内发布一并回读这些小附件，禁止用本机不同字节覆盖已正式发布的入口。`tests/test_small_updater.js` 执行完整启动、替换、重启与清理测试。
 

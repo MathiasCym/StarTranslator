@@ -14,7 +14,7 @@ test('small executable uses the old runtime, survives launcher exit, applies exa
  const filename='StarTranslator-Patch-2.0.11-to-2.0.12.stpatch',patch=await buildPatch(base,target,path.join(folder,filename))
  const wrapper=await require('../tools/build-small-updater.cjs').buildSmallUpdater(patch,{output:folder})
  assert(wrapper.size<2*1024*1024);assert.equal(wrapper.to,'2.0.12')
- const child=spawn(path.join(folder,wrapper.filename),[base,profile,'--no-progress'],{windowsHide:true,stdio:['ignore','ignore','pipe']});let stderr='';child.stderr.on('data',value=>stderr+=value)
+ const child=spawn(path.join(folder,wrapper.filename),[base,profile,'--no-progress','--no-recovery'],{windowsHide:true,stdio:['ignore','ignore','pipe']});let stderr='';child.stderr.on('data',value=>stderr+=value)
  const code=await new Promise((resolve,reject)=>{child.once('error',reject);child.once('exit',resolve)})
  assert.equal(code,0,stderr);let result,apply
  for(let i=0;i<250;i++){
