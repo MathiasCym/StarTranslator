@@ -9,7 +9,7 @@ import time
 import logging
 from pathlib import Path
 from . import officecli_bridge
-from .replacer.pptx_geometry import walk_shapes, bounds
+from .replacer.pptx_geometry import walk_shapes, bounds, has_text_frame
 from .replacer.pptx_layout import fit_document
 from .replacer.pptx_package import save_office
 from .text_integrity import contains_chinese
@@ -155,9 +155,9 @@ def _objects(document,snapshots=None):
         values=[]
         for key,shape,transform in walk_shapes(slide.shapes,f'slide{number}'):
             x,y,w,h=bounds(shape,transform)
-            text=shape.text if shape.has_text_frame else '\n'.join(cell.text for row in shape.table.rows for cell in row.cells if not cell.is_spanned) if shape.has_table else ''
+            text=shape.text if has_text_frame(shape) else '\n'.join(cell.text for row in shape.table.rows for cell in row.cells if not cell.is_spanned) if shape.has_table else ''
             fonts=[]
-            if shape.has_text_frame and text.strip():
+            if has_text_frame(shape) and text.strip():
                 from .replacer.pptx_layout import _paragraph_data
                 fonts=sorted({round(st[1],2) for _,pieces,*_ in _paragraph_data(shape.text_frame,shape,slide,document) for r,st in pieces if r.text.strip()})
             original=(snapshots or {}).get(key,{})
@@ -165,11 +165,11 @@ def _objects(document,snapshots=None):
             original_text='\n'.join(''.join(r.text for r,_ in pieces) for _,pieces,*_ in original.get('data',[]))
             source_box=original.get('rect')
             unchanged=(number in translated_pages and not contains_chinese(original_text)
-                and shape.has_text_frame and shape.text.strip()==original_text.strip()
+                and has_text_frame(shape) and shape.text.strip()==original_text.strip()
                 and fonts==source_fonts and source_box is not None and all(abs(a-b)<127 for a,b in zip((x,y,w,h),source_box)))
             values.append({'shape_id':shape.shape_id,'locator':key,'box':[round(v/12700,1) for v in (x,y,w,h)],
-                           'kind':'text' if shape.has_text_frame and text.strip() else 'table' if shape.has_table else 'chart' if shape.has_chart else 'picture' if shape.shape_type==13 else 'decoration',
-                           'font_sizes':fonts,'source_font_sizes':source_fonts,'unchanged_source':unchanged,'wrap':shape.text_frame.word_wrap is not False if shape.has_text_frame else None,
+                           'kind':'text' if has_text_frame(shape) and text.strip() else 'table' if shape.has_table else 'chart' if shape.has_chart else 'picture' if shape.shape_type==13 else 'decoration',
+                           'font_sizes':fonts,'source_font_sizes':source_fonts,'unchanged_source':unchanged,'wrap':shape.text_frame.word_wrap is not False if has_text_frame(shape) else None,
                            'text':text[:400]})
         pages.append(values)
     return pages

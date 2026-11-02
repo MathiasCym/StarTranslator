@@ -10,6 +10,7 @@ from pptx.enum.text import MSO_AUTO_SIZE
 from pptx.util import Pt
 from types import SimpleNamespace
 from ..text_integrity import contains_chinese
+from .pptx_geometry import has_text_frame
 
 A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 P = 'http://schemas.openxmlformats.org/presentationml/2006/main'
@@ -86,7 +87,7 @@ def _placeholder_chain(shape, slide):
         candidates = list(owner.placeholders)
         match = next((p for p in candidates if p.placeholder_format.idx == idx), None)
         if match is None: match = next((p for p in candidates if p.placeholder_format.type == kind), None)
-        if match is not None and match.has_text_frame: result.append(match.text_frame._txBody)
+        if match is not None and has_text_frame(match): result.append(match.text_frame._txBody)
     return result
 
 
@@ -239,7 +240,7 @@ def _frames(document, changed):
                         height=sum(table.rows[k].height for k in range(r,r+cell.span_height))
                         margins=(cell.margin_left,cell.margin_right,cell.margin_top,cell.margin_bottom)
                         yield loc,cell.text_frame,None,slide,round(width*sx),round(height*sy),margins
-            elif shape.has_text_frame and any(v.startswith(key+'/p') for v in changed):
+            elif has_text_frame(shape) and any(v.startswith(key+'/p') for v in changed):
                 frame=shape.text_frame
                 yield key,frame,shape,slide,actual_width,actual_height,(frame.margin_left,frame.margin_right,frame.margin_top,frame.margin_bottom)
             elif shape.has_chart:
@@ -297,7 +298,7 @@ def _all_locators(document):
     result=[]
     for index,slide in enumerate(document.slides,1):
         for key,shape,_ in walk_shapes(slide.shapes,f'slide{index}'):
-            if shape.has_text_frame: result.append(key+'/p0')
+            if has_text_frame(shape): result.append(key+'/p0')
             elif shape.has_table:
                 result.extend(f'{key}/table/{r}/{c}/0' for r,row in enumerate(shape.table.rows)
                               for c,cell in enumerate(row.cells) if not cell.is_spanned)
@@ -311,7 +312,7 @@ def capture_layout(document, locators):
     rects={}
     for index,slide in enumerate(document.slides,1):
         for key,shape,transform in walk_shapes(slide.shapes,f'slide{index}'):
-            if (shape.has_text_frame and shape.text.strip()) or shape.has_table or shape.has_chart or shape.shape_type==13:
+            if (has_text_frame(shape) and shape.text.strip()) or shape.has_table or shape.has_chart or shape.shape_type==13:
                 rects[key]=bounds(shape,transform)
     for key,frame,shape,slide,width,height,margins in _frames(document,list(dict.fromkeys([*locators,*_all_locators(document)]))):
         data=_paragraph_data(frame,shape,slide,document)
@@ -380,7 +381,10 @@ def _write_typography(data,scale,font_changed,spacing_changed,padding,baked_scal
                     else:
                         ppr=paragraph._p.get_or_add_pPr(); old=_node(ppr,name)
                         if old is not None:ppr.remove(old)
-                        node=OxmlElement('a:'+name); child=OxmlElement('a:spcPct');child.set('val',str(round(value)));node.append(child);ppr.append(node)
+                        # DrawingML requires spacing before bullets/defRPr.
+                        # Appending after them produces an invalid slide XML.
+                        node=getattr(ppr,'get_or_add_'+name)()
+                        child=OxmlElement('a:spcPct');child.set('val',str(round(value)));node.append(child)
         if padding>.05:
             old=paragraph.space_after.pt if paragraph.space_after is not None else 0
             paragraph.space_after=Pt(old+padding)

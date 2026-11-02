@@ -100,6 +100,61 @@ class DocumentSkillTests(unittest.TestCase):
         self.environment.stop()
         self.temp.cleanup()
 
+    def test_read_layout_and_visual_inventory_do_not_create_decorative_text_bodies(self):
+        from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
+        from backend.extract.office import open_office
+        from backend.replacer.pptx_layout import capture_layout, fit_document
+        from backend.pptx_visual_review import _objects
+        from backend.replacer.pptx_readability import apply_actions
+        from backend.replacer.pptx_package import save_office
+        source=self.root/'decoration.pptx';deck=Presentation()
+        slide=deck.slides.add_slide(deck.slide_layouts[6])
+        decoration=slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.RECTANGLE, Inches(8), Inches(4), Inches(1), Inches(1))
+        decoration._element.remove(decoration._element.txBody)
+        group=slide.shapes.add_group_shape()
+        decoration=group.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.RECTANGLE, Inches(8), Inches(4), Inches(1), Inches(1))
+        decoration._element.remove(decoration._element.txBody)
+        text=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(5),Inches(1))
+        text.text='Source'
+        notes=slide.notes_slide.notes_placeholder
+        notes._element.remove(notes._element.txBody)
+        deck.save(source);original=source.read_bytes()
+        doc,paragraphs,_=open_office(source)
+        self.assertEqual(len(paragraphs),1)
+        loc,p,*_=paragraphs[0]
+        snapshots=capture_layout(doc,[loc]);_objects(doc,snapshots)
+        p.runs[0].text='译文';fit_document(doc,[loc],snapshots)
+        # Both action targets and collision peers must be inspected read-only.
+        apply_actions(doc,[dict(kind='readability',slide=1,locator='slide1/shape0',font_size=20)],[],[{'shapes':[]}])
+        self.assertFalse(doc.slides[0].shapes[0]._element.findall('{http://schemas.openxmlformats.org/presentationml/2006/main}txBody'))
+        self.assertFalse(doc.slides[0].shapes[1].shapes[0]._element.findall('{http://schemas.openxmlformats.org/presentationml/2006/main}txBody'))
+        self.assertIsNone(doc.slides[0].notes_slide.notes_placeholder._element.txBody)
+        output=self.root/'changed.pptx';save_office(source,doc,output,[loc])
+        self.assertEqual(extract(output)[0].text,'译文');self.assertEqual(source.read_bytes(),original)
+        with ZipFile(source) as old,ZipFile(output) as new:
+            self.assertEqual([n for n in old.namelist() if old.read(n)!=new.read(n)],['ppt/slides/slide1.xml'])
+
+    def test_structure_guard_still_rejects_geometry_fields_tables_and_animations(self):
+        from lxml import etree
+        from backend.replacer.pptx_package import _guard_part
+        source=fixture(self.root/'guard.pptx')
+        with ZipFile(source) as z:before=z.read('ppt/slides/slide1.xml')
+        a='http://schemas.openxmlformats.org/drawingml/2006/main'
+        p='http://schemas.openxmlformats.org/presentationml/2006/main'
+        def move(root):root.find('.//{'+a+'}off').set('x','999')
+        def add_shape(root):root.find('.//{'+p+'}spTree').append(etree.Element('{'+p+'}sp'))
+        def animate(root):root.append(etree.Element('{'+p+'}timing'))
+        def field(root):root.find('.//{'+a+'}p').append(etree.Element('{'+a+'}fld',id='new-field',type='slidenum'))
+        for change in (move,add_shape,animate,field):
+            with self.subTest(change=change.__name__):
+                root=etree.fromstring(before);change(root)
+                with self.assertRaisesRegex(ValueError,'对象结构'):_guard_part('ppt/slides/slide1.xml',before,etree.tostring(root))
+        deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
+        slide.shapes.add_table(1,2, Inches(1), Inches(1), Inches(5), Inches(1));deck.save(source)
+        with ZipFile(source) as z:before=z.read('ppt/slides/slide1.xml')
+        root=etree.fromstring(before);root.find('.//{'+a+'}gridCol').set('w','999')
+        with self.assertRaisesRegex(ValueError,'对象结构'):_guard_part('ppt/slides/slide1.xml',before,etree.tostring(root))
+
     def test_real_officecli_export_keeps_mixed_styles_links_geometry_and_unedited_parts(self):
         source = fixture(self.root / 'styled.pptx')
         original = source.read_bytes()

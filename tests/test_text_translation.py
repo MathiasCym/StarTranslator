@@ -79,6 +79,40 @@ class TextTranslationTests(unittest.TestCase):
         for original,target in [('The pixel pitch is2.5 mm.','点间距为2.5。'),
                 ('The controller model to40 supports 60 Hz.','控制器型号to41支持60Hz。'),('is2.5','是2.5')]:
             with self.assertRaises(ValueError):text.validate(original,target,'en-zh')
+
+    def test_reverse_fiscal_periods_compounds_hashes_and_real_changes(self):
+        for original,target in [
+            ('Results 12M FY 2025 / Investor Update','2025财年12个月业绩／投资者动态'),
+            ('Results 12M FY2025','2025财年12个月业绩'),
+            ('Model 12M FY 2025','型号12M，2025财年'),
+            ('Discuss 3-in-1 with Alex.','与Alex讨论三合一。'),
+            ('SHA-256: ABC1234.','SHA-256：ABC1234。'),
+            ('The length is 12 m.','长度为12米。')]:
+            with self.subTest(original=original):text.validate(original,target,'en-zh')
+        for original,target in [
+            ('Results 12M FY 2025','2025财年11个月业绩'),
+            ('Results 12M FY 2025','2025财年12米业绩'),
+            ('Model 12M FY 2025','型号12个月，2025财年'),
+            ('Discuss 3-in-1 with Alex.','与Alex讨论四合一。'),
+            ('SHA-256: ABC1234.','SHA-256：ABC1235。'),
+            ('The length is 12 m.','长度为12个月。'),
+            ('The display is reliable.','显示屏The display is reliable.')]:
+            with self.subTest(original=original,target=target):
+                with self.assertRaises(ValueError):text.validate(original,target,'en-zh')
+        text.validate('Chen Yiming uses HDMI.','Chen Yiming使用HDMI。','en-zh')
+        text.validate('Institute of Research and Development Limited','Institute of Research and Development Limited研究所','en-zh')
+        text.validate('Visit https://example.com/the-display-is-reliable .','访问https://example.com/the-display-is-reliable 。','en-zh')
+
+    def test_short_reverse_labels_do_not_expand_neighboring_body_context(self):
+        for source,target in [('Contents','目录'),('Abstract','摘要')]:
+            client=Client([{'translation':target},OK])
+            self.assertEqual(text.translate_piece(client,source,self.g,'en-zh',threading.Event(),
+                context='Report body: 2025 revenue was EUR 200 million.'),target)
+            payload=json.loads(client.calls[0][0])
+            self.assertEqual(payload['待译原文'],source)
+            self.assertEqual(payload['相邻原文（仅供理解）'],'')
+
+    def test_reverse_units_dates_names_and_identifiers(self):
         for source,target in [('The grayscale accuracy is 10-bit.','灰阶精度为10位。'),
                 ('灰阶精度为10bit。','灰阶精度为10位。'),('灰阶精度为10位。','灰阶精度为10-bit。'),
                 ('The grayscale accuracy is 10-bit.','灰阶精度为10比特。')]:

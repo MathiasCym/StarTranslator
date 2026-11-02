@@ -52,6 +52,29 @@ class LayoutTests(unittest.TestCase):
             for r in p.runs: r.font.name='Arial'; r.font.size=Pt(size)
         source=self.folder/'source.pptx'; deck.save(source)
         return source,deck,shape
+    def test_percentage_paragraph_spacing_remains_schema_valid_after_fit(self):
+        from backend.replacer.pptx_layout import _write_typography
+        from backend.replacer.pptx_package import save_office
+        for in_table in (False,True):
+            with self.subTest(table=in_table):
+                deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
+                frame=(slide.shapes.add_table(1,1,Inches(1),Inches(1),Inches(5),Inches(2)).table.cell(0,0).text_frame
+                    if in_table else slide.shapes.add_textbox(Inches(1),Inches(1),Inches(5),Inches(2)).text_frame)
+                frame.text='Percentage spacing';ppr=frame.paragraphs[0]._p.get_or_add_pPr()
+                ppr.get_or_add_defRPr().set('sz','1800')
+                ppr.append(OxmlElement('a:extLst'))
+                for tag in ('spcBef','spcAft'):
+                    pct=OxmlElement('a:spcPct');pct.set('val','75000');getattr(ppr,'get_or_add_'+tag)().append(pct)
+                source=self.folder/('spacing-table.pptx' if in_table else 'spacing-text.pptx');deck.save(source)
+                baseline=officecli_bridge.inspect(source)
+                doc,paragraphs,_=open_office(source);loc,paragraph,*_=paragraphs[0]
+                ppr=paragraph._p.get_or_add_pPr()
+                _write_typography([(paragraph,[],0,0,0,{'spcBef':('spcPct',50000),'spcAft':('spcPct',25000)},False)],1,False,True,0,False)
+                self.assertEqual([etree.QName(node).localname for node in ppr],['spcBef','spcAft','defRPr','extLst'])
+                output=self.folder/('fitted-table.pptx' if in_table else 'fitted-text.pptx')
+                save_office(source,doc,output,[loc])
+                officecli_bridge.compare(baseline,officecli_bridge.inspect(output))
+
     def translate(self,source,model):
         return translate_file(str(source),self.glossary,None,client=model)
 

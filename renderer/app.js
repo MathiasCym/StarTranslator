@@ -853,7 +853,7 @@ async function initialize() {
 }
 window.api.onBackendReady(initialize)
 ;(async () => { for (let i = 0; i < 60 && !initialized; i++) { if (await window.api.backendPort()) { await initialize(); break } await delay(500) } })().catch(error => toast(error.message, true))
-renderFiles()
+setMode(state.mode)
 
 // Ask in the app before any close entry point or reload discards an editor draft.
 let exitAllowed = false, navigationDecision = false

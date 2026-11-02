@@ -1,6 +1,6 @@
 """Apply image-model readability proposals only after local collision/fit checks."""
 import math
-from .pptx_geometry import walk_shapes,bounds,IDENTITY
+from .pptx_geometry import walk_shapes,bounds,IDENTITY,has_text_frame
 from .pptx_layout import Metrics,_paragraph_data,_write_typography,estimate,EMU_PT
 
 A='http://schemas.openxmlformats.org/drawingml/2006/main'
@@ -43,7 +43,7 @@ def apply_actions(document,issues,changed,native_pages,feedback=None):
             match=next((s for s in shapes if s[0]==item.get('locator')),None)
             if not match:continue
             key,shape,transform=match
-            if not shape.has_text_frame or not shape.text.strip() or shape.rotation%360:continue
+            if not has_text_frame(shape) or not shape.text.strip() or shape.rotation%360:continue
             # Group scaling is supported; rotated/flipped groups require an
             # inverse polygon fit rather than changing axis-aligned extents.
             if transform[1] or transform[2] or transform[0]<=0 or transform[3]<=0:continue
@@ -89,7 +89,7 @@ def apply_actions(document,issues,changed,native_pages,feedback=None):
             for peer_key,peer,matrix in shapes:
                 if peer_key==key:continue
                 rect=tuple(v/EMU_PT for v in bounds(peer,matrix))
-                if peer.has_text_frame:
+                if has_text_frame(peer):
                     if not peer.text.strip():continue
                     info=native.get(peer.shape_id) if matrix==IDENTITY else None
                     rect=modified.get((number,peer_key)) or ((info['bound_x'],info['bound_y'],info['bound_width'],info['bound_height'])

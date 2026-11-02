@@ -12,6 +12,7 @@ from pptx.enum.shapes import MSO_SHAPE_TYPE
 
 from ..models import RunInfo, Segment
 from .common import is_meaningful, needs_merge
+from ..replacer.pptx_geometry import has_text_frame
 
 
 def _shape_locator(slide_idx: int, shape_idx: int, para_idx: int) -> str:
@@ -55,7 +56,7 @@ def extract_pptx(path: str) -> list[Segment]:
                 ))
                 continue
 
-            if not shape.has_text_frame:
+            if not has_text_frame(shape):
                 continue
 
             for para_idx, para in enumerate(shape.text_frame.paragraphs):
@@ -76,7 +77,10 @@ def extract_pptx(path: str) -> list[Segment]:
 
         # 演讲者备注
         if slide.has_notes_slide:
-            notes_tf = slide.notes_slide.notes_text_frame
+            placeholder = slide.notes_slide.notes_placeholder
+            if placeholder is None or not has_text_frame(placeholder):
+                continue
+            notes_tf = placeholder.text_frame
             for para_idx, para in enumerate(notes_tf.paragraphs):
                 text = para.text
                 if not is_meaningful(text):

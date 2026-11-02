@@ -6,6 +6,12 @@ A = 'http://schemas.openxmlformats.org/drawingml/2006/main'
 IDENTITY = (1., 0., 0., 1., 0., 0.)
 
 
+def has_text_frame(shape):
+    """Inspect actual XML without creating a text body on a decorative shape."""
+    return shape.has_text_frame and shape._element.find(
+        '{http://schemas.openxmlformats.org/presentationml/2006/main}txBody') is not None
+
+
 def compose(a, b):
     aa, ab, ac, ad, ax, ay = a
     ba, bb, bc, bd, bx, by = b

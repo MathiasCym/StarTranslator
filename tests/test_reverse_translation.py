@@ -88,13 +88,56 @@ class ReverseTests(unittest.TestCase):
         source=self.root/'source.pptx';deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
         shape=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(6),Inches(2));p=shape.text_frame.paragraphs[0]
         a=p.add_run();a.text='The pixel pitch';a.font.bold=True;a.font.size=Pt(24)
-        b=p.add_run();b.text=' is 2.5 mm.';b.font.size=Pt(24);deck.save(source)
+        b=p.add_run();b.text=' is 2.5 mm.';b.font.size=Pt(24)
+        from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
+        decoration=slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.RECTANGLE, Inches(8), Inches(4), Inches(1), Inches(1))
+        decoration._element.remove(decoration._element.txBody)
+        deck.save(source)
         with (patch('backend.pptx_visual_review.review_pptx',return_value=([],[])) as visual,
                 patch('backend.officecli_bridge.inspect',return_value={}),patch('backend.officecli_bridge.compare',return_value=[])):
             result=translate_file(source,self.glossary,None,client=Model(),direction='en-zh')
         self.assertEqual(visual.call_args.kwargs['target_language'],'zh')
         output=Presentation(result['path']);self.assertEqual(output.slides[0].shapes[0].text,TARGET)
         self.assertTrue(output.slides[0].shapes[0].text_frame.paragraphs[0].runs[0].font.bold)
+        self.assertIsNone(output.slides[0].shapes[1]._element.txBody)
+
+    def test_completed_235_reverse_checkpoints_survive_read_only_ppt_fix(self):
+        source=self.doc();old='3e8008c39f1869cd051787ea1b42679b6987d9fd1d5bbcbc9c93de70a4865fa6'
+        with patch('backend.checkpoints.policy',return_value=old):
+            translate_file(source,self.glossary,None,client=Model(),direction='en-zh')
+        model=Model();result=translate_file(source,self.glossary,None,client=model,direction='en-zh')
+        self.assertEqual(model.calls,[]);self.assertEqual(result['resumed_segments'],2)
+        self.assertTrue(result['translation_complete'])
+
+    def test_word_keeps_validated_chinese_when_emphasis_mapping_is_unavailable(self):
+        english='Contact path: Alex raised the request; Sam forwarded the information to the team.'
+        chinese='联系路径：Alex提出请求；Sam将资料转交给团队。'
+        class MissingStyle(Model):
+            failure=None
+            def chat_json(self,prompt,system='',**options):
+                data=json.loads(prompt.split('\n重新核对：')[0])
+                if '候选及英文原文语境' in data:return {'people':[]}
+                if '按原文语义' in system:
+                    if self.failure:raise self.failure('样式阶段连接或响应故障')
+                    return {'anchors':[{'id':0,'text':'不存在的强调'}]}
+                if '待译原文' in data:
+                    return {'translation':chinese,'runs':[{'id':1,'text':chinese}]}
+                return super().chat_json(prompt,system,**options)
+        source=self.root/'mapping.docx';doc=Document();p=doc.add_paragraph()
+        p.add_run('Contact path:').bold=True;p.add_run(english[len('Contact path:'):]);doc.save(source)
+        original=source.read_bytes()
+        from backend.llm.client import LLMUnavailable,LLMResponseInvalid,LLMTruncated
+        for failure in (None,LLMUnavailable,LLMResponseInvalid,LLMTruncated):
+            with self.subTest(failure=failure):
+                model=MissingStyle();model.failure=failure
+                result=translate_file(source,self.glossary,None,client=model,direction='en-zh')
+                self.assertEqual(Document(result['path']).paragraphs[0].text,chinese,result['review_items'])
+                self.assertEqual(result['untranslated'],0)
+                self.assertTrue(result['translation_complete'])
+                self.assertEqual(result['resumed_segments'],0,'Unverified emphasis must not enter the checkpoint')
+                self.assertTrue(any('局部强调' in issue['reason'] for issue in result['layout_warnings']))
+                self.assertEqual(source.read_bytes(),original)
+
     def test_all_editable_text_containers(self):
         fixtures={'.txt':SOURCE+'\r\n', '.md':'# '+SOURCE+'\n\n[Link](https://example.com/中文)',
             '.html':'<p>'+SOURCE+'</p><a href="https://example.com/中文">NOVA</a>',

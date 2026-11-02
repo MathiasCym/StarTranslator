@@ -35,7 +35,7 @@ def open_office(path):
                         for rel in document.part.rels.values() if rel.reltype.endswith('/slide')]
         slides=document.slides
         for part,name in original_parts:part.partname=name
-        from ..replacer.pptx_geometry import walk_shapes, bounds
+        from ..replacer.pptx_geometry import walk_shapes, bounds, has_text_frame
         def shapes(items, prefix, slide):
             for key,shape,transform in walk_shapes(items,prefix):
                 if shape.has_table:
@@ -45,7 +45,7 @@ def open_office(path):
                                 continue
                             for p,para in enumerate(cell.text_frame.paragraphs):
                                 paragraphs.append((f'{key}/table/{r}/{c}/{p}',para,'table',slide,p+1))
-                elif shape.has_text_frame:
+                elif has_text_frame(shape):
                     for p,para in enumerate(shape.text_frame.paragraphs):
                         locator = f'{key}/p{p}'
                         paragraphs.append((locator,para,'text',slide,p+1))
@@ -62,9 +62,11 @@ def open_office(path):
                         blocked.append((key,'[嵌入图示]','image',slide,'嵌入图示内文字暂不支持自动处理。'))
         for s,slide in enumerate(slides,1):
             shapes(slide.shapes,f'slide{s}',s)
-            if slide.has_notes_slide and slide.notes_slide.notes_text_frame:
-                for p,para in enumerate(slide.notes_slide.notes_text_frame.paragraphs):
-                    paragraphs.append((f'slide{s}/notes/p{p}',para,'notes',s,p+1))
+            if slide.has_notes_slide:
+                placeholder=slide.notes_slide.notes_placeholder
+                if placeholder is not None and has_text_frame(placeholder):
+                    for p,para in enumerate(placeholder.text_frame.paragraphs):
+                        paragraphs.append((f'slide{s}/notes/p{p}',para,'notes',s,p+1))
         from .pptx_extra import extra_paragraphs
         paragraphs.extend(extra_paragraphs(path, document))
         blocked.extend(document._star_extra_blocked)
