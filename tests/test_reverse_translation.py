@@ -319,11 +319,15 @@ class ReverseTests(unittest.TestCase):
 
     def test_combined_review_checkpoints_survive_new_draft_paths(self):
         source=self.doc()
+        original=None
         for iteration in range(2):
             model=Model()
             with patch('backend.workflow.LLMClient',return_value=model):
-                job=workflow.start({'kind':'translate_review','direction':'en-zh','paths':[str(source)],'combined_output':'final'})
+                from backend import history
+                data=history.resume_options(original) if original else {'kind':'translate_review','direction':'en-zh','paths':[str(source)],'combined_output':'final'}
+                job=workflow.start(data)
                 result=asyncio.run(task_queue.wait(job['id'],.005))
+            if not original:original=job['id']
             self.assertEqual(result['status'],'complete',result.get('error'))
             if iteration:
                 self.assertEqual(model.calls,[])

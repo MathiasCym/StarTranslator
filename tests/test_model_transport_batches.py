@@ -443,6 +443,9 @@ class CheckpointTests(unittest.TestCase):
             job={'id':ident,'kind':'translate_review','status':'running','percent':0,'error':'','cancel':threading.Event()}
             data={'kind':'translate_review','paths':[str(self.source)],'references':[],
                 'output_dir':str(self.root/'output'),'combined_output':'final','workers':1,'_client':client}
+            if ident=='resume-attempt':
+                from backend import history
+                data={**history.resume_options('first-attempt'),'_client':client}
             with patch('backend.workflow.store.load_glossary',return_value=self.glossary):workflow.run(job,data)
             return job
         responses=[reply({'translation':'Brightness 500 nits'}),reply({'translation':'Supports image processing'}),reply([]),http.client.IncompleteRead(b'')]

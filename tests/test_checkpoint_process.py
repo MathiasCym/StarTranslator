@@ -40,7 +40,7 @@ def worker(config_file,mode):
             self.calls.append(source)
             return {'translation':table[source]}
     model=Model()
-    if mode=='crash':
+    if mode in ('crash','fresh'):
         data={'kind':'translate','paths':[config['source']],'direction':config['direction'],
             'workers':1,'output_dir':config['output'],'translation_mode':'faithful'}
     else:
@@ -113,14 +113,16 @@ class CheckpointProcessTests(unittest.TestCase):
                     import backend
                     config=folder/'config.json';config.write_text(json.dumps({'profile':str(folder/'profile'),'backend_root':str(Path(backend.__file__).resolve().parent.parent),
                         'source':str(source),'direction':direction,'output':str(folder/'output'),'texts':texts}),'utf-8')
-                    for mode in ('crash','resume','cached'):
+                    for mode in ('crash','resume','cached','fresh'):
                         result=subprocess.run([sys.executable,'-X','utf8','-B',str(Path(__file__).resolve()),'--worker',str(config),mode],
                             cwd=ROOT,capture_output=True,timeout=50,creationflags=subprocess.CREATE_NO_WINDOW if os.name=='nt' else 0)
                         self.assertEqual(result.returncode,73 if mode=='crash' else 0,result.stderr.decode('utf-8',errors='replace')[-5000:])
                     resumed=json.loads((folder/'resume-result.json').read_text('utf-8'))
                     cached=json.loads((folder/'cached-result.json').read_text('utf-8'))
+                    fresh=json.loads((folder/'fresh-result.json').read_text('utf-8'))
                     self.assertEqual(resumed['calls'],2);self.assertEqual(resumed['resumed'],1)
                     self.assertEqual(cached['calls'],0);self.assertEqual(cached['resumed'],3)
+                    self.assertEqual(fresh['calls'],3);self.assertEqual(fresh['resumed'],0)
                     self.assertEqual(resumed['sourceHash'],before);self.assertEqual(cached['sourceHash'],before)
     def test_docx(self):self.check_format('.docx')
     def test_pptx(self):self.check_format('.pptx')

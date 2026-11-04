@@ -77,7 +77,7 @@ class AsyncLanTests(unittest.TestCase):
                 self.assertNotIn('_history_data',cancelled)
                 self.assertEqual(next(r['status'] for r in history.query(active_ids=[j['id'] for j in jobs[:2]])['records'] if r['id']==jobs[2]['id']),'cancelled')
                 self.assertEqual(workflow.cancel(jobs[2]['id'])['status'],'cancelled')
-                self.assertEqual(history.resume_options(jobs[2]['id']),options)
+                self.assertEqual(history.resume_options(jobs[2]['id']),{**options,'resume_from':jobs[2]['id']})
             finally: release.set()
             for job in jobs:self.wait(job['id'])
         self.assertEqual(count[0],2);self.assertEqual(workflow.JOBS[jobs[2]['id']]['status'],'cancelled')

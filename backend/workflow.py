@@ -58,6 +58,14 @@ def start(data):
     if data.get('kind') == 'text':
         from .text_translation import start as start_text
         return start_text(data)
+    resume_row=None
+    if data.get('resume_from'):
+        with LOCK:
+            active=JOBS.get(data['resume_from'])
+            if active and active['status'] in ('queued','running'):
+                raise ValueError('该任务仍在处理中，请先查看当前进度。')
+        resume_row=history.record(data['resume_from'])
+        data=history.resume_options(data['resume_from'])
     if data.get('kind') not in ('check','translate','translate_review'):
         raise ValueError('任务类型不正确')
     if not isinstance(data.get('direction', 'zh-en'), str) or data.get('direction', 'zh-en') not in ('zh-en', 'en-zh'):
@@ -82,6 +90,9 @@ def start(data):
         job = {'id':uuid.uuid4().hex,'kind':data['kind'],'status':'queued','done':0,'total':0,
                'message':'正在排队等待处理','phase':'preparing','percent':0,'result':None,'error':'','cancel':threading.Event(),
                '_history_data':{key:data[key] for key in history.RESUME_FIELDS if key in data}}
+        data['_checkpoint_session']=resume_row.get('checkpoint_session') if resume_row else job['id']
+        if resume_row:data['_resume_row']=resume_row
+        job['_history_data']['_checkpoint_session']=data['_checkpoint_session']
         JOBS[job['id']] = job
         for key in list(JOBS):
             if len(JOBS) <= task_queue.MAX_RETAINED: break
@@ -141,6 +152,23 @@ def predominantly_chinese(path):
 
 
 def run(job,data):
+    from .task_resume import activate
+    data=dict(data)
+    previous=data.get('_resume_row')
+    if data.get('resume_from') and previous is None:previous=history.record(data['resume_from'])
+    session=previous.get('checkpoint_session') if previous else data.get('_checkpoint_session',job['id'])
+    data['_checkpoint_session']=session
+    if previous:data['_resume_row']=previous
+    job['resuming']=bool(previous)
+    def resumed(stage):
+        with LOCK:
+            counts=job.setdefault('resume_counts',{})
+            counts[stage]=counts.get(stage,0)+1
+    with activate(session,resumed):
+        _run(job,data)
+
+
+def _run(job,data):
     reviews = []
     outcome = 'failed'
     job.setdefault('kind', data['kind'])
@@ -158,6 +186,10 @@ def run(job,data):
     def progress(done,total,message,phase='check',percent=None,detail=''):
         import time
         with LOCK:
+            if job.get('resuming'):
+                counts=job.get('resume_counts',{})
+                reused=sum(counts.get(stage,0) for stage in (('translation','translation-zh') if phase=='translate' else ('review','review-zh') if phase=='check' else ()))
+                detail=('正在恢复原任务；'+(f'已复用 {reused} 处断点；' if reused else (job.get('resume_notice','')+'；' if job.get('resume_notice') else ''))+(detail or message))
             job.update(done=done,total=total,message=message,phase=phase,detail=detail or message,activity_at=time.time())
             job['percent'] = max(job.get('percent', 0), percent if percent is not None else 100*done/total if total else 0)
     try: history.begin(job['id'], data)
@@ -165,6 +197,17 @@ def run(job,data):
     try:
         glossary = store.load_glossary(data.get('glossary_imports'))
         references = ReferenceIndex(data.get('references',[]),glossary,data.get('pairs'))
+        from . import task_resume
+        current_context=task_resume.context(data,glossary,references,data.get('_client'))
+        previous=data.get('_resume_row')
+        if previous:
+            if previous.get('resume_context'):task_resume.guard(previous['resume_context'],current_context)
+            elif previous.get('model_identity'):
+                task_resume.guard({'model':previous['model_identity']},{'model':current_context['model']})
+            elif data.get('_checkpoint_session') is None:
+                job['resume_notice']=task_resume.guard_legacy(data,glossary,references,data.get('_client'))
+        try:history.save_resume_context(job['id'],current_context)
+        except Exception:logging.getLogger(__name__).exception('Could not save task resume context')
         paths = list(dict.fromkeys(os.path.abspath(p) for p in data['paths']))
         if data['kind'] in ('translate','translate_review'):
             outputs, errors = [], []
@@ -292,6 +335,7 @@ def run(job,data):
             logging.getLogger(__name__).exception('Could not save local task history')
         # A final status is observable only after the report and outputs exist.
         with LOCK:
+            if job['id'] in REPORTS:REPORTS[job['id']]['_checkpoint_session']=data['_checkpoint_session']
             job.update(status=outcome,phase=outcome)
             if outcome=='complete': job['percent'] = 100
 
@@ -458,7 +502,8 @@ def apply_report(data, progress=None, client=None):
         if task_queue.MAINTENANCE: raise ValueError('正在校验安装文件，请稍后保存。')
         task_queue.ACTIVE_EXPORTS += 1
     try:
-        with export_lock, OUTPUT_LOCK:
+        from .task_resume import activate
+        with export_lock, OUTPUT_LOCK, activate(report.get('_checkpoint_session')):
             result = _apply_report(data, report, progress=progress, client=client)
             option = report.get('output_options',{}).get(data['path'],{})
             source = option.get('source',data['path'])

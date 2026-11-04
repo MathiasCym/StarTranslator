@@ -44,18 +44,23 @@ def context_identity(glossary, references, client, reference_path=None):
 
 
 class Checkpoint:
-    def __init__(self, stage, identity):
+    def __init__(self, stage, identity, *, read_only=False):
+        from .task_resume import checkpoint_identity
+        identity,self.observer=checkpoint_identity(identity)
+        self.read_only=read_only
         self.stage, self.scope = stage, digest({'policy': policy(stage), 'input': identity})
         self.path = data_dir()/'task-checkpoints.sqlite3'
         self.lock, self.values, self.resumed = threading.Lock(), {}, 0
         self.available, self.warning = True, ''
+        if read_only and not self.path.is_file():return
         try:
-            self.path.parent.mkdir(parents=True, exist_ok=True)
+            if not read_only:self.path.parent.mkdir(parents=True, exist_ok=True)
             with self.connection() as db:
-                db.execute('PRAGMA journal_mode=WAL')
-                db.execute('CREATE TABLE IF NOT EXISTS checkpoints (scope TEXT NOT NULL, stage TEXT NOT NULL, item_key TEXT NOT NULL, value TEXT NOT NULL, updated REAL NOT NULL, PRIMARY KEY(scope,stage,item_key))')
-                db.execute('CREATE TABLE IF NOT EXISTS checkpoint_scopes (scope TEXT PRIMARY KEY, origin TEXT NOT NULL)')
-                db.execute('INSERT OR REPLACE INTO checkpoint_scopes VALUES (?,?)',(self.scope,str(identity.get('source',''))))
+                if not read_only:
+                    db.execute('PRAGMA journal_mode=WAL')
+                    db.execute('CREATE TABLE IF NOT EXISTS checkpoints (scope TEXT NOT NULL, stage TEXT NOT NULL, item_key TEXT NOT NULL, value TEXT NOT NULL, updated REAL NOT NULL, PRIMARY KEY(scope,stage,item_key))')
+                    db.execute('CREATE TABLE IF NOT EXISTS checkpoint_scopes (scope TEXT PRIMARY KEY, origin TEXT NOT NULL)')
+                    db.execute('INSERT OR REPLACE INTO checkpoint_scopes VALUES (?,?)',(self.scope,str(identity.get('source',''))))
                 rows = db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?', (self.scope,stage)).fetchall()
                 # Explicit compatibility with the shipped 2.0.11–2.0.14 translators.
                 # Source/model/glossary/references/styles remain in the identity;
@@ -113,7 +118,7 @@ class Checkpoint:
 
     @contextmanager
     def connection(self):
-        db = sqlite3.connect(self.path, timeout=10)
+        db = sqlite3.connect(self.path.resolve().as_uri()+'?mode=ro',uri=True,timeout=10) if self.read_only else sqlite3.connect(self.path, timeout=10)
         try:
             with db: yield db
         finally: db.close()
@@ -128,9 +133,10 @@ class Checkpoint:
 
     def used(self):
         with self.lock: self.resumed += 1
+        if self.observer:self.observer(self.stage)
 
     def put(self, key, value):
-        if not self.available: return
+        if not self.available or self.read_only: return
         key, raw = digest(key), json.dumps(value, ensure_ascii=False)
         with self.lock:
             try:

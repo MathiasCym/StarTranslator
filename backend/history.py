@@ -28,6 +28,17 @@ def begin(job_id, data, status='running'):
            'finished_at': '', 'paths': list(dict.fromkeys(data.get('paths', []))),
            'output_dir': data.get('output_dir') or '', 'translation_mode':data.get('translation_mode','faithful'), 'outputs': [], 'errors': [], 'counts': {}}
     row['resume_options'] = {key:data[key] for key in RESUME_FIELDS if key in data}
+    if '_checkpoint_session' in data:row['checkpoint_session']=data['_checkpoint_session']
+    previous=data.get('_resume_row')
+    if previous:
+        # Failed resume attempts must keep the original requirements. Saving
+        # the rejected current model here would allow the next click to bypass
+        # the mismatch guard and silently start over.
+        for key in ('model_identity','resume_context'):
+            if key in previous:row[key]=previous[key]
+    elif data.get('_client') is not None:
+        from .task_resume import model_identity
+        row['model_identity']=model_identity(data['_client'])
     with connection() as db:
         db.execute('INSERT OR IGNORE INTO tasks VALUES (?,?,?,?,?)', (job_id, stamp, row['kind'], row['status'], json.dumps(row, ensure_ascii=False)))
         if status == 'running':
@@ -35,6 +46,7 @@ def begin(job_id, data, status='running'):
             if queued:
                 row = json.loads(queued[0]); row['status'] = 'running'; row['kind']=data['kind']
                 row['resume_options']={key:data[key] for key in RESUME_FIELDS if key in data}
+                if '_checkpoint_session' in data:row['checkpoint_session']=data['_checkpoint_session']
                 db.execute('UPDATE tasks SET kind=?,status=?,payload=? WHERE id=?',(row['kind'],'running',json.dumps(row,ensure_ascii=False),job_id))
     return row
 
@@ -206,7 +218,15 @@ def display_record(row):
 def resume_options(job_id):
     row = record(job_id)
     if not row.get('resume_options'): raise ValueError('该早期任务未保存恢复设置，请重新添加原文件；新版任务会自动保存断点。')
-    return {key:value for key,value in row['resume_options'].items() if key in RESUME_FIELDS}
+    return {**{key:value for key,value in row['resume_options'].items() if key in RESUME_FIELDS},'resume_from':job_id}
+
+
+def save_resume_context(job_id,context):
+    with connection() as db:
+        raw=db.execute('SELECT payload FROM tasks WHERE id=?',(job_id,)).fetchone()
+        if not raw:return
+        row=json.loads(raw[0]);row['resume_context']=context
+        db.execute('UPDATE tasks SET payload=? WHERE id=?',(json.dumps(row,ensure_ascii=False),job_id))
 
 
 def record(job_id):
