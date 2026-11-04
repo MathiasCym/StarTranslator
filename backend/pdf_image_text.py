@@ -73,7 +73,7 @@ def _capacity(item,scale):
     return max(8,int(((r-x)/scale-2)/average*rows*.92))
 
 
-def render(raw,items,translations,scale,all_lines):
+def render(raw,items,translations,scale,all_lines,*,fit=None):
     with Image.open(io.BytesIO(raw)) as loaded:original=loaded.convert('RGBA')
     output=original.copy();draw=ImageDraw.Draw(output);boxes=[]
     for item,target in zip(items,translations):
@@ -93,7 +93,7 @@ def render(raw,items,translations,scale,all_lines):
         foreground=[p for p in original.crop(box).getdata() if p[3]>220 and (background[3]<16 or max(abs(p[i]-background[i]) for i in range(3))>70)]
         if not foreground:raise ValueError('无法确认原图文字颜色。')
         color=Counter(foreground).most_common(1)[0][0]
-        font,lines,step=_fit(target,r-x-2,b-y-2,(item['box'][3]-item['box'][1])/scale)
+        font,lines,step=(fit or _fit)(target,r-x-2,b-y-2,(item['box'][3]-item['box'][1])/scale)
         draw.rectangle((x,y,r-1,b-1),fill=background)
         top=y+(b-y-len(lines)*step)/2
         for line in lines:

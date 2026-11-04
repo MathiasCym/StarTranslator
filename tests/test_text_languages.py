@@ -23,7 +23,15 @@ SAMPLES={
  'ja-JP':'A8 コントローラーの電源を切らないでください。周波数は 60 Hz です。https://example.com/中文 を参照。',
  'ko':'A8 컨트롤러를 끄지 마세요. 주파수는 60 Hz입니다. https://example.com/中文 참조.',
  'pt':'Não desligue o controlador A8. A frequência é de 60 Hz. Consulte https://example.com/中文。',
- 'ru-RU':'Не выключайте контроллер A8. Частота составляет 60 Hz. См. https://example.com/中文。'}
+ 'ru-RU':'Не выключайте контроллер A8. Частота составляет 60 Hz. См. https://example.com/中文。',
+ 'zh-Hant-TW':'請勿關閉 A8 控制器。頻率為 60 Hz。參閱 https://example.com/中文。',
+ 'ar-SA':'لا توقف وحدة التحكم A8. التردد هو 60 Hz. راجع https://example.com/中文 .',
+ 'de-DE':'Schalten Sie den A8-Controller nicht aus. Die Frequenz beträgt 60 Hz. Siehe https://example.com/中文 .',
+ 'id-ID':'Jangan matikan pengontrol A8. Frekuensinya 60 Hz. Lihat https://example.com/中文 .',
+ 'it-IT':'Non spegnere il controller A8. La frequenza è di 60 Hz. Vedere https://example.com/中文 .',
+ 'th-TH':'อย่าปิดตัวควบคุม A8 ความถี่คือ 60 Hz ดู https://example.com/中文',
+ 'tr-TR':'A8 denetleyicisini kapatmayın. Frekans 60 Hz. Bkz. https://example.com/中文 .',
+ 'vi-VN':'Không tắt bộ điều khiển A8. Tần số là 60 Hz. Xem https://example.com/中文 .'}
 
 
 class LanguageTests(unittest.TestCase):
@@ -40,7 +48,7 @@ class LanguageTests(unittest.TestCase):
    job=workflow.start({'kind':'text','text':source,'source_language':src,'target_language':dst,**options})
    return asyncio.run(task_queue.wait(job['id'],.005))
 
- def test_all_56_pairs_use_the_job_contract_and_target_language(self):
+ def test_all_240_pairs_use_the_job_contract_and_target_language(self):
   for src,source in SAMPLES.items():
    for dst,target in SAMPLES.items():
     if src==dst:continue
@@ -52,11 +60,11 @@ class LanguageTests(unittest.TestCase):
      label='英文' if (src,dst)==('zh-CN','en-US') else languages.LANGUAGES[dst]
      self.assertIn(label,client.calls[0][1]['system'])
 
- def test_metadata_exposes_actual_eight_languages_without_mutating_resources(self):
+ def test_metadata_exposes_actual_sixteen_languages_without_mutating_resources(self):
   original=Path('glossary/multilingual.json').read_bytes()
   metadata=languages.metadata()
-  self.assertEqual(len(metadata['languages']),8);self.assertEqual(metadata['warning'],'')
-  self.assertEqual({row['code']:row['count'] for row in metadata['languages']}['ko'],1882)
+  self.assertEqual(len(metadata['languages']),16);self.assertEqual(metadata['warning'],'')
+  self.assertEqual({row['code']:row['count'] for row in metadata['languages']}['ko'],1870)
   self.assertEqual(Path('glossary/multilingual.json').read_bytes(),original)
 
  def test_official_terms_only_use_a_real_source_target_pair(self):
@@ -139,9 +147,23 @@ class LanguageTests(unittest.TestCase):
    {'source_language':'fr-FR','target_language':[]}]:
    with self.subTest(fields=fields),self.assertRaises(ValueError):text.start({'text':'Hello',**fields})
 
+ def test_traditional_and_supplied_languages_preserve_equivalent_units(self):
+  for source,target,src,dst in [
+   ('頻率為60赫茲。','The frequency is 60 Hz.','zh-Hant-TW','en-US'),
+   ('The width is 2.6 cm.','寬度為2.6公分。','en-US','zh-Hant-TW'),
+   ('The precision is 10 bits.','精度為10位元。','en-US','zh-Hant-TW'),
+   ('The frequency is 60 Hz.','التردد هو ٦٠ هرتز.','en-US','ar-SA'),
+   ('The frequency is 60 Hz.','ความถี่คือ 60 เฮิรตซ์','en-US','th-TH'),
+   ('The value is 60%.','القيمة هي ٦٠٪.','en-US','ar-SA')]:
+   with self.subTest(dst=dst):languages.validate(source,target,src,dst)
+  with self.assertRaises(ValueError):languages.validate('The frequency is 60 Hz.','頻率為60公分。','en-US','zh-Hant-TW')
+  languages.validate('Schalten Sie den A8-Controller nicht aus.','Do not turn off the A8 controller.','de-DE','en-US')
+  for source,target in [('Der A8-Pro ist aktiv.','The A8 is active.'),('Der A8-Controller ist aktiv.','The A9 controller is active.')]:
+   with self.assertRaises(ValueError):languages.validate(source,target,'de-DE','en-US')
+
  def test_lan_forwards_only_allowed_language_and_style_fields(self):
   app=lan_service.create_app(testing=True);owner=app.test_client();csrf=owner.get('/shared/session').json['csrf']
-  self.assertEqual(len(owner.get('/shared/text/languages').json['languages']),8)
+  self.assertEqual(len(owner.get('/shared/text/languages').json['languages']),16)
   with patch('backend.text_translation.LLMClient',return_value=Client([{'translation':SAMPLES['ja-JP']},OK])):
    response=owner.post('/shared/text/jobs',json={'text':SAMPLES['fr-FR'],'source_language':'fr-FR','target_language':'ja-JP',
       'humanize':True,'paths':['C:/secret'],'base_url':'http://evil'},headers={'X-Star-CSRF':csrf})

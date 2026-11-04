@@ -19,6 +19,12 @@ def text_languages():
     return jsonify(metadata())
 
 
+@api.get('/api/document/languages')
+def document_languages():
+    from .document_languages import metadata
+    return jsonify(metadata())
+
+
 @api.before_request
 def protect_team_api():
     if request.path.startswith('/api/team/'):

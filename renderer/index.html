@@ -287,7 +287,7 @@
 </dialog>
 <dialog id="multilingualDialog" class="shared-dialog" aria-labelledby="multilingualTitle">
   <div class="panel-head"><h3 id="multilingualTitle">多语言术语查阅</h3><button class="btn ghost sm" id="closeMultilingual">关闭</button></div>
-  <p class="hint">按下方语言筛选可直接查看该语言全部词条。官方表部分词条只有中英文，缺少的译法会单独说明。文档与文本翻译仍支持中英双向。</p>
+  <p class="hint">按下方语言筛选可直接查看该语言全部词条。官方表部分词条只有中英文，缺少的译法会单独说明。文档支持简体中文、繁体中文、英语、日语和韩语；文本支持下列词库语言互译。</p>
   <div class="catalog-filters"><input id="catalogSearch" type="search" aria-label="搜索多语言术语" placeholder="搜索任一语言的词条…"><label class="sr-only" for="catalogLanguage">搜索语言</label><select id="catalogLanguage"><option value="">全部语言</option></select></div>
   <p id="catalogStatus" class="hint" role="status" aria-live="polite"></p>
   <div class="catalog-content"><div id="catalogRows" class="catalog-rows" role="list" aria-label="多语言术语列表"></div><div id="catalogDetail" class="catalog-detail" aria-label="各语言译法"></div></div>
@@ -300,6 +300,7 @@
   <script src="document-input.js"></script>
   <script src="translation-options.js"></script>
   <script src="shared/text-translation.js"></script>
+  <script src="shared/document-languages.js"></script>
   <script src="app.js"></script>
   <script src="shared/comparison-view.js"></script>
   <script src="collaboration.js"></script>

@@ -103,7 +103,7 @@ window.PageComparison = (() => {
     }
   })
   return {
-    buttonContent: icon+'<span>中英对照</span>',
+    buttonContent: icon+'<span>原译对照</span>',
     open(dialog,filters,text,metadata,urls) {
       const v=dialog._pageComparison||(dialog._pageComparison=mount(dialog,filters,text));current=v;mode(v,'pages')
       if(!dialog.open)expanded(v,false)
@@ -112,7 +112,8 @@ window.PageComparison = (() => {
       const opening=String(++sequence)
       for(const side of ['source','output']) {
         const p=v.panes[side];p.ready=false;p.page=1;p.total=0;p.number.value=1;p.status.hidden=false;p.status.textContent='正在准备完整页面…'
-        const label=metadata.direction==='en-zh'?(side==='source'?'英文原稿':'处理后中文'):(side==='source'?'中文原稿':'处理后英文')
+        const pair=window.StarDocumentLanguages?.pair(metadata.direction),name=pair && window.StarDocumentLanguages.names[pair[side==='source'?0:1]]
+        const label=name?(side==='source'?name+'原稿':'处理后'+name):metadata.direction==='en-zh'?(side==='source'?'英文原稿':'处理后中文'):(side==='source'?'原稿':'处理后译文')
         p.pane.querySelector('strong').textContent=label;p.frame.title=label+'页面'
         p.pane.querySelector('small').textContent=metadata[side+'_name'];p.pane.querySelector('[data-count]').textContent='/ —'
         p.token=opening+'-'+side

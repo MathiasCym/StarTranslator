@@ -20,12 +20,15 @@ names+=['test_word_references']
 names+=['test_history_completion','test_pptx_native_preview','test_pptx_content']
 names+=['test_pdf_page_preview']
 names+=['test_glossary_bundled']
+names+=['test_official_revision']
 names+=['test_text_translation']
 names+=['test_text_languages']
 names+=['test_reverse_translation']
 names+=['test_checkpoint_process']
 names+=['test_task_resume']
 names+=['test_multilingual_catalog']
+names+=['test_document_languages']
+names+=['test_multilingual_pdf_images']
 suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromModule(importlib.import_module(name)) for name in names)
 result=unittest.TextTestRunner(verbosity=2).run(suite)
 folder=root/'dist/qa/release-200';folder.mkdir(parents=True,exist_ok=True)

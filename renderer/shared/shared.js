@@ -28,6 +28,7 @@ function showError(error) { $('error').textContent = error.message; $('error').h
 function action(id, fn) { $(id).onclick = async () => { try { await fn() } catch(e) { showError(e) } } }
 function mode() {
   const kind=document.querySelector('[name=kind]:checked').value,hasPresentation=[...$('files').files].some(file=>/\.pptx$/i.test(file.name))
+  StarDocumentLanguages.configure($('documentDirection'),kind,$('documentDirection').value || 'zh-en')
   $('outputField').hidden=kind!=='translate_review'; $('translationOptions').hidden=kind==='check'||!hasPresentation
   if(!hasPresentation){document.querySelector('[name=translationMode][value=faithful]').checked=true;$('translationOptions').querySelector('.translation-help-button').setAttribute('aria-expanded','false');$('translationOptions').querySelector('.translation-help').hidden=true}
 }

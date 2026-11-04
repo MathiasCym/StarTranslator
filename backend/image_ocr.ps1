@@ -1,6 +1,8 @@
 param(
     [Parameter(Mandatory=$true)][string]$InputFile,
-    [Parameter(Mandatory=$true)][string]$OutputFile
+    [Parameter(Mandatory=$true)][string]$OutputFile,
+    [string]$LanguageTag='zh-Hans',
+    [switch]$AllowPositionFallback
 )
 $ErrorActionPreference='Stop'
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
@@ -17,8 +19,13 @@ function Await-Result($operation,[Type]$resultType) {
     $task.GetAwaiter().GetResult()
 }
 $languages=@([Windows.Media.Ocr.OcrEngine]::AvailableRecognizerLanguages)
-$language=$languages | Where-Object {$_.LanguageTag -match '^zh-Hans'} | Select-Object -First 1
-if($null -eq $language) { throw 'Chinese OCR language is unavailable' }
+$language=$languages | Where-Object {$_.LanguageTag -match ('^'+[regex]::Escape($LanguageTag)+'(?:-|$)')} | Select-Object -First 1
+$positionOnly=$false
+if($null -eq $language -and $AllowPositionFallback -and $languages.Count -gt 0) {
+    $language=$languages | Sort-Object LanguageTag | Select-Object -First 1
+    $positionOnly=$true
+}
+if($null -eq $language) { throw 'Requested OCR language is unavailable' }
 $engine=[Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage($language)
 if($null -eq $engine) { throw 'OCR engine is unavailable' }
 $file=Await-Result ([Windows.Storage.StorageFile]::GetFileFromPathAsync([IO.Path]::GetFullPath($InputFile))) ([Windows.Storage.StorageFile])
@@ -34,7 +41,7 @@ try {
         })
         @{text=$line.Text;words=$words}
     })
-    $value=@{language=$language.LanguageTag;width=$bitmap.PixelWidth;height=$bitmap.PixelHeight;angle=$result.TextAngle;lines=$lines}
+    $value=@{language=$language.LanguageTag;position_only=$positionOnly;width=$bitmap.PixelWidth;height=$bitmap.PixelHeight;angle=$result.TextAngle;lines=$lines}
     [IO.File]::WriteAllText([IO.Path]::GetFullPath($OutputFile),($value | ConvertTo-Json -Depth 8 -Compress),(New-Object Text.UTF8Encoding($false)))
 } finally {
     if($null -ne $bitmap) {$bitmap.Dispose()}

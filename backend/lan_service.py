@@ -227,6 +227,9 @@ def create_app(testing=False):
     @app.get('/translation-options.js')
     def translation_options_script(): return send_file(ROOT / 'translation-options.js')
 
+    @app.get('/document-languages.js')
+    def document_languages_script(): return send_file(ROOT / 'document-languages.js')
+
     @app.get('/shared.css')
     def style(): return send_file(ROOT / 'shared.css')
 

@@ -9,22 +9,27 @@ import json
 from pathlib import Path
 import openpyxl
 
-LANGUAGES = {'zh-CN': '中文', 'en-US': '英语', 'es-ES': '西班牙语',
-             'fr-FR': '法语', 'ja-JP': '日语', 'ko': '韩语', 'pt': '葡萄牙语', 'ru-RU': '俄语'}
+LANGUAGES = {'zh-CN':'简体中文','en-US':'英语','zh-Hant-TW':'繁体中文','ja-JP':'日语','ko':'韩语',
+             'ar-SA':'阿拉伯语','de-DE':'德语','es-ES':'西班牙语','fr-FR':'法语','id-ID':'印度尼西亚语',
+             'it-IT':'意大利语','pt':'葡萄牙语','ru-RU':'俄语','th-TH':'泰语','tr-TR':'土耳其语','vi-VN':'越南语'}
+ALIASES={'ko-KR':'ko','pt-BR':'pt'}
 
 
 def build(source):
     workbook = openpyxl.load_workbook(source, read_only=True, data_only=True)
     entries, languages, seen = [], [], set()
-    counts = {}
+    counts,source_codes = {},{}
     source_rows = 0
     try:
         for sheet in workbook:
             sheet.reset_dimensions()
             rows = sheet.iter_rows(values_only=True)
-            headers = [str(value or '').strip() for value in next(rows)]
+            original = [str(value or '').strip() for value in next(rows)]
+            headers = [ALIASES.get(value,value) for value in original]
             if any(code not in LANGUAGES for code in headers):
                 raise ValueError('无法识别的语言列，请核对原表表头。')
+            if len(set(headers))!=len(headers):raise ValueError('同一语言出现多个列，不能猜测合并。')
+            source_codes.update(zip(headers,original))
             for code in headers:
                 if code not in languages:
                     languages.append(code)
@@ -45,6 +50,7 @@ def build(source):
         workbook.close()
     return {'schema': 1, 'source': '公司官方多语言术语库',
             'sourceSha256': hashlib.sha256(Path(source).read_bytes()).hexdigest(),
+            'sourceLanguageCodes':source_codes,
             'readOnly': True, 'sourceRows': source_rows, 'duplicates': source_rows - len(entries),
             'languages': [{'code': code, 'name': LANGUAGES[code], 'count': counts[code]} for code in languages],
             'entries': entries}

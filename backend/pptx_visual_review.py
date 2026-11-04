@@ -27,6 +27,17 @@ SYSTEM='''你是演示文稿版式审查员。必须观察两张页面图像：�
 若无法读取两张图像，必须返回 {"reviewed":false,"issues":[]}，不得声称通过。'''
 
 
+def review_system(target_language):
+    if target_language in ('en','en-US'):return SYSTEM
+    if target_language in ('zh','zh-CN'):
+        return SYSTEM.replace('原中文','原英文').replace('中文原稿','英文原稿').replace('英文已经','中文译文已经')+'\n本次是英译中。中文为预期译文，不得将中文当作漏译，不改写正文或要求英文输出。'
+    from .document_languages import LANGUAGES
+    if target_language not in LANGUAGES:raise ValueError('未知的版式审查目标语言。')
+    return SYSTEM.replace('原中文','原稿').replace('中文原稿','原稿').replace('英文已经','译文已经')+(
+        '\n本次目标语言是'+LANGUAGES[target_language]+'。保留该目标语言，日文汉字与繁体中文均不视为中文残留。'
+        '不得翻译或重写正文，仅根据真实页面处理排版。')
+
+
 def _valid_result(result):
     kinds={'clipping','overlap','crowded','inconsistent_size','other'}
     return (isinstance(result,dict) and result.get('reviewed') is True
@@ -35,6 +46,18 @@ def _valid_result(result):
             and (item.get('shape_id') is None or type(item['shape_id']) is int)
             and isinstance(item.get('reason'),str) and item['reason'].strip() for item in result['issues'])
         and isinstance(result.get('adjustments',[]),list))
+
+
+def action_changes(action,obj):
+    """A repeated unchanged proposal is not a new readability defect."""
+    from .replacer.pptx_readability import _number
+    box=obj['box'];fonts=obj.get('font_sizes') or []
+    values=[action.get('x',box[0]),action.get('y',box[1]),action.get('width',box[2]),
+            action.get('height',box[3]),action.get('font_size')]
+    if not fonts or not all(_number(v) for v in values):return True
+    x,y,w,h,size=values
+    return (abs(size-max(fonts))>.25 or abs(x-box[0])>.25 or abs(y-box[1])>.25
+            or w>box[2]+.25 or h>box[3]+.25 or action.get('wrap',obj.get('wrap'))!=obj.get('wrap'))
 
 
 def _keep_improved_pages(best,candidate,parts):
@@ -261,7 +284,7 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                     try:
                         prompt=f'第 {number} 页；页面宽高为 {document.slide_width/12700:g} × {document.slide_height/12700:g} 点，所有坐标与尺寸单位为点。译文对象清单：\n'+json.dumps(objects[number-1],ensure_ascii=False)+'\n本机对先前建议的测量反馈（请修正方案）：'+json.dumps([v for v in readability_feedback if v['slide']==number],ensure_ascii=False)
                         for attempt in range(2):
-                            system=SYSTEM if target_language=='en' else SYSTEM.replace('原中文','原英文').replace('中文原稿','英文原稿').replace('英文已经','中文译文已经')+'\n本次是英译中。中文为预期译文，不得将中文当作漏译，不改写正文或要求英文输出。'
+                            system=review_system(target_language)
                             result=client.chat_images_json(prompt,images=[first['image'],second['image']],system=system,max_tokens=3200)
                             _cancel(cancel)
                             if _valid_result(result):break
@@ -292,6 +315,8 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                         if not isinstance(action,dict) or type(action.get('shape_id')) is not int or action['shape_id'] not in keys or action['shape_id'] in protected or not isinstance(action.get('reason'),str):continue
                         from .replacer.pptx_readability import _number
                         if not _number(action.get('font_size')) or not action['reason'].strip():continue
+                        obj=next(v for v in objects[number-1] if v['shape_id']==action['shape_id'])
+                        if not action_changes(action,obj):continue
                         issues.append({**action,'slide':number,'kind':'readability','locator':keys[action['shape_id']],
                             'current_font_size':max(next(v['font_sizes'] for v in objects[number-1] if v['shape_id']==action['shape_id']) or [1]),
                             'text':f"文本框 {action['shape_id']}",'reason':action['reason'][:200]})

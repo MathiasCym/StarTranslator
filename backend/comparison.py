@@ -24,7 +24,7 @@ def create(segments, paragraphs, source, output, direction='zh-en'):
     value = {'id':comparison_id, 'source_name':Path(source).name, 'output_name':Path(output).name,
         'output_path':str(output), 'output_hash':store.fingerprint(output), 'rows':rows,
         '_source_path':str(Path(source).absolute()), '_source_hash':store.fingerprint(source)}
-    if direction=='en-zh':value['direction']='en-zh'
+    if direction!='zh-en':value['direction']=direction
     snapshot_source(value,source)
     store.atomic_json(folder() / (comparison_id + '.json'), value)
     return comparison_id

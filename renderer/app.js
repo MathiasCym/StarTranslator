@@ -1,6 +1,6 @@
 const $ = id => document.getElementById(id)
 const state = { mode: 'check', files: [], references: [], pairs: {}, report: null, selected: new Set(),
-  direction: localStorage.getItem('nova.direction') === 'en-zh' ? 'en-zh' : 'zh-en',
+  direction: localStorage.getItem('nova.direction') || 'zh-en',
   outputDir: localStorage.getItem('nova.exportDir') || '', job: null, busy: false, outputs: [], edits: {}, exportRecords: [], savedReviewFiles: new Set() }
 let lastSequence = -1, modelProvider = 'compatible'
 let currentVersion = '', changelogLoaded = false
@@ -79,12 +79,11 @@ function setMode(mode) {
   state.edits = {}; state.outputs = []; state.exportRecords = []; state.savedReviewFiles.clear()
   $('modeCheck').classList.toggle('active', mode === 'check'); $('modeTranslate').classList.toggle('active', mode === 'translate')
   $('modeCheck').setAttribute('aria-pressed', String(mode === 'check')); $('modeTranslate').setAttribute('aria-pressed', String(mode === 'translate'))
-  const reverse = state.direction === 'en-zh'
-  $('dropTitle').textContent = mode === 'check' ? (reverse ? '添加中文译文' : '添加英文译文') : (reverse ? '添加英文原稿' : '添加中文原稿')
-  $('documentDirection').value = state.direction
+  const [sourceLanguage,targetLanguage] = StarDocumentLanguages.pair(state.direction)
+  const languageName = StarDocumentLanguages.names[mode === 'check' ? targetLanguage : sourceLanguage]
+  $('dropTitle').textContent = '添加'+languageName+(mode === 'check' ? '译文' : '原稿')
+  StarDocumentLanguages.configure($('documentDirection'),mode,state.direction)
   $('documentDirectionLabel').textContent = mode === 'check' ? '校对语言' : '翻译方向'
-  $('documentDirection').options[0].textContent = mode === 'check' ? '英文' : '中文 → 英文'
-  $('documentDirection').options[1].textContent = mode === 'check' ? '中文' : '英文 → 中文'
   $('workspaceHint').textContent = mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
   $('llmOption').hidden = mode !== 'check'
   $('translationOptions').hidden = mode !== 'translate' || !state.files.some(path => /\.pptx$/i.test(path))
@@ -368,6 +367,7 @@ function renderCheckCompletion() {
   const combined = r.kind === 'translate_review', label = combined ? '翻译并校对' : '校对'
   const { cancelled, interrupted, notStarted, manualPending, untranslated, errors, canResume } = reviewCompletionState(r, state.job)
   const reverseOutput = s.target_language === 'zh' || (r.outputs || []).some(output => output.direction === 'en-zh')
+  const additionalLanguage = StarDocumentLanguages.names[s.target_language]
   $('completionResume').hidden = !canResume
   $('completionResume').textContent = untranslated && !interrupted && !cancelled ? '继续未完成翻译' : '从断点继续'
   $('completionIssue').hidden = !errors.length
@@ -377,6 +377,8 @@ function renderCheckCompletion() {
   $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分。' : interrupted ? '可用文件和已完成部分已保留，未完成原因见下方；可查看报告并保存当前文件。' : untranslated ? `仍有 ${untranslated} 处未译中文，可继续补译或在报告中填写英文；已完成内容和当前文件均保留。` : manualPending ? `自动处理已结束，${manualPending} 处内容需要人工确认，具体位置和原因已列在报告中；可以继续保存文件。` : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，建议由你确认后应用。'
   if (reverseOutput && untranslated && !cancelled && !interrupted) $('reviewCompleteNotice').textContent = `仍有 ${untranslated} 处英文未完成翻译，可继续补译或在报告中填写中文；当前文件和完成部分已保留。`
   if (reverseOutput && s.model_status === 'not_requested') $('reviewCompleteNotice').textContent = '已读取中文文档。当前关闭深度审校，尚未执行中文语义检查。'
+  if (additionalLanguage && !reverseOutput && untranslated && !cancelled && !interrupted) $('reviewCompleteNotice').textContent = `仍有 ${untranslated} 处未完成${additionalLanguage}翻译；当前文件已保留，可从历史继续处理。`
+  if (additionalLanguage && !reverseOutput && s.model_status === 'not_requested') $('reviewCompleteNotice').textContent = `已读取${additionalLanguage}文档。当前关闭深度审校，尚未执行语义检查。`
   $('completionSummary').innerHTML = [[files.length, '文档'], [s.segments ?? 0, '检查段落'], [findings.length, '审校建议'], [findings.filter(f => f.applied).length, '已替换建议']].map(([n, label]) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`).join('')
   const remaining = findings.filter(f => !f.applied).length
   const needsSave = combined && state.exportRecords.some(o => o.staged)
@@ -543,7 +545,7 @@ function showTranslation(result, cancelled) {
   $('translationTitle').textContent = cancelled ? '翻译已取消，保留已完成文件' : !result.outputs.length ? '翻译未完成' : pending ? '翻译草稿已保存 · 部分内容待核对' : result.errors.length ? '部分译文已完成' : '翻译结果 · 是否继续校对？'
   if (combined && !cancelled && result.outputs.length) $('translationTitle').textContent = pending || result.errors.length ? '翻译并校对 · 部分内容待检查' : '翻译并校对已完成'
   $('translationNotice').textContent = pending ? '已保留处理结果，原稿未修改。待核对内容与未译正文列在下方，可继续结合原稿校对。' : result.outputs.length ? '译文单独保存，原稿保留。文字排版已适配，仍需关注的位置列在下方。' : '尚未生成译文，原稿保留。未完成的原因见下方。'
-  $('translationFiles').innerHTML = result.outputs.map((r, i) => `<li><div class="file-copy"><div>${esc(basename(r.path))}${r.needs_review ? ' · 待核对草稿' : ''}</div><div class="fpath">翻译 ${r.translated} 段${r.needs_review ? `；${r.needs_review} 段待核对` : ''}${r.untranslated ? `；${r.untranslated} 处${r.direction === 'en-zh' ? '英文' : '中文'}未完成翻译` : ''}${r.skipped ? `；${r.skipped} 处需人工检查` : ''}。${r.layout_checked ? ' 已检查文档结构并适配文字排版。' : ''}<br>${esc(r.path)}</div>${r.review_items?.length ? `<details open><summary>查看待核对内容（${r.review_items.length} 处）</summary>${r.review_items.map(w => `<p class="hint">${w.slide ? '第 ' + w.slide + ' 页 · ' : ''}${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}</details>` : ''}${r.warnings.length ? `<details><summary>查看未处理内容</summary>${r.warnings.map(w => `<p class="hint">${w.slide ? '第' + w.slide + '页：' : ''}${esc(w.reason)} ${esc(w.text)}</p>`).join('')}</details>` : ''}${r.consistency_hits ? `<p class="hint">发现 ${r.consistency_hits} 项全文用语统一建议，继续校对可在报告中确认。</p>` : ''}${layoutWarningMarkup(r.layout_warnings)}</div><div class="row-actions">${r.comparison_id ? `<button class="btn ghost sm comparison-button" data-comparison="${r.comparison_id}">${PageComparison.buttonContent}</button>` : ''}<button class="btn ghost sm" data-open="${i}">打开译文</button><button class="btn ghost sm" data-folder="${i}">所在位置</button></div></li>`).join('')
+  $('translationFiles').innerHTML = result.outputs.map((r, i) => `<li><div class="file-copy"><div>${esc(basename(r.path))}${r.needs_review ? ' · 待核对草稿' : ''}</div><div class="fpath">翻译 ${r.translated} 段${r.needs_review ? `；${r.needs_review} 段待核对` : ''}${r.untranslated ? `；${r.untranslated} 处${StarDocumentLanguages.names[StarDocumentLanguages.pair(r.direction)[0]]}未完成翻译` : ''}${r.skipped ? `；${r.skipped} 处需人工检查` : ''}。${r.layout_checked ? ' 已检查文档结构并适配文字排版。' : ''}<br>${esc(r.path)}</div>${r.review_items?.length ? `<details open><summary>查看待核对内容（${r.review_items.length} 处）</summary>${r.review_items.map(w => `<p class="hint">${w.slide ? '第 ' + w.slide + ' 页 · ' : ''}${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}</details>` : ''}${r.warnings.length ? `<details><summary>查看未处理内容</summary>${r.warnings.map(w => `<p class="hint">${w.slide ? '第' + w.slide + '页：' : ''}${esc(w.reason)} ${esc(w.text)}</p>`).join('')}</details>` : ''}${r.consistency_hits ? `<p class="hint">发现 ${r.consistency_hits} 项全文用语统一建议，继续校对可在报告中确认。</p>` : ''}${layoutWarningMarkup(r.layout_warnings)}</div><div class="row-actions">${r.comparison_id ? `<button class="btn ghost sm comparison-button" data-comparison="${r.comparison_id}">${PageComparison.buttonContent}</button>` : ''}<button class="btn ghost sm" data-open="${i}">打开译文</button><button class="btn ghost sm" data-folder="${i}">所在位置</button></div></li>`).join('')
   $('translationFiles').querySelectorAll('[data-open]').forEach(b => { b.onclick = () => openResult('openFile', result.outputs[Number(b.dataset.open)].path) })
   $('translationFiles').querySelectorAll('[data-folder]').forEach(b => { b.onclick = () => openResult('openFolder', result.outputs[Number(b.dataset.folder)].path) })
   $('translationErrors').textContent = result.errors.map(e => `${e.path ? basename(e.path) + '：' : ''}${e.error || '未提供错误说明'}`).join('\n')
@@ -579,7 +581,7 @@ async function resumeHistoryTask(row) {
   if (!await confirmResultNavigation('将从本机断点继续处理这项任务，已保存的输出文件保留。','继续任务')) return
   const data = await callApi('GET','/api/history/'+encodeURIComponent(row.id)+'/resume')
   $('historyModal').hidden = true
-  state.direction = data.direction === 'en-zh' ? 'en-zh' : 'zh-en'
+  state.direction = data.direction || 'zh-en'
   setMode(data.kind === 'check' ? 'check' : 'translate')
   await runTask(false,data)
 }

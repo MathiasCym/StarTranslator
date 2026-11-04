@@ -25,6 +25,7 @@ from .pptx_visual_review import review_pptx
 from .document_input import validate_document_input
 from . import history
 from . import task_queue
+from . import document_languages
 from .llm.client import LLMClient
 from .text_integrity import CHINESE, contains_chinese, prose
 
@@ -68,8 +69,7 @@ def start(data):
         data=history.resume_options(data['resume_from'])
     if data.get('kind') not in ('check','translate','translate_review'):
         raise ValueError('任务类型不正确')
-    if not isinstance(data.get('direction', 'zh-en'), str) or data.get('direction', 'zh-en') not in ('zh-en', 'en-zh'):
-        raise ValueError('翻译方向不正确')
+    data=document_languages.normalize(data)
     if data.get('translation_mode','faithful') not in TRANSLATION_MODES:raise ValueError('翻译方式不正确')
     if data.get('combined_output', 'both') not in ('both', 'final'):
         raise ValueError('输出方式不正确')
@@ -188,7 +188,7 @@ def _run(job,data):
         with LOCK:
             if job.get('resuming'):
                 counts=job.get('resume_counts',{})
-                reused=sum(counts.get(stage,0) for stage in (('translation','translation-zh') if phase=='translate' else ('review','review-zh') if phase=='check' else ()))
+                reused=sum(counts.get(stage,0) for stage in (('translation','translation-zh','translation-multi') if phase=='translate' else ('review','review-zh','review-multi') if phase=='check' else ()))
                 detail=('正在恢复原任务；'+(f'已复用 {reused} 处断点；' if reused else (job.get('resume_notice','')+'；' if job.get('resume_notice') else ''))+(detail or message))
             job.update(done=done,total=total,message=message,phase=phase,detail=detail or message,activity_at=time.time())
             job['percent'] = max(job.get('percent', 0), percent if percent is not None else 100*done/total if total else 0)
@@ -238,7 +238,7 @@ def _run(job,data):
                         progress(done,total,f'处理 {index+1}/{len(paths)}：{Path(path).name}',phase,
                             100*(index+start+span*done/max(1,total))/len(paths),message)
                     result = translate_file(path,glossary,references,folder,client=data.get('_client'),cancel=job['cancel'],workers=data.get('workers',3),translation_mode=data.get('translation_mode','faithful'),
-                        activity=activity,defer_visual=combined,**({'direction':'en-zh'} if data.get('direction')=='en-zh' else {}),
+                        activity=activity,defer_visual=combined,**({'direction':data['direction']} if data.get('direction','zh-en')!='zh-en' else {}),
                         progress=lambda n,t:progress(n,t,f'翻译 {index+1}/{len(paths)}：{Path(path).name}',
                             'translate',100*(index+(.02+(.43 if combined else .70)*n/max(1,t)))/len(paths),job.get('detail','正在翻译')))
                     result.update(staged=final_only, output_mode=data.get('combined_output', 'both'),
@@ -296,10 +296,15 @@ def _run(job,data):
                     partial.extend(items)
                     job['partial_findings'] = partial
             checker = check_segments
+            checker_options={}
             if data.get('direction')=='en-zh':
                 from .reverse_translation import check_segments as checker
+            elif document_languages.extended(data.get('direction','zh-en')):
+                from .multilingual_documents import check_segments as checker
+                src,dst=document_languages.pair(data['direction'])
+                checker_options={'source_language':src,'target_language':dst}
             findings, stats = checker(all_segments,glossary,bool(data.get('use_llm',True)),
-                client=data.get('_client'),references=references,progress=progress,cancel=job['cancel'],on_finding=on_finding,workers=data.get('workers',3),expect_english=True)
+                client=data.get('_client'),references=references,progress=progress,cancel=job['cancel'],on_finding=on_finding,workers=data.get('workers',3),expect_english=True,**checker_options)
             result = {'report_id':job['id'],'files':files,'errors':errors,'stats':stats,
                       'findings':[f.to_dict() for f in findings],
                       'segments':[s.to_dict() for s in all_segments], 'completed_paths':stats['completed_files']}
@@ -342,6 +347,9 @@ def _run(job,data):
 
 def auto_review(result, glossary, references, cancel, progress, on_finding=None, on_export=None, client=None, workers=3, format_progress=None):
     """Produce suggestions; applying any review change requires a user action."""
+    if document_languages.extended(result.get('direction','zh-en')):
+        from .multilingual_documents import auto_review as multilingual_review
+        return multilingual_review(result,glossary,references,cancel,progress,on_finding,on_export,client,workers,format_progress)
     if result.get('direction')=='en-zh':
         from .reverse_translation import auto_review as reverse_review
         return reverse_review(result,glossary,references,cancel,progress,on_finding,on_export,client,workers,format_progress)
@@ -470,7 +478,12 @@ def publish_combined_report(job, reviews, outcome):
             'reference_warnings':output.get('reference_warnings',[]),
             'source':output['source'], 'target_dir':output['target_dir'], 'staged':output.get('staged',False),
             'translation_mode':output.get('translation_mode','faithful')}
-        if output.get('direction')=='en-zh':local['output_options'][output['path']]['direction']='en-zh'
+        if output.get('direction','zh-en')!='zh-en':
+            local['output_options'][output['path']]['direction']=output['direction']
+        for key in ('source_language','target_language'):
+            if key in output:local['output_options'][output['path']][key]=output[key]
+        if output.get('image_review') is not None:local['output_options'][output['path']]['image_review']=output['image_review']
+        if output.get('style_warnings'):local['output_options'][output['path']]['style_warnings']=output['style_warnings']
         if output.get('pdf_manifest') is not None:
             local['output_options'][output['path']].update(pdf_manifest=output['pdf_manifest'],output_audit=output.get('output_audit'))
             local['_quality_client']=next((r.get('_quality_client') for r in reviews if r['output']['path']==output['path']),None)
@@ -479,6 +492,8 @@ def publish_combined_report(job, reviews, outcome):
              for o in result.get('outputs',[])]
     stats['findings'] = len(local['findings'])
     if result.get('outputs') and all(o.get('direction')=='en-zh' for o in result['outputs']):stats['target_language']='zh'
+    elif result.get('outputs') and all(o.get('target_language') for o in result['outputs']):
+        stats['target_language']=result['outputs'][0]['target_language']
     public = {'kind':'translate_review','report_id':job['id'],'files':files,'errors':errors,'stats':stats,
         'output_mode':next((o.get('output_mode') for o in result.get('outputs',[])), 'both'),
         'findings':[f.to_dict() for f in local['findings']], 'segments':[s.to_dict() for s in local['segments']]}
@@ -508,7 +523,7 @@ def apply_report(data, progress=None, client=None):
             option = report.get('output_options',{}).get(data['path'],{})
             source = option.get('source',data['path'])
             try: history.exported(data['report_id'], source, result['output'], result['applied_count'], result['failed'], result['overwritten'],option.get('comparison_id'),
-                **({'quality':result} if option.get('direction',report.get('direction'))=='en-zh' else {}))
+                **({'quality':result} if option.get('direction',report.get('direction','zh-en'))!='zh-en' else {}))
             except Exception: logging.getLogger(__name__).exception('Could not save export history')
             return result
     finally:
@@ -524,7 +539,10 @@ def _apply_report(data, report, progress=None, client=None):
     if overwrite and Path(path).suffix.lower() == '.pdf':
         raise ValueError('PDF 的处理结果保存为 Word，不能覆盖原 PDF。请使用另存。')
     option = report.get('output_options',{}).get(path,{})
-    reverse = option.get('direction', report.get('direction'))=='en-zh'
+    direction=option.get('direction',report.get('direction','zh-en'))
+    multilingual=document_languages.extended(direction)
+    target_language=document_languages.pair(direction)[1]
+    reverse = direction!='zh-en'  # Suppress English-only repair/audit for every other policy.
     final_only = option.get('mode') == 'final'
     managed_output = bool(option)
     if path not in report['hashes'] or store.fingerprint(path)!=report['hashes'][path]:
@@ -614,8 +632,12 @@ def _apply_report(data, report, progress=None, client=None):
             try:
                 validate_identifiers(old,new)
                 if reverse:
-                    from .reverse_translation import validate_revision
-                    validate_revision(old,new)
+                    if multilingual:
+                        from .multilingual_documents import content_validate
+                        content_validate(old,new,target_language,target_language)
+                    else:
+                        from .reverse_translation import validate_revision
+                        validate_revision(old,new)
                 if any((a<token.end() and b>token.start()) or (a==b and token.start()<a<token.end())
                         for a,b,_ in candidates for token in IDENTIFIERS.finditer(segment.text)):
                     raise ValueError('该项会改动网址、邮箱或路径，已保留原信息；其余建议继续应用。')
@@ -644,10 +666,16 @@ def _apply_report(data, report, progress=None, client=None):
     if store.fingerprint(input_path) != input_hash:
         raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
     notify('layout',message='正在调整文字排版并保留原有样式')
+    typography_warnings=[];typography_font=None
+    if multilingual:
+        from .multilingual_typography import apply as apply_typography,font_for
+        typography_warnings=apply_typography(document,paragraphs,set(changed_locators),target_language)
+        typography_font=font_for(target_language)
     layout_adjustments, fitting_warnings = fit_document(document,changed_locators,original_layout) if is_pptx else ([],[])
+    fitting_warnings+=typography_warnings+option.get('style_warnings',[])
     def visual_progress(message,done=0,total=0): notify('render',done,total,message)
     visual_options = {'progress':visual_progress} if progress else {}
-    if reverse:visual_options['target_language']='zh'
+    if reverse:visual_options['target_language']=target_language if multilingual else 'zh'
     reference_changes={}
     reference_warnings=[*option.get('reference_warnings',[]),*getattr(document,'_star_reference_warnings',[])]
     if Path(input_path).suffix.lower()=='.docx':
@@ -659,12 +687,12 @@ def _apply_report(data, report, progress=None, client=None):
     notify('write',message='正在生成文档，原文件保持不变')
     reverse_pending = [{'translation':finding.found_text, 'locator':segments[finding.segment_id].locator
                         if finding.segment_id in segments else None}
-        for index,finding in enumerate(report['findings']) if reverse and finding.file_path==path
-        and finding.reason.startswith('英译中未完成：') and not finding.applied and index not in applied_indices]
+        for index,finding in enumerate(report['findings']) if reverse and finding.file_path==path and finding.source!='image'
+        and finding.reason.startswith(('英译中未完成：','多语言翻译未完成：')) and not finding.applied and index not in applied_indices]
     if not overwrite or managed_output:
         out = Path(option['output']) if managed_output and option.get('output') else output_path(
             option.get('source',path) if final_only else path,
-            option.get('target_dir') if managed_output else data.get('output_dir'),('Chinese_checked' if reverse else 'English_checked') if final_only else 'checked',
+            option.get('target_dir') if managed_output else data.get('output_dir'),(document_languages.SUFFIXES[target_language]+'_checked') if final_only else 'checked',
             extension=Path(input_path).suffix if final_only else None)
         existing_hash = store.fingerprint(out) if out.exists() else None
         if existing_hash and store.fingerprint(out) != input_hash:
@@ -679,7 +707,7 @@ def _apply_report(data, report, progress=None, client=None):
                 layout_adjustments+=box_adjustments;fitting_warnings+=box_warnings
             visual_warnings,visual_adjustments=review_pptx(input_path,temporary,document,changed_locators,original_layout,client or LLMClient(),reference=option.get('source'),**visual_options) if is_pptx else ([],[])
             layout_adjustments+=visual_adjustments
-            if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators)
+            if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators,**({'script_font':typography_font} if multilingual else {}))
             if visual_warnings:logging.getLogger(__name__).warning('Private format follow-up: %s',[(w.get('slide'),w.get('locator')) for w in visual_warnings])
             notify('validate',message='正在检查输出文件完整性')
             structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
@@ -687,8 +715,12 @@ def _apply_report(data, report, progress=None, client=None):
             from .translation_audit import saved_residuals
             notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
             if reverse:
-                from .reverse_translation import audit_saved
-                output_audit=audit_saved(temporary,para_map,reverse_pending)
+                if multilingual:
+                    from .multilingual_documents import audit_saved
+                    output_audit=audit_saved(temporary,para_map,reverse_pending,target_language,option.get('image_review'))
+                else:
+                    from .reverse_translation import audit_saved
+                    output_audit=audit_saved(temporary,para_map,reverse_pending)
             else:final_residuals=saved_residuals(temporary)
             if pdf_source:
                 from .pdf_quality import audit
@@ -722,7 +754,7 @@ def _apply_report(data, report, progress=None, client=None):
                 layout_adjustments+=box_adjustments;fitting_warnings+=box_warnings
             visual_warnings,visual_adjustments=review_pptx(input_path,temporary,document,changed_locators,original_layout,client or LLMClient(),reference=option.get('source'),**visual_options) if is_pptx else ([],[])
             layout_adjustments+=visual_adjustments
-            if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators)
+            if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators,**({'script_font':typography_font} if multilingual else {}))
             if visual_warnings:logging.getLogger(__name__).warning('Private format follow-up: %s',[(w.get('slide'),w.get('locator')) for w in visual_warnings])
             notify('validate',message='正在检查输出文件完整性')
             structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
@@ -730,8 +762,12 @@ def _apply_report(data, report, progress=None, client=None):
             from .translation_audit import saved_residuals
             notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
             if reverse:
-                from .reverse_translation import audit_saved
-                output_audit=audit_saved(temporary,para_map,reverse_pending)
+                if multilingual:
+                    from .multilingual_documents import audit_saved
+                    output_audit=audit_saved(temporary,para_map,reverse_pending,target_language,option.get('image_review'))
+                else:
+                    from .reverse_translation import audit_saved
+                    output_audit=audit_saved(temporary,para_map,reverse_pending)
             else:final_residuals=saved_residuals(temporary)
             if pdf_source:
                 from .pdf_quality import audit
@@ -788,7 +824,7 @@ def _apply_report(data, report, progress=None, client=None):
                     finding.not_editable_reason = '原文已被本次改正更新。'
         updates.append({'index':index,'finding':finding.to_dict()})
     pending_translation=[f for f in report['findings'] if f.file_path==path
-        and f.reason.startswith(('翻译待核对：','英译中未完成：')) and not f.applied]
+        and f.reason.startswith(('翻译待核对：','英译中未完成：','多语言翻译未完成：')) and not f.applied]
     content_warnings=[f'已保存可用文件；仍有 {len(pending_translation)} 处翻译待核对，请查看报告中的对应位置。'] if pending_translation else []
     if final_residuals:content_warnings.append(f'输出复查仍发现 {len(final_residuals)} 处可见中文，已保留内容和原有链接；当前文件不能视为完整英文。')
     content_warnings.extend('输出复查：'+i['reason'] for i in (output_audit or {}).get('issues',[]))

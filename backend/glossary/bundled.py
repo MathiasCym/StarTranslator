@@ -34,14 +34,18 @@ def manifest():
             raise ValueError('随包词库的补全批次无效，请校验软件完整性。')
         if len({key(t) for t in terms}) != len(terms):
             raise ValueError('随包词库的补全清单有重复术语。')
+        for name in ('catalog','baseline','deletion_baseline'):
+            if name in batch and (not isinstance(batch[name],str) or not re.fullmatch(r'[a-z0-9-]+\.json',batch[name])):
+                raise ValueError('随包词库来源文件名无效。')
+        if batch.get('mode','append') not in ('append','revision'):raise ValueError('词库升级模式无效。')
         seen.add(ident)
     return value['batches']
 
 
-@functools.lru_cache(maxsize=1)
-def catalog():
+@functools.lru_cache(maxsize=8)
+def catalog(filename='team.json'):
     result = {}
-    for entry in store.validate(json.loads((ROOT/'team.json').read_text('utf-8-sig'))):
+    for entry in store.validate(json.loads((ROOT/filename).read_text('utf-8-sig'))):
         result.setdefault(key(entry['zh']), []).append(entry)
     return result
 
@@ -96,25 +100,39 @@ def apply_batch(path, batch):
     current = {}
     for entry in entries:
         current.setdefault(key(entry['zh']), []).append(entry)
-    additions, conflicts = [], []
-    for term in batch['terms']:
-        candidates = catalog().get(key(term), [])
-        if len(candidates) != 1:
-            raise ValueError('随包词库的补全术语缺失或有多种译法，请校验软件完整性。')
-        incoming = candidates[0]
-        existing = current.get(key(term), [])
-        if not existing:
-            additions.append(copy.deepcopy(incoming))
-            current[key(term)] = [incoming]
-        elif not any(key(incoming['en']) in {key(e['en']), *(key(v) for v in e.get('variants', []))} for e in existing):
-            conflicts.append({'zh':incoming['zh'], 'existing':[e['en'] for e in existing],
-                'incoming':incoming['en'], 'reason':'已保留本机译法；自动补全不会覆盖个人修改。'})
-    combined = entries + additions
+    details={'added':0,'updated':0,'removed':0,'conflicts':[]}
+    if batch.get('mode')=='revision':
+        from .bundled_revision import revise
+        incoming=catalog(batch['catalog']);baseline=catalog(batch['baseline'])
+        if set(incoming)!={key(term) for term in batch['terms']}:raise ValueError('新版官方词库与升级清单不一致。')
+        preserve=set(catalog(batch.get('deletion_baseline',batch['baseline']))) if any((read_receipt(path,old) or {}).get('completed') for old in batch.get('supersedes',[])) else False
+        # A byte-identical pre-import backup was restored, not an intentional
+        # deletion of every official term. Do not let its later receipt keep a
+        # confirmed old library permanently small.
+        if any((read_receipt(path,old) or {}).get('before_hash')==digest for old in batch.get('supersedes',[])):
+            preserve=False
+        defaults=catalog(batch['deletion_baseline']) if batch.get('deletion_baseline') else {}
+        combined,details=revise(entries,baseline,incoming,preserve_missing=preserve,previous_defaults=defaults)
+    else:
+        additions=[]
+        for term in batch['terms']:
+            candidates = catalog(batch.get('catalog','team.json')).get(key(term), [])
+            if len(candidates) != 1:
+                raise ValueError('随包词库的补全术语缺失或有多种译法，请校验软件完整性。')
+            incoming = candidates[0]
+            existing = current.get(key(term), [])
+            if not existing:
+                additions.append(copy.deepcopy(incoming))
+                current[key(term)] = [incoming]
+            elif not any(key(incoming['en']) in {key(e['en']), *(key(v) for v in e.get('variants', []))} for e in existing):
+                details['conflicts'].append({'zh':incoming['zh'], 'existing':[e['en'] for e in existing],
+                    'incoming':incoming['en'], 'reason':'已保留本机译法；自动补全不会覆盖个人修改。'})
+        combined = entries + additions;details['added']=len(additions)
     store.validate(combined)
-    report = {'schema':1, 'id':ident, 'completed':False, 'added':len(additions),
-        'before':len(entries), 'after':len(combined), 'conflicts':conflicts,
+    report = {'schema':1, 'id':ident, 'completed':False, **details,
+        'before':len(entries), 'after':len(combined),
         'before_hash':digest, 'backup':''}
-    if additions:
+    if combined!=entries:
         report['backup'] = backup(path, raw, ident).name
         if store.fingerprint(path) != digest:
             raise store.Conflict('词库在自动补全期间被修改，已保留最新内容；稍后将重试。')
@@ -134,7 +152,9 @@ def upgrade_local(path):
         return
     with LOCK:
         try:
+            superseded={old for batch in manifest() if (read_receipt(path,batch['id']) or {}).get('completed') for old in batch.get('supersedes',[])}
             for batch in manifest():
+                if batch['id'] in superseded:continue
                 previous = read_receipt(path, batch['id'])
                 if previous and previous['completed']:
                     continue
@@ -152,14 +172,18 @@ def status(path):
         return None
     with LOCK:
         try:
-            records = [read_receipt(path, b['id']) for b in manifest()]
-            records = [r for r in records if r and r['completed']]
+            batches = [(b,read_receipt(path,b['id'])) for b in manifest()]
+            superseded={old for b,r in batches if r and r['completed'] for old in b.get('supersedes',[])}
+            records=[r for b,r in batches if r and r['completed']]
+            active=[r for b,r in batches if r and r['completed'] and b['id'] not in superseded]
             result = {'added':sum(r['added'] for r in records),
-                'conflicts':[c for r in records for c in r['conflicts']],
+                'updated':sum(r.get('updated',0) for r in records),'removed':sum(r.get('removed',0) for r in records),
+                'merged':sum(r.get('merged',0) for r in records),
+                'conflicts':[c for r in active for c in r['conflicts']],
                 'backups':[str(path.parent/r['backup']) for r in records if r.get('backup')]}
             error = ERRORS.get(str(path.resolve()))
             if error:
                 result['error'] = error
-            return result if result['added'] or result['conflicts'] or error else None
+            return result if result['added'] or result['updated'] or result['removed'] or result['merged'] or result['conflicts'] or error else None
         except (OSError, ValueError, KeyError, TypeError) as error:
             return {'added':0, 'conflicts':[], 'backups':[], 'error':str(error)}

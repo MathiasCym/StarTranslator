@@ -133,6 +133,8 @@ def _style(run, defaults, slide, document, font_scale):
     def attr(name, fallback):
         return next((s.get(name) for s in sources if s.get(name) is not None), fallback)
     name = next((n.get('typeface') for s in sources for n in [_node(s,'latin')] if n is not None), '+mn-lt')
+    if getattr(document,'_star_target_language',None) and re.search(r'[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]',run.text):
+        name=next((n.get('typeface') for s in sources for n in [_node(s,'ea')] if n is not None and n.get('typeface')),name)
     return (_font_name(name, slide, document), float(attr('sz',1800))/100 * font_scale,
             attr('b','0') in {'1','true','on'}, attr('i','0') in {'1','true','on'}, float(attr('spc',0))/100)
 

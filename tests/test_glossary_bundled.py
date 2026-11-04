@@ -118,17 +118,21 @@ class BundledGlossaryTests(unittest.TestCase):
 
 
 class ReleasedLibraryUpgradeTests(unittest.TestCase):
-    def test_real_635_entry_library_reaches_2515_without_changing_existing_entries(self):
-        terms={bundled.key(t) for batch in bundled.manifest() for t in batch['terms']}
+    def test_real_635_entry_library_reaches_latest_without_an_obsolete_official_conflict(self):
+        original=bundled.manifest()[0]
+        terms={bundled.key(t) for t in original['terms']}
+        old=store.validate(json.loads((bundled.ROOT/original['catalog']).read_text('utf-8-sig')))
         incoming=store.validate(json.loads((bundled.ROOT/'team.json').read_text('utf-8-sig')))
-        previous=[e for e in incoming if bundled.key(e['zh']) not in terms]
+        previous=[e for e in old if bundled.key(e['zh']) not in terms]
         self.assertEqual(len(previous),635);self.assertEqual(len(terms),1880)
         with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{'NOVATERM_DATA_DIR':directory}):
             path=Path(directory)/'lexicon.json';store.atomic_json(path,previous);before=path.read_bytes()
             bundled.upgrade_local(path);result=store.read(path)
-            self.assertEqual(len(result['entries']),2515);self.assertEqual(result['entries'][:635],previous)
+            self.assertEqual(len(result['entries']),2456)
+            self.assertEqual(result['bundled_update']['conflicts'],[])
+            self.assertEqual({e['zh']:e['en'] for e in result['entries']},{e['zh']:e['en'] for e in incoming})
             self.assertEqual(Path(result['bundled_update']['backups'][0]).read_bytes(),before)
-            self.assertEqual(result['bundled_update']['added'],1880)
+            self.assertEqual(result['bundled_update']['added'],1882)
             saved=path.read_bytes();bundled.upgrade_local(path);self.assertEqual(path.read_bytes(),saved)
 
 

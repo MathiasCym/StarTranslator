@@ -17,13 +17,18 @@ def view_image(raw):
         return output.getvalue(),scale
 
 
-def recognize(path, check_cancel=lambda:None):
+def recognize(path, check_cancel=lambda:None, *, language=None, allow_position_fallback=False):
     if os.name!='nt':raise ValueError('本机没有可用的 Windows 离线图片识别组件。')
     shell=Path(os.environ.get('SystemRoot',r'C:\Windows'))/'System32/WindowsPowerShell/v1.0/powershell.exe'
     with tempfile.TemporaryDirectory(prefix='star-image-ocr-') as temp:
         output=Path(temp)/'ocr.json'
         command=[str(shell),'-NoProfile','-NonInteractive','-STA','-ExecutionPolicy','Bypass','-File',
             str(Path(__file__).with_name('image_ocr.ps1')),'-InputFile',str(Path(path).resolve()),'-OutputFile',str(output)]
+        if language is not None:
+            codes={'zh-CN':'zh-Hans','zh-Hant-TW':'zh-Hant','en-US':'en','ja-JP':'ja','ko':'ko'}
+            if language not in codes:raise ValueError('图片识别语言不受支持。')
+            command+=['-LanguageTag',codes[language]]
+            if allow_position_fallback:command+=['-AllowPositionFallback']
         import time
         with subprocess.Popen(command,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,
                 creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0),
@@ -36,7 +41,8 @@ def recognize(path, check_cancel=lambda:None):
                     time.sleep(.08)
             finally:
                 if process.poll() is None:process.kill()
-        if process.returncode or not output.is_file():raise ValueError('本机中文图片识别不可用，请检查 Windows 简体中文识别语言。')
+        if process.returncode or not output.is_file():
+            raise ValueError('本机图片识别不可用，请检查 Windows 对应语言的离线识别组件。' if language else '本机中文图片识别不可用，请检查 Windows 简体中文识别语言。')
         value=json.loads(output.read_text('utf-8'))
     if not isinstance(value,dict) or not isinstance(value.get('lines'),list) or len(value['lines'])>1500:
         raise ValueError('本机图片识别未返回有效定位。')
@@ -64,4 +70,6 @@ def recognize(path, check_cancel=lambda:None):
             if previous is not None and b[0]-previous[2]>min(previous[3]-previous[1],b[3]-b[1])*.28:text+=' '
             text+=word['text'];previous=b
         lines.append({'id':index,'text':text,'box':[x,y,right,bottom]})
-    return {'width':width,'height':height,'lines':lines,'angle':value.get('angle') or 0}
+    result={'width':width,'height':height,'lines':lines,'angle':value.get('angle') or 0}
+    if language is not None:result.update(language=value.get('language'),position_only=bool(value.get('position_only')))
+    return result

@@ -199,6 +199,10 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
 
 
 def translate_file(path, glossary, references, output_dir=None, client=None, progress=None, cancel=None, workers=3, translation_mode="faithful", activity=None, defer_visual=False, direction='zh-en'):
+    if direction not in ('zh-en','en-zh'):
+        from .multilingual_documents import translate_file as multilingual_translate
+        return multilingual_translate(path,glossary,references,output_dir,client,progress,cancel,workers,
+            translation_mode,activity,defer_visual,direction=direction)
     if direction == 'en-zh':
         from .reverse_translation import translate_file as reverse_file
         return reverse_file(path, glossary, references, output_dir, client=client, progress=progress, cancel=cancel,

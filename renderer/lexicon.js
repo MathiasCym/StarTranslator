@@ -198,7 +198,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     const conflicts=update.conflicts||[]
     showConflicts(conflicts,'查看 '+conflicts.length+' 项自动补全差异（已保留本机译法）')
     status(update.error?'自动补全未完成，当前词库仍可使用：'+update.error:
-      '已自动补全 '+update.added+' 条；原有内容保留。'+(update.backups?.length?'原文件已备份。':'')+(conflicts.length?'另有 '+conflicts.length+' 项译法分歧，可展开查看。':''),!!update.error)
+      '随包词库已升级：新增 '+update.added+' 条'+(update.updated?'，修订 '+update.updated+' 条':'')+(update.removed?'，移除 '+update.removed+' 条未修改的旧官方词条':'')+(update.merged?'，合并 '+update.merged+' 条相同标准（备注和来源保留）':'')+'。个人修改保留。'+(update.backups?.length?'原文件已备份。':'')+(conflicts.length?'另有 '+conflicts.length+' 项个人译法与新版标准不同，可展开查看。':''),!!update.error)
   }
   action('openLexicon', () => operation(async () => {
     $('lexiconModal').hidden = false

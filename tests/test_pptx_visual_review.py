@@ -52,6 +52,26 @@ class VisualTests(unittest.TestCase):
             issues,_=visual.review_pptx(source,out,deck,[],{},Vision(),audit=audit)
         self.assertEqual(audit['status'],'partial');self.assertFalse(audit['native_verified'])
         self.assertEqual(audit['image_pages'],1);self.assertIn('兼容渲染',issues[-1]['reason'])
+
+    def test_repeated_identical_model_proposal_does_not_roll_back_a_good_expansion(self):
+        deck,source=self.deck(1);shape=deck.slides[0].shapes[0]
+        original=capture_layout(deck,[]);shape.text_frame.paragraphs[0].runs[0].text='Readable target'
+        out=self.folder/'expanded.pptx';changed=['slide1/shape0/p0'];save_office(source,deck,out,changed)
+        class Vision:
+            def chat_images_json(_,prompt,**kwargs):
+                return {'reviewed':True,'issues':[],'adjustments':[dict(shape_id=shape.shape_id,font_size=24,
+                    width=360,height=72,wrap=True,reason='Use the available blank area')]}
+        with patch.object(visual,'render_pages',side_effect=self.renderer):
+            issues,adjustments=visual.review_pptx(source,out,deck,changed,original,Vision())
+        self.assertFalse(issues,issues);self.assertTrue(adjustments)
+        actual=Presentation(out).slides[0].shapes[0]
+        self.assertAlmostEqual(actual.width/12700,360)
+
+    def test_unchanged_model_action_cannot_hide_explicit_clipping_or_overlap(self):
+        obj={'box':[10,10,200,100],'font_sizes':[18],'wrap':True}
+        self.assertFalse(visual.action_changes(dict(font_size=18,width=199.9,height=100,wrap=True),obj))
+        for action in [dict(font_size=20),dict(font_size=18,width=250),dict(font_size=18,wrap=False),dict(font_size=18,x=15)]:
+            self.assertTrue(visual.action_changes(action,obj))
     def test_a_crowded_frame_does_not_shrink_spacious_peers_or_other_pages(self):
         deck,source=self.deck();original=capture_layout(deck,[])
         short=deck.slides[0].shapes[0];long=deck.slides[0].shapes[1]

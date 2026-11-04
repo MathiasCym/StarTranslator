@@ -31,14 +31,17 @@ def context(data,glossary,references,client):
         try:value=fingerprint(path)
         except OSError:value='unavailable'
         files.append((str(Path(path).resolve()),value))
-    return {'files':digest(files),'model':identity['model'],'glossary':identity['glossary'],
+    value={'files':digest(files),'model':identity['model'],'glossary':identity['glossary'],
         'references':digest(identity['references']),'pairing':digest(identity['pairing']),
         'direction':data.get('direction','zh-en'),'mode':data.get('translation_mode','faithful')}
+    from .document_languages import extended,reference_identity
+    if extended(value['direction']):value['multilingual']=reference_identity()
+    return value
 
 
 def guard(previous,current):
     labels={'files':'原稿内容或位置','model':'模型连接','glossary':'术语库','references':'参考资料',
-        'pairing':'原文对照配对','direction':'翻译方向','mode':'翻译模式'}
+        'pairing':'原文对照配对','direction':'翻译方向','mode':'翻译模式','multilingual':'官方多语言词库'}
     changed=[label for key,label in labels.items() if previous.get(key)!=current.get(key)]
     if changed:
         model=previous.get('model',{}).get('model','')

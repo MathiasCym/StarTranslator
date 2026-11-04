@@ -38,7 +38,7 @@ server.listen(0,'127.0.0.1',async()=>{
   assert(win,'Actual main window must open');const run=code=>win.webContents.executeJavaScript(code)
   assert.equal(app.getPath('userData'),current);assert(fs.lstatSync(legacy).isSymbolicLink())
   for(const name of files)assert.deepEqual(fs.readFileSync(path.join(current,name)),before[name],name+' must retain exact bytes')
-  const library=await run("callApi('GET','/api/lexicon')");assert.equal(library.path,path.join(current,'lexicon.json'));assert.equal(library.entries.length,2515)
+  const library=await run("callApi('GET','/api/lexicon')");assert.equal(library.path,path.join(current,'lexicon.json'));assert.equal(library.entries.length,JSON.parse(before['lexicon.json']).length)
   const profiles=await run("callApi('GET','/api/model/profiles')");assert.equal(profiles.profiles.length,1);assert(profiles.profiles[0].has_key)
   assert.equal(fs.readFileSync(JSON.parse(fs.readFileSync(path.join(current,'history-fixture.json'))).path,'utf8'),'retained comparison')
   result.profileCount=profiles.profiles.length;result.termCount=library.entries.length;result.migratedPath=library.path;result.exactFiles=files;result.passed=true

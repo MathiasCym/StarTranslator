@@ -1,7 +1,7 @@
 {
   "version": "1.1",
-  "project": "StarTranslator reverse translation quality",
-  "description": "Repair confirmed English-to-Chinese regressions, repeat actual-model format acceptance, then deliver one patch release.",
+  "project": "StarTranslator document quality and multilingual 2.4.0",
+  "description": "新版官方词库安全升级，繁体中文、日语、韩语完整文档处理；质量测试通过后发布 2.4.0，并合并已验证的断点修复。",
   "test_command": "python-runtime/python.exe -X utf8 -B tools/run-regressions.py",
   "created": "2026-10-26",
   "features": [
@@ -187,6 +187,92 @@
       "test_output": "Delivered 2.3.5: CI 41232729984; 584 backend/128 maintenance/136 packaged tests. Inline desktop/LAN workspace, actual DeepSeek 56 sentence pairs and 8 supplied-term ring pairs pass. Domestic original deltas, actual isolated 2.3.4 apply, packaged text generation/review, 14 native picker cases, glossary/data retention and cache cleanup pass. See docs/validation-2.3.5.md.",
       "status": "completed",
       "passes": true
+    },
+    {
+      "id": "feat-012",
+      "category": "functional",
+      "priority": 1,
+      "description": "核对并导入新版官方词库；旧默认库可靠迁移，保护个人修改且不继续命中陈旧官方译法。",
+      "steps": [
+        "只读核对新表和差异",
+        "构建有来源的官方资源",
+        "实现可恢复、可重复执行的三方升级与冲突记录",
+        "验证旧版升级、外部词库及数据目录迁移"
+      ],
+      "test_command": "python-runtime/python.exe -B tests/test_glossary_bundled.py",
+      "test_status": "passed",
+      "test_output": "31 glossary specialty tests and all-cell source match pass. Fresh real-profile clone 2515→2456:2 added,9 revised,60 retired,1 converging duplicate merged preserving notes/source/aliases;2445 unchanged entries retained,0 conflicts. Repeat read unchanged; original profile/workbook unchanged. Actual Electron directory migration passes.",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-013",
+      "category": "functional",
+      "priority": 2,
+      "description": "五种文档语言能力与术语、内容完整性校验；保留原中英专用路径。",
+      "steps": [
+        "简体、繁体、英语、日语、韩语之间翻译",
+        "目标语言专属残留判断、数字链接与人名保护",
+        "独立校对、翻译并校对和应用建议"
+      ],
+      "test_command": "python-runtime/python.exe -B tests/test_document_languages.py",
+      "test_status": "passed",
+      "test_output": "13 specialty tests pass:108 combined format/direction cases,18 independent new-language review/save cases,15 additional adapter cases,semantic emphasis/media/bookmarks,failure and explicit resume. Real synthetic company-model round:20 language pairs translate/review/final-save,0 resumed/unfinished. Full frozen regression645 passed.",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-014",
+      "category": "functional",
+      "priority": 3,
+      "description": "各文件格式及保存、对照、断点恢复完整支持新增语言，互不破坏专用格式效果。",
+      "steps": [
+        "Word、PPT、PDF、Excel 与文本类格式隔离适配",
+        "保留字体颜色加粗、链接和对象",
+        "格式审查与输出校验识别新增目标语言",
+        "普通新任务与历史显式续传回归"
+      ],
+      "test_command": "python-runtime/python.exe -B tools/run-regressions.py",
+      "test_status": "passed",
+      "test_output": "Full frozen backend645 passed. Real4-target Word/PDF/PPT,Japanese-source Word→Traditional,Korean-source PPT→English,rich Japanese/Traditional Word and Korean PPT save/native rendering pass. Rich emphasis failure fixed and rerun;final warnings persist.10 PDF-image specialties incl20 pairs;real image-only English→Japanese passes. Simple PPT layout follow-ups remain honestly disclosed;no universal layout claim.",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-015",
+      "category": "functional",
+      "priority": 4,
+      "description": "桌面与局域网完整语言入口、报告、预览和保存一致；保持现有界面比例。",
+      "steps": [
+        "翻译源目标与独立校对语言入口",
+        "报告及预览语言与保存行为",
+        "局域网同等能力和会话安全",
+        "真实入口交互与常见尺寸检查"
+      ],
+      "test_command": "node tools/check-readable-ui.cjs",
+      "test_status": "passed",
+      "test_output": "Actual readable desktop/LAN,comparison fullscreen,real default2240×1400/150% window and real startup directory migration checks pass.20 document directions/5 independent proofreading targets,16 catalog/text languages. Accepted UI proportions preserved.",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-016",
+      "category": "functional",
+      "priority": 5,
+      "description": "反复离线及真实模型合成材料验收，达标后一次发布 2.4.0。",
+      "steps": [
+        "从头处理及中断恢复分开测试",
+        "20 个语言方向、各格式及三类工作流验证",
+        "完整回归与实际保存渲染检查",
+        "确定 2.4.0 后按固定流程构建、国内小包与旧版升级验收"
+      ],
+      "test_command": "python-runtime/python.exe -B tools/run-regressions.py",
+      "test_status": "pending",
+      "test_output": "Local repeated quality checks passed:645 backend,real20 document pairs,Word/PDF/PPT/native rich cases,16 text-language ring and offline240 text pairs. Formal2.4.0 CI,payload,domestic deltas and actual old-client upgrade still pending.",
+      "status": "in_progress",
+      "passes": false
     }
-  ]
+  ],
+  "target_version": "2.4.0",
+  "updated": "2026-11-04"
 }

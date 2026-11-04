@@ -6708,25 +6708,14 @@
   },
   {
     "zh": "裸眼3D",
-    "en": "Anamorphic / Autostereoscopy / Glasses-free 3D",
-    "variants": [],
-    "priority": 3,
-    "note": "是对不借助偏振光眼镜等外部工具，实现立体视觉效果的技术的统称。该类型技术的代表主要有光屏障技术、柱状透镜技术。\n待专业确认（2026-09-29）：anamorphic 与 autostereoscopic 是不同实现，原条目不应作为完全互换同义词。",
-    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第16行",
-    "machine_variants": [
-      "Anamorphic / Autostereoscopy / Glasses free 3D",
-      "Anamorphic-/-Autostereoscopy-/-Glasses-free-3D"
-    ],
-    "wrong_variants": []
-  },
-  {
-    "zh": "裸眼3D",
     "en": "naked-eye 3D",
     "variants": [],
     "priority": 3,
-    "note": "无需佩戴眼镜即可观看的3D显示技术\n待专业确认（2026-09-29）：anamorphic 与 autostereoscopic 是不同实现，原条目不应作为完全互换同义词。",
-    "source": "展厅讲解稿:讲解稿V3.0",
+    "note": "是对不借助偏振光眼镜等外部工具，实现立体视觉效果的技术的统称。该类型技术的代表主要有光屏障技术、柱状透镜技术。\n待专业确认（2026-09-29）：anamorphic 与 autostereoscopic 是不同实现，原条目不应作为完全互换同义词。\n\n无需佩戴眼镜即可观看的3D显示技术\n待专业确认（2026-09-29）：anamorphic 与 autostereoscopic 是不同实现，原条目不应作为完全互换同义词。",
+    "source": "未来显示专业词汇（中英对照）收录.xlsx / LG Tech Fair / 第16行\n展厅讲解稿:讲解稿V3.0",
     "machine_variants": [
+      "Anamorphic / Autostereoscopy / Glasses free 3D",
+      "Anamorphic-/-Autostereoscopy-/-Glasses-free-3D",
       "naked eye 3D",
       "naked-eye-3D"
     ],
@@ -7537,36 +7526,6 @@
     "wrong_variants": []
   },
   {
-    "zh": "散热设计",
-    "en": "Heat dissipation design",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "铝合金",
-    "en": "aluminum alloy",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "热电偶",
-    "en": "thermocouple",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
     "zh": "装配图",
     "en": "assembly diagram",
     "variants": [],
@@ -7598,11 +7557,11 @@
   },
   {
     "zh": "罗马尼亚",
-    "en": "Romania",
+    "en": "Roumania",
     "variants": [],
     "priority": 1,
     "note": "",
-    "source": "公司官方术语库（英语）",
+    "source": "公司官方术语库 TB（英语，2026-11-04）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -7647,122 +7606,12 @@
     "wrong_variants": []
   },
   {
-    "zh": "位号",
-    "en": "reference designator",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "备份均流端子",
-    "en": "Redundant current-sharing Terminal",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "启机延迟时间",
-    "en": "turn-on delay time",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "陶瓷电容",
-    "en": "ceramic capacitor",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "自恢复",
-    "en": "auto-recovery",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "整机",
-    "en": "end equipment",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "散热方式",
-    "en": "heat dissipation method",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "导热",
-    "en": "thermal conductivity",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "散热板",
-    "en": "heat sink",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "机壳",
-    "en": "case",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "散热底板",
-    "en": "heat sink baseplate",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
     "zh": "未注公差",
-    "en": "General Tolerance",
+    "en": "general tolerance",
     "variants": [],
     "priority": 1,
     "note": "",
-    "source": "公司官方术语库（英语）",
+    "source": "公司官方术语库 TB（英语，2026-11-04）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -10377,16 +10226,6 @@
     "wrong_variants": []
   },
   {
-    "zh": "基本",
-    "en": "basic",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
     "zh": "不透明度",
     "en": "opacity",
     "variants": [],
@@ -10787,16 +10626,6 @@
     "wrong_variants": []
   },
   {
-    "zh": "值",
-    "en": "value",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
     "zh": "自动",
     "en": "automatic",
     "variants": [],
@@ -10889,16 +10718,6 @@
   {
     "zh": "比特率",
     "en": "bitrate",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "描述",
-    "en": "description",
     "variants": [],
     "priority": 1,
     "note": "",
@@ -11777,16 +11596,6 @@
     "wrong_variants": []
   },
   {
-    "zh": "更多",
-    "en": "more",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
     "zh": "无缝切换器",
     "en": "presentation switcher",
     "variants": [],
@@ -12049,16 +11858,6 @@
   {
     "zh": "高级亮色度校正",
     "en": "advanced brightness and chroma calibration",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "全灰阶1.0校正",
-    "en": "full-grayscale 1.0 calibration",
     "variants": [],
     "priority": 1,
     "note": "",
@@ -13478,11 +13277,11 @@
   },
   {
     "zh": "防松螺母",
-    "en": "anti-loosing nut",
+    "en": "anti-loosening nut",
     "variants": [],
     "priority": 1,
     "note": "",
-    "source": "公司官方术语库（英语）",
+    "source": "公司官方术语库 TB（英语，2026-11-04）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -15288,11 +15087,11 @@
   },
   {
     "zh": "美国",
-    "en": "US",
+    "en": "United States",
     "variants": [],
     "priority": 1,
     "note": "",
-    "source": "公司官方术语库（英语）",
+    "source": "公司官方术语库 TB（英语，2026-11-04）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -16818,21 +16617,21 @@
   },
   {
     "zh": "中途岛",
-    "en": "MidwayAtoll",
+    "en": "Midway Atoll",
     "variants": [],
     "priority": 1,
     "note": "",
-    "source": "公司官方术语库（英语）",
+    "source": "公司官方术语库 TB（英语，2026-11-04）",
     "machine_variants": [],
     "wrong_variants": []
   },
   {
     "zh": "威克岛",
-    "en": "WakeIsland",
+    "en": "Wake Island",
     "variants": [],
     "priority": 1,
     "note": "",
-    "source": "公司官方术语库（英语）",
+    "source": "公司官方术语库 TB（英语，2026-11-04）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -16868,11 +16667,11 @@
   },
   {
     "zh": "圣卢西亚",
-    "en": "SaintLucia",
+    "en": "Saint Lucia",
     "variants": [],
     "priority": 1,
     "note": "",
-    "source": "公司官方术语库（英语）",
+    "source": "公司官方术语库 TB（英语，2026-11-04）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -17507,46 +17306,6 @@
     "wrong_variants": []
   },
   {
-    "zh": "每天",
-    "en": "every day",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "每周",
-    "en": "every week",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "每月",
-    "en": "every month",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "每年",
-    "en": "every year",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
     "zh": "取消",
     "en": "cancel",
     "variants": [],
@@ -17619,16 +17378,6 @@
   {
     "zh": "最小化",
     "en": "minimize",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "类型",
-    "en": "type",
     "variants": [],
     "priority": 1,
     "note": "",
@@ -19569,16 +19318,6 @@
   {
     "zh": "发散性测试",
     "en": "exploratory testing",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "EOTF",
-    "en": "EOTF",
     "variants": [],
     "priority": 1,
     "note": "",
@@ -25967,42 +25706,12 @@
     "wrong_variants": []
   },
   {
-    "zh": "视场角",
-    "en": "Field of View",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
     "zh": "主KV",
-    "en": "Main KV",
+    "en": "main KV",
     "variants": [],
     "priority": 1,
     "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "均流",
-    "en": "current sharing",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "光谱",
-    "en": "spectrum",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
+    "source": "公司官方术语库 TB（英语，2026-11-04）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -26017,322 +25726,22 @@
     "wrong_variants": []
   },
   {
-    "zh": "光电混合链路",
-    "en": "hybrid optical-electrical link",
+    "zh": "回显",
+    "en": "input view",
     "variants": [],
     "priority": 1,
     "note": "",
-    "source": "公司官方术语库（英语）",
+    "source": "公司官方术语库 TB（英语，2026-11-04）",
     "machine_variants": [],
     "wrong_variants": []
   },
   {
-    "zh": "红外成像测试",
-    "en": "infrared imaging test",
+    "zh": "回显",
+    "en": "screen monitoring",
     "variants": [],
     "priority": 1,
     "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "铜缆",
-    "en": "copper cable",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "温度循环应力",
-    "en": "temperature cycling stress",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "稳态功耗",
-    "en": "steady-state power consumption",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "峰值裕量",
-    "en": "peak power margin",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "温循",
-    "en": "temperature cycling",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "裸卡",
-    "en": "bare card",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "偏差",
-    "en": "deviation",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "裕量",
-    "en": "margin",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "电源时序器",
-    "en": "power sequencer",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "插拔耐久",
-    "en": "mating durability",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "花屏",
-    "en": "display corruption",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "常温",
-    "en": "room temperature",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "串扰",
-    "en": "crosstalk",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "掉链",
-    "en": "link drop",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "死卡",
-    "en": "card hang",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "挂测",
-    "en": "soak test",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "双纤线缆",
-    "en": "Duplex fiber optic cable",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "测试行程",
-    "en": "test stroke",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "光缆",
-    "en": "fiber optic cable",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "频段",
-    "en": "frequency band",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "差分时钟",
-    "en": "differential clock",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "挡风罩",
-    "en": "wind shield",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "温箱",
-    "en": "temperature chamber",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "展频",
-    "en": "spread spectrum",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "对流",
-    "en": "convection",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "红外成像",
-    "en": "infrared imaging",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "数据丢包",
-    "en": "packet loss",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "结温",
-    "en": "junction temperature",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "眼图",
-    "en": "eye diagram",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
-    "machine_variants": [],
-    "wrong_variants": []
-  },
-  {
-    "zh": "跳线",
-    "en": "patch cord",
-    "variants": [],
-    "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
+    "source": "公司官方术语库 TB（英语，2026-11-04）",
     "machine_variants": [],
     "wrong_variants": []
   }
