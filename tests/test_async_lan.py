@@ -60,8 +60,11 @@ class AsyncLanTests(unittest.TestCase):
                 if count[0]==2:active.set()
             release.wait(3);job['status']='complete'
         path=self.doc('queue.docx','sample')
+        options={'kind':'check','paths':[path],'use_llm':False,'direction':'en-zh','workers':1,
+            'references':[path],'pairs':{path:path},'glossary_imports':[path],
+            'translation_mode':'compressed','combined_output':'final','output_dir':str(self.root/'output')}
         with patch('backend.workflow.run',run):
-            jobs=[workflow.start({'kind':'check','paths':[path],'use_llm':False}) for _ in range(3)]
+            jobs=[workflow.start(options) for _ in range(3)]
             self.assertTrue(active.wait(1));self.assertEqual(workflow.JOBS[jobs[2]['id']]['status'],'queued')
             from backend import history
             rows=history.query(active_ids=[j['id'] for j in jobs])['records']
@@ -74,6 +77,7 @@ class AsyncLanTests(unittest.TestCase):
                 self.assertNotIn('_history_data',cancelled)
                 self.assertEqual(next(r['status'] for r in history.query(active_ids=[j['id'] for j in jobs[:2]])['records'] if r['id']==jobs[2]['id']),'cancelled')
                 self.assertEqual(workflow.cancel(jobs[2]['id'])['status'],'cancelled')
+                self.assertEqual(history.resume_options(jobs[2]['id']),options)
             finally: release.set()
             for job in jobs:self.wait(job['id'])
         self.assertEqual(count[0],2);self.assertEqual(workflow.JOBS[jobs[2]['id']]['status'],'cancelled')

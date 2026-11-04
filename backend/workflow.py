@@ -81,7 +81,7 @@ def start(data):
             raise ValueError('待处理任务已满，请等待部分任务完成。')
         job = {'id':uuid.uuid4().hex,'kind':data['kind'],'status':'queued','done':0,'total':0,
                'message':'正在排队等待处理','phase':'preparing','percent':0,'result':None,'error':'','cancel':threading.Event(),
-               '_history_data':{key:data[key] for key in ('kind','paths','output_dir','translation_mode','direction') if key in data}}
+               '_history_data':{key:data[key] for key in history.RESUME_FIELDS if key in data}}
         JOBS[job['id']] = job
         for key in list(JOBS):
             if len(JOBS) <= task_queue.MAX_RETAINED: break

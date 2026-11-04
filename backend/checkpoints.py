@@ -91,15 +91,21 @@ class Checkpoint:
                         if legacy==self.scope:continue
                         known={key for key,_ in rows}
                         rows.extend((key,value) for key,value in db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?',(legacy,stage)).fetchall() if key not in known)
-                if stage=='translation-zh':
-                    # Completed 2.3.5 translations still require current
+                if stage in ('translation-zh','review-zh'):
+                    # Shipped reverse results still require current
                     # content/style validation at each use. Keep their exact
                     # source/model/glossary identity, never import blindly.
-                    legacy=digest({'policy':'3e8008c39f1869cd051787ea1b42679b6987d9fd1d5bbcbc9c93de70a4865fa6','input':identity})
-                    known={key for key,_ in rows}
-                    rows.extend((key,value) for key,value in db.execute(
-                        'SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?',
-                        (legacy,stage)).fetchall() if key not in known)
+                    for old_policy in (
+                            '3e8008c39f1869cd051787ea1b42679b6987d9fd1d5bbcbc9c93de70a4865fa6',
+                            # 2.3.6/2.3.7: resume bookkeeping changes do not
+                            # invalidate content. Reads still run validation;
+                            # legacy reviews require the entire original scope.
+                            'f55c372c1060a27d2271890788534e12f99480c914897f8fdfdeeb4cf3881326'):
+                        legacy=digest({'policy':old_policy,'input':identity})
+                        known={key for key,_ in rows}
+                        rows.extend((key,value) for key,value in db.execute(
+                            'SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?',
+                            (legacy,stage)).fetchall() if key not in known)
             for key, value in rows:
                 try: self.values[key] = json.loads(value)
                 except (ValueError, TypeError): pass

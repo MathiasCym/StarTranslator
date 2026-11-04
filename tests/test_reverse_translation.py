@@ -109,6 +109,74 @@ class ReverseTests(unittest.TestCase):
         self.assertEqual(model.calls,[]);self.assertEqual(result['resumed_segments'],2)
         self.assertTrue(result['translation_complete'])
 
+    def test_review_reuses_unchanged_requests_when_an_unfinished_translation_is_completed(self):
+        from backend.reverse_translation import check_segments
+        from backend.models import Segment
+        rows=[Segment(str(i),'draft.docx',f'显示参数 {i}。',f'body/p{i}',file_path=str(self.root/'draft-a.docx')) for i in range(10)]
+        first=Model()
+        _,stats=check_segments(rows,self.glossary,client=first,checkpoint_origin=str(self.root/'source.docx'))
+        self.assertEqual(stats['judged'],10)
+        # Another task completes the last paragraph. The first seven review
+        # requests have exactly the same target, local context and alignment.
+        resumed=[__import__('dataclasses').replace(s,id='new-'+s.id,file_path=str(self.root/'draft-b.docx')) for s in rows]
+        resumed[-1].text='显示参数 9 已核实。'
+        second=Model()
+        _,stats=check_segments(resumed,self.glossary,client=second,checkpoint_origin=str(self.root/'source.docx'))
+        self.assertEqual(stats['resumed_segments'],7)
+        self.assertEqual(len(second.calls),3)
+        self.assertEqual(stats['model_status'],'complete')
+
+    def test_review_request_cache_keeps_model_glossary_alignment_and_file_guards(self):
+        from backend.reverse_translation import check_segments
+        from backend.models import Segment,GlossaryEntry
+        from dataclasses import replace
+        row=Segment('item','draft.docx','点间距为 2.5 mm。','body/p0',file_path=str(self.root/'draft.docx'))
+        check_segments([row],self.glossary,client=Model(),checkpoint_origin='origin.docx')
+        for change in ('model','glossary','alignment','origin','people'):
+            with self.subTest(change=change):
+                client=Model();glossary=self.glossary;options={'checkpoint_origin':'origin.docx'}
+                if change=='model':client.model='different-model'
+                if change=='glossary':glossary=Glossary([GlossaryEntry('点间距','pixel pitch',priority=1)])
+                if change=='alignment':options['aligned_sources']={row.id:'The pixel pitch is 2.5 mm.'}
+                if change=='origin':options['checkpoint_origin']='different.docx'
+                if change=='people':options['person_terms']={'John Doe':'John Doe'}
+                _,stats=check_segments([row],glossary,client=client,**options)
+                self.assertEqual(stats['resumed_segments'],0);self.assertEqual(len(client.calls),1)
+        # Direct proofreading cannot reuse another file's saved result.
+        check_segments([row],self.glossary,client=Model())
+        other=replace(row,file_path=str(self.root/'different.docx'));client=Model()
+        _,stats=check_segments([other],self.glossary,client=client)
+        self.assertEqual(stats['resumed_segments'],0);self.assertEqual(len(client.calls),1)
+
+    def test_bad_saved_review_is_revalidated_and_retried(self):
+        import sqlite3
+        from contextlib import closing
+        from backend.reverse_translation import check_segments
+        from backend.models import Segment
+        row=Segment('item','draft.docx',TARGET,'body/p0',file_path=str(self.root/'draft.docx'))
+        check_segments([row],self.glossary,client=Model(),checkpoint_origin='origin.docx')
+        with closing(sqlite3.connect(self.root/'profile/task-checkpoints.sqlite3')) as db,db:
+            db.execute("UPDATE checkpoints SET value=? WHERE stage='review-zh'",(json.dumps({'reviewed':True,
+                'suggestions':[{'original':TARGET,'replacement':'点间距为 3.5 mm。','reason':'错误数字'}]}),))
+        client=Model();hits,stats=check_segments([row],self.glossary,client=client,checkpoint_origin='origin.docx')
+        self.assertEqual(hits,[]);self.assertEqual(stats['resumed_segments'],0)
+        self.assertEqual(len(client.calls),1);self.assertEqual(stats['model_status'],'complete')
+
+    def test_shipped_237_review_cache_migrates_only_when_the_whole_legacy_scope_matches(self):
+        from backend.reverse_translation import check_segments
+        from backend.models import Segment
+        from backend.checkpoints import open_checkpoint
+        row=Segment('item','draft.docx',TARGET,'body/p0',file_path=str(self.root/'draft.docx'))
+        old='f55c372c1060a27d2271890788534e12f99480c914897f8fdfdeeb4cf3881326'
+        with patch('backend.checkpoints.policy',return_value=old):
+            checkpoint=open_checkpoint('review-zh',{'source':'origin.docx','direction':'en-zh',
+                'texts':[('@draft',row.locator,row.text,'')],'person_terms':{}},self.glossary,None,Model())
+            checkpoint.put([row.locator,row.text],{'reviewed':True,'suggestions':[]})
+        client=Model();_,stats=check_segments([row],self.glossary,client=client,checkpoint_origin='origin.docx')
+        self.assertEqual(stats['resumed_segments'],1);self.assertEqual(client.calls,[])
+        client=Model();_,stats=check_segments([row],self.glossary,client=client,checkpoint_origin='different.docx')
+        self.assertEqual(stats['resumed_segments'],0);self.assertEqual(len(client.calls),1)
+
     def test_word_keeps_validated_chinese_when_emphasis_mapping_is_unavailable(self):
         english='Contact path: Alex raised the request; Sam forwarded the information to the team.'
         chinese='联系路径：Alex提出请求；Sam将资料转交给团队。'

@@ -340,24 +340,33 @@ def check_segments(segments, glossary, use_llm=True, *, client=None, cancel=None
     client = client or LLMClient() if use_llm else None
     editable = [s for s in segments if s.editable and any(c.isalnum() for c in prose(s.text))]
     findings, errors, resumed = [], [], 0
-    checkpoint = open_checkpoint('review-zh', {'source': checkpoint_origin or '', 'direction': 'en-zh',
+    legacy_checkpoint = open_checkpoint('review-zh', {'source': checkpoint_origin or '', 'direction': 'en-zh',
         # Combined jobs regenerate private draft paths. Bind to the immutable
         # origin, locator, full target/context and English alignment instead.
         'texts': [('@draft' if checkpoint_origin else s.file_path,s.locator,s.text,
                    (aligned_sources or {}).get(s.id,'')) for s in editable], 'person_terms':person_terms or {}}, glossary, references, client) if use_llm else None
+    checkpoint = open_checkpoint('review-zh', {'source':checkpoint_origin or '', 'direction':'en-zh',
+        'schema':'request-v1', 'person_terms':person_terms or {}},glossary,references,client) if use_llm else None
     for position, segment in enumerate(editable):
         check_cancel(cancel)
         current = []
         if use_llm:
             try:
-                key = [segment.locator, segment.text]
-                result = checkpoint.get(key) if checkpoint else None
-                cached = result is not None
                 context = '\n'.join(s.text for s in editable[max(0,position-2):position+3] if s.file_path==segment.file_path)
                 payload = {'中文译文': segment.text, '上下文': context,
                         '对应英文原文': (aligned_sources or {}).get(segment.id,''),
                         '参考资料': '\n'.join(s.text for values in getattr(references,'by_path',{}).values() for s in values)[:3000],
                         '术语': glossary_context(segment.text, glossary, 'zh-en'), '全文人名统一写法':person_terms or {}}
+                # A later completed translation changes the draft, not every
+                # prior review request. Reuse only an identical request, still
+                # bound to source/model/glossary/reference identity. Changed
+                # neighbors, alignment and name decisions require a new review.
+                key = ['request-v1','@draft' if checkpoint_origin else segment.file_path,segment.locator,payload]
+                result = checkpoint.get(key) if checkpoint else None
+                request_cached = result is not None
+                if result is None and legacy_checkpoint:
+                    result = legacy_checkpoint.get([segment.locator,segment.text])
+                cached = result is not None
                 last_error = ''
                 for attempt in range(2):
                     if result is None:
@@ -390,7 +399,7 @@ def check_segments(segments, glossary, use_llm=True, *, client=None, cancel=None
                     current[-1].found_text=item['original']
                 if checkpoint:
                     if cached: checkpoint.used(); resumed += 1
-                    else: checkpoint.put(key,result)
+                    if not request_cached or not cached:checkpoint.put(key,result)
             except Cancelled: raise
             except Exception as error: errors.append({'segment_id':segment.id,'error':str(error)})
         findings += current
