@@ -340,10 +340,10 @@ function showCheckCompletion() {
 }
 function reviewCompletionState(report, job) {
   const stats = report.stats || {}, findings = report.findings || []
-  const manual = findings.filter(f => f.reason?.startsWith('翻译待核对：') || f.reason?.startsWith('英译中未完成：'))
+  const manual = findings.filter(f => ['翻译待核对：','英译中未完成：','多语言翻译未完成：'].some(prefix => f.reason?.startsWith(prefix)))
   const manualTotal = stats.manual_review ?? manual.length
   const manualPending = manual.filter(f => !f.applied).length
-  const untranslated = findings.filter(f => !f.applied && (f.reason?.startsWith('英译中未完成：') || /[\u3400-\u9fff]/.test(f.found_text || '') &&
+  const untranslated = findings.filter(f => !f.applied && (f.reason?.startsWith('英译中未完成：') || f.reason?.startsWith('多语言翻译未完成：') || /[\u3400-\u9fff]/.test(f.found_text || '') &&
     (f.reason?.startsWith('翻译待核对：') || f.reason?.startsWith('未译中文：')))).length
   const unreviewed = Math.max(0, (stats.unreviewed || 0) - manualTotal)
   // Older reports used "partial" for both human decisions and failed calls.
@@ -409,7 +409,7 @@ function renderCompletionOutput() {
   const compare=$('completionCompare'),draft=!!(output?.staged||output?.draft)
   compare.hidden=!output?.comparison_id
   compare.innerHTML=PageComparison.buttonContent+`<span>· ${draft?'初稿':'已保存稿'}</span>`
-  compare.title=output?`对照中文原稿与${draft?'翻译初稿':'当前保存的文件'}：${basename(output.path)}`:''
+  compare.title=output?`对照原稿与${draft?'翻译初稿':'当前保存的文件'}：${basename(output.path)}`:''
   if(output?.comparison_id)compare.dataset.comparison=output.comparison_id
   else delete compare.dataset.comparison
 }

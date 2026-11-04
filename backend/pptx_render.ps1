@@ -10,14 +10,31 @@ function Read-TextShapes($items) {
     foreach($shape in $items) {
         if($shape.Type -eq 6) { $values+=@(Read-TextShapes $shape.GroupItems);continue }
         if($shape.HasTable -eq -1) {
+            # Cell.Shape.Left/Top can be zero while text bounds are slide-relative.
+            # Derive cell origins from the actual table grid in the same units.
+            $seenTableRanges=@{}
+            $columnLefts=@();$columnPosition=[double]$shape.Left
+            for($columnIndex=1;$columnIndex -le $shape.Table.Columns.Count;$columnIndex++) {
+                $columnLefts+=,$columnPosition;$columnPosition+=[double]$shape.Table.Columns.Item($columnIndex).Width
+            }
+            $rowTops=@();$rowPosition=[double]$shape.Top
+            for($rowIndex=1;$rowIndex -le $shape.Table.Rows.Count;$rowIndex++) {
+                $rowTops+=,$rowPosition;$rowPosition+=[double]$shape.Table.Rows.Item($rowIndex).Height
+            }
             for($row=1;$row -le $shape.Table.Rows.Count;$row++) {
                 for($col=1;$col -le $shape.Table.Columns.Count;$col++) {
                     try {
                         $cell=$shape.Table.Cell($row,$col).Shape;$range=$cell.TextFrame.TextRange
                         if(!$range.Text.Trim()){continue}
+                        # Covered merged cells may expose the exact origin text range again.
+                        $boundLeft=[double]$range.BoundLeft;$boundTop=[double]$range.BoundTop
+                        $boundWidth=[double]$range.BoundWidth;$boundHeight=[double]$range.BoundHeight
+                        $rangeKey=[string]::Join('|',@($boundLeft,$boundTop,$boundWidth,$boundHeight,$range.Text))
+                        if($seenTableRanges.ContainsKey($rangeKey)){continue}
+                        $seenTableRanges[$rangeKey]=$true
                         $values+=@{id=([string]$shape.Id+'/'+$row+'/'+$col);shape_id=[int]$shape.Id;row=$row-1;col=$col-1;
-                            x=[double]$cell.Left;y=[double]$cell.Top;width=[double]$cell.Width;height=[double]$cell.Height;
-                            bound_x=[double]$range.BoundLeft;bound_y=[double]$range.BoundTop;bound_width=[double]$range.BoundWidth;bound_height=[double]$range.BoundHeight}
+                            x=[double]$columnLefts[$col-1];y=[double]$rowTops[$row-1];width=[double]$cell.Width;height=[double]$cell.Height;
+                            bound_x=$boundLeft;bound_y=$boundTop;bound_width=$boundWidth;bound_height=$boundHeight}
                     }catch{}
                 }
             }

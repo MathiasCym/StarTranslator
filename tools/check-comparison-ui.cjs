@@ -108,6 +108,18 @@ server.listen(0,'127.0.0.1',async()=>{
    assert.deepEqual(win.getBounds(),actualBounds)
   }
   result.checks.push('Actual application completion/report entry points: fullscreen contains only the opaque viewer, controls and pages unobscured, text search separate, normal bounds restored')
+  const languages={'zh-CN':'简体中文','en-US':'英语','zh-Hant-TW':'繁体中文','ja-JP':'日语',ko:'韩语'}
+  for(const source of Object.keys(languages))for(const target of Object.keys(languages)){
+   if(source===target)continue
+   const direction=source==='zh-CN'&&target==='en-US'?'zh-en':source==='en-US'&&target==='zh-CN'?'en-zh':source+'>'+target
+   await run(`PageComparison.open($('comparisonDialog'),$('comparisonDialog').querySelector('.comparison-filters'),$('comparisonDialog').querySelector('.comparison-scroll'),{direction:${JSON.stringify(direction)},source_name:'source.docx',output_name:'checked.docx'},{source:'/frame',output:'/frame'})`)
+   for(const [side,name] of [['source',languages[source]+'原稿'],['output','处理后'+languages[target]]]){
+    const labels=await run(`(()=>{const p=$('comparisonDialog').querySelector('[data-side=${side}]');return {heading:p.querySelector('strong').textContent,title:p.querySelector('iframe').title,previous:p.querySelector('[data-prev]').getAttribute('aria-label'),next:p.querySelector('[data-next]').getAttribute('aria-label'),page:p.querySelector('input').getAttribute('aria-label')}})()`)
+    assert.deepEqual(labels,{heading:name,title:name+'页面',previous:name+'上一页',next:name+'下一页',page:name+'页码'})
+   }
+   await run("$('comparisonDialog').close()")
+  }
+  result.checks.push('All20 document language pairs use the actual source/target names in pane headings,frames and accessible page controls')
   result.passed=true
  }catch(error){result.error=error.stack}
  finally{clearTimeout(timer);fs.writeFileSync(file,JSON.stringify(result,null,2));server.closeAllConnections();server.close();app.emit('will-quit');app.exit(result.passed?0:1)}

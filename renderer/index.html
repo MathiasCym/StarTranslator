@@ -75,8 +75,8 @@
         <ul id="filelist" class="filelist"></ul>
       </section>
       <details class="reference-panel" id="referencesPanel">
-        <summary>中英对照与参考材料 <span id="referenceCount">（可选）</span></summary>
-        <p class="hint">添加中文原文、英文定稿或双语资料；可在文件旁指定对应材料。</p>
+        <summary>原译对照与参考材料 <span id="referenceCount">（可选）</span></summary>
+        <p class="hint">添加原文、定稿或双语资料；可在文件旁指定对应材料。</p>
         <div class="actions"><button class="btn ghost sm" id="addReference">添加参考材料</button><button class="btn ghost sm" id="clearReferences">清空参考</button></div>
         <ul id="referenceList" class="filelist"></ul>
       </details>
@@ -86,10 +86,10 @@
         <div class="task-option-row"><label class="check" id="llmOption" title="进一步检查译文表达和上下文，需要连接模型；处理时间会增加。"><input type="checkbox" id="useLlm" checked>深度审校</label><span id="glossaryInfo" class="hint">正在读取词库…</span></div>
         <label class="document-direction" for="documentDirection"><span id="documentDirectionLabel">校对语言</span><select id="documentDirection"><option value="zh-en">英文</option><option value="en-zh">中文</option></select></label>
         <fieldset id="translationOptions" class="translation-options" data-translation-options hidden>
-          <legend>翻译方式 <button id="translationHelpButton" class="translation-help-button" type="button" aria-label="了解翻译方式与中英文排版差异" aria-expanded="false" aria-controls="translationHelp">?</button></legend>
+          <legend>翻译方式 <button id="translationHelpButton" class="translation-help-button" type="button" aria-label="了解翻译方式与排版差异" aria-expanded="false" aria-controls="translationHelp">?</button></legend>
           <label class="translation-choice"><input type="radio" name="translationMode" value="faithful" checked><span><strong>忠实翻译</strong><small>逐项保留原文信息</small></span></label>
           <label class="translation-choice"><input type="radio" name="translationMode" value="compressed"><span><strong>文案压缩</strong><small>保留事实，精简重复表达</small></span></label>
-          <dialog id="translationHelp" class="translation-help help-dialog" aria-labelledby="translationHelpTitle" hidden><header class="help-heading"><h3 id="translationHelpTitle"><img src="assets/normal.png" width="48" height="48" alt="">翻译方式与排版</h3><button type="button" class="btn ghost sm" data-close-help autofocus>关闭</button></header><div class="help-body"><p>中文通常比英文紧凑。翻译后文字变长时，软件会适配字号和行距，尽量保留原稿布局。</p><p><strong>忠实翻译</strong>保留全部信息，适合技术说明、参数和正式资料。</p><p><strong>文案压缩</strong>可精简重复表达和宣传套话，仍保留事实、参数、型号、数字和条件。</p><p>PPT 同类文字在每页统一字号，保留原稿的文字位置与强调层级。导出后仍建议检查重点页面。</p></div></dialog>
+          <dialog id="translationHelp" class="translation-help help-dialog" aria-labelledby="translationHelpTitle" hidden><header class="help-heading"><h3 id="translationHelpTitle"><img src="assets/normal.png" width="48" height="48" alt="">翻译方式与排版</h3><button type="button" class="btn ghost sm" data-close-help autofocus>关闭</button></header><div class="help-body"><p>不同语言所需的文字空间不同。翻译后文字变长时，软件会适配字号和行距，尽量保留原稿布局。</p><p><strong>忠实翻译</strong>保留全部信息，适合技术说明、参数和正式资料。</p><p><strong>文案压缩</strong>可精简重复表达和宣传套话，仍保留事实、参数、型号、数字和条件。</p><p>PPT 同类文字在每页统一字号，保留原稿的文字位置与强调层级。导出后仍建议检查重点页面。</p></div></dialog>
         </fieldset>
         <div class="output-row"><label for="outputDir">输出位置</label><input id="outputDir" readonly placeholder="默认另存到原文件旁"><button class="btn ghost sm" id="pickOutput">选择位置</button></div>
         <p class="hint" id="scopeHint">修改由你确认，支持另存或覆盖原文件。</p>
@@ -113,7 +113,7 @@
       <div id="completionSummary" class="summary"></div>
       <div class="completion-review-step" id="completionReviewStep"><div><strong id="completionReviewTitle"></strong><p id="completionReviewHint" class="hint"></p></div><button id="viewReport" class="btn primary" aria-describedby="completionReviewHint">查看校对报告</button></div>
       <p id="completionDetails" class="hint" hidden></p><p id="completionIssue" class="notice" role="status" hidden></p><p id="completionFiles" class="completion-files"></p><div class="actions"><button id="completionResume" class="btn" hidden>从断点继续</button><button id="completionExportLog" class="btn ghost" hidden>导出错误日志</button></div>
-      <div class="completion-footer"><div class="actions"><button id="reviewCompleteBack" class="btn ghost">返回文档</button></div><div class="completion-destination"><select id="completionOutput" aria-label="选择校对输出文件" hidden></select><p id="completionPath" class="fpath"></p><div class="actions"><button id="completionCompare" class="btn ghost comparison-button" hidden>中英对照</button><button id="completionOpenFolder" class="btn ghost">打开所在位置</button><button id="completionOpenFile" class="btn ghost" hidden>打开文件</button></div></div></div>
+      <div class="completion-footer"><div class="actions"><button id="reviewCompleteBack" class="btn ghost">返回文档</button></div><div class="completion-destination"><select id="completionOutput" aria-label="选择校对输出文件" hidden></select><p id="completionPath" class="fpath"></p><div class="actions"><button id="completionCompare" class="btn ghost comparison-button" hidden>原译对照</button><button id="completionOpenFolder" class="btn ghost">打开所在位置</button><button id="completionOpenFile" class="btn ghost" hidden>打开文件</button></div></div></div>
     </section>
     <section class="panel" id="translationPanel" hidden>
       <div class="panel-head"><div class="dialog-title"><img id="translationFace" class="mascot dialog-mascot" src="assets/happy.png" width="48" height="48" alt="" draggable="false"><h3 id="translationTitle">翻译结果</h3></div><button class="btn ghost sm" id="translationBack">返回文档</button></div>
@@ -131,7 +131,7 @@
           <div class="result-scroll"><div id="summary" class="summary"></div><details class="report-coverage"><summary>检测范围与提示</summary><div id="reportNotice" class="notice"></div></details><details id="reportManualNotes" class="report-coverage" hidden></details><div id="reportBody" class="suggestion-list"></div></div>
         </div>
         <aside class="result-side" aria-label="应用建议与输出文件">
-          <div class="result-destination"><h4>输出文件</h4><select id="reportOutput" aria-label="选择校对输出文件" hidden></select><p id="reportOutputPath" class="fpath">应用修改后，输出文件会出现在这里。</p><button id="reportOpenFolder" class="btn ghost" disabled>打开所在位置</button><button id="reportOpenFile" class="btn ghost" disabled>打开文件</button><button id="reportCompare" type="button" class="btn ghost comparison-button" hidden>中英对照</button></div>
+          <div class="result-destination"><h4>输出文件</h4><select id="reportOutput" aria-label="选择校对输出文件" hidden></select><p id="reportOutputPath" class="fpath">应用修改后，输出文件会出现在这里。</p><button id="reportOpenFolder" class="btn ghost" disabled>打开所在位置</button><button id="reportOpenFile" class="btn ghost" disabled>打开文件</button><button id="reportCompare" type="button" class="btn ghost comparison-button" hidden>原译对照</button></div>
           <div id="exportResults" class="result-export-log" hidden></div>
             <div class="report-actions"><div id="exportProgressBox" class="export-progress" role="status" aria-live="polite" hidden><p id="exportProgressText">正在准备保存…</p><progress id="exportProgress" max="100"></progress></div><span id="selInfo">已选 0 项</span><div class="actions"><button class="btn primary" id="applyBtn" disabled>应用所选并另存</button><button class="btn ghost" id="overwriteBtn" disabled>应用所选并覆盖原文件</button><button class="btn ghost" id="saveCurrentBtn" hidden>不应用建议，保存当前译文</button></div></div>
         </aside>
@@ -202,7 +202,7 @@
   <div class="modal" id="combinedOutputModal" hidden><section class="modal-card combined-output-card" role="dialog" aria-modal="true" aria-labelledby="combinedOutputTitle" aria-describedby="combinedOutputHint">
     <div class="panel-head"><h3 id="combinedOutputTitle"><img class="mascot dialog-mascot" src="assets/normal.png" width="48" height="48" alt="" draggable="false">翻译并校对 · 输出方式</h3><button id="combinedOutputCancel" class="btn ghost sm">取消</button></div>
     <p id="combinedOutputHint" class="hint">翻译和校对自动完成，建议由你确认后应用。</p>
-    <label class="output-choice"><input type="radio" name="combinedOutput" value="final" checked><span><strong>只输出最终校对文件</strong><small>译文先暂存，确认建议并保存后，目标文件夹只保留一份英文文件。</small></span></label>
+    <label class="output-choice"><input type="radio" name="combinedOutput" value="final" checked><span><strong>只输出最终校对文件</strong><small>译文先暂存，确认建议并保存后，目标文件夹只保留一份目标语言文件。</small></span></label>
     <label class="output-choice"><input type="radio" name="combinedOutput" value="both"><span><strong>保留翻译文件和校对文件</strong><small>翻译文件单独保留；确认建议后，另外保存校对文件。</small></span></label>
     <div class="actions"><button id="combinedOutputStart" class="btn primary">开始翻译并校对</button></div>
   </section></div>

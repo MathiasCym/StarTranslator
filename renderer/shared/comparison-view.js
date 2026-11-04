@@ -36,7 +36,7 @@ window.PageComparison = (() => {
   }
   function mount(dialog, filters, text) {
     const box = document.createElement('div'); box.className = 'page-comparison'
-    box.innerHTML = `<div class="pc-toolbar"><button ${buttons} data-mode="pages" aria-pressed="true">页面对照</button><button ${buttons} data-mode="text" aria-pressed="false">文字对照</button><label class="pc-sync"><input type="checkbox" checked>同步翻页与滚动</label><select class="pc-zoom" aria-label="页面缩放"><option value="fit">适合宽度</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select><button ${buttons} data-expand>展开查看</button></div><div class="pc-panes">${['source','output'].map((side,i)=>`<section class="pc-pane" data-side="${side}"><div class="pc-pane-head"><strong>${i?'处理后英文':'中文原稿'}</strong><small></small></div><p class="pc-status" role="status">正在准备完整页面…</p><iframe class="pc-frame" title="${i?'英文文档页面':'中文原稿页面'}" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe><div class="pc-nav"><button ${buttons} data-prev aria-label="${i?'英文':'原稿'}上一页">上一页</button><input type="number" min="1" value="1" aria-label="${i?'英文':'原稿'}页码"><span data-count>/ —</span><button ${buttons} data-next aria-label="${i?'英文':'原稿'}下一页">下一页</button></div></section>`).join('')}</div>`
+    box.innerHTML = `<div class="pc-toolbar"><button ${buttons} data-mode="pages" aria-pressed="true">页面对照</button><button ${buttons} data-mode="text" aria-pressed="false">文字对照</button><label class="pc-sync"><input type="checkbox" checked>同步翻页与滚动</label><select class="pc-zoom" aria-label="页面缩放"><option value="fit">适合宽度</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select><button ${buttons} data-expand>展开查看</button></div><div class="pc-panes">${['source','output'].map((side,i)=>`<section class="pc-pane" data-side="${side}"><div class="pc-pane-head"><strong>${i?'处理后译文':'原稿'}</strong><small></small></div><p class="pc-status" role="status">正在准备完整页面…</p><iframe class="pc-frame" title="${i?'译文页面':'原稿页面'}" sandbox="allow-scripts" referrerpolicy="no-referrer"></iframe><div class="pc-nav"><button ${buttons} data-prev aria-label="${i?'译文':'原稿'}上一页">上一页</button><input type="number" min="1" value="1" aria-label="${i?'译文':'原稿'}页码"><span data-count>/ —</span><button ${buttons} data-next aria-label="${i?'译文':'原稿'}下一页">下一页</button></div></section>`).join('')}</div>`
     dialog.insertBefore(box, filters)
     const status=document.createElement('p');status.className='pc-fullscreen-status';status.hidden=true;status.setAttribute('role','status');box.insertBefore(status,box.querySelector('.pc-panes'))
     const surface=document.createElement('div');surface.className='pc-surface'
@@ -115,6 +115,9 @@ window.PageComparison = (() => {
         const pair=window.StarDocumentLanguages?.pair(metadata.direction),name=pair && window.StarDocumentLanguages.names[pair[side==='source'?0:1]]
         const label=name?(side==='source'?name+'原稿':'处理后'+name):metadata.direction==='en-zh'?(side==='source'?'英文原稿':'处理后中文'):(side==='source'?'原稿':'处理后译文')
         p.pane.querySelector('strong').textContent=label;p.frame.title=label+'页面'
+        p.pane.querySelector('[data-prev]').setAttribute('aria-label',label+'上一页')
+        p.number.setAttribute('aria-label',label+'页码')
+        p.pane.querySelector('[data-next]').setAttribute('aria-label',label+'下一页')
         p.pane.querySelector('small').textContent=metadata[side+'_name'];p.pane.querySelector('[data-count]').textContent='/ —'
         p.token=opening+'-'+side
         const url=new URL(urls[side],location.href);url.searchParams.set('preview_token',p.token)

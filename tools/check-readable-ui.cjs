@@ -343,6 +343,17 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("$('completionResume').textContent"),'继续未完成翻译')
   assert((await run("$('reviewCompleteNotice').textContent")).includes('1 处未译中文'))
   result.checks.push('completion separates successful review, manual decisions, layout advice and genuine model interruptions; resolved manual items refresh immediately')
+  for(const [language,name] of [['zh-Hant-TW','繁体中文'],['ja-JP','日语'],['ko','韩语']]){
+   await run(`state.report.stats={target_language:${JSON.stringify(language)},model_status:'partial',review_processing_status:'complete',manual_review:1,segments:1,judged:0,unreviewed:1};state.report.findings=[{found_text:'未完成の原文',reason:'多语言翻译未完成：模型中断',applied:false}];renderCheckCompletion()`)
+   assert.equal(await run('reviewCompletionState(state.report,state.job).untranslated'),1)
+   assert.equal(await run("$('completionResume').hidden"),false)
+   assert((await run("$('reviewCompleteNotice').textContent")).includes(name))
+   assert.equal(/未译中文|填写英文/.test(await run("$('reviewCompleteNotice').textContent")),false)
+   await run("state.report.findings[0].applied=true;renderCheckCompletion()")
+   assert.equal(await run("$('completionResume').hidden"),true)
+   assert.equal(await run("$('completionExportLog').hidden"),true)
+  }
+  result.checks.push('new-language incomplete findings show the correct target and explicit resume; resolved findings do not imply an error')
   const comparisonOpens=[]
   ipcMain.removeHandler('api');ipcMain.handle('api',(_event,{method,path:apiPath,body})=>{
    if(apiPath==='/api/reports/exports')return {id:'save-'+body.path,status:'complete',result:{output:body.path.replace('draft','checked'),comparison_id:body.path.includes('first')?'first-id':'second-id',applied_count:0,failed:[],finding_updates:[]}}
@@ -377,6 +388,8 @@ server.listen(0,'127.0.0.1',async()=>{
   assert((await run("$('completionPath').textContent")).endsWith('second-checked.pptx'))
   assert.equal(await run("$('completionCompare').dataset.comparison"),'second-id')
   assert((await run("$('completionCompare').textContent")).includes('已保存稿'))
+  assert((await run("$('completionCompare').textContent")).includes('原译对照'))
+  assert.equal((await run("$('completionCompare').title")).includes('中文原稿'),false)
   assert.equal(await run("$('completionFiles').querySelectorAll('[data-comparison]').length"),0)
   await run("$('completionCompare').click()");await wait(100)
   assert.equal(comparisonOpens.at(-1),'/api/comparisons/second-id')

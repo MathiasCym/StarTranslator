@@ -217,7 +217,7 @@
       ],
       "test_command": "python-runtime/python.exe -B tests/test_document_languages.py",
       "test_status": "passed",
-      "test_output": "13 specialty tests pass:108 combined format/direction cases,18 independent new-language review/save cases,15 additional adapter cases,semantic emphasis/media/bookmarks,failure and explicit resume. Real synthetic company-model round:20 language pairs translate/review/final-save,0 resumed/unfinished. Full frozen regression645 passed.",
+      "test_output": "17 language specialties and final649 full backend pass.20 real document directions,source/target guards,semantic emphasis with actual format evidence,safe address-boundary restoration and actual-path/repeated-address negative cases pass. Legacy zh-en/en-zh policies retained.",
       "status": "completed",
       "passes": true
     },
@@ -234,7 +234,7 @@
       ],
       "test_command": "python-runtime/python.exe -B tools/run-regressions.py",
       "test_status": "passed",
-      "test_output": "Full frozen backend645 passed. Real4-target Word/PDF/PPT,Japanese-source Word→Traditional,Korean-source PPT→English,rich Japanese/Traditional Word and Korean PPT save/native rendering pass. Rich emphasis failure fixed and rerun;final warnings persist.10 PDF-image specialties incl20 pairs;real image-only English→Japanese passes. Simple PPT layout follow-ups remain honestly disclosed;no universal layout claim.",
+      "test_output": "Final649 backend,39 visual,5-language actual native table positive/merged/true-overflow checks pass.6 real3-page PPT/2-page image PDF cases complete fresh translate/review/apply/save;4-target Excel,legacy zh-en PPT,ko PDF→en pass. Previously reproducible ja PDF→ko protected-URL review now completes twice fresh with unchanged URI,3 requests/0pending,native Word save. Original model still proposes bad space removal;program safely restores exact boundary. Saved rendering/media/bookmarks/links preserved;model readability follow-ups honestly retained.",
       "status": "completed",
       "passes": true
     },
@@ -251,7 +251,7 @@
       ],
       "test_command": "node tools/check-readable-ui.cjs",
       "test_status": "passed",
-      "test_output": "Actual readable desktop/LAN,comparison fullscreen,real default2240×1400/150% window and real startup directory migration checks pass.20 document directions/5 independent proofreading targets,16 catalog/text languages. Accepted UI proportions preserved.",
+      "test_output": "Actual desktop/LAN readable UI,default2240×1400/150%,20-direction comparison headings/accessibility and completion pending counts pass. Real app+real backend open9 saved Word/PPT/PDF files from18 completion/report entries:final output SHA/native page image SHA,original PDF,synchronized page2,fullscreen and search pass. Static wording changed to source/target neutral. No accepted sizing changed.",
       "status": "completed",
       "passes": true
     },
@@ -268,7 +268,7 @@
       ],
       "test_command": "python-runtime/python.exe -B tools/run-regressions.py",
       "test_status": "pending",
-      "test_output": "Local repeated quality checks passed:645 backend,real20 document pairs,Word/PDF/PPT/native rich cases,16 text-language ring and offline240 text pairs. Formal2.4.0 CI,payload,domestic deltas and actual old-client upgrade still pending.",
+      "test_output": "User requested broader repeat testing before release; all concrete failures repaired and rerun. Final649 backend,17 language,39 PPT,128 maintenance,5 native updater,actual default window and9 files/18 real native comparison entries pass. Actual company model synthetic QA expanded,raw failures retained. Formal2.4.0 CI/payload/domestic original deltas/old-client native apply pending. Version selected once;no public change yet.",
       "status": "in_progress",
       "passes": false
     }

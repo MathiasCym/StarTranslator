@@ -302,5 +302,78 @@ class DocumentLanguageTests(unittest.TestCase):
   self.assertTrue(any('局部强调' in warning['reason'] for warning in saved['layout_warnings']))
   self.assertIn(SAMPLES['ja-JP'],'\n'.join(s.text for s in extract(saved['output'])))
 
+ def test_style_review_uses_actual_original_format_not_invented_id_colors(self):
+  from backend.replacer.styled_text import style_groups,slice_groups
+  negative={'zh-Hant-TW':'請勿','ja-JP':'ないでください','ko':'지 마세요'}
+  for target,phrase in negative.items():
+   with self.subTest(target=target):
+    path=self.emphasis_source(target+'-format-evidence.docx')
+    from docx import Document
+    paragraph=Document(path).paragraphs[0];groups=style_groups(paragraph)
+    seen=[]
+    class EvidenceModel(Model):
+     def chat_json(inner,prompt,system='',**options):
+      data=json.JSONDecoder().raw_decode(prompt)[0]
+      if '译文样式片段' in data:
+       seen.append(data['原文样式片段'])
+       if not all('original_style' in group for group in data['原文样式片段']):
+        return {'ok':False,'issues':['Cannot distinguish actual red emphasis from ordinary style; ID1 might be colored.']}
+       return {'ok':True,'issues':[]}
+      if '已复核的完整译文' in data:
+       first,last=inner.target.split(phrase)
+       return {'runs':[{'id':1,'text':first},{'id':0,'text':phrase},{'id':1,'text':last}]}
+      return super().chat_json(prompt,system,**options)
+    model=EvidenceModel(SAMPLES[target])
+    runs=documents.mapped(model,SAMPLES['en-US'],slice_groups(groups,0,len(paragraph.text),visual_keys=True),{},'en-US',target,threading.Event(),'','faithful')
+    self.assertEqual(''.join(r['text'] for r in runs),SAMPLES[target]);self.assertEqual(''.join(r['text'] for r in runs if r['id']==0),phrase)
+    self.assertEqual(len(seen),1)
+    self.assertIn('FF0000',json.dumps(seen[0][0]['original_style']))
+    self.assertNotIn('FF0000',json.dumps(seen[0][1]['original_style']))
+
+ def test_korean_review_repairs_prose_without_gluing_particle_to_url(self):
+  url='https://example.com/中文'
+  source='A8 컨트롤러를 끄지 마세요. 주파수는 60 Hz입니다. '+url+' 을(를) 참조하십시오.'
+  path=self.source('.docx',source);seen=[]
+  class BoundaryModel(Model):
+   def chat_json(inner,prompt,system='',**options):
+    data=json.JSONDecoder().raw_decode(prompt)[0]
+    if '本段待校对文字' not in data:return super().chat_json(prompt,system,**options)
+    seen.append(data)
+    if len(seen)==1 or data.get('必须逐字保留的地址')!=[url]:
+     return {'reviewed':True,'suggestions':[{'original':url+' 을(를)','replacement':url+'/changed 을(를)','reason':'Invalid address edit must still be rejected.'}]}
+    return {'reviewed':True,'suggestions':[{'original':'을(를)','replacement':'을','reason':'Use the correct particle outside the protected address.'}]}
+  job=self.job(self.options(path,'ja-JP','ko','check'),BoundaryModel(source))
+  self.assertEqual(job['status'],'complete',job)
+  report=job['result'];self.assertEqual(report['stats']['errors'],0);self.assertEqual(report['stats']['judged'],1)
+  self.assertEqual(len(seen),2);self.assertIn('网址',seen[1]['上次检查'])
+  self.assertEqual(report['findings'][0]['found_text'],'을(를)')
+  saved=workflow.apply_report({'report_id':report['report_id'],'path':str(path),'edits':[{'index':0,'text':'을'}]})
+  self.assertFalse(saved['failed']);self.assertEqual('\n'.join(s.text for s in extract(saved['output'])),source.replace('을(를)','을'))
+  self.assertEqual('\n'.join(s.text for s in extract(path)),source)
+
+ def test_address_boundary_only_suggestions_are_safely_ignored_not_failed(self):
+  url='https://example.com/中文';source='A8 컨트롤러를 끄지 마세요. '+url+' 을(를) 참조하십시오.'
+  path=self.source('.docx',source)
+  class BoundaryOnly(Model):
+   def chat_json(inner,prompt,system='',**options):
+    data=json.JSONDecoder().raw_decode(prompt)[0]
+    if '本段待校对文字' in data:return {'reviewed':True,'suggestions':[{'original':url+' 을(를)','replacement':url+'을(를)','reason':'Remove separating whitespace.'}]}
+    return super().chat_json(prompt,system,**options)
+  job=self.job(self.options(path,'ja-JP','ko','check'),BoundaryOnly(source))
+  self.assertEqual(job['result']['stats']['errors'],0);self.assertEqual(job['result']['stats']['judged'],1)
+  self.assertFalse(job['result']['findings'])
+  saved=workflow.apply_report({'report_id':job['id'],'path':str(path),'save_unchanged':True})
+  self.assertFalse(saved['failed']);self.assertEqual('\n'.join(s.text for s in extract(saved['output'])),source)
+
+ def test_address_boundary_restoration_never_guesses_changed_or_repeated_urls(self):
+  url='https://example.com/中文';source=url+' 을(를) 참조하십시오.'
+  self.assertEqual(documents.preserve_address_boundaries(source,url+'을(를) 참조하십시오.'),source)
+  self.assertEqual(documents.preserve_address_boundaries(source,url+'을(를) 안전하게 참조하십시오.'),url+' 을(를) 안전하게 참조하십시오.')
+  for target in [url+'/other 을(를) 참조하십시오.',url+'을(를)/evil 참조하십시오.',url+'에게 참조하십시오.','https://evil.example/中文 을(를) 참조하십시오.']:
+   self.assertEqual(documents.preserve_address_boundaries(source,target),target)
+   with self.assertRaises(ValueError):documents.content_validate(source,target,'ko','ko')
+  repeated=url+' 을(를) 참조. '+url+' 을(를) 참조.'
+  self.assertEqual(documents.preserve_address_boundaries(repeated,repeated.replace(' 을(를)','을(를)')),repeated.replace(' 을(를)','을(를)'))
+
 
 if __name__=='__main__':unittest.main()
