@@ -244,12 +244,17 @@ server.listen(0,'127.0.0.1',async()=>{
   await run(`renderJobPhase(${JSON.stringify({...progressCases[0],phase:'translate',status:'running'})})`)
   await snap('progress-count-once');await run("busy(false);$('workspace').hidden=false")
   result.checks.push('desktop progress shows one completed count and retains sequential/concurrent/resume/retry/validation activity')
-  const resumeOptions={kind:'check',paths:['C:/qa/unfinished.docx'],references:[],pairs:{},workers:3,use_llm:false,combined_output:'final',translation_mode:'faithful'}
-  let resumedRequest
+  const resumeOptions={kind:'check',paths:['C:/qa/unfinished.docx'],references:[],pairs:{},workers:3,use_llm:false,combined_output:'final',translation_mode:'faithful',resume_from:'resume-fixture'}
+  let resumedRequest,historyResumeReads=0
+  const taskStarts=[]
   ipcMain.removeHandler('api');ipcMain.handle('api',(_event,{method,path:apiPath,body})=>{
    if(apiPath.startsWith('/api/history?'))return {records:[{id:'resume-fixture',kind:'check',status:'interrupted',started_at:new Date().toISOString(),paths:resumeOptions.paths,outputs:[],errors:[],counts:{},resume_options:resumeOptions}],total:1,page:0,page_size:30}
-   if(apiPath==='/api/history/resume-fixture/resume')return resumeOptions
-   if(apiPath==='/api/jobs'&&method==='POST'){resumedRequest=body;return {id:'restored-fixture',kind:'check',status:'complete',result:{report_id:'restored-fixture',files:[],findings:[],stats:{model_status:'not_requested',segments:1},errors:[]}}}
+   if(apiPath==='/api/history/resume-fixture/resume'){historyResumeReads++;return resumeOptions}
+   if(apiPath==='/api/jobs'&&method==='POST'){
+    resumedRequest=body;taskStarts.push(body)
+    const report={report_id:'restored-fixture',files:[],findings:[],stats:{model_status:'not_requested',segments:1},errors:[]}
+    return {id:'restored-fixture',kind:body.kind,status:'complete',result:body.kind==='translate_review'?{outputs:[],errors:[],report,stats:report.stats}:body.kind==='translate'?{outputs:[],errors:[]}:report}
+   }
    return {}
   })
   await run("$('openHistory').click()");await wait(180)
@@ -257,6 +262,29 @@ server.listen(0,'127.0.0.1',async()=>{
   await snap('history-resume-207')
   await run("[...$('historyRows').querySelectorAll('button')].find(b=>b.textContent==='继续未完成任务').click()");await wait(200)
   assert.deepEqual(resumedRequest,resumeOptions);assert.equal(await run("$('historyModal').hidden"),true);assert.equal(await run('state.job.id'),'restored-fixture')
+  // Exact user route: leave the result, keep the same file, then use the home
+  // start buttons. A previous explicitly resumed job must not make these
+  // ordinary starts carry a hidden recovery marker or query history again.
+  await run("window.__originalNavigationAsk=AppDialogs.ask;AppDialogs.ask=async()=>true;null")
+  for(const kind of ['check','translate','translate_review']){
+   await run(`state.files=${JSON.stringify(resumeOptions.paths)};state.references=[];state.pairs={};setMode(${JSON.stringify(kind==='check'?'check':'translate')});state.job={id:'old-cancelled-task',kind:'translate_review',status:'cancelled',can_resume:true};loadReport({report_id:'old-cancelled-task',kind:'translate_review',files:[],findings:[],stats:{model_status:'cancelled'},errors:[]},[]);showCheckCompletion()`)
+   await run("$('reviewCompleteBack').click()");await wait(80)
+   assert.equal(await run("$('workspace').hidden"),false)
+   const startsBefore=taskStarts.length,readsBefore=historyResumeReads
+   await run(`$(${JSON.stringify(kind==='translate_review'?'runCombined':'runBtn')}).click()`)
+   if(kind==='translate_review'){
+    await wait(50);assert.equal(await run("$('combinedOutputModal').hidden"),false)
+    await run("$('combinedOutputStart').click()")
+   }
+   for(let n=0;n<40&&taskStarts.length===startsBefore;n++)await wait(25)
+   assert.equal(taskStarts.length,startsBefore+1)
+   assert.equal(taskStarts.at(-1).kind,kind)
+   assert.deepEqual(taskStarts.at(-1).paths,resumeOptions.paths)
+   assert.equal(Object.hasOwn(taskStarts.at(-1),'resume_from'),false)
+   assert.equal(historyResumeReads,readsBefore)
+  }
+  await run("AppDialogs.ask=window.__originalNavigationAsk;delete window.__originalNavigationAsk")
+  result.checks.push('return from cancelled results to home: same file starts fresh for check/translate/combined, even after explicit history resume; no recovery marker or history request')
   await run("state.report=null;state.job={id:'resume-fixture',status:'failed'};showTaskFailure(new Error('模型连接中断'))")
   assert.equal(await run("$('failureResume').hidden"),false);await snap('failure-resume-207')
   await run("state.job={id:'resume-fixture',status:'running'};showTaskFailure(new Error('连接暂时中断'))")
