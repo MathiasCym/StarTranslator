@@ -4,7 +4,7 @@ if(typeof runtime==='string') {
  const path=require('node:path'),fs=require('node:fs'),{spawnSync}=require('node:child_process')
  const file=path.resolve(__dirname,'../dist/qa/readability/readable-result.json')
  fs.rmSync(file,{force:true})
- const task=spawnSync(runtime,[__filename],{cwd:path.resolve(__dirname,'..'),windowsHide:true,timeout:150000,encoding:'utf8'})
+ const task=spawnSync(runtime,[__filename,...process.argv.slice(2)],{cwd:path.resolve(__dirname,'..'),windowsHide:true,timeout:150000,encoding:'utf8'})
  if(task.error)console.error(task.error.message)
  if(fs.existsSync(file)){const value=JSON.parse(fs.readFileSync(file));console.log(value.passed?'Desktop readability and dialog checks passed':value.error||'UI checks did not finish')}
  else if(task.status!==0)console.error('Hidden UI worker did not produce results. '+(task.stderr||'').slice(-1800))
@@ -57,7 +57,28 @@ server.listen(0,'127.0.0.1',async()=>{
   const display=require('electron').screen.getPrimaryDisplay(),{defaultWindowSize,referenceZoom}=require('../lib/window-size'),size=defaultWindowSize(display.workArea,display.scaleFactor),zoom=referenceZoom(display.scaleFactor,display.workArea)
   result.displays=require('electron').screen.getAllDisplays().map(({workArea,scaleFactor})=>({workArea,scaleFactor}))
   const desktop=new BrowserWindow({show:false,...size,frame:false,webPreferences:{zoomFactor:zoom,preload:path.join(root,'preload.js'),offscreen:true,contextIsolation:true,nodeIntegration:false}})
-  const setViewport=(w,h)=>desktop.setContentSize(Math.round(w*zoom),Math.round(h*zoom))
+  const setViewport=async(w,h)=>{
+   if(desktop.isMaximized()){desktop.unmaximize();await wait(100)}
+   desktop.setContentSize(Math.round(w*zoom),Math.round(h*zoom))
+   // Native resize and the offscreen renderer complete asynchronously. Measure
+   // the requested viewport, not the previous frame on a busy CI machine.
+   const rounding=Math.ceil(2/(display.scaleFactor*zoom))+1
+   let actual,previous,stable=0,retries=0
+   for(let attempt=0;attempt<60;attempt++){
+    actual=await desktop.webContents.executeJavaScript('({width:innerWidth,height:innerHeight})')
+    if(Math.abs(actual.width-w)<=rounding&&Math.abs(actual.height-h)<=rounding)return
+    stable=previous&&actual.width===previous.width&&actual.height===previous.height?stable+1:0
+    // Retry an unchanged old frame, keeping the requested native bounds.
+    // Fractional-DPI rounding is limited above; layout assertions stay exact.
+    if(stable>=5&&retries<3){
+     desktop.setContentSize(Math.round(w*zoom),Math.round(h*zoom))
+     stable=0;retries++
+    }
+    previous=actual
+    await wait(50)
+   }
+   assert.fail('Viewport did not resize: '+JSON.stringify({requested:{w,h},actual,native:desktop.getContentSize(),minimum:desktop.getMinimumSize(),maximized:desktop.isMaximized(),zoom}))
+  }
   let frame
   desktop.webContents.on('paint',(_event,_dirty,image)=>{frame=image})
   await desktop.loadFile(path.join(root,'renderer/index.html'))
@@ -97,7 +118,7 @@ server.listen(0,'127.0.0.1',async()=>{
   result.checks.push('initial proofreading labels, language selection, persisted reload and translation direction agree')
   assert.equal(desktop.webContents.getZoomFactor(),zoom)
   for(const [w,h] of [[1280,820],[Math.round(size.width/zoom),Math.round(size.height/zoom)],[1600,998],[1175,626],[1101,585],[1024,700],[942,655],[972,560]]){
-   desktop.setMinimumSize(Math.floor(600*zoom),Math.floor(500*zoom));setViewport(w,h);await wait(230)
+   desktop.setMinimumSize(Math.floor(600*zoom),Math.floor(500*zoom));await setViewport(w,h);await wait(230)
    await run("state.files=[];renderFiles();$('referencesPanel').open=false")
    const empty=await layout();result.checks.push({empty});assert.equal(empty.horizontal,0,JSON.stringify(empty));assert(empty.mainScroll<3,JSON.stringify(empty));assert(empty.topbarScroll<3,JSON.stringify(empty));assert(empty.bodyFont>=16&&empty.bodyFont<=16.5&&empty.buttonFont<=16.5,JSON.stringify(empty));assert(empty.run.bottom<=h,JSON.stringify(empty))
    if(w===1280){
@@ -125,7 +146,7 @@ server.listen(0,'127.0.0.1',async()=>{
    assert.equal(await run("$('translationHelp').open"),false);assert.equal(await run("document.activeElement.id"),'translationHelpButton')
    await snap('home-208-'+w)
   }
-  setViewport(1024,700);await run("$('openModel').click()");await wait(300)
+  await setViewport(1024,700);await run("$('openModel').click()");await wait(300)
   const model=await run("(()=>{const e=document.querySelector('.model-editor'),r=$('modelUse').getBoundingClientRect();return {scroll:e.scrollHeight-e.clientHeight,footer:r.bottom,height:innerHeight}})()")
   result.checks.push({model});assert(model.footer<=model.height,JSON.stringify(model));assert(model.scroll<3,JSON.stringify(model))
   await snap('models-compact-208');await run("$('modelClose').click()");await wait(150)
@@ -134,7 +155,7 @@ server.listen(0,'127.0.0.1',async()=>{
   const manyProfiles=await run("(()=>{const b=$('profileNew').getBoundingClientRect(),list=$('profileList');return {count:list.children.length,disabled:$('profileNew').disabled,label:$('profileLimit').textContent,buttonBottom:b.bottom,height:innerHeight,scroll:list.scrollHeight-list.clientHeight}})()")
   result.checks.push({manyProfiles});assert.equal(manyProfiles.count,25);assert.equal(manyProfiles.disabled,false);assert.equal(manyProfiles.label,'已保存 25 个');assert(manyProfiles.buttonBottom<=manyProfiles.height&&manyProfiles.scroll>0,JSON.stringify(manyProfiles))
   await run("$('modelClose').click()")
-  setViewport(1280,820)
+  await setViewport(1280,820)
   await run("$('openLexicon').click()");await wait(500)
   const lexicon=await run("(()=>{const list=$('termRows'),row=list.querySelector('.term-card'),close=$('closeLexicon').getBoundingClientRect();return {visibleRows:list.clientHeight/row.getBoundingClientRect().height,font:parseFloat(getComputedStyle(row).fontSize),right:close.right,bottom:close.bottom}})()")
   result.checks.push({lexicon});assert(lexicon.visibleRows>=10,JSON.stringify(lexicon));assert(lexicon.right<=1280&&lexicon.bottom<=820,JSON.stringify(lexicon))
@@ -167,11 +188,11 @@ server.listen(0,'127.0.0.1',async()=>{
   assert(await run("$('catalogCount').textContent.includes('第 2 /')"))
   desktop.setMinimumSize(Math.floor(350*zoom),Math.floor(500*zoom))
   for(const [w,h]of [[1280,820],[1024,700],[480,740]]){
-   setViewport(w,h);await wait(100)
+   await setViewport(w,h);await wait(100)
    const box=await run("(()=>{const d=$('multilingualDialog'),r=d.getBoundingClientRect(),b=$('closeMultilingual').getBoundingClientRect();return {width:r.width,right:r.right,bottom:r.bottom,horizontal:d.scrollWidth-d.clientWidth,close:b.bottom,height:innerHeight}})()")
    result.checks.push({catalogViewport:{w,h,...box}});assert(box.right<=w+1&&box.bottom<=h+1&&box.horizontal<2&&box.close<=h,JSON.stringify(box))
   }
-  desktop.setMinimumSize(Math.floor(600*zoom),Math.floor(500*zoom));setViewport(1280,820);await snap('multilingual-reference')
+  desktop.setMinimumSize(Math.floor(600*zoom),Math.floor(500*zoom));await setViewport(1280,820);await snap('multilingual-reference')
   desktop.webContents.sendInputEvent({type:'keyDown',keyCode:'Escape'});desktop.webContents.sendInputEvent({type:'keyUp',keyCode:'Escape'});await wait(100)
   assert.equal(await run("$('multilingualDialog').open"),false)
   assert.equal(await run("document.activeElement.id"),'openMultilingual')
@@ -193,13 +214,13 @@ server.listen(0,'127.0.0.1',async()=>{
   const categories=await run("(()=>{const t=$('termCategoryFilter').getBoundingClientRect(),v=$('lexiconListView').getBoundingClientRect();return {right:t.right,next:v.left,toolbar:document.querySelector('.lexicon-toolbar').scrollWidth-document.querySelector('.lexicon-toolbar').clientWidth}})()")
   assert(categories.right>0&&categories.right<=categories.next&&categories.toolbar<3,JSON.stringify(categories))
   result.checks.push({personCategory:true,categories});await snap('glossary-person-category')
-  await run("$('lexiconListView').click()");setViewport(1024,700);await wait(150)
+  await run("$('lexiconListView').click()");await setViewport(1024,700);await wait(150)
   const categoryDetail=await run("(()=>{const a=$('termCategory').getBoundingClientRect(),d=$('deleteTerm').getBoundingClientRect(),p=document.querySelector('.term-detail').getBoundingClientRect();return {left:a.left,right:d.right,panelLeft:p.left,panelRight:p.right,bottom:d.bottom,height:innerHeight}})()")
   assert(categoryDetail.panelRight>0&&categoryDetail.left>=categoryDetail.panelLeft&&categoryDetail.right<=categoryDetail.panelRight&&categoryDetail.bottom<=categoryDetail.height,JSON.stringify(categoryDetail))
   await snap('glossary-person-detail-compact');await run("$('closeLexicon').click()");await wait(150)
   await run(`loadReport({report_id:'layout-fixture',kind:'check',files:[{path:'C:/qa/sample.pptx',name:'sample.pptx'}],stats:{model_status:'complete',segments:10,judged:10,rule_hits:0,llm_hits:10},findings:Array.from({length:10},(_,i)=>({file:'sample.pptx',file_path:'C:/qa/sample.pptx',slide:i+1,method:'llm',editable:true,found_text:'Second half strategy',suggested:'H2 strategy',reason:'统一全文用语',context:'Example context'}))});openReport()`)
   for(const [w,h] of [[1280,820],[942,655]]){
-   setViewport(w,h);await wait(100)
+   await setViewport(w,h);await wait(100)
    const report=await run("(()=>{const card=$('reportPanel').getBoundingClientRect(),button=$('applyBtn').getBoundingClientRect(),toolbar=document.querySelector('.result-toolbar');return {width:innerWidth,height:innerHeight,right:card.right,bottom:card.bottom,applyBottom:button.bottom,toolbarOverflow:toolbar.scrollWidth-toolbar.clientWidth}})()")
    result.checks.push({report});assert(report.right<=report.width&&report.bottom<=report.height&&report.applyBottom<=report.height&&report.toolbarOverflow<3,JSON.stringify(report))
    if(w===1280)await snap('report-208')
@@ -232,7 +253,7 @@ server.listen(0,'127.0.0.1',async()=>{
   }
   await picker.webContents.executeJavaScript("document.getElementById('pickerCancel').click()");await chosen
   result.checks.push('report controls fit compact windows; file picker keeps at least eight visible rows')
-  setViewport(1280,820)
+  await setViewport(1280,820)
   await run("$('translationHelpButton').click();state.files=['C:/qa/sample.pdf'];renderFiles()");await wait(150);assert.equal(await run("$('translationHelp').open"),false)
   const progressCases=[
    {done:61,total:173,detail:'等待模型响应 3 处'},
@@ -309,11 +330,11 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("$('completionResume').hidden&&$('completionExportLog').hidden&&$('completionIssue').hidden"),true)
   assert.equal(await run("$('completionReviewTitle').textContent"),'下一步：查看 1 项校对建议')
   for(const [w,h] of [[942,655],[1280,820],[1493,900],[1920,1040]]){
-   setViewport(w,h);await wait(100)
+   await setViewport(w,h);await wait(100)
    const guide=await run("(()=>{const b=$('viewReport'),r=b.getBoundingClientRect(),p=$('completionReviewStep').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,pTop:p.top,pBottom:p.bottom,overflow:b.scrollWidth-b.clientWidth,hit:document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)?.id}})()")
    assert(guide.left>=0&&guide.right<=w&&guide.top>=0&&guide.bottom<=h&&guide.overflow<2&&guide.hit==='viewReport',JSON.stringify({w,h,guide}))
   }
-  setViewport(1280,820)
+  await setViewport(1280,820)
   await run("$('viewReport').click()");await wait(100)
   assert.equal(await run("$('reportModal').hidden"),false)
   await run("$('reportModal').hidden=true;state.report.findings[0].applied=true;renderCheckCompletion()")
@@ -363,7 +384,7 @@ server.listen(0,'127.0.0.1',async()=>{
   await run(`state.outputs=[{path:'C:/qa/first-draft.pptx',comparison_id:'first-id',staged:true,target_dir:'C:/qa'},{path:'C:/qa/second-draft.pptx',comparison_id:'second-id',staged:true,target_dir:'C:/qa'}];loadReport({report_id:'comparison-save',kind:'translate_review',output_mode:'final',files:state.outputs.map(o=>({path:o.path,name:basename(o.path)})),stats:{model_status:'complete',segments:2,judged:2,rule_hits:0,llm_hits:0},errors:[],findings:[]},state.outputs);renderReport();$('reportModal').hidden=false`)
   assert.equal(await run("$('reportCompare').hidden"),false)
   for(const [w,h] of [[942,655],[1280,820],[1493,900],[1920,1040],[2560,1390]]){
-   setViewport(w,h);await wait(120)
+   await setViewport(w,h);await wait(120)
    for(const staged of [true,false]){
     await run(`state.exportRecords.forEach(r=>{r.staged=${staged};r.draft=false;r.path='C:/qa/'+('很长的输出文件名称'.repeat(8))+'.pptx'});renderReportOutputs()`)
     const buttons=await run(`(()=>{const ids=['reportOpenFolder','reportOpenFile','reportCompare'];return ids.map(id=>{const b=$(id),r=b.getBoundingClientRect(),s=getComputedStyle(b);return {id,w:r.width,h:r.height,left:r.left,right:r.right,top:r.top,bottom:r.bottom,scroll:b.scrollWidth-b.clientWidth,nowrap:s.whiteSpace,text:b.textContent}})})()`)
@@ -372,7 +393,7 @@ server.listen(0,'127.0.0.1',async()=>{
     assert(buttons[2].top>=buttons[0].bottom&&buttons[2].w>buttons[0].w*1.9,JSON.stringify(buttons))
    }
   }
-  setViewport(1280,820);await snap('report-balanced-output-buttons')
+  await setViewport(1280,820);await snap('report-balanced-output-buttons')
   await run(`state.exportRecords.forEach((r,i)=>{r.staged=true;r.path=i?'C:/qa/second-draft.pptx':'C:/qa/first-draft.pptx'});renderReportOutputs()`)
   await run('renderCheckCompletion()')
   assert((await run("$('completionCompare').textContent")).includes('初稿'))
@@ -478,7 +499,7 @@ server.listen(0,'127.0.0.1',async()=>{
   await run("$('lexiconImportReport').open=true")
   assert((await run("$('lexiconImportConflicts').textContent")).includes('Personal wording'))
   for(const [w,h] of [[942,655],[1280,820]]){
-   setViewport(w,h);await wait(120)
+   await setViewport(w,h);await wait(120)
    const r=await run("(()=>{const r=$('reloadLexicon').getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom,width:innerWidth,height:innerHeight,horizontal:document.documentElement.scrollWidth-innerWidth}})()")
    assert(r.left>=0&&r.right<=r.width&&r.bottom<=r.height&&r.horizontal<2,JSON.stringify(r))
   }
@@ -513,7 +534,7 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("!!document.querySelector('main > .text-translator')"),true)
   assert.equal(await run("document.querySelector('.text-translator [data-humanize]')===null"),true)
   for(const [w,h] of [[942,560],[1280,820],[1600,998]]){
-    setViewport(w,h);await wait(100)
+    await setViewport(w,h);await wait(100)
     const geometry=await run("(()=>{const d=document.querySelector('.text-translator'),r=d.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:innerHeight,overflow:d.scrollHeight-d.clientHeight,editors:[...d.querySelectorAll('textarea')].map(t=>({height:t.clientHeight,width:t.clientWidth})),actions:[...d.querySelectorAll('footer button')].filter(b=>b.getClientRects().length).map(b=>({top:b.getBoundingClientRect().top,bottom:b.getBoundingClientRect().bottom}))}})()")
     assert(geometry.left>=0&&geometry.right<=geometry.width&&geometry.top>=0&&geometry.bottom<=geometry.height&&geometry.overflow<2,JSON.stringify(geometry))
     assert(geometry.editors.every(e=>e.height>=100&&e.width>200),JSON.stringify(geometry))
