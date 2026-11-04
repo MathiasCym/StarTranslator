@@ -62,7 +62,9 @@ server.listen(0,'127.0.0.1',async()=>{
    desktop.setContentSize(Math.round(w*zoom),Math.round(h*zoom))
    // Native resize and the offscreen renderer complete asynchronously. Measure
    // the requested viewport, not the previous frame on a busy CI machine.
-   const rounding=Math.ceil(2/(display.scaleFactor*zoom))+1
+   // Win32 DIP rounding plus Chromium's CSS conversion can differ by up to
+   // three native units at fractional DPI. This never permits a stale viewport.
+   const rounding=Math.ceil(3/zoom)
    let actual,previous,stable=0,retries=0
    for(let attempt=0;attempt<60;attempt++){
     actual=await desktop.webContents.executeJavaScript('({width:innerWidth,height:innerHeight})')
