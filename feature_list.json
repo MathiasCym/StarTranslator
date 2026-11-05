@@ -1,7 +1,7 @@
 {
   "version": "1.1",
-  "project": "StarTranslator document quality and multilingual 2.4.0",
-  "description": "新版官方词库安全升级，繁体中文、日语、韩语完整文档处理；质量测试通过后发布 2.4.0，并合并已验证的断点修复。",
+  "project": "StarTranslator multilingual quality 2.4.1",
+  "description": "多语言质量与受限并发修复、文档术语校对职责及独立语种选择；保留历史验收范围，按测试与正式更新验收结果交付。",
   "test_command": "python-runtime/python.exe -X utf8 -B tools/run-regressions.py",
   "created": "2026-10-26",
   "features": [
@@ -288,6 +288,24 @@
       "test_command": "python-runtime/python.exe -B tools/run-regressions.py; node tools/check-readable-ui.cjs",
       "test_status": "passed",
       "test_output": "完整685项回归通过；最后术语定位修复后46项相关专项通过。当前缩放及100%缩放完整UI通过。授权PPT隔离复测最终53/53翻译与校对、17项术语候选完整检查、22建议应用保存0失败、实际输出审计通过、8页原生渲染；保留少量字号/留白版式建议。首次三次完整测试发现的问题均保留失败记录；最后恢复采用私有QA同输入策略别名复用52段，不将其宣称为新一轮从头测试。未打包、未变更版本、未发布。",
+      "status": "completed",
+      "passes": true
+    },
+    {
+      "id": "feat-018",
+      "category": "release",
+      "priority": 1,
+      "description": "2.4.1跨语种复测及正式完整包、国内原小包与旧版实际升级交付。",
+      "steps": [
+        "五种文档语言的共享修复与韩语数量专项复测",
+        "最终完整回归和正式CI通过",
+        "正式原包与恢复组件核对",
+        "国内七附件匿名完整下载核对",
+        "原2.4.0与2.3.7 GUI及2.3.6小入口实际升级"
+      ],
+      "test_command": "python-runtime/python.exe -X utf8 -B tools/run-regressions.py",
+      "test_status": "passed",
+      "test_output": "690 final source and690 formalCI pass;128maintenance,5native;24offline language-format workflows;real Korean Word/PDF/PPT fresh0resume pass;1316official payload files/source/recovery and41packaged specialties pass;all7domestic assets exactGitHub SHA;actual2.4.0/2.3.7 GUI and2.3.6bridge native apply/restart/data/cache checks pass. See docs/validation-2.4.1.md. Prior failed QA and product cases retained.",
       "status": "completed",
       "passes": true
     }
