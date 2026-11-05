@@ -123,7 +123,7 @@ MONTHS = [
  'December diciembre décembre dezembro декабрь декабря']
 
 
-def written_counts(text):
+def written_counts(text, *, articles=False):
     """Analysis-only exact counts in mixed-language technical paragraphs.
 
     A Chinese-selected deck can contain English notes. Recognize explicit
@@ -158,6 +158,29 @@ def written_counts(text):
     number=r'(?:[一二三四五六七八九]?千)?(?:[一二三四五六七八九]?百)?(?:[一二三四五六七八九]?十)?[零〇一二两兩三四五六七八九]?'
     text=re.sub(r'(?<![零〇一二两兩三四五六七八九十百千])(?=[零〇一二两兩三四五六七八九十百千])'+number+
         r'(?=つ|個|个|台|基|枚|本|件|套|座|块|條|条|組|组|対|对|種|种|次)',east_asian,text)
+    # Native Korean counts are normal translations of explicit quantities.
+    # Restrict them to counter/technical-noun contexts, never people named Hana
+    # or fragments inside ordinary words such as 대한/개발/한편.
+    korean={'한':1,'하나':1,'두':2,'둘':2,'세':3,'셋':3,'네':4,'넷':4,
+        '다섯':5,'여섯':6,'일곱':7,'여덟':8,'아홉':9,'열':10}
+    for ten,stem in [(10,'열'),(20,'스물'),(30,'서른'),(40,'마흔'),(50,'쉰'),(60,'예순'),(70,'일흔'),(80,'여든'),(90,'아흔')]:
+        korean[stem]=ten
+        for one,stem_one in [('한',1),('두',2),('세',3),('네',4),('다섯',5),('여섯',6),('일곱',7),('여덟',8),('아홉',9)]:
+            korean[stem+one]=ten+stem_one
+    korean['스무']=20
+    counts='(?:'+'|'.join(sorted(map(re.escape,korean),key=len,reverse=True))+')'
+    boundary=r'(?=$|[\s.,!?;:，。！？·/()（）]|(?:의|는|은|를|을|가|이|로|에|와|과|부터|까지|입니다)(?=\s|$|[.,!?]))'
+    counters=r'(?:개|대|장|세트|비트|픽셀|밀리미터|센티미터|미터|헤르츠)'+boundary
+    devices=r'(?:(?:입력|출력|네트워크)\s*)?(?:포트|컨트롤러|캐비닛|장치)'+boundary
+    text=re.sub(r'(?<![\w-])'+counts+r'(?=\s*(?:'+counters+'))',lambda m:str(korean[m[0]]),text)
+    if articles:
+        # Only resolve an existing explicit-count mismatch. An indefinite
+        # article does not make every otherwise unnumbered sentence numeric.
+        text=re.sub(r'(?<![\w-])(?:a|an)(?=\s+'+modifiers+noun+')','1',text)
+        # Bare Korean number words can also be names (e.g. Hana). Resolve
+        # noun-adjacent counts only against an existing numeric mismatch.
+        text=re.sub(r'(?<![\w-])'+counts+r'(?=(?:\s+|의\s+)(?:'+devices+'))',lambda m:str(korean[m[0]]),text)
+        text=re.sub(r'(?<![\w-])('+devices+r'\s+)('+counts+r')'+boundary,lambda m:m[1]+str(korean[m[2]]),text)
     return text
 
 
@@ -188,7 +211,11 @@ def validate(source, target, src, dst, *, allow_identical=False):
     if Counter(m[0] for m in INLINE_CODE.finditer(source)) != Counter(m[0] for m in INLINE_CODE.finditer(target)):
         raise ValueError('译文改变了行内代码，代码必须原样保留。')
     a,b=facts(source,src),facts(target,dst)
-    if numeric_values(a)!=numeric_values(b):raise ValueError('译文改变、增加或遗漏了原文数字或日期，请核对后重译。')
+    if numeric_values(a)!=numeric_values(b):
+        article_a,article_b=written_counts(a,articles=True),written_counts(b,articles=True)
+        if numeric_values(article_a)!=numeric_values(article_b):
+            raise ValueError('译文改变、增加或遗漏了原文数字或日期，请核对后重译。')
+        a,b=article_a,article_b
     negative=lambda text:Counter(Decimal(re.sub(r'\s','',value).replace('−','-')) for value in re.findall(r'(?<![\w.])[-−]\s*\d+(?:\.\d+)?',text))
     if negative(a)!=negative(b):raise ValueError('译文改变了数值正负号。')
     aliases={
