@@ -112,6 +112,7 @@ def validate(source, target, direction):
 
 def translate_piece(client, source, glossary, direction, cancel, context='', activity=None, groups=None, return_result=False, mode='faithful',fixed_order=False,person_terms=None,humanize=False,code_tokens=None):
     src, dst = DIRECTIONS[direction]
+    terminology=not getattr(glossary,'document_translation',False)
     system = (f'你是严谨的技术翻译，将{src}文本完整翻译为自然、专业的{dst}。'
         '保留事实、条件、否定、数字、日期精度、型号、技术缩写、网址、邮箱和文件路径。'
         '保持原段落的信息边界，不得补入上下文的内容或重复品牌。人名采用已确认译法；'
@@ -123,6 +124,9 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
         '只返回 JSON 对象 {"translation":"译文"}，不加说明或 Markdown 包装。')
     payload = {'待译原文': source, '相邻原文（仅供理解）': context,
                '相关术语（仅作参考）': glossary_context(source, glossary, direction)}
+    if not terminology:
+        payload.pop('相关术语（仅作参考）')
+        system=system.replace('普通术语优先采用词库中已确认的对应，未确认候选不能替代已确认标准；同一英文有多个已确认对应时按语境选择。','依据原文语境翻译，不使用术语表规范用词。')
     if direction=='en-zh':
         system+='英文人名没有词库中已确认的对应时，必须保留原文拼写，不得根据拼音猜造汉字。普通术语的多义对应按语境选择，不要求唯一中文；正确可接受的译法不得被误报为错译。'
         system+='术语词条必须符合当前领域，不能把工程中的译法强加给财务等其他领域；例如财务margin表示利润率，不能使用工程裕量。'
@@ -173,9 +177,11 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
                     '原样保留的未知人名不算漏译；多义术语可按语境选择合理对应，不因词库存在多个对应而判错。'
                     '按当前语境判断术语，不能用其他领域的词条否定正确译法；不将原文本来就有的标点视为译文新增事实。'
                     '只返回 {"ok":true,"issues":[]} 或 {"ok":false,"issues":["具体问题"],"corrected_translation":"完整修正稿"}。若存在确定问题，请同时给出已完整解决这些问题的整段译文，不增加原文没有的信息。不要输出其他内容。')
+            if not terminology:
+                review_system=review_system.replace('术语、','')+'本阶段不使用术语表，不评判词库标准；仍严格核对原文含义、专业限定、事实和漏译。'
             def review_candidate(target):
                 return client.chat_json(json.dumps({'原文':source,'译文':target,
-                    '相关术语':payload['相关术语（仅作参考）'],**({'全文人名统一写法':person_terms} if person_terms else {})},ensure_ascii=False),
+                    **({'相关术语':payload['相关术语（仅作参考）']} if terminology else {}),**({'全文人名统一写法':person_terms} if person_terms else {})},ensure_ascii=False),
                     system=review_system,max_tokens=6000)
             review = review_candidate(candidate)
             if isinstance(review,dict) and review.get('ok') is False and isinstance(review.get('corrected_translation'),str):

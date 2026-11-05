@@ -271,8 +271,27 @@
       "test_output": "User requested broader repeat testing before release; all concrete failures repaired and rerun. Final649 backend,17 language,39 PPT,128 maintenance,5 native updater,actual default window and9 files/18 real native comparison entries pass. Actual company model synthetic QA expanded,raw failures retained. Formal2.4.0 CI/payload/domestic original deltas/old-client native apply pending. Version selected once;no public change yet.",
       "status": "in_progress",
       "passes": false
+    },
+    {
+      "id": "feat-017",
+      "category": "bugfix",
+      "priority": 1,
+      "description": "多语言受限并发与日语残留修复；文档翻译不使用词库、校对补强术语覆盖；主界面分开选择来源与目标语种。",
+      "steps": [
+        "模型请求可并发、页内顺序及主线程XML写入不变",
+        "独立复核与事实格式保护不减少；正确日文汉字可保留",
+        "保留显式断点、取消及保存原子性",
+        "文档校对从原文定位术语、逐项判定，文本翻译仍使用词库",
+        "主界面独立来源与目标选择，校对界面仅显示校对语种",
+        "多格式与真实模型隔离复测，先不递增或发布版本"
+      ],
+      "test_command": "python-runtime/python.exe -B tools/run-regressions.py; node tools/check-readable-ui.cjs",
+      "test_status": "passed",
+      "test_output": "完整685项回归通过；最后术语定位修复后46项相关专项通过。当前缩放及100%缩放完整UI通过。授权PPT隔离复测最终53/53翻译与校对、17项术语候选完整检查、22建议应用保存0失败、实际输出审计通过、8页原生渲染；保留少量字号/留白版式建议。首次三次完整测试发现的问题均保留失败记录；最后恢复采用私有QA同输入策略别名复用52段，不将其宣称为新一轮从头测试。未打包、未变更版本、未发布。",
+      "status": "completed",
+      "passes": true
     }
   ],
   "target_version": "2.4.0",
-  "updated": "2026-11-04"
+  "updated": "2026-11-05"
 }

@@ -209,7 +209,11 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
     stats['findings'] = len(findings)
     stats['completed_files'] = [path for path, count in file_totals.items()
         if not use_llm or (file_judged.get(path, 0) == count and path not in incomplete_files)]
-    return findings, stats
+    from ..terminology_review import augment
+    return augment(checked,glossary,findings,stats,source_language='zh-CN',target_language='en-US',
+        references=references,client=client,cancel=cancel,workers=workers,
+        use_llm=use_llm and stats['model_status'] not in ('unavailable','cancelled'),
+        checkpoint_origin=checkpoint_origin,on_finding=on_finding,progress=progress)
 
 
 def dedupe_findings(findings):

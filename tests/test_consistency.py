@@ -232,7 +232,7 @@ class ConsistencyWorkflowTests(unittest.TestCase):
                 if name.startswith('ppt/media/'): self.assertEqual(a.read(name),b.read(name))
         self.assertEqual(source.read_bytes(),original)
 
-    def test_mixed_styles_remain_distinct_and_inconsistency_is_advisory(self):
+    def test_translation_keeps_mixed_styles_and_leaves_consistency_for_proofreading(self):
         source=self.root/'source.docx';doc=Document()
         for _ in range(2):
             p=doc.add_paragraph();p.add_run('下半年').bold=True;p.add_run('战略')
@@ -245,8 +245,8 @@ class ConsistencyWorkflowTests(unittest.TestCase):
                 return {'translation':''.join(parts),'runs':[{'id':i,'text':t} for i,t in enumerate(parts)]}
         model=Model();result=translate_file(str(source),Glossary([]),None,client=model)
         self.assertEqual(model.calls,2);self.assertEqual(result['status'],'complete')
-        self.assertEqual(result['consistency_hits'],1)
-        self.assertFalse(result['consistency_items'][0]['applied'])
+        self.assertEqual(result['consistency_hits'],0)
+        self.assertEqual(result['consistency_items'],[])
         for p in Document(result['path']).paragraphs:
             self.assertTrue(p.runs[0].bold);self.assertFalse(bool(p.runs[1].bold))
 

@@ -559,7 +559,8 @@ def _apply_report(data, report, progress=None, client=None):
         if index < 0 or index >= len(report['findings']): raise ValueError('建议不存在。')
         finding = report['findings'][index]
         if finding.file_path != path or not finding.editable or finding.applied: raise ValueError('该项建议不可替换。')
-        if any(ord(c) < 32 and c not in '\n\t\r' for c in item['text']): raise ValueError('替换文本含有无效字符。')
+        allowed_controls='\n\t\r\v' if Path(path).suffix.lower()=='.pptx' else '\n\t\r'
+        if any(ord(c) < 32 and c not in allowed_controls for c in item['text']): raise ValueError('替换文本含有无效字符。')
         edits[index] = item['text'].strip()
     selected = data.get('selected',{})
     if not isinstance(selected, dict): raise ValueError('替换选项格式不正确。')

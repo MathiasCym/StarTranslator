@@ -82,8 +82,10 @@ function setMode(mode) {
   const [sourceLanguage,targetLanguage] = StarDocumentLanguages.pair(state.direction)
   const languageName = StarDocumentLanguages.names[mode === 'check' ? targetLanguage : sourceLanguage]
   $('dropTitle').textContent = '添加'+languageName+(mode === 'check' ? '译文' : '原稿')
-  StarDocumentLanguages.configure($('documentDirection'),mode,state.direction)
-  $('documentDirectionLabel').textContent = mode === 'check' ? '校对语言' : '翻译方向'
+  StarDocumentLanguages.configure($('documentDirection'),'check',state.direction)
+  StarDocumentLanguages.configurePair($('documentSource'),$('documentTarget'),state.direction)
+  $('documentCheckLanguage').hidden = mode !== 'check'
+  $('documentTranslationLanguages').hidden = mode !== 'translate'
   $('workspaceHint').textContent = mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
   $('llmOption').hidden = mode !== 'check'
   $('translationOptions').hidden = mode !== 'translate' || !state.files.some(path => /\.pptx$/i.test(path))
@@ -93,8 +95,22 @@ function setMode(mode) {
   showWorkspace()
 }
 $('documentDirection').onchange = () => {
-  state.direction = $('documentDirection').value; localStorage.setItem('nova.direction', state.direction); setMode(state.mode)
+  const [previousSource] = StarDocumentLanguages.pair(state.direction)
+  const [,target] = StarDocumentLanguages.pair($('documentDirection').value)
+  const source = previousSource === target ? (target === 'zh-CN' ? 'en-US' : 'zh-CN') : previousSource
+  state.direction = StarDocumentLanguages.direction(source,target)
+  localStorage.setItem('nova.direction', state.direction); setMode(state.mode)
 }
+function changeDocumentLanguages() {
+  const [previousSource]=StarDocumentLanguages.pair(state.direction)
+  const source=$('documentSource').value
+  let target=$('documentTarget').value
+  if (source===target) target=previousSource!==source ? previousSource : Object.keys(StarDocumentLanguages.names).find(code=>code!==source)
+  state.direction=StarDocumentLanguages.direction(source,target)
+  localStorage.setItem('nova.direction',state.direction);setMode(state.mode)
+}
+$('documentSource').onchange=changeDocumentLanguages
+$('documentTarget').onchange=changeDocumentLanguages
 function showWorkspace() {
   leaveTextSurface()
   document.body.classList.remove('results-view')
@@ -210,7 +226,7 @@ function busy(value) {
   state.busy = value
   $('translationOptions').disabled = value
   $('jobProgressTrack').classList.toggle('active', value)
-  for (const id of ['modeCheck', 'modeTranslate', 'openTextTranslation', 'documentDirection', 'openLexicon', 'openModel', 'runCombined']) $(id).disabled = value || (id === 'runCombined' && !state.files.length)
+  for (const id of ['modeCheck', 'modeTranslate', 'openTextTranslation', 'documentDirection', 'documentSource', 'documentTarget', 'openLexicon', 'openModel', 'runCombined']) $(id).disabled = value || (id === 'runCombined' && !state.files.length)
   $('jobPanel').hidden = !value; $('runBtn').disabled = value || !state.files.length
 }
 async function runTask(combined = false, restored = null) {

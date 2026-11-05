@@ -24,5 +24,16 @@ window.StarDocumentLanguages = (() => {
     select.value = check ? direction(dst === 'zh-CN' ? 'en-US' : 'zh-CN',dst) : direction(src,dst)
     return select.value
   }
-  return { names, pair, direction, configure }
+  function configurePair(sourceSelect,targetSelect,value) {
+    const [src,dst]=pair(value)
+    for (const [select,current,isTarget] of [[sourceSelect,src,false],[targetSelect,dst,true]]) {
+      select.replaceChildren()
+      for (const code of Object.keys(names)) {
+        const option=document.createElement('option');option.value=code;option.textContent=names[code]
+        option.disabled=isTarget && code===src;select.append(option)
+      }
+      select.value=current
+    }
+  }
+  return { names, pair, direction, configure, configurePair }
 })()

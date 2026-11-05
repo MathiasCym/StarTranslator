@@ -72,7 +72,7 @@ def review_images(document,source,client,glossary,segments,src,dst,cancel=None,p
            'ocr_languages':[],'position_fallbacks':0}
     checkpoint=open_checkpoint('pdf-image-multi',{'source':str(Path(source).resolve()),'fingerprint':store.fingerprint(source),
         'direction':languages.direction(src,dst),'version':1,'catalog':languages.reference_identity()},glossary,None,client) if images else None
-    reference=catalog.read();unavailable=False
+    reference={'entries':[]};unavailable=False
     for index,item in enumerate(images):
         check_cancel(cancel);page=item['page'];locator=f"pdf-image/{page}/{item['index']}"
         if progress:progress('image_text',f'正在核对第 {page} 页图片文字并翻译为{languages.LANGUAGES[dst]}',index,len(images))
@@ -122,7 +122,7 @@ def review_images(document,source,client,glossary,segments,src,dst,cancel=None,p
                 translations=[]
                 for line in selected:
                     translations.append(text.translate_piece(client,line['text'],reference,src,dst,cancel,
-                        context='同页原文仅作语境：'+context+'\n图片文字应完整、自然、简洁，事实优先。',humanize=text.natural_expression(line['text'])))
+                        context='同页原文仅作语境：'+context+'\n图片文字应完整、自然、简洁，事实优先。',humanize=text.natural_expression(line['text']),terminology=False))
                 edited,boxes=render(raw,selected,translations,scale,ocr['lines'],fit=lambda *a:fit(dst,*a))
                 after=folder/'after.png';after.write_bytes(view_image(edited)[0]);check_cancel(cancel)
                 final=client.chat_images_json(json.dumps({'源语言':languages.LANGUAGES[src],'目标语言':languages.LANGUAGES[dst],

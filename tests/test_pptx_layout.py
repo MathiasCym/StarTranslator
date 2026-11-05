@@ -109,11 +109,14 @@ class LayoutTests(unittest.TestCase):
         self.assertEqual(result['remaining_chinese'],[]); self.assertEqual(len(model.prompts),2)
         self.assertIn('只需补译的中文',model.prompts[1]); self.assertNotIn('重新生成要求',model.prompts[1])
 
-    def test_confirmed_glossary_repairs_residual_without_extra_model_call(self):
+    def test_document_residual_uses_model_without_glossary_shortcut(self):
         source,_,_=self.deck('支持逐点校正，亮度500nits。')
         self.glossary=Glossary([GlossaryEntry('逐点校正','pixel-level calibration',priority=1)])
-        model=Model(['Supports 逐点校正 at 500 nits.']); result=self.translate(source,model)
-        self.assertEqual(result['needs_review'],0); self.assertEqual(len(model.prompts),1)
+        model=Model(['Supports 逐点校正 at 500 nits.',{'translations':[{'source':'逐点校正','translation':'point-by-point correction'}]}])
+        result=self.translate(source,model)
+        self.assertEqual(result['needs_review'],0); self.assertEqual(len(model.prompts),2)
+        self.assertEqual(Presentation(result['path']).slides[0].shapes[0].text,'Supports point-by-point correction at 500 nits.')
+        self.assertTrue(all('pixel-level calibration' not in prompt for prompt in model.prompts))
 
     def test_supplement_network_failure_preserves_generated_english_and_continues(self):
         source,deck,shape=self.deck('支持逐点校正，亮度500nits。\n刷新率60Hz。')
@@ -135,18 +138,21 @@ class LayoutTests(unittest.TestCase):
         self.assertIn('English_Draft',result['path'])
         self.assertEqual(Presentation(result['path']).slides[0].shapes[1].text,'中文日期')
 
-    def test_style_failure_uses_confirmed_term_anchor_and_preserves_color_and_bold(self):
+    def test_model_style_mapping_preserves_color_and_bold_without_glossary_anchor(self):
         source,deck,shape=self.deck('')
         p=shape.text_frame.paragraphs[0]
         for text,bold,color in [('采用',False,'FFFFFF'),('逐点校正',True,'48CCFF'),('。',False,'FFFFFF')]:
             r=p.add_run(); r.text=text; r.font.name='Arial'; r.font.size=Pt(18); r.font.bold=bold; r.font.color.rgb=RGBColor.from_string(color)
         deck.save(source)
         self.glossary=Glossary([GlossaryEntry('逐点校正','pixel-level calibration',priority=1)])
-        result=self.translate(source,Model(['Use pixel-level calibration.',LLMUnavailable('样式映射未完成')]))
+        model=Model(['Use point-by-point correction.',{'runs':[{'id':0,'text':'Use '},{'id':1,'text':'point-by-point correction'},{'id':2,'text':'.'}]}])
+        result=self.translate(source,model)
         runs=Presentation(result['path']).slides[0].shapes[0].text_frame.paragraphs[0].runs
-        emphasis=next(r for r in runs if r.text=='pixel-level calibration')
+        emphasis=next(r for r in runs if r.text=='point-by-point correction')
         self.assertTrue(emphasis.font.bold); self.assertEqual(str(emphasis.font.color.rgb),'48CCFF')
         self.assertFalse(any('局部颜色' in w['reason'] for w in result['layout_warnings']))
+        self.assertEqual(len(model.prompts),2)
+        self.assertTrue(all('pixel-level calibration' not in prompt for prompt in model.prompts))
 
     def test_paragraphs_fit_original_slots_without_moving_or_changing_emphasis(self):
         source,deck,shape=self.deck('中文标题\n中文说明',width=3,height=1,size=28)

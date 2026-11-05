@@ -51,6 +51,7 @@ class DocumentLanguageTests(unittest.TestCase):
   self.addCleanup(self.restore)
   self.stubs=ExitStack();self.addCleanup(self.stubs.close)
   for name,value in [('backend.workflow.store.load_glossary',Glossary([])),('backend.officecli_bridge.inspect',{}),
+      ('backend.terminology_review.catalog.read',{'entries':[]}),
       ('backend.officecli_bridge.compare',[]),('backend.pptx_visual_review.review_pptx',([],[])),
       ('backend.workflow.review_pptx',([],[]))]:self.stubs.enter_context(patch(name,return_value=value))
  def restore(self):

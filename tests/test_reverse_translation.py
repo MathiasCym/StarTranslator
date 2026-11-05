@@ -58,6 +58,9 @@ class ReverseTests(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory();self.root=Path(self.tmp.name);self.addCleanup(self.tmp.cleanup)
         env=patch.dict(os.environ,{'NOVATERM_DATA_DIR':str(self.root/'profile')});env.start();self.addCleanup(env.stop)
         self.glossary=Glossary([])
+        # These fixtures cover reverse writers/checkpoint identity, not the
+        # separately tested official terminology model protocol.
+        table=patch('backend.terminology_review.catalog.read',return_value={'entries':[]});table.start();self.addCleanup(table.stop)
         stub=patch('backend.workflow.store.load_glossary',return_value=self.glossary);stub.start();self.addCleanup(stub.stop)
         self.previous=dict(workflow.JOBS);self.reports=dict(workflow.REPORTS)
         workflow.JOBS.clear();workflow.REPORTS.clear();self.addCleanup(self.restore)

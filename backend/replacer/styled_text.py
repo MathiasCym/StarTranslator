@@ -15,14 +15,15 @@ def _style_key(rpr):
     if rpr is None:
         return ()
     # Proofing/language metadata creates extra runs without changing their look.
-    ignored = {'lang', 'altLang', 'dirty', 'smtClean', 'smtId'}
+    ignored = {'lang', 'altLang', 'dirty', 'smtClean', 'smtId', 'err'}
     def node_key(node):
         attrs = tuple(sorted((name, value) for name, value in node.attrib.items()
                              if name.rsplit('}', 1)[-1] not in ignored))
         children = tuple(node_key(child) for child in node
                          if child.tag.rsplit('}', 1)[-1] not in {'lang', 'noProof'})
         return (node.tag, attrs, node.text or '', children)
-    return node_key(rpr)
+    key=node_key(rpr)
+    return key if key[1] or key[2] or key[3] else ()
 
 
 def style_groups(paragraph):

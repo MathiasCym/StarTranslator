@@ -12,8 +12,40 @@
 from difflib import SequenceMatcher
 
 
+def _native_break_edits(runs,spans):
+    """Keep span calculations in text, then materialize DrawingML line breaks."""
+    from types import SimpleNamespace
+    from copy import deepcopy
+    from pptx.oxml.xmlchemy import OxmlElement
+    from pptx.text.text import _Run
+    paragraph=runs[0]._parent
+    buffers=[SimpleNamespace(text=run.text) for run in runs]
+    replace_spans(buffers,spans)
+    for run,buffer in zip(runs,buffers):
+        if run.text==buffer.text:continue
+        parent=run._r.getparent();position=parent.index(run._r)
+        properties=run._r.find('{http://schemas.openxmlformats.org/drawingml/2006/main}rPr')
+        parent.remove(run._r)
+        import re
+        for value in re.split(r'([\n\v])',buffer.text):
+            if not value:continue
+            element=OxmlElement('a:br' if value in ('\n','\v') else 'a:r')
+            if properties is not None:element.append(deepcopy(properties))
+            if value not in ('\n','\v'):
+                element.append(OxmlElement('a:t'));_Run(element,run._parent).text=value
+            parent.insert(position,element);position+=1
+    from .text_runs import text_runs
+    runs[:]=text_runs(paragraph)
+
+
 def replace_spans(runs, spans):
     """Apply non-overlapping original offsets right-to-left; keep unaffected runs."""
+    if (runs and getattr(getattr(runs[0],'_r',None),'tag','') in {
+            '{http://schemas.openxmlformats.org/drawingml/2006/main}r',
+            '{http://schemas.openxmlformats.org/drawingml/2006/main}br'}
+            and (any('\v' in run.text for run in runs) or any('\v' in value or '\n' in value for _,_,value in spans))):
+        _native_break_edits(runs,spans)
+        return
     for start,end,replacement in sorted(spans,reverse=True):
         text, bounds = concat_runs(runs)
         if start < 0 or end > len(text) or start > end:
@@ -88,6 +120,10 @@ def replace_in_runs(runs, old: str, new: str) -> bool:
             run = runs[i]
             local_start = idx - s
             local_end = end - s
+            tag=getattr(getattr(run,'_r',None),'tag','')
+            if ('drawingml/2006/main}' in tag and ('\v' in new or '\n' in new or tag.endswith('}br'))):
+                replace_spans(runs,[(idx,end,new)])
+                return True
             run.text = run.text[:local_start] + new + run.text[local_end:]
             return True
 

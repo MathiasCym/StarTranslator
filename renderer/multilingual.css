@@ -1,6 +1,17 @@
 dialog#multilingualDialog { width:min(1100px,calc(100vw - 40px)); height:min(780px,calc(100dvh - 48px)); max-height:calc(100dvh - 48px); padding:20px; overflow:hidden; margin:auto; inset:0; }
 dialog#multilingualDialog[open] { display:flex; flex-direction:column; gap:12px; }
 #multilingualDialog .panel-head, #multilingualDialog > p { margin:0; flex:none; }
+.document-language-pair { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; }
+.document-language-pair .document-direction { min-width:0; flex-direction:column; align-items:stretch; gap:5px; }
+.document-language-pair .document-direction > span { white-space:nowrap; }
+.document-language-pair select { width:100%; min-width:0; }
+@media(max-height:700px) {
+  .document-language-pair .document-direction { gap:3px; font-size:14px; line-height:18px; }
+  .document-language-pair select { height:32px; min-height:32px; padding-block:4px; font-size:14px; }
+}
+@media(max-height:620px) and (min-width:920px) {
+  .task-options:has(#documentTranslationLanguages:not([hidden])) { gap:4px; }
+}
 .catalog-filters { display:flex; gap:12px; flex:none; }
 .catalog-filters input { flex:1; min-width:0; }
 .catalog-filters select { width:auto; max-width:45%; }

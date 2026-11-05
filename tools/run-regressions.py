@@ -27,7 +27,7 @@ names+=['test_reverse_translation']
 names+=['test_checkpoint_process']
 names+=['test_task_resume']
 names+=['test_multilingual_catalog']
-names+=['test_document_languages']
+names+=['test_document_languages','test_multilingual_parallel','test_multilingual_quality','test_terminology_review']
 names+=['test_multilingual_pdf_images']
 suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromModule(importlib.import_module(name)) for name in names)
 result=unittest.TextTestRunner(verbosity=2).run(suite)

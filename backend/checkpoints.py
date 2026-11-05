@@ -22,7 +22,10 @@ def digest(value):
 @lru_cache(maxsize=2)
 def policy(stage):
     names = ['writing_policy.py', 'document_context.py', 'pptx_content.py', 'llm/client.py', 'text_integrity.py']
-    if stage in ('translation-zh', 'review-zh'):names+=['reverse_translation.py','reverse_entities.py','reverse_validation.py','text_translation.py','formats.py','pdf_reflow.py','pdf_links.py','replacer/styled_text.py','extract/office.py','replacer/pptx_package.py']
+    if stage in ('translation-multi','review-multi'):
+        names+=['multilingual_documents.py','multilingual_quality.py','text_languages.py','formats.py','replacer/styled_text.py','extract/office.py','replacer/pptx_package.py','document_translation_policy.py']
+    elif stage=='terminology-review':names+=['terminology_review.py','text_languages.py']
+    elif stage in ('translation-zh', 'review-zh'):names+=['reverse_translation.py','reverse_entities.py','reverse_validation.py','text_translation.py','formats.py','pdf_reflow.py','pdf_links.py','replacer/styled_text.py','extract/office.py','replacer/pptx_package.py']
     elif stage=='pdf-image':names+=['pdf_image_text.py','pdf_image_ocr.py','image_ocr.ps1','translation_policy.py']
     elif stage=='pdf-output':names+=['pdf_quality.py','word_native_preview.py','word_render.ps1','pdf_image_ocr.py','image_ocr.ps1']
     else:
@@ -67,6 +70,9 @@ class Checkpoint:
                 # every resumed paragraph still passes today's content checks.
                 if stage=='translation':
                     for old_policy in ('697989bcd6621c21d2512fde97c2aa4d63f81808dd31d97f136ade66a48032e6',
+                            # 2.4.0: ignoring spelling-only metadata changes no
+                            # text/style semantics; reused runs are revalidated.
+                            'aa3f0817166b782f33c3272bf8635f25a8de69652c9fdb057e4845aab3d02856',
                             '9151ff216813ae95cbbd4f78bd4194828243ec6017623064543ee9cd05bd6649',
                             'e70d058be4e421fe6cc5ed3f7fee27bdd31e342576ce3d47145039279f088bf5',
                             '2dbc35c2e107202d597ff58e7d2bf3baff4ac9e807e2afd4dcc7e40a98e1a664',
@@ -101,6 +107,7 @@ class Checkpoint:
                     # content/style validation at each use. Keep their exact
                     # source/model/glossary identity, never import blindly.
                     for old_policy in (
+                            'f7c57c1a8461abcd28faaa7d1910a7e5435fc46e1640dfeacac8b0cc9e3be13a',
                             '3e8008c39f1869cd051787ea1b42679b6987d9fd1d5bbcbc9c93de70a4865fa6',
                             # 2.3.6/2.3.7: resume bookkeeping changes do not
                             # invalidate content. Reads still run validation;
@@ -111,6 +118,21 @@ class Checkpoint:
                         rows.extend((key,value) for key,value in db.execute(
                             'SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?',
                             (legacy,stage)).fetchall() if key not in known)
+                if stage in ('translation-multi','review-multi'):
+                    # The shipped2.4.0 policy accidentally hashed matcher
+                    # sources. Import only its exact scope, then require today's
+                    # facts/styles and source/target-bound language evidence.
+                    legacy=digest({'policy':'e42eaf9212dcb7d92d3f6e219e4db5798da2517565462cd9daadaf33e46590f9','input':identity})
+                    known={key for key,_ in rows}
+                    rows.extend((key,value) for key,value in db.execute(
+                        'SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?',
+                        (legacy,stage)).fetchall() if key not in known)
+                if stage=='review':
+                    legacy=digest({'policy':'e42eaf9212dcb7d92d3f6e219e4db5798da2517565462cd9daadaf33e46590f9','input':identity})
+                    known={key for key,_ in rows}
+                    rows.extend((key,value) for key,value in db.execute(
+                        'SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?',
+                        (legacy,stage)).fetchall() if key not in known)
             for key, value in rows:
                 try: self.values[key] = json.loads(value)
                 except (ValueError, TypeError): pass

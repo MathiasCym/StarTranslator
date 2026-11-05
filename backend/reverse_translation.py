@@ -214,6 +214,8 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     baseline = officecli_bridge.inspect(path, cancel=cancel) if is_ppt else None
     checkpoint = open_checkpoint('translation-zh', {'source': os.path.abspath(path), 'fingerprint': before,
         'direction': 'en-zh', 'mode': mode}, glossary, references, client)
+    from .document_translation_policy import without_glossary
+    glossary,references=without_glossary(references)
     from .reverse_entities import identify, validate_names
     entity_error=''
     try:person_terms=identify(segments,glossary,client,cancel,checkpoint)
@@ -339,6 +341,8 @@ def check_segments(segments, glossary, use_llm=True, *, client=None, cancel=None
     cancel = cancel or __import__('threading').Event()
     client = client or LLMClient() if use_llm else None
     editable = [s for s in segments if s.editable and any(c.isalnum() for c in prose(s.text))]
+    if aligned_sources is None and hasattr(references,'aligned_sources'):
+        aligned_sources=references.aligned_sources(editable)
     findings, errors, resumed = [], [], 0
     legacy_checkpoint = open_checkpoint('review-zh', {'source': checkpoint_origin or '', 'direction': 'en-zh',
         # Combined jobs regenerate private draft paths. Bind to the immutable
@@ -412,7 +416,10 @@ def check_segments(segments, glossary, use_llm=True, *, client=None, cancel=None
         'warnings':[f"中文审校未完成：{item['error']}" for item in errors] + ([] if use_llm else ['当前关闭模型，未执行中文语义审校；可开启深度审校后重新检查。']), 'resumed_segments':resumed,
         'target_language':'zh',
         'completed_files':[] if errors else list(dict.fromkeys(s.file_path for s in editable))}
-    return findings, stats
+    from .terminology_review import augment
+    return augment(editable,glossary,findings,stats,source_language='en-US',target_language='zh-CN',
+        aligned_sources=aligned_sources,references=references,client=client,cancel=cancel,workers=options.get('workers',3),
+        use_llm=use_llm,checkpoint_origin=checkpoint_origin,on_finding=on_finding,progress=progress)
 
 
 def auto_review(result, glossary, references, cancel, progress, on_finding, on_export, client, workers, format_progress):
@@ -426,7 +433,7 @@ def auto_review(result, glossary, references, cancel, progress, on_finding, on_e
         match=next((item for item in result.get('source_alignment',[]) if item['translation']==segment.text),None)
         if match:sources[segment.id]=match['source']
     findings, stats = check_segments(usable, glossary, client=client, cancel=cancel, progress=progress,
-        on_finding=on_finding, references=references, checkpoint_origin=result['source'],aligned_sources=sources,person_terms=result.get('person_terms'))
+        on_finding=on_finding, references=references, checkpoint_origin=result['source'],aligned_sources=sources,person_terms=result.get('person_terms'),workers=workers)
     if pending:
         stats['model_status']='partial';stats['unreviewed'] += len(pending)
         stats['warnings'].append('仍有英文段落未完成翻译，已保留原文，可从断点继续。')
