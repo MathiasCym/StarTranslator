@@ -24,6 +24,16 @@ from backend.glossary import store
 
 
 class AsyncLanTests(unittest.TestCase):
+    def test_shared_theme_assets_are_public_static_files_without_desktop_api(self):
+        client=lan_service.create_app(True).test_client()
+        for route,name in [('/appearance.js','appearance.js'),('/appearance-light.css','appearance-light.css')]:
+            response=client.get(route)
+            self.assertEqual(response.status_code,200)
+            self.assertEqual(response.data,(lan_service.ROOT/name).read_bytes());response.close()
+        self.assertEqual(client.get('/appearance.json').status_code,404)
+        self.assertEqual(client.post('/appearance.js',json={'theme':'light'}).status_code,400)  # CSRF rejects writes before routing.
+        self.assertEqual(client.get('/api/glossary/language?language=ja-JP').status_code,404)
+
     def setUp(self):
         for target in ('backend.translation.review_pptx','backend.workflow.review_pptx'):
             stub=patch(target,return_value=([],[]));stub.start();self.addCleanup(stub.stop)
@@ -77,11 +87,26 @@ class AsyncLanTests(unittest.TestCase):
                 self.assertNotIn('_history_data',cancelled)
                 self.assertEqual(next(r['status'] for r in history.query(active_ids=[j['id'] for j in jobs[:2]])['records'] if r['id']==jobs[2]['id']),'cancelled')
                 self.assertEqual(workflow.cancel(jobs[2]['id'])['status'],'cancelled')
-                self.assertEqual(history.resume_options(jobs[2]['id']),{**options,'resume_from':jobs[2]['id']})
+                self.assertEqual(history.resume_options(jobs[2]['id']),{**options,'include_ppt_notes':False,'resume_from':jobs[2]['id']})
             finally: release.set()
             for job in jobs:self.wait(job['id'])
         self.assertEqual(count[0],2);self.assertEqual(workflow.JOBS[jobs[2]['id']]['status'],'cancelled')
         self.assertEqual(next(r['status'] for r in history.query()['records'] if r['id']==jobs[2]['id']),'cancelled')
+
+    def test_lan_note_processing_is_explicit_and_keeps_the_default_off(self):
+        app=lan_service.create_app(True);client=app.test_client();csrf=client.get('/shared/session').json['csrf']
+        path=self.root/'notes-option.pptx';deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
+        slide.shapes.add_textbox(Inches(1),Inches(1),Inches(5),Inches(1)).text='Body text.'
+        slide.notes_slide.notes_text_frame.text='Speaker notes.';deck.save(path)
+        for flag in (None,False,True):
+            with self.subTest(flag=flag),patch('backend.workflow.store.load_glossary',return_value=self.g):
+                options={'kind':'check','use_llm':False}
+                if flag is not None:options['include_ppt_notes']=flag
+                response=client.post('/shared/jobs',headers={'X-Star-CSRF':csrf},data={'options':json.dumps(options),'files':(io.BytesIO(path.read_bytes()),'notes.pptx')})
+                self.assertEqual(response.status_code,200,response.json)
+                job=self.wait(response.json['id']);self.assertEqual(job['status'],'complete',job)
+                self.assertEqual(job['result']['stats']['segments'],2 if flag else 1)
+                self.assertEqual(workflow.REPORTS[job['id']]['include_ppt_notes'],bool(flag))
     def test_maintenance_cannot_start_new_task(self):
         task_queue.MAINTENANCE=True
         with self.assertRaisesRegex(ValueError,'校验'):workflow.start({'kind':'check','paths':[self.doc('sample.docx','test')],'use_llm':False})

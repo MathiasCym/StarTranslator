@@ -129,7 +129,9 @@ class DocumentLanguageTests(unittest.TestCase):
   self.assertEqual(job['status'],'partial',job)
   output=job['result']['outputs'][0];self.assertEqual(output['untranslated'],1)
   self.assertIn(SAMPLES['en-US'],'\n'.join(s.text for s in extract(output['path'])))
-  self.assertTrue(job['can_resume']);self.assertEqual(model.translations,2)
+  # Two generation attempts, followed by one bounded failed-segment repair;
+  # persistent invalid facts still remain pending rather than marked complete.
+  self.assertTrue(job['can_resume']);self.assertEqual(model.translations,4)
   saved=workflow.apply_report({'report_id':job['result']['report']['report_id'],'path':output['path'],'save_unchanged':True},client=model)
   self.assertEqual(saved['output_audit']['status'],'partial');self.assertEqual(saved['untranslated'],1)
 

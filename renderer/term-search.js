@@ -8,7 +8,7 @@ function rankTermRows(rows, columns, query) {
   return mapped.map(item => {
     let score = Infinity
     columns.forEach((field, index) => {
-      if (['priority', 'source'].includes(field)) return
+      if (['priority', 'source','_id','_conflict'].includes(field)) return
       const value = normalize(item.row[index])
       if (!value.includes(query)) return
       const primary = ['zh', 'en'].includes(field)

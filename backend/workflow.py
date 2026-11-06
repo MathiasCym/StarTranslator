@@ -70,6 +70,8 @@ def start(data):
     if data.get('kind') not in ('check','translate','translate_review'):
         raise ValueError('任务类型不正确')
     data=document_languages.normalize(data)
+    data.setdefault('include_ppt_notes',False)
+    if type(data['include_ppt_notes']) is not bool:raise ValueError('处理演讲者备注选项应为开启或关闭。')
     if data.get('translation_mode','faithful') not in TRANSLATION_MODES:raise ValueError('翻译方式不正确')
     if data.get('combined_output', 'both') not in ('both', 'final'):
         raise ValueError('输出方式不正确')
@@ -164,8 +166,11 @@ def run(job,data):
         with LOCK:
             counts=job.setdefault('resume_counts',{})
             counts[stage]=counts.get(stage,0)+1
-    with activate(session,resumed):
+    from .speaker_notes import processing
+    with activate(session,resumed),processing(data.get('include_ppt_notes',False)):
         _run(job,data)
+        with LOCK:
+            if job['id'] in REPORTS:REPORTS[job['id']]['include_ppt_notes']=data.get('include_ppt_notes',False)
 
 
 def _run(job,data):
@@ -334,6 +339,12 @@ def _run(job,data):
     finally:
         if data['kind'] == 'translate_review' and job.get('result'):
             publish_combined_report(job, reviews, outcome)
+        from .document_translation_core import interruption_summary
+        interruption=interruption_summary((job.get('result') or {}).get('outputs',[]))
+        if interruption:
+            job['result']['transport_interruption']=interruption
+            if job['result'].get('report') is not None:job['result']['report']['transport_interruption']=interruption
+            job['message']=interruption['message']
         job['can_resume'] = can_resume_processing(job, outcome)
         try: history.finish({**job,'status':outcome}, data)
         except Exception:
@@ -518,7 +529,8 @@ def apply_report(data, progress=None, client=None):
         task_queue.ACTIVE_EXPORTS += 1
     try:
         from .task_resume import activate
-        with export_lock, OUTPUT_LOCK, activate(report.get('_checkpoint_session')):
+        from .speaker_notes import processing
+        with export_lock, OUTPUT_LOCK, activate(report.get('_checkpoint_session')),processing(report.get('include_ppt_notes',True)):
             result = _apply_report(data, report, progress=progress, client=client)
             option = report.get('output_options',{}).get(data['path'],{})
             source = option.get('source',data['path'])
@@ -575,6 +587,9 @@ def _apply_report(data, report, progress=None, client=None):
     document, paragraphs, _ = open_office(input_path)
     para_map = {loc:para for loc,para,*_ in paragraphs}
     done, failed, changed_locators, applied_indices = [], [], [], set()
+    superseded={}
+    def standard(finding):
+        return finding.terminology_standard or finding.method=='rule' and finding.kind=='term'
     final_residuals=[]
     output_audit=None
     origin=option.get('source') or path
@@ -603,7 +618,12 @@ def _apply_report(data, report, progress=None, client=None):
         if paragraph is None or paragraph.text != segment.text:
             failed.append({'segment_id':segment_id,'reason':'段落定位或内容发生变化'})
             continue
-        spans,accepted = [],[]
+        spans,accepted,owners = [],[],[]
+        def pair_priority(pair):
+            old,new=pair
+            return -int(any(f.file_path==path and f.segment_id==segment_id and f.found_text==old
+                and edits.get(i,f.suggested)==new and standard(f) for i,f in enumerate(report['findings'])))
+        pairs=sorted(pairs,key=pair_priority)
         for old,new in pairs:
             if not old or not isinstance(new,str) or not new:
                 continue
@@ -649,11 +669,16 @@ def _apply_report(data, report, progress=None, client=None):
                 a,b,value=first;c,d,other=second
                 if first==second:return False
                 return (a<d and b>c) or a==b==c==d or a==b and c<a<d or c==d and a<c<b
-            if any(conflicts(candidate,prior) for candidate in candidates for prior in spans):
-                failed.append({'segment_id':segment_id,'index':finding_index,'reason':'该项与另一条已选建议修改同一文字且内容冲突；其他建议已继续处理，该项可编辑后应用。'})
+            conflicting={owner for prior,owner in owners if any(conflicts(candidate,prior) for candidate in candidates)}
+            if conflicting:
+                if not standard(finding) and all(standard(report['findings'][i]) for i in conflicting):
+                    superseded[finding_index]=sorted(conflicting)
+                else:
+                    failed.append({'segment_id':segment_id,'index':finding_index,'reason':'该项与另一条已选建议修改同一文字且内容冲突，本条未应用；其他有效建议已继续处理。请核对当前文件，必要时重新校对。'})
                 continue
             if matches:
                 spans.extend(candidate for candidate in candidates if candidate not in spans)
+                owners.extend((candidate,finding_index) for candidate in candidates)
                 accepted.extend({'segment_id':segment_id,'old':match.group(),'new':new} for match in matches)
                 applied_indices.add(finding_index)
         replace_spans(text_runs(paragraph),spans)
@@ -727,16 +752,18 @@ def _apply_report(data, report, progress=None, client=None):
                 from .pdf_quality import audit
                 output_audit=audit(temporary,pdf_expected,source=pdf_source,client=pdf_client,
                     progress=lambda message,n,t:notify('render',n,t,message))
-            if store.fingerprint(path) != report['hashes'][path]:
-                raise ValueError('导出时原文件已变化，请重新校对。')
-            if store.fingerprint(input_path) != input_hash:
-                raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
-            if existing_hash and store.fingerprint(out) != existing_hash:
-                raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
-            if not existing_hash and out.exists():
-                raise ValueError('输出位置已有新文件，请重试。')
+            def guard_output():
+                if store.fingerprint(path) != report['hashes'][path]:
+                    raise ValueError('导出时原文件已变化，请重新校对。')
+                if store.fingerprint(input_path) != input_hash:
+                    raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
+                if existing_hash and store.fingerprint(out) != existing_hash:
+                    raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
+                if not existing_hash and out.exists():
+                    raise ValueError('输出位置已有新文件，请重试。')
+            from .atomic_file import replace_checked
             notify('publish',message='正在保存已校验的文件')
-            os.replace(temporary,out)
+            replace_checked(temporary,out,guard_output)
         finally:
             if os.path.exists(temporary): os.unlink(temporary)
         output = str(out)
@@ -817,12 +844,17 @@ def _apply_report(data, report, progress=None, client=None):
                 finding.suggested = edits.get(index, finding.suggested)
                 finding.editable = False
                 finding.not_editable_reason = '已替换并保存。'
+            elif index in superseded:
+                finding.editable=False
+                finding.review_status='superseded'
+                finding.not_editable_reason='同一位置已采用所选的词库标准建议，本条措辞建议未采用。可在“全部状态”中查看；不表示本条替换已执行。'
             elif not finding.applied:
                 import re
                 pattern = _form_pattern(finding.found_text) if finding.method == 'rule' else re.compile(re.escape(finding.found_text), re.I)
                 if not pattern.search(segments[finding.segment_id].text):
                     finding.editable = False
-                    finding.not_editable_reason = '原文已被本次改正更新。'
+                    finding.review_status='stale'
+                    finding.not_editable_reason = '本条建议未应用；原文已被其他建议改写，无法继续按旧文字定位。请对当前保存文件重新校对。'
         updates.append({'index':index,'finding':finding.to_dict()})
     pending_translation=[f for f in report['findings'] if f.file_path==path
         and f.reason.startswith(('翻译待核对：','英译中未完成：','多语言翻译未完成：')) and not f.applied]

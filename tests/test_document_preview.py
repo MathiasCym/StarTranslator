@@ -122,6 +122,42 @@ class DocumentPreviewTests(unittest.TestCase):
                 self.assertIn('Corrected Reviewed',document_preview.preview(ident,'output'))
                 self.assertTrue(any('Corrected Reviewed' in row['translation'] for row in value['rows']))
                 self.assertEqual(source.read_bytes(),original)
+    def test_repeated_report_save_retries_windows_lock_and_rechecks_external_edits(self):
+        from backend.models import Finding
+        real=os.replace
+        for external in (False,True):
+            with self.subTest(external=external):
+                source,output,ident=self.pair();original=source.read_bytes()
+                segments=extract(str(output));segment=segments[0];key='locked-save-'+str(external)
+                findings=[Finding(segment.id,output.name,None,1,'text',old,suggested=new,file_path=str(output),method='llm')
+                          for old,new in [('Complete','Corrected'),('English','Reviewed')]]
+                workflow.REPORTS[key]={'segments':segments,'hashes':{str(output):store.fingerprint(output)},'findings':findings,
+                    'output_options':{str(output):{'mode':'both','staged':False,'target_dir':str(self.root),
+                        'source':str(source),'comparison_id':ident,'translation_complete':True}}}
+                self.addCleanup(lambda k=key:workflow.REPORTS.pop(k,None))
+                first=workflow.apply_report(dict(report_id=key,path=str(output),edits=[dict(index=0,text='Corrected')]))
+                target=Path(first['output']);attempts=[]
+                def attempt(a,b):
+                    if Path(b)==target and Path(a).name.startswith('.star-review-'):
+                        attempts.append(1)
+                        if len(attempts)==1:
+                            error=PermissionError('transient Windows lock');error.winerror=5;raise error
+                    real(a,b)
+                def wait(_):
+                    if external:target.write_bytes(b'externally edited during retry')
+                with patch('backend.atomic_file.os.replace',side_effect=attempt),patch('backend.atomic_file.time.sleep',side_effect=wait):
+                    if external:
+                        with self.assertRaisesRegex(ValueError,'修改'):
+                            workflow.apply_report(dict(report_id=key,path=str(output),edits=[dict(index=1,text='Reviewed')]))
+                    else:
+                        result=workflow.apply_report(dict(report_id=key,path=str(output),edits=[dict(index=1,text='Reviewed')]))
+                self.assertEqual(len(attempts),1 if external else 2)
+                self.assertEqual(source.read_bytes(),original)
+                if external:
+                    self.assertEqual(target.read_bytes(),b'externally edited during retry');self.assertFalse(findings[1].applied)
+                else:
+                    self.assertTrue(findings[1].applied)
+                    self.assertIn('Corrected Reviewed',document_preview.preview(result['comparison_id'],'output'))
     def test_shared_report_maps_each_file_to_its_own_comparison_after_save(self):
         source,output,ident=self.pair();raw=str(output)
         job={'id':'compare-public','kind':'translate_review','status':'complete','phase':'complete','percent':100,'message':'完成','result':{

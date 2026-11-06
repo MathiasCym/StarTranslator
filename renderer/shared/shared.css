@@ -2,6 +2,7 @@
 
 .prepare-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.prepare .text-entry{width:auto;margin:0;flex:none;white-space:nowrap}.text-entry-hint{font-size:14px;margin:10px 0 0}
 .cleanup-dialog{width:min(600px,94vw);height:auto}.cleanup-dialog h2{line-height:1.5}
+.document-language-pair{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:end;gap:10px;margin-top:16px}.document-language-pair .field{margin:0;min-width:0}.document-language-pair select{width:100%;min-width:0}.document-language-pair>button{min-width:44px;min-height:44px;padding:8px}.document-language-pair[hidden]{display:none}
 .review-guide{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;margin:16px 0;border:1px solid #258fbe;border-radius:10px;background:#12324a}.review-guide>div{min-width:0}.review-guide p{margin:5px 0 0;font-size:14px}.review-guide button{flex:none;white-space:nowrap}#sharedReviewHeading{scroll-margin-top:18px}@media(max-width:600px){.review-guide{flex-wrap:wrap}}
 
 /* Task-local choices use the existing typography, colors and keyboard focus. */

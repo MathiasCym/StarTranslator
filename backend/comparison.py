@@ -25,6 +25,9 @@ def create(segments, paragraphs, source, output, direction='zh-en'):
         'output_path':str(output), 'output_hash':store.fingerprint(output), 'rows':rows,
         '_source_path':str(Path(source).absolute()), '_source_hash':store.fingerprint(source)}
     if direction!='zh-en':value['direction']=direction
+    if Path(source).suffix.lower()=='.pptx':
+        from .speaker_notes import enabled
+        value['include_ppt_notes']=enabled()
     snapshot_source(value,source)
     store.atomic_json(folder() / (comparison_id + '.json'), value)
     return comparison_id
@@ -100,7 +103,9 @@ def read(comparison_id):
 
 
 def update(comparison_id, output):
-    translated = {segment.locator:segment.text for segment in extract(str(output))}
+    from .speaker_notes import processing
+    with processing(read(comparison_id).get('include_ppt_notes',True)):
+        translated = {segment.locator:segment.text for segment in extract(str(output))}
     with RECORD_LOCK:
         value = read(comparison_id)
         for row in value['rows']:

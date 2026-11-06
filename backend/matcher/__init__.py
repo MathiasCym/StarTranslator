@@ -23,6 +23,8 @@ MAX_UNREVIEWED_LISTED = 10
 
 def _judge_with_retry(seg, glossary, client, reference, rule_hits, cancel):
     """对单段判决，失败有限重试；重试仍失败才抛最后一个错误。"""
+    from ..review_format import context
+    reference+=context(seg)
     last_error = None
     for attempt in range(MAX_ATTEMPTS):
         if cancel and cancel.is_set():
@@ -56,6 +58,8 @@ def _describe_unreviewed(unreviewed):
 def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
                    references=None, cancel=None, on_finding=None, workers=3, expect_english=False, checkpoint_origin=None):
     checked = [s for s in segments if s.source not in ('image','group') and s.text.strip()]
+    from ..review_format import attach,normalize_suggestion
+    if use_llm:attach(checked)
     findings = check_rules(checked, glossary)
     from ..consistency import check_consistency
     consistency = check_consistency(checked, glossary, references=references)
@@ -144,6 +148,9 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
                         stats['truncated'] += 1
                         incomplete_files.add(seg.file_path)
                     for hit in hits:
+                        original,replacement=normalize_suggestion(seg,hit['found'],hit['suggested'])
+                        if original==replacement:continue
+                        hit={**hit,'found':original,'suggested':replacement}
                         added = numeric_values(hit['suggested']) - numeric_values(hit['found'])
                         aligned = references.aligned_text(seg) if references and hasattr(references,'aligned_text') else ''
                         verified = bool(added and aligned and not (added - numeric_values(aligned)))

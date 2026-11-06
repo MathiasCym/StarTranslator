@@ -189,6 +189,8 @@ function addFiles(paths, reference = false) {
 }
 function renderFiles() {
   const hasPresentation = state.files.some(path => /\.pptx$/i.test(path))
+  $('speakerNotesOption').hidden = !hasPresentation
+  if (!hasPresentation) $('includePptNotes').checked = false
   $('translationOptions').hidden = state.mode !== 'translate' || !hasPresentation
   if (!hasPresentation) {
     document.querySelector('[name=translationMode][value=faithful]').checked = true
@@ -246,7 +248,7 @@ async function runTask(combined = false, restored = null) {
   $('liveFindings').hidden = true; $('liveFindings').innerHTML = ''
   $('jobStages').hidden = kind !== 'translate_review'; renderJobPhase({ phase: 'preparing' })
   try {
-    state.job = await callApi('POST', '/api/jobs', restored || { kind, ...submitted, direction: state.direction, translation_mode:document.querySelector('[name=translationMode]:checked').value, combined_output: combinedOutput, use_llm: $('useLlm').checked, workers:$('parallelWork').checked?3:1,output_dir: state.outputDir || null })
+    state.job = await callApi('POST', '/api/jobs', restored || { kind, ...submitted, direction: state.direction, translation_mode:document.querySelector('[name=translationMode]:checked').value, combined_output: combinedOutput, use_llm: $('useLlm').checked, include_ppt_notes: $('includePptNotes').checked, workers:$('parallelWork').checked?3:1,output_dir: state.outputDir || null })
     let failures = 0
     while (['queued','running'].includes(state.job.status)) {
       await delay(600)
@@ -323,7 +325,7 @@ function loadReport(report, outputs = []) {
     text: output.staged ? '译文已暂存，确认建议后保存最终文件' : output.review_status === 'complete' ? '译文已保存，校对建议尚未应用' : '译文已保存，校对未完成' }))
   $('reportStatus').value = 'pending'; $('reportFilter').value = 'all'; $('searchBox').value = ''
   $('completionOutput').value = ''; $('reportOutput').value = ''
-  report.findings.forEach((f, i) => { if (f.method === 'rule' && f.editable && !f.applied) state.selected.add(i) })
+  report.findings.forEach((f, i) => { if (findingType(f) === 'rule' && f.editable && !f.applied) state.selected.add(i) })
   $('exportResults').hidden = true
 }
 action('runBtn', () => runTask())
@@ -340,12 +342,13 @@ function renderLiveFindings(findings) {
     recent.map(f => `<div class="live-item"><span class="found">${esc(f.found_text)}</span> → <span class="suggest">${esc(f.suggested)}</span><span class="live-pos">${esc(f.file)}${f.slide ? ' 第 ' + f.slide + ' 页' : f.para ? ' 段 ' + f.para : ''}</span></div>`).join('')
 }
 
+function findingType(f) { return f.source === 'translation' ? 'translation' : f.terminology_standard || f.method === 'rule' ? 'rule' : f.method }
 function reportRows() {
   const query = $('searchBox').value.toLowerCase(), filter = $('reportFilter').value
   const status = $('reportStatus').value
   return (state.report?.findings || []).map((f, index) => ({ f, index })).filter(({ f, index }) =>
-    (status === 'all' || (status === 'applied' ? f.applied : !f.applied)) &&
-    (filter === 'all' || f.method === filter || f.kind === filter) && `${f.found_text} ${state.edits[index] ?? f.suggested} ${f.concept_zh} ${f.file}`.toLowerCase().includes(query))
+    (status === 'all' || (status === 'applied' ? f.applied : !f.applied && f.review_status !== 'superseded')) &&
+    (filter === 'all' || findingType(f) === filter || f.kind === filter) && `${f.found_text} ${state.edits[index] ?? f.suggested} ${f.concept_zh} ${f.file}`.toLowerCase().includes(query))
 }
 function showCheckCompletion() {
   $('taskFailurePanel').hidden = true
@@ -366,6 +369,9 @@ function reviewCompletionState(report, job) {
   const processing = stats.review_processing_status ||
     (stats.model_status === 'partial' && manualTotal && !unreviewed && !stats.errors && !stats.truncated ? 'complete' : stats.model_status)
   const errors = [...new Set([job?.error, ...(report.errors || []).map(e => e.error)].filter(Boolean))]
+  const transportPending = report.transport_interruption?.pending || job?.result?.transport_interruption?.pending ||
+    (job?.result?.outputs || state.outputs || []).reduce((n,o) => n + (o.review_items || []).filter(item => item.service_unavailable).length,0)
+  if (transportPending) errors.unshift(`模型连接中断，${transportPending} 处尚未完成翻译；请恢复连接后从断点继续。已完成译文保留，这些位置不是普通校对建议。`)
   if (stats.errors) errors.push(`${stats.errors} 段未能完成模型检查，已保留完成部分。`)
   if (stats.truncated) errors.push(`${stats.truncated} 段模型响应被截断，检查尚未完成。`)
   if (unreviewed && !stats.errors) errors.push(`${unreviewed} 段尚未完成模型检查。`)
@@ -373,7 +379,7 @@ function reviewCompletionState(report, job) {
   const cancelled = job?.status === 'cancelled' || processing === 'cancelled'
   const notStarted = report.kind === 'translate_review' && processing === 'not_started'
   if (interrupted && !errors.length) errors.push(notStarted ? '校对尚未开始，已完成译文和断点已保留。' : '模型检查未能全部完成，已保留可用文件与完成部分。')
-  return { manualPending, untranslated, interrupted, cancelled, notStarted, errors,
+  return { manualPending, untranslated, interrupted, cancelled, notStarted, errors, transportPending,
     canResume: (interrupted || cancelled || untranslated > 0) && job?.can_resume !== false }
 }
 function renderCheckCompletion() {
@@ -381,7 +387,7 @@ function renderCheckCompletion() {
   if (!r) return
   const s = r.stats || {}, files = r.files || [], findings = r.findings || []
   const combined = r.kind === 'translate_review', label = combined ? '翻译并校对' : '校对'
-  const { cancelled, interrupted, notStarted, manualPending, untranslated, errors, canResume } = reviewCompletionState(r, state.job)
+  const { cancelled, interrupted, notStarted, manualPending, untranslated, errors, canResume, transportPending } = reviewCompletionState(r, state.job)
   const reverseOutput = s.target_language === 'zh' || (r.outputs || []).some(output => output.direction === 'en-zh')
   const additionalLanguage = StarDocumentLanguages.names[s.target_language]
   $('completionResume').hidden = !canResume
@@ -389,16 +395,16 @@ function renderCheckCompletion() {
   $('completionIssue').hidden = !errors.length
   $('completionIssue').textContent = errors.join('；')
   $('completionExportLog').hidden = !interrupted
-  $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : notStarted ? '文件已保留 · 校对尚未开始' : interrupted ? `${label}已结束 · 部分检查未完成` : manualPending ? `${label}处理完成 · ${manualPending} 处待人工核对` : `${label}完成`
+  $('reviewCompleteTitle').textContent = cancelled ? `${label}已取消` : transportPending ? '模型连接中断 · 翻译尚未完成' : notStarted ? '文件已保留 · 校对尚未开始' : interrupted ? `${label}已结束 · 部分检查未完成` : manualPending ? `${label}处理完成 · ${manualPending} 处待人工核对` : `${label}完成`
   $('reviewCompleteNotice').textContent = cancelled ? '已保留完成部分。' : interrupted ? '可用文件和已完成部分已保留，未完成原因见下方；可查看报告并保存当前文件。' : untranslated ? `仍有 ${untranslated} 处未译中文，可继续补译或在报告中填写英文；已完成内容和当前文件均保留。` : manualPending ? `自动处理已结束，${manualPending} 处内容需要人工确认，具体位置和原因已列在报告中；可以继续保存文件。` : s.model_status === 'not_requested' ? '术语检查已完成，打开报告查看并处理建议。' : '本次审校已完成，建议由你确认后应用。'
   if (reverseOutput && untranslated && !cancelled && !interrupted) $('reviewCompleteNotice').textContent = `仍有 ${untranslated} 处英文未完成翻译，可继续补译或在报告中填写中文；当前文件和完成部分已保留。`
   if (reverseOutput && s.model_status === 'not_requested') $('reviewCompleteNotice').textContent = '已读取中文文档。当前关闭深度审校，尚未执行中文语义检查。'
   if (additionalLanguage && !reverseOutput && untranslated && !cancelled && !interrupted) $('reviewCompleteNotice').textContent = `仍有 ${untranslated} 处未完成${additionalLanguage}翻译；当前文件已保留，可从历史继续处理。`
   if (additionalLanguage && !reverseOutput && s.model_status === 'not_requested') $('reviewCompleteNotice').textContent = `已读取${additionalLanguage}文档。当前关闭深度审校，尚未执行语义检查。`
-  $('completionSummary').innerHTML = [[files.length, '文档'], [s.segments ?? 0, '检查段落'], [findings.length, '审校建议'], [findings.filter(f => f.applied).length, '已替换建议']].map(([n, label]) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`).join('')
-  const remaining = findings.filter(f => !f.applied).length
+  $('completionSummary').innerHTML = [[files.length, '文档'], [s.segments ?? 0, '检查段落'], [findings.filter(f => f.source !== 'translation').length, '审校建议'], [findings.filter(f => f.applied).length, '已替换建议']].map(([n, label]) => `<div class="stat"><div class="n">${n}</div><div class="l">${label}</div></div>`).join('')
+  const remaining = findings.filter(f => f.source !== 'translation' && !f.applied && f.review_status !== 'superseded').length
   const needsSave = combined && state.exportRecords.some(o => o.staged)
-  $('completionReviewTitle').textContent = remaining ? `下一步：查看 ${remaining} 项校对建议` : needsSave ? '下一步：确认并保存译文' : findings.length ? `${findings.length} 项建议已应用` : '本次没有替换建议'
+  $('completionReviewTitle').textContent = remaining ? `下一步：查看 ${remaining} 项校对建议` : needsSave ? '下一步：确认并保存译文' : findings.length ? `${findings.filter(f => f.applied).length} 项建议已应用` : '本次没有替换建议'
   $('completionReviewHint').textContent = remaining ? '请打开报告查看修改原因与上下文，选择采纳、编辑或保留当前译文。建议不会自动应用。' : needsSave ? '打开报告查看检查范围，再点击“保存译文”输出最终文件。' : '仍可打开报告核对检查范围、提示和已采用的修改。'
   $('completionReviewStep').classList.toggle('has-suggestions',remaining > 0 || needsSave)
   $('viewReport').textContent = remaining ? '查看并处理校对建议' : needsSave ? '查看报告并保存译文' : '查看校对报告'
@@ -462,14 +468,14 @@ function renderReport() {
   $('saveCurrentBtn').hidden = r.kind !== 'translate_review' && !noSuggestions
   $('saveCurrentBtn').textContent = noSuggestions ? '保存译文' : '不应用建议，保存当前译文'
   $('overwriteBtn').textContent = r.kind === 'translate_review' ? '应用所选并覆盖译文文件' : '应用所选并覆盖原文件'
-  $('summary').innerHTML = [[r.findings.length, '审校建议'], [s.rule_hits, '术语规范'], [s.llm_hits, '深度审校'], [`${s.judged}/${s.segments}`, '深度审校段落']].map(([n,l]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('')
+  $('summary').innerHTML = [[r.findings.filter(f => f.source !== 'translation').length, '审校建议'], [r.findings.filter(f => findingType(f) === 'rule').length, '术语规范'], [r.findings.filter(f => findingType(f) === 'llm').length, '深度审校'], [`${s.judged}/${s.segments}`, '深度审校段落']].map(([n,l]) => `<div class="stat"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('')
   const coverage = s.model_status === 'complete' ? '审校完成，可选中建议并应用修改。' : s.model_status === 'not_requested' ? '术语检查已完成；拼写、语法及翻译准确性需启用深度审校。' : '深度审校未完成。已完成的建议仍可查看，剩余内容尚未检查。'
   $('reportNotice').textContent = [coverage, s.consistency_hits ? `另有 ${s.consistency_hits} 项全文用语统一建议，确认后可应用。` : '', ...(s.warnings || []), ...(r.errors || []).map(e => `${e.path ? basename(e.path) + '：' : ''}${e.error}`), s.unsupported ? `${s.unsupported} 处图片、图表或复杂文字结构不能自动改写，请人工检查。` : ''].filter(Boolean).join('\n')
   const manual = r.kind === 'translate_review' ? state.outputs.flatMap(o => (o.review_items || []).map(w => ({ ...w, file: basename(o.path) }))) : []
   $('reportManualNotes').hidden = !manual.length
   $('reportManualNotes').innerHTML = manual.length ? `<summary>查看翻译中需人工核对的内容（${manual.length} 处）</summary>${manual.map(w => `<p class="hint">${esc(w.file)}${w.slide ? ' · 第 ' + w.slide + ' 页' : ''}：${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}` : ''
   const rows = reportRows()
-  $('reportBody').innerHTML = rows.length ? rows.map(({ f, index }) => `<article class="suggestion-card" data-finding="${index}"><div class="suggestion-head"><input type="checkbox" aria-label="选择此项建议" data-index="${index}"${state.selected.has(index) ? ' checked' : ''}${!f.editable || f.applied ? ' disabled' : ''}><span class="pos" title="${esc(f.file_path)}">${esc(f.file)} · ${f.slide ? '第 ' + f.slide + ' 页' : '段 ' + f.para}</span><span class="replacement-state ${f.applied ? 'applied' : ''}">${f.applied ? '已替换' : '未替换'}</span><span class="tag ${f.method === 'rule' ? 'high' : 'llm'}">${f.method === 'rule' ? '术语规范' : f.method === 'consistency' ? '全文一致性' : '深度审校'}</span></div><div class="suggestion-copy"><div><span class="source-label">原文${f.occurrences > 1 ? ' · ' + f.occurrences + ' 处' : ''}</span><p class="suggestion-source">${esc(f.found_text)}</p></div><label>${f.applied ? '已采用的替换文本' : '替换为 · 可编辑'}<textarea class="suggestion-text" data-edit="${index}" aria-label="编辑替换文本"${!f.editable || f.applied ? ' readonly' : ''}>${esc(state.edits[index] ?? f.suggested)}</textarea></label></div><p class="ctx">${f.concept_zh ? esc(f.concept_zh) + ' · ' : ''}${esc(f.reason)}${f.editable ? '' : '<br>' + esc(f.not_editable_reason)}</p><details><summary class="hint">查看上下文</summary><p class="ctx">${esc(f.context)}</p></details></article>`).join('') : '<p class="notice">当前筛选下没有建议。已替换的项目可切换筛选查看。</p>'
+  $('reportBody').innerHTML = rows.length ? rows.map(({ f, index }) => `<article class="suggestion-card" data-finding="${index}"><div class="suggestion-head"><input type="checkbox" aria-label="选择此项建议" data-index="${index}"${state.selected.has(index) ? ' checked' : ''}${!f.editable || f.applied ? ' disabled' : ''}><span class="pos" title="${esc(f.file_path)}">${esc(f.file)} · ${f.slide ? '第 ' + f.slide + ' 页' : '段 ' + f.para}</span><span class="replacement-state ${f.applied ? 'applied' : ''}">${f.applied ? '已替换' : f.review_status === 'superseded' ? '由术语建议取代' : f.review_status === 'stale' ? '原文已变化' : '未替换'}</span><span class="tag ${findingType(f) === 'rule' ? 'high' : 'llm'}">${findingType(f) === 'translation' ? '未完成翻译' : findingType(f) === 'rule' ? '术语规范' : f.method === 'consistency' ? '全文一致性' : '深度审校'}</span></div><div class="suggestion-copy"><div><span class="source-label">原文${f.occurrences > 1 ? ' · ' + f.occurrences + ' 处' : ''}</span><p class="suggestion-source">${esc(f.found_text)}</p></div><label>${f.applied ? '已采用的替换文本' : !f.editable ? '替换建议 · 未应用' : '替换为 · 可编辑'}<textarea class="suggestion-text" data-edit="${index}" aria-label="编辑替换文本"${!f.editable || f.applied ? ' readonly' : ''}>${esc(state.edits[index] ?? f.suggested)}</textarea></label></div><p class="ctx">${f.concept_zh ? esc(f.concept_zh) + ' · ' : ''}${esc(f.reason)}${f.editable ? '' : '<br>' + esc(f.not_editable_reason)}</p><details><summary class="hint">查看上下文</summary><p class="ctx">${esc(f.context)}</p></details></article>`).join('') : '<p class="notice">当前筛选下没有建议。已替换的项目可切换筛选查看。</p>'
   $('reportBody').querySelectorAll('input').forEach(input => { input.onchange = () => { const i = Number(input.dataset.index); input.checked ? state.selected.add(i) : state.selected.delete(i); updateSelection() } })
   $('reportBody').querySelectorAll('[data-edit]').forEach(input => { input.oninput = () => {
     const index = Number(input.dataset.edit); state.edits[index] = input.value
@@ -484,7 +490,7 @@ function renderReport() {
 }
 $('reportFilter').onchange = $('reportStatus').onchange = renderReport; $('searchBox').oninput = renderReport
 $('selectAll').onchange = event => { const checked = event.target.checked; for (const { f, index } of reportRows()) if (selectableFinding(f,index)) checked ? state.selected.add(index) : state.selected.delete(index); renderReport() }
-action('selectRules', () => { reportRows().forEach(({f, index}) => { if (['rule', 'consistency'].includes(f.method) && f.editable && !f.applied && (state.edits[index] ?? f.suggested).trim()) state.selected.add(index) }); renderReport() })
+action('selectRules', () => { reportRows().forEach(({f, index}) => { if (['rule', 'consistency'].includes(findingType(f)) && f.editable && !f.applied && (state.edits[index] ?? f.suggested).trim()) state.selected.add(index) }); renderReport() })
 async function exportReport(overwrite = false, saveCurrent = false) {
   if (state.exportBusy || (!state.selected.size && !saveCurrent)) return
   state.exportBusy = true; updateSelection(); $('backBtn').disabled = true

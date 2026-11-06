@@ -15,6 +15,9 @@ def activate(session,observer=None):
 
 def checkpoint_identity(identity):
     session,observer=_CURRENT.get()
+    from .speaker_notes import enabled
+    if str(identity.get('source','')).lower().endswith('.pptx') and not enabled():
+        identity={**identity,'include_ppt_notes':False}
     return ({**identity,'task_session':session} if session is not None else identity),observer
 
 
@@ -34,6 +37,7 @@ def context(data,glossary,references,client):
     value={'files':digest(files),'model':identity['model'],'glossary':identity['glossary'],
         'references':digest(identity['references']),'pairing':digest(identity['pairing']),
         'direction':data.get('direction','zh-en'),'mode':data.get('translation_mode','faithful')}
+    if any(str(p).lower().endswith('.pptx') for p in data['paths']):value['include_ppt_notes']=data.get('include_ppt_notes',False)
     from .document_languages import extended,reference_identity
     if extended(value['direction']):value['multilingual']=reference_identity()
     return value
@@ -43,6 +47,7 @@ def guard(previous,current):
     labels={'files':'原稿内容或位置','model':'模型连接','glossary':'术语库','references':'参考资料',
         'pairing':'原文对照配对','direction':'翻译方向','mode':'翻译模式','multilingual':'官方多语言词库'}
     changed=[label for key,label in labels.items() if previous.get(key)!=current.get(key)]
+    if previous.get('include_ppt_notes',True)!=current.get('include_ppt_notes',True):changed.append('演讲者备注处理范围')
     if changed:
         model=previous.get('model',{}).get('model','')
         raise ValueError('无法按原断点继续：'+ '、'.join(changed)+'已变化。'+

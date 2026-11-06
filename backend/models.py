@@ -119,6 +119,8 @@ class Finding:
     occurrences: int = 1
     applied: bool = False             # 已由用户应用到原文件，无需再次复核
     numeric_addition_verified: bool = False  # Added numbers exist at an explicitly paired source position.
+    terminology_standard: bool = False  # Independently checked glossary standard, not a wording preference.
+    review_status: str = ""          # superseded / stale; never implies applied.
 
     def to_dict(self) -> dict[str, Any]:
         d = asdict(self)

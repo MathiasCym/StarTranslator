@@ -13,6 +13,17 @@ from functools import lru_cache
 from pathlib import Path
 from .glossary.store import data_dir
 
+# Read from the verified original 2.4.1 payload, not inferred from display tags.
+# Import only exact task/session scopes; callers revalidate cached content.
+SHIPPED_241={
+    'translation':'e95240e9ceb3c072913ade55a2f7f19e8daba649296e18738a75b6c225cb058a',
+    'translation-zh':'9d7cf2e1050fa2b8d45a852868424ab4d601ce1333d3c76091e9611f2cd7bc37',
+    'translation-multi':'44c6417fb5318db51929cec1b6b5f9454768d1e4f12aba6e4ee134ef2559e0cc',
+    'review':'65feb1e2211971c9332165ddda4a68c80b0f6f34c6cc08f2ab645cbfcdf3d498',
+    'review-zh':'9d7cf2e1050fa2b8d45a852868424ab4d601ce1333d3c76091e9611f2cd7bc37',
+    'review-multi':'44c6417fb5318db51929cec1b6b5f9454768d1e4f12aba6e4ee134ef2559e0cc',
+    'terminology-review':'5bb35abbb65b25e9d458ba224e55da3a2aaeb44bfcf7d9be8405292ed0cd9b4a'}
+
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
@@ -21,7 +32,9 @@ def digest(value):
 
 @lru_cache(maxsize=2)
 def policy(stage):
-    names = ['writing_policy.py', 'document_context.py', 'pptx_content.py', 'llm/client.py', 'text_integrity.py']
+    names = ['writing_policy.py', 'document_context.py', 'pptx_content.py', 'llm/client.py', 'text_integrity.py',
+             'document_translation_core.py','document_parallel.py','llm/transport_recovery.py','review_format.py']
+    if stage.startswith('review') or stage=='terminology-review':names+=['glossary/language_pairs.py','glossary/catalog.py']
     if stage in ('translation-multi','review-multi'):
         names+=['multilingual_documents.py','multilingual_quality.py','text_languages.py','formats.py','replacer/styled_text.py','extract/office.py','replacer/pptx_package.py','document_translation_policy.py']
     elif stage=='terminology-review':names+=['terminology_review.py','text_languages.py']
@@ -65,6 +78,12 @@ class Checkpoint:
                     db.execute('CREATE TABLE IF NOT EXISTS checkpoint_scopes (scope TEXT PRIMARY KEY, origin TEXT NOT NULL)')
                     db.execute('INSERT OR REPLACE INTO checkpoint_scopes VALUES (?,?)',(self.scope,str(identity.get('source',''))))
                 rows = db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?', (self.scope,stage)).fetchall()
+                if stage in SHIPPED_241 and identity.get('task_session') is not None:
+                    legacy=digest({'policy':SHIPPED_241[stage],'input':identity})
+                    known={key for key,_ in rows}
+                    rows.extend((key,value) for key,value in db.execute(
+                        'SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?',
+                        (legacy,stage)).fetchall() if key not in known)
                 # Explicit compatibility with the shipped 2.0.11–2.0.14 translators.
                 # Source/model/glossary/references/styles remain in the identity;
                 # every resumed paragraph still passes today's content checks.

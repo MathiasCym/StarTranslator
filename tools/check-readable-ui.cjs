@@ -1,8 +1,8 @@
 // Run with Node; the worker uses a hidden offscreen Electron window and isolated data.
-const runtime=require('electron')
+const runtime=require('electron'),theme=process.argv.includes('--theme=light')?'light':'dark'
 if(typeof runtime==='string') {
  const path=require('node:path'),fs=require('node:fs'),{spawnSync}=require('node:child_process')
- const file=path.resolve(__dirname,'../dist/qa/readability/readable-result.json')
+ const file=path.resolve(__dirname,'../dist/qa/'+(theme==='light'?'readability-light':'readability')+'/readable-result.json')
  fs.rmSync(file,{force:true})
  const task=spawnSync(runtime,[__filename,...process.argv.slice(2)],{cwd:path.resolve(__dirname,'..'),windowsHide:true,timeout:150000,encoding:'utf8'})
  if(task.error)console.error(task.error.message)
@@ -11,7 +11,7 @@ if(typeof runtime==='string') {
  process.exit(task.status??1)
 }
 const {app,BrowserWindow,ipcMain}=require('electron'),fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict')
-const root=path.resolve(__dirname,'..'),qaDir=path.join(root,'dist','qa','readability'),wait=ms=>new Promise(r=>setTimeout(r,ms)),result={passed:false,checks:[],screenshots:[],companyDocumentsSent:false}
+const root=path.resolve(__dirname,'..'),qaDir=path.join(root,'dist','qa',theme==='light'?'readability-light':'readability'),wait=ms=>new Promise(r=>setTimeout(r,ms)),result={passed:false,checks:[],screenshots:[],companyDocumentsSent:false}
 const textLanguages=JSON.parse(fs.readFileSync(path.join(root,'glossary/multilingual.json'))).languages
 fs.mkdirSync(qaDir,{recursive:true})
 app.setPath('userData',path.join(qaDir,'readable-ui-profile'));BrowserWindow.prototype.show=function(){}
@@ -90,7 +90,8 @@ server.listen(0,'127.0.0.1',async()=>{
   // zoom after the fixture's constructor. Pin the fixture to its measured
   // display; the separate presentation check measures the real app window.
   desktop.webContents.setZoomFactor(zoom)
-  const run=code=>desktop.webContents.executeJavaScript(code),snap=async(name)=>{desktop.webContents.invalidate();await wait(350);const target=path.join(qaDir,`${name}.png`);assert(frame,'offscreen frame missing');fs.writeFileSync(target,frame.toPNG());result.screenshots.push(target)}
+  const run=code=>desktop.webContents.executeJavaScript(code),snap=async(name)=>{if(theme==='light'){const issues=await run('('+require('./theme-paint-audit.cjs').toString()+')()');assert.equal(issues.length,0,JSON.stringify({name,issues}));}desktop.webContents.invalidate();await wait(350);const target=path.join(qaDir,`${name}.png`);assert(frame,'offscreen frame missing');fs.writeFileSync(target,frame.toPNG());result.screenshots.push(target)}
+  await run('StarAppearance.set('+JSON.stringify(theme)+')');result.theme=theme
   const layout=()=>run(`(()=>{const main=document.querySelector('body>main'),aside=document.querySelector('.task-options'),r=$('runBtn').getBoundingClientRect(),top=document.querySelector('.topbar').getBoundingClientRect(),list=$('filelist'),row=list.querySelector('li');return {width:innerWidth,height:innerHeight,mainScroll:main.scrollHeight-main.clientHeight,asideScroll:aside.scrollHeight-aside.clientHeight,run:{top:r.top,bottom:r.bottom},horizontal:document.documentElement.scrollWidth-innerWidth,topbar:top.height,topbarScroll:document.querySelector('.topbar').scrollWidth-innerWidth,bodyFont:parseFloat(getComputedStyle(document.body).fontSize),buttonFont:parseFloat(getComputedStyle($('runBtn')).fontSize),fileRows:row?list.clientHeight/row.getBoundingClientRect().height:0}})()`)
   await run("Object.defineProperty(document,'hidden',{get:()=>false});document.hasFocus=()=>true;$('modelModal').hidden=false")
   await wait(2300);assert.equal(await run("$('updateNoticeDialog').open"),false)
@@ -132,10 +133,10 @@ server.listen(0,'127.0.0.1',async()=>{
    await run("state.files=[];renderFiles();$('referencesPanel').open=false")
    const empty=await layout();result.checks.push({empty});assert.equal(empty.horizontal,0,JSON.stringify(empty));assert(empty.mainScroll<3,JSON.stringify(empty));assert(empty.topbarScroll<3,JSON.stringify(empty));assert(empty.bodyFont>=16&&empty.bodyFont<=16.5&&empty.buttonFont<=16.5,JSON.stringify(empty));assert(empty.run.bottom<=h,JSON.stringify(empty))
    if(w===1280){
-    const flow=await run("(()=>{const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches,a=document.getAnimations().find(a=>a.animationName==='sheen');return {reduced,name:getComputedStyle($('dropzone'),'::before').animationName,state:a?.playState,duration:a?.effect.getTiming().duration}})()")
+    const flow=await run("(()=>{const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches,a=document.getAnimations().find(a=>a.animationName.endsWith('sheen'));return {reduced,name:getComputedStyle($('dropzone'),'::before').animationName,state:a?.playState,duration:a?.effect.getTiming().duration}})()")
     // Headless Windows runners may request reduced motion or pause rendering.
     if(flow.reduced)assert.equal(flow.name,'none')
-    else assert(flow.name==='sheen'&&flow.state==='running'&&flow.duration===6000,JSON.stringify(flow))
+    else assert(flow.name===(theme==='light'?'light-desktop-sheen':'sheen')&&flow.state==='running'&&flow.duration===6000,JSON.stringify(flow))
     assert.equal(await run("$('dropzone').querySelector('img').naturalWidth>0"),true)
     assert.equal(await run("getComputedStyle($('dropzone').querySelector('img')).width"),'144px')
     await run("$('dropzone').dispatchEvent(new Event('dragover',{cancelable:true}))")
@@ -171,6 +172,28 @@ server.listen(0,'127.0.0.1',async()=>{
   result.checks.push({lexicon});assert(lexicon.visibleRows>=10,JSON.stringify(lexicon));assert(lexicon.right<=1280&&lexicon.bottom<=820,JSON.stringify(lexicon))
   await snap('glossary-208')
   const catalogFingerprint=await run("callApi('GET','/api/lexicon').then(r=>r.fingerprint)")
+  assert.deepEqual(await run("[...$('lexiconLanguage').options].map(o=>o.value)"),['en-US','zh-Hant-TW','ja-JP','ko'])
+  for(const language of ['zh-Hant-TW','ja-JP','ko']){
+   await run(`(async()=>{$('lexiconLanguage').value=${JSON.stringify(language)};await $('lexiconLanguage').onchange()})()`)
+   assert.equal(await run("$('lexiconLanguage').value"),language)
+   assert.equal(await run("$('termZh').readOnly"),true)
+   assert.equal(await run("$('openTeamSync').disabled"),true)
+   assert.equal(await run("$('termEn').value.length>0"),true,'Actual official target should appear immediately')
+   const original=await run("$('termEn').value")
+   await run(`$('termAliases').value='QA permitted alias';$('termAliases').dispatchEvent(new Event('input'));$('termWrong').value='QA wrong variant';$('termWrong').dispatchEvent(new Event('input'));$('termPriority').value='1';$('termPriority').dispatchEvent(new Event('input'));$('saveLexicon').click()`)
+   for(let i=0;i<100&&!await run("$('lexiconStatus').textContent.startsWith('已保存 ')");i++)await wait(100)
+   assert.equal(await run("$('lexiconStatus').textContent.startsWith('已保存 ')"),true)
+   await run("$('reloadLexicon').click()");await wait(400)
+   assert.equal(await run("$('termAliases').value"),'QA permitted alias');assert.equal(await run("$('termWrong').value"),'QA wrong variant');assert.equal(await run("$('termPriority').value"),'1')
+   await run(`$('termSearch').value=${JSON.stringify(original)};$('termSearch').dispatchEvent(new Event('input'))`)
+   assert(await run("$('termRows').children.length>0"))
+   await run("$('lexiconGridView').click()")
+   assert.equal(await run("[...$('tableHead').querySelectorAll('th')].some(e=>e.textContent.startsWith('_'))"),false)
+   await snap('glossary-'+language);await run("$('lexiconListView').click()")
+  }
+  await run("(async()=>{$('lexiconLanguage').value='en-US';await $('lexiconLanguage').onchange()})()")
+  assert.equal(await run("callApi('GET','/api/lexicon').then(r=>r.fingerprint)"),catalogFingerprint)
+  result.checks.push('Main glossary: four supported languages, genuine targets, editable aliases/errors/confirmed state, save/reload/search/grid, English unchanged')
   await run("$('openMultilingual').click()")
   for(let i=0;i<80&&!await run("$('catalogStatus').textContent.includes('16 种语言')");i++)await wait(100)
   assert.equal(await run("$('multilingualDialog').open"),true)
@@ -244,6 +267,25 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run('state.selected.size'),321)
   assert.equal(await run("$('reportBody').querySelector('[data-edit=\"320\"]').readOnly"),false)
   result.checks.push('select all handles 364 suggestions, blank edits, applied states and mixed selection')
+  await run(`state.report.findings=[{file:'sample.pptx',file_path:'C:/qa/sample.pptx',slide:7,method:'llm',editable:false,applied:false,review_status:'stale',found_text:'Old wording',suggested:'Standard wording',reason:'Confirmed term',not_editable_reason:'本条建议未应用；原文已被其他建议改写。'},{file:'sample.pptx',file_path:'C:/qa/sample.pptx',slide:7,method:'llm',editable:false,applied:false,review_status:'superseded',found_text:'Old grammar',suggested:'Preferred grammar',reason:'Wording preference'}];state.edits={};state.selected.clear();$('reportStatus').value='pending';renderReport()`)
+  assert.equal(await run("$('reportBody').querySelectorAll('[data-finding]').length"),1)
+  assert.equal(await run("$('reportBody').querySelector('.replacement-state').textContent"),'原文已变化')
+  assert.equal(await run("$('reportBody').querySelector('[data-index]').disabled"),true)
+  assert((await run("$('reportBody').querySelector('.suggestion-copy label').textContent")).includes('未应用'))
+  await run("$('reportStatus').value='all';renderReport()")
+  assert.equal(await run("$('reportBody').querySelectorAll('[data-finding]').length"),2)
+  assert((await run("$('reportBody').textContent")).includes('由术语建议取代'))
+  result.checks.push('stale suggestion explicitly remains unapplied; superseded wording not counted as pending or applied')
+  await run(`state.report.findings=[{file:'sample.pptx',file_path:'C:/qa/sample.pptx',method:'llm',kind:'term',terminology_standard:true,editable:true,found_text:'Old term',suggested:'Standard term'},{file:'sample.pptx',file_path:'C:/qa/sample.pptx',method:'llm',editable:true,found_text:'Old wording',suggested:'Natural wording'}];state.edits={};state.selected.clear();$('reportStatus').value='pending';$('reportFilter').value='all';renderReport();$('selectRules').click()`)
+  assert.deepEqual(await run('[...state.selected]'),[0])
+  await run("$('reportFilter').value='rule';renderReport()")
+  assert.equal(await run("$('reportBody').querySelectorAll('[data-finding]').length"),1)
+  assert((await run("$('reportBody').textContent")).includes('术语规范'))
+  await run("$('reportFilter').value='llm';renderReport()")
+  assert.equal(await run("$('reportBody').querySelectorAll('[data-finding]').length"),1)
+  assert((await run("$('reportBody').textContent")).includes('Old wording'))
+  await run("$('reportFilter').value='all';renderReport()")
+  result.checks.push('model-confirmed glossary standards share terminology filters, selection and badges with rule standards')
   await run("$('exportProgressBox').hidden=false;$('exportProgressText').textContent='sample.pptx · 正在逐页检查版式（3/8）';$('exportProgress').value=37.5")
   const saving=await run("(()=>{const a=$('applyBtn').getBoundingClientRect(),p=$('exportProgressBox').getBoundingClientRect();return {progressTop:p.top,progressBottom:p.bottom,buttonBottom:a.bottom,height:innerHeight}})()")
   assert(saving.progressTop>=0&&saving.progressBottom<=saving.height&&saving.buttonBottom<=saving.height,JSON.stringify(saving));await snap('report-save-progress')
@@ -310,6 +352,7 @@ server.listen(0,'127.0.0.1',async()=>{
    await run("$('reviewCompleteBack').click()");await wait(80)
    assert.equal(await run("$('workspace').hidden"),false)
    const startsBefore=taskStarts.length,readsBefore=historyResumeReads
+   assert.equal(await run("$('speakerNotesOption').hidden"),true)
    await run(`$(${JSON.stringify(kind==='translate_review'?'runCombined':'runBtn')}).click()`)
    if(kind==='translate_review'){
     await wait(50);assert.equal(await run("$('combinedOutputModal').hidden"),false)
@@ -318,12 +361,23 @@ server.listen(0,'127.0.0.1',async()=>{
    for(let n=0;n<40&&taskStarts.length===startsBefore;n++)await wait(25)
    assert.equal(taskStarts.length,startsBefore+1)
    assert.equal(taskStarts.at(-1).kind,kind)
+   assert.equal(taskStarts.at(-1).include_ppt_notes,false)
    assert.deepEqual(taskStarts.at(-1).paths,resumeOptions.paths)
    assert.equal(Object.hasOwn(taskStarts.at(-1),'resume_from'),false)
    assert.equal(historyResumeReads,readsBefore)
   }
   await run("AppDialogs.ask=window.__originalNavigationAsk;delete window.__originalNavigationAsk")
   result.checks.push('return from cancelled results to home: same file starts fresh for check/translate/combined, even after explicit history resume; no recovery marker or history request')
+  await run("busy(false);state.files=['C:/qa/notes-option.pptx'];state.references=[];state.pairs={};setMode('translate');renderFiles()")
+  assert.equal(await run("$('speakerNotesOption').hidden"),false)
+  assert.equal(await run("$('includePptNotes').checked"),false)
+  await run("$('includePptNotes').checked=true;$('runBtn').click()")
+  for(let n=0;n<40&&taskStarts.at(-1).paths[0]!=='C:/qa/notes-option.pptx';n++)await wait(25)
+  assert.equal(taskStarts.at(-1).include_ppt_notes,true)
+  await run("busy(false);state.files=['C:/qa/plain.docx'];renderFiles()")
+  assert.equal(await run("$('speakerNotesOption').hidden"),true)
+  assert.equal(await run("$('includePptNotes').checked"),false)
+  result.checks.push('speaker notes default off; PPT opt-in reaches actual task request; non-PPT selection hides and resets the control')
   await run("state.report=null;state.job={id:'resume-fixture',status:'failed'};showTaskFailure(new Error('模型连接中断'))")
   assert.equal(await run("$('failureResume').hidden"),false);await snap('failure-resume-207')
   await run("state.job={id:'resume-fixture',status:'running'};showTaskFailure(new Error('连接暂时中断'))")
@@ -366,6 +420,14 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("$('completionResume').hidden||$('completionExportLog').hidden||$('completionIssue').hidden"),false)
   assert((await run("$('completionIssue').textContent")).includes('1 段'))
   await snap('completion-model-interruption')
+  await run(`state.job={id:'network-fixture',status:'partial',can_resume:true,result:{outputs:[{review_items:Array.from({length:35},(_,i)=>({locator:String(i),service_unavailable:true}))}]}};state.report.stats={model_status:'partial',review_processing_status:'complete',manual_review:35,segments:18,judged:18,unreviewed:35};state.report.findings=[...Array.from({length:9},(_,i)=>({source:'text',method:'llm',editable:true,found_text:'Advice '+i,suggested:'Correction '+i})),...Array.from({length:35},(_,i)=>({source:'translation',method:'rule',editable:true,found_text:'Untranslated '+i,suggested:'',reason:'多语言翻译未完成：连接中断'}))];renderCheckCompletion()`)
+  assert((await run("$('reviewCompleteTitle').textContent")).includes('模型连接中断'))
+  assert((await run("$('completionIssue').textContent")).includes('35 处'))
+  assert.equal(await run("$('completionResume').hidden"),false)
+  assert((await run("$('completionReviewTitle').textContent")).includes('9 项校对建议'))
+  assert(!(await run("$('completionReviewTitle').textContent")).includes('44'))
+  await run("state.job={id:'manual-fixture',status:'partial',can_resume:true};state.report.findings=[]")
+  result.checks.push('35 transport-retained paragraphs are explicit interrupted translation; only 9 actual proofreading suggestions guide review')
   await run("state.report.stats={model_status:'complete',segments:278,judged:278};state.outputs=[{path:'C:/qa/final.pptx',needs_review:100,layout_warnings:[{reason:'请核对版式'}]}];renderCheckCompletion()")
   assert.equal(await run("$('reviewCompleteTitle').textContent"),'翻译并校对完成')
   assert.equal(await run("$('completionResume').hidden&&$('completionExportLog').hidden"),true)
@@ -437,6 +499,7 @@ server.listen(0,'127.0.0.1',async()=>{
   sharedJobs=[{id:'shared-resume-fixture',kind:'translate',status:'interrupted',message:'任务已中断',downloads:[],can_resume:true,percent:50}]
   const shared=new BrowserWindow({show:false,width:900,height:850,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});await shared.loadURL(`http://127.0.0.1:${port}/`)
   const sr=code=>shared.webContents.executeJavaScript(code)
+  await sr('StarAppearance.set('+JSON.stringify(theme)+')')
   await wait(200);assert.equal(await sr("[...$('jobs').querySelectorAll('button')].some(b=>b.textContent==='继续未完成任务')"),true)
   await sr("[...$('jobs').querySelectorAll('button')].find(b=>b.textContent==='继续未完成任务').click()");await wait(200)
   assert.equal(sharedResumes,1);assert.equal(await sr('selected'),'shared-restored-fixture')
@@ -486,6 +549,17 @@ server.listen(0,'127.0.0.1',async()=>{
   await sr('refresh()');await wait(100)
   assert.equal(await sr("$('jumpToReview').textContent"),'查看校对报告')
   result.checks.push('shared completion guide counts remaining suggestions, wraps at 480px and moves keyboard focus to the report; applied advice is not unfinished processing')
+  sharedJobs[0].result.report.findings=[{file_index:0,editable:true,method:'llm',terminology_standard:true,found_text:'Old term',suggested:'Standard term',reason:'Confirmed standard'},{file_index:0,editable:true,method:'llm',found_text:'Old wording',suggested:'Natural wording',reason:'Grammar'}]
+  await sr('refresh()');await wait(100)
+  await sr("$('reportType').value='rule';$('reportType').dispatchEvent(new Event('change'))")
+  assert.equal(await sr("$('findings').querySelectorAll('.suggestion').length"),1)
+  assert((await sr("$('findings').textContent")).includes('Standard term'))
+  assert((await sr("$('findings').textContent")).includes('术语规范'))
+  await sr("$('reportType').value='llm';$('reportType').dispatchEvent(new Event('change'))")
+  assert.equal(await sr("$('findings').querySelectorAll('.suggestion').length"),1)
+  assert((await sr("$('findings').textContent")).includes('Old wording'))
+  await sr("$('reportType').value='all';$('reportType').dispatchEvent(new Event('change'))")
+  result.checks.push('shared terminology filters include independently confirmed standards without mixing ordinary grammar')
   assert.equal(await sr("$('reportCompare').hidden"),false)
   assert((await sr("$('reportCompare').textContent")).includes('初稿'))
   await sr("$('reportFile').value='1';$('reportFile').dispatchEvent(new Event('change'));$('reportCompare').click()");await wait(100)
@@ -594,6 +668,16 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("getComputedStyle($('dropzone'),'::before').animationName"),'none')
   desktop.webContents.debugger.detach()
   result.checks.push('system reduced-motion preference preserved')
+  if(theme==='light'){
+   await setViewport(1280,820)
+   const inventory=await run("[...document.querySelectorAll('body>.modal,body>dialog')].map(e=>e.id)")
+   for(const id of inventory){
+    await run("(()=>{document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.querySelectorAll('body>.modal').forEach(d=>d.hidden=true);const d=document.getElementById("+JSON.stringify(id)+");d.hidden=false;if(d.tagName==='DIALOG')d.showModal()})()")
+    await snap('theme-'+id)
+   }
+   await run("document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.querySelectorAll('body>.modal').forEach(d=>d.hidden=true)")
+   result.checks.push({lightWindowInventory:inventory})
+  }
   result.passed=true
  }catch(error){result.error=error.stack}
  finally{fs.writeFileSync(path.join(qaDir,'readable-result.json'),JSON.stringify(result,null,2));clearTimeout(timeout);server.closeAllConnections();server.close();app.emit('will-quit');app.exit(result.passed?0:1)}

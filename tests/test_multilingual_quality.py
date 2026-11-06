@@ -274,10 +274,11 @@ class QualityTests(unittest.TestCase):
                 if '已复核的完整译文' in data:raise LLMUnavailable('synthetic note style disconnect')
                 return super().chat_json(prompt,system,**options)
         model=NoteModel('1つの出力ポートに接続します。')
-        result=documents.translate_file(str(path),Glossary([]),None,str(self.root/'saved'),client=model,direction='zh-CN>ja-JP',workers=1)
+        result=documents.translate_file(str(path),Glossary([]),None,str(self.root/'saved'),client=model,direction='zh-CN>ja-JP',workers=1,include_ppt_notes=True)
         self.assertTrue(result['translation_complete'],result['review_items'])
         self.assertTrue(any('局部强调' in w['reason'] for w in result['style_warnings']))
-        texts=[s.text for s in extract(result['path']) if s.source=='notes' and s.editable]
+        from backend.speaker_notes import processing
+        with processing(True):texts=[s.text for s in extract(result['path']) if s.source=='notes' and s.editable]
         self.assertIn('1つの出力ポートに接続します。',texts)
 
 

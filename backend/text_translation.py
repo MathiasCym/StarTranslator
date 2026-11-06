@@ -261,7 +261,7 @@ def run(job, client):
         from . import text_languages
         reference={}
         if job['direction'] not in DIRECTIONS:
-            try:reference=text_languages.catalog.read()
+            try:reference=text_languages.catalog.effective()
             except ValueError:update(warning='官方多语言词库暂不可读取，本次继续模型翻译，未引用缺失词条。')
         if job['direction']=='en-zh' and '_person_terms' not in job:
             from types import SimpleNamespace

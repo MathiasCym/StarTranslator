@@ -11,6 +11,10 @@ class StyleMappingError(ValueError):
     """Valid translation content needs a separate inline-style mapping."""
 
 
+VISIBLE_STYLE_RULE=('原文仅有空白的样式ID应只输出空白，不能把译文文字或符号分配给原稿从未用于可见文字的空白样式。'
+                    '词语、助词和语序调整应使用对应真实文字的样式，不能凭空引入暗色或默认色正文。')
+
+
 def _style_key(rpr):
     if rpr is None:
         return ()
@@ -76,6 +80,12 @@ def response_runs(result, text, groups):
     if ''.join(r['text'] for r in runs) != text:
         runs = _align_runs(runs, text)
     by_id = {g['id']: g for g in groups}
+    visible_styles={g.get('key',g['id']) for g in groups if g['text'].strip()}
+    for run in runs:
+        origin=by_id[run['id']]
+        if (run['text'].strip() and not origin['text'].strip()
+                and origin.get('key',origin['id']) not in visible_styles):
+            raise StyleMappingError(f"样式ID {origin['id']} 原本只用于空白，不能承载译文可见文字；请改用对应真实词语的原有样式。")
     # Repeated runs may share the same visual style. Require each distinct
     # meaningful style, not every incidental run ID created by PowerPoint.
     meaningful = {g.get('key', g['id']) for g in groups if any(c.isalnum() for c in g['text'])}
@@ -137,7 +147,9 @@ def _align_runs(runs, text):
 def dominant_runs(text, groups):
     weights = {}
     counts = {}
-    for group in groups:
+    # A repeatedly occurring spacer is not an authored body-text style.
+    readable=[g for g in groups if g['text'].strip()] or groups
+    for group in readable:
         key = group.get('key', group['id'])
         weights[key] = weights.get(key, 0) + len(group['text'])
         counts[key] = counts.get(key, 0) + 1

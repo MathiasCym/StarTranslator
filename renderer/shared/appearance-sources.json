@@ -1,0 +1,15 @@
+{
+  "renderer/style.css": "950fc580c265baed9ef54117e5542854de5f3341b248f14d402c3e99e0f88206",
+  "renderer/workspace.css": "13bcaac106a24572b5048185e7f8d53e945cb5e45b66b35c41f2f0b96d0eae9e",
+  "renderer/collaboration.css": "116e1fd1b4d744bd8e5c996938d4641b7eaacc4e0ab7beebe463ff1415b1fd11",
+  "renderer/shared/comparison-view.css": "c82c414bbb04da2283fea7634424d0ae053346b1e1a6555a3a1853308f2f9597",
+  "renderer/community.css": "7be883f816e91c11a2173d842615f8e251e5619de916a62769827b4f82c11973",
+  "renderer/shared/form-controls.css": "171a4085a723637bde3bc5f4d060f1e91d135ef9da7f0dbf6ca208ea01c1e17f",
+  "renderer/readability.css": "af6a4f9b664355443cbc2fe2ed7969f76c9b301da7950f2e487f292daeb412d8",
+  "renderer/shared/text-translation.css": "fa11411f89a8b9d019147380580264ec5b417d4c9ce4eaaf06941ef98f2a33e4",
+  "renderer/multilingual.css": "b1f2474f043132841b190a99f4bc597adffcde51e9e187b6c9d84dcf84cbd61c",
+  "renderer/file-picker.css": "f674e00d3f560e82000546351effe5ce317be4891a73ce910f3a4f705aea054b",
+  "renderer/shared/shared.css": "75e0bec5f8bbfe0c9ed09ff232eaa9153353fce46d6d4fb7154662033b2829e8",
+  "renderer/shared/progress.css": "4fc6b52187902266f4ae2a681cc507ccacf1776dbc0daf8b4708c339491126ef",
+  "renderer/shared/report.css": "74c32a603782b5eb7e4f01e314fcc53fe669d44aedfa25728f88db0d3669d850"
+}

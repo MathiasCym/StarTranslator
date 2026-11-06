@@ -8,7 +8,7 @@ from uuid import uuid4
 from .glossary.store import data_dir
 
 RESUME_FIELDS = ('kind','paths','references','pairs','glossary_imports','output_dir',
-                 'translation_mode','combined_output','use_llm','workers','direction','source_language','target_language')
+                 'translation_mode','combined_output','use_llm','workers','direction','source_language','target_language','include_ppt_notes')
 
 
 @contextmanager
@@ -28,6 +28,7 @@ def begin(job_id, data, status='running'):
            'finished_at': '', 'paths': list(dict.fromkeys(data.get('paths', []))),
            'output_dir': data.get('output_dir') or '', 'translation_mode':data.get('translation_mode','faithful'), 'outputs': [], 'errors': [], 'counts': {}}
     row['resume_options'] = {key:data[key] for key in RESUME_FIELDS if key in data}
+    row['resume_options'].setdefault('include_ppt_notes',False)
     if '_checkpoint_session' in data:row['checkpoint_session']=data['_checkpoint_session']
     previous=data.get('_resume_row')
     if previous:
@@ -218,7 +219,9 @@ def display_record(row):
 def resume_options(job_id):
     row = record(job_id)
     if not row.get('resume_options'): raise ValueError('该早期任务未保存恢复设置，请重新添加原文件；新版任务会自动保存断点。')
-    return {**{key:value for key,value in row['resume_options'].items() if key in RESUME_FIELDS},'resume_from':job_id}
+    options={key:value for key,value in row['resume_options'].items() if key in RESUME_FIELDS}
+    options.setdefault('include_ppt_notes',any(str(p).lower().endswith('.pptx') for p in options.get('paths',[])))
+    return {**options,'resume_from':job_id}
 
 
 def save_resume_context(job_id,context):

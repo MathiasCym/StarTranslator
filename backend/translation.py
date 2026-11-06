@@ -112,6 +112,8 @@ def append_runs(styled,runs):
 
 def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, page_context=None, segment=None, translation_mode="faithful", initial_result=None):
     """Validate the English once; repair formatting without retranslating it."""
+    from .replacer.styled_text import VISIBLE_STYLE_RULE
+    if len(groups)>1:prompt+='\n'+VISIBLE_STYLE_RULE
     candidate = None
     # Complex inline emphasis needs semantic mapping. Uniform text remains a
     # normal request; reasoning is bounded to one useful call per mapped piece.
@@ -198,6 +200,9 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
         return anchored_runs(text, groups, glossary)
 
 
+from .speaker_notes import option as speaker_notes_option
+
+@speaker_notes_option
 def translate_file(path, glossary, references, output_dir=None, client=None, progress=None, cancel=None, workers=3, translation_mode="faithful", activity=None, defer_visual=False, direction='zh-en'):
     if direction not in ('zh-en','en-zh'):
         from .multilingual_documents import translate_file as multilingual_translate
@@ -295,9 +300,11 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     def page_worker(items):
         memory, page_context = {}, DocumentContext(segments)
         service_failures, service_error = 0, ''
+        service_epoch=None
         results = []
         for position, (index, seg) in enumerate(items):
             local_styles = []
+            local_epoch=None
             check_cancel(cancel)
             context = references.context(seg, segments.index(seg)) if references else ''
             groups = prepared[seg.locator]
@@ -342,7 +349,8 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 if is_pptx and any(c in seg.text for c in '\n\v'):
                     prompt+='\n当前仅翻译【待译原文】这一行；同一段落的其他行也只是上下文，不得提前补入其他行的品牌、地点、日期或动作。'
                 try:
-                    if service_failures >= 2:
+                    from .document_translation_core import transport_recovered,transport_epoch
+                    if service_failures >= 2 and not transport_recovered(client,service_epoch):
                         raise LLMUnavailable(service_error)
                     cache_key = page_context.cache_key(seg, piece)
                     if len(piece_groups)==1 and cache_key in memory:
@@ -395,6 +403,9 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                     service_failures = 0
                     paragraph_changed = True
                 except TranslationNeedsReview as error:
+                    from .document_translation_core import transport_epoch
+                    local_epoch=transport_epoch(error)
+                    if local_epoch is not None:service_epoch=local_epoch
                     service_failures = service_failures+1 if error.service_error else 0
                     if error.service_error: service_error = str(error)
                     candidate = error.candidate
@@ -415,6 +426,10 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                         runs, local_style, retained_source = piece_groups, False, True
                     local_issues.append(str(error))
                 except LLMUnavailable as error:
+                    from .document_translation_core import transport_epoch
+                    local_epoch=transport_epoch(error)
+                    if local_epoch is not None:service_epoch=local_epoch
+                    else:local_epoch=service_epoch
                     service_failures += 1
                     service_error = str(error)
                     runs, local_style, retained_source = piece_groups, False, True
@@ -448,48 +463,53 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                     except (ValueError,LLMUnavailable) as error:
                         local_styles.append({'slide':seg.slide,'locator':seg.locator,
                             'reason':'段内重复复核未完成，已保留完整译文，请核对：'+str(error)})
-            results.append((index, seg, groups, styled, paragraph_changed, retained_source, local_issues, local_styles))
+            results.append((index, seg, groups, styled, paragraph_changed, retained_source, local_issues, local_styles,local_epoch))
             processing(seg,finished=True)
         return results
-    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix='star-page') as pool:
-        futures = [pool.submit(page_worker, items) for items in groups_by_page.values()]
-        index = 0
-        for future in futures:
-            # Consume pages in source order. No Office XML is mutated by workers.
-            for _, seg, groups, styled, paragraph_changed, retained_source, local_issues, local_styles in future.result():
-                check_cancel(cancel)
-                paragraph = by_locator[seg.locator]
-                style_warnings.extend(local_styles)
-                if paragraph_changed:
-                    write_styled(paragraph, groups, styled)
-                    try:
-                        validate(seg.text, paragraph.text)
-                    except ValueError as error:
-                        if str(error) not in local_issues:
-                            local_issues.append(str(error))
-                    changed.append(seg.locator)
-                    translated += 1
-                if retained_source:
-                    untranslated += 1
-                if local_issues:
-                    review_items.append({'slide': seg.slide, 'para': seg.para, 'locator': seg.locator,
-                        'source_text': seg.text, 'translation': paragraph.text,
-                        'reason': '；'.join(dict.fromkeys(local_issues)), 'retained_source': retained_source,
-                        'service_unavailable':any('模型连接未能完成' in issue or '局部补译或修正未完成' in issue for issue in local_issues)})
-                index += 1
+    from .document_parallel import ordered_groups
+    index=0
+    for page_results in ordered_groups(groups_by_page.values(),page_worker,workers,cancel):
+        # Shared source-order execution; workers never mutate Office XML.
+        for result in page_results:
+            _,seg,groups,styled,paragraph_changed,retained_source,local_issues,local_styles=result[:8]
+            local_epoch=result[8] if len(result)>8 else None
+            check_cancel(cancel)
+            paragraph = by_locator[seg.locator]
+            style_warnings.extend(local_styles)
+            if paragraph_changed:
+                write_styled(paragraph, groups, styled)
+                try:
+                    validate(seg.text, paragraph.text)
+                except ValueError as error:
+                    if str(error) not in local_issues:
+                        local_issues.append(str(error))
+                changed.append(seg.locator)
+                translated += 1
+            if retained_source:
+                untranslated += 1
+            if local_issues:
+                review_items.append({'slide': seg.slide, 'para': seg.para, 'locator': seg.locator,
+                    'source_text': seg.text, 'translation': paragraph.text,
+                    'reason': '；'.join(dict.fromkeys(local_issues)), 'retained_source': retained_source,
+                    'service_unavailable':any('模型连接未能完成' in issue or '局部补译或修正未完成' in issue for issue in local_issues),
+                    'transport_epoch':local_epoch})
+            index += 1
     check_cancel(cancel)
     # Repair content before proofreading, for every supported format. Never
     # label a partially translated document as ready for English proofreading.
+    from .document_translation_core import ensure_coverage,repair_plan,may_recover_transport
+    review_items=ensure_coverage(todo,changed,review_items,by_locator)
     if review_items:
         repair_failures=0
-        repairs=[s for s in todo if contains_chinese(by_locator[s.locator].text) or any(item['locator']==s.locator for item in review_items)]
+        repairs=repair_plan(todo,review_items,lambda s:contains_chinese(by_locator[s.locator].text))
         notify('repair','正在核对翻译完整性，自动修正未译文字、日期与数值',0,len(repairs))
         for repair_index,seg in enumerate(repairs):
             check_cancel(cancel)
             paragraph=by_locator[seg.locator]
             unresolved=any(item['locator']==seg.locator for item in review_items)
             if not contains_chinese(paragraph.text) and not unresolved:continue
-            if any(item['locator']==seg.locator and item.get('service_unavailable') for item in review_items):continue
+            interrupted=[item for item in review_items if item['locator']==seg.locator and item.get('service_unavailable')]
+            if interrupted and not all(may_recover_transport(client,item.get('transport_epoch')) for item in interrupted):continue
             if repair_failures>=2:break
             notify('repair',f'正在修复第 {repair_index+1} / {len(repairs)} 处未完成内容；保留已完成的译文',repair_index,len(repairs))
             try:
@@ -615,12 +635,14 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 try:
                     shutil.copyfile(staged,publish)
                     check_cancel(cancel)
-                    if fingerprint(path)!=before:raise ValueError('翻译过程中原文件被修改，请重新加载再翻译。')
-                    os.replace(publish,destination)
+                    def guard_publish():
+                        check_cancel(cancel)
+                        if fingerprint(path)!=before:raise ValueError('翻译过程中原文件被修改，请重新加载再翻译。')
+                    from .document_translation_core import publish_new_file
+                    publish_new_file(publish,destination,guard_publish)
                 finally:
                     if os.path.exists(publish):os.unlink(publish)
             except Exception:
-                if destination.exists():destination.unlink()
                 raise
     pending_count=len(review_items)+len((output_audit or {}).get('issues',[]))
     # Glossary normalization and advisory consistency belong to proofreading.

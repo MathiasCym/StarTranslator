@@ -1,6 +1,6 @@
 // Exercise the shipped comparison component against a real native window.
 const runtime=require('electron'),path=require('node:path'),fs=require('node:fs')
-const root=path.resolve(__dirname,'..'),target=path.resolve(process.argv[2]||root),label=process.argv[3]||'source'
+const root=path.resolve(__dirname,'..'),target=path.resolve(process.argv[2]||root),label=process.argv[3]||'source',light=label.includes('light')
 if(!/^[a-z0-9-]+$/.test(label))throw Error('Invalid QA label')
 const out=path.join(root,'dist/qa/comparison'),file=path.join(out,label+'-result.json')
 if(typeof runtime==='string') {
@@ -23,7 +23,7 @@ const server=http.createServer((req,res)=>{
   const token=new URL(req.url,'http://localhost').searchParams.get('preview_token'),english=name.endsWith('output')
   return res.end(`<html><head><meta charset="UTF-8"></head><body style="margin:0;background:#fff;color:#153a55;font:32px Arial"><div style="padding:60px"><h1>${english?'Project Research':'项目调研'}</h1><p>${english?'Complete English document page':'完整中文原稿页面'}</p></div><script>parent.postMessage({channel:'star-page-preview',token:${JSON.stringify(token)},type:'ready',total:3,notice:${JSON.stringify(previewNotice)}},'*')</script></body></html>`)
  }
- if(name==='/')return res.end(`<html><head><meta charset="UTF-8">${styles}</head><body><dialog id="comparisonDialog" class="shared-dialog comparison-dialog"><div class="panel-head"><h3>原文与译文</h3><button id="close" class="btn ghost">关闭</button></div><p id="comparisonNote">原稿 → 最新译文</p><div class="comparison-filters"><input placeholder="搜索原文或译文"></div><div class="comparison-scroll"><table><tr><td>中文原稿</td><td>Corrected English</td></tr></table></div></dialog><script src="/shared/comparison-view.js"></script><script>const d=document.querySelector('#comparisonDialog');document.querySelector('#close').onclick=()=>d.close();function openViewer(){PageComparison.open(d,document.querySelector('.comparison-filters'),document.querySelector('.comparison-scroll'),{source_name:'source.pptx',output_name:'checked.pptx'},{source:'/frame',output:'/frame'})}openViewer()</script></body></html>`)
+ if(name==='/')return res.end(`<html data-surface="desktop" data-theme="${light?'light':'dark'}"><head><meta charset="UTF-8">${styles}</head><body><dialog id="comparisonDialog" class="shared-dialog comparison-dialog"><div class="panel-head"><h3>原文与译文</h3><button id="close" class="btn ghost">关闭</button></div><p id="comparisonNote">原稿 → 最新译文</p><div class="comparison-filters"><input placeholder="搜索原文或译文"></div><div class="comparison-scroll"><table><tr><td>中文原稿</td><td>Corrected English</td></tr></table></div></dialog><script src="/shared/comparison-view.js"></script><script>const d=document.querySelector('#comparisonDialog');document.querySelector('#close').onclick=()=>d.close();function openViewer(){PageComparison.open(d,document.querySelector('.comparison-filters'),document.querySelector('.comparison-scroll'),{source_name:'source.pptx',output_name:'checked.pptx'},{source:'/frame',output:'/frame'})}openViewer()</script></body></html>`)
  if(name==='/frame')return res.end('<html><body style="background:white;color:black">Complete document page</body></html>')
  const resource=path.join(target,'renderer',name.slice(1))
  if(!resource.startsWith(path.join(target,'renderer')+path.sep)||!fs.existsSync(resource)){res.statusCode=404;return res.end()}
@@ -85,6 +85,7 @@ server.listen(0,'127.0.0.1',async()=>{
   }
   assert.notEqual(win,fixture,'Actual main application did not initialize')
   fixture.destroy();win.webContents.setBackgroundThrottling(false)
+  await run('StarAppearance.set('+JSON.stringify(light?'light':'dark')+')')
   win.webContents.debugger.attach('1.3');await win.webContents.debugger.sendCommand('Emulation.setFocusEmulationEnabled',{enabled:true})
   ipcMain.removeHandler('backend-port');ipcMain.handle('backend-port',()=>server.address().port)
   ipcMain.removeHandler('api');ipcMain.handle('api',()=>({source_name:'original.docx',output_name:'checked.docx',rows:[{source:'项目调研',translation:'Project research',editable:true,para:1}]}))
@@ -98,10 +99,11 @@ server.listen(0,'127.0.0.1',async()=>{
    await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true});await wait(1100)
    assert.equal(await run("[...$('comparisonDialog').querySelectorAll('.pc-status')].every(p=>p.hidden)"),!previewNotice,'Compatible renderer notice must remain visible after ready; actual pages must not show it')
    if(previewNotice){result.noticeRects=await run("[...$('comparisonDialog').querySelectorAll('.pc-pane')].map(p=>{const a=p.querySelector('.pc-status').getBoundingClientRect(),b=p.querySelector('iframe').getBoundingClientRect();return {notice:{top:a.top,bottom:a.bottom,height:a.height},frame:{top:b.top,bottom:b.bottom,height:b.height}}})");assert(result.noticeRects.every(r=>r.notice.bottom<=r.frame.top+.5&&r.frame.height>100),'Renderer notice must not overlap or squeeze out the document page')}
+   if(light){const issues=await run('('+require('./theme-paint-audit.cjs').toString()+')()');assert.equal(issues.length,0,JSON.stringify(issues))}
    const shot=path.join(out,label+'-actual-'+origin+'-fullscreen.png');fs.writeFileSync(shot,(await win.webContents.capturePage(undefined,{stayHidden:true,stayAwake:true})).toPNG());result.screenshots.push(shot)
    assert.equal(await run("document.fullscreenElement.closest('#comparisonDialog')!==null"),true,'Fullscreen must contain only the comparison, not the application root')
    assert.equal(await run(`(()=>{const d=$('comparisonDialog');return [...d.querySelectorAll('#closeComparison,[data-expand],.pc-frame')].every(e=>{const r=e.getBoundingClientRect(),hit=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return e===hit||e.contains(hit)})})()`),true,'App header or completion/report panel covers comparison controls/pages')
-   assert.equal(await run("getComputedStyle(document.fullscreenElement).backgroundColor"),'rgb(13, 37, 57)')
+   assert.equal(await run("getComputedStyle(document.fullscreenElement).backgroundColor"),light?'rgb(255, 255, 255)':'rgb(13, 37, 57)')
    await run("document.querySelector('[data-mode=text]').click()")
    assert.equal(await run("(()=>{const a=$('comparisonDialog').querySelector('.pc-toolbar').getBoundingClientRect(),b=$('compareSearch').getBoundingClientRect();return b.top>=a.bottom&&b.bottom<=innerHeight})()"),true)
    await leave();await until(()=>!win.isFullScreen());await run("$('closeComparison').click()")

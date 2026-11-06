@@ -7,6 +7,12 @@ from pathlib import Path
 from .loader import DEFAULT_PATH
 
 
+def effective():
+    """Local maintained standards for proofreading/free text only."""
+    from .language_pairs import overlay
+    return overlay(read())
+
+
 def read():
     path = Path(DEFAULT_PATH).parent / 'multilingual.json'
     try:

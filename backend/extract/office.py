@@ -62,7 +62,8 @@ def open_office(path):
                         blocked.append((key,'[嵌入图示]','image',slide,'嵌入图示内文字暂不支持自动处理。'))
         for s,slide in enumerate(slides,1):
             shapes(slide.shapes,f'slide{s}',s)
-            if slide.has_notes_slide:
+            from ..speaker_notes import enabled as include_notes
+            if include_notes() and slide.has_notes_slide:
                 placeholder=slide.notes_slide.notes_placeholder
                 if placeholder is not None and has_text_frame(placeholder):
                     for p,para in enumerate(placeholder.text_frame.paragraphs):

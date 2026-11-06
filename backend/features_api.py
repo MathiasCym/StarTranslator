@@ -203,6 +203,17 @@ def lexicon_save():
     return jsonify(store.save(data.get('entries'),data.get('fingerprint')))
 
 
+@api.route('/api/glossary/language', methods=['GET','POST'])
+def language_glossary():
+    from .glossary import language_pairs
+    if request.method=='GET':return jsonify(language_pairs.table(request.args.get('language','')))
+    data=request.get_json(force=True) or {}
+    try:
+        return jsonify(language_pairs.save(data.get('language'),data.get('rows'),data.get('columns'),data.get('fingerprint')))
+    except store.FileChanged as error:
+        return jsonify(error=str(error),conflict=True),409
+
+
 @api.post('/api/lexicon/select')
 def lexicon_select():
     data = request.get_json(force=True) or {}

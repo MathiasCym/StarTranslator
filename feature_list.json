@@ -1,6 +1,6 @@
 {
   "version": "1.1",
-  "project": "StarTranslator multilingual quality 2.4.1",
+  "project": "StarTranslator multilingual quality and appearance 2.4.2",
   "description": "多语言质量与受限并发修复、文档术语校对职责及独立语种选择；保留历史验收范围，按测试与正式更新验收结果交付。",
   "test_command": "python-runtime/python.exe -X utf8 -B tools/run-regressions.py",
   "created": "2026-10-26",
@@ -308,8 +308,59 @@
       "test_output": "690 final source and690 formalCI pass;128maintenance,5native;24offline language-format workflows;real Korean Word/PDF/PPT fresh0resume pass;1316official payload files/source/recovery and41packaged specialties pass;all7domestic assets exactGitHub SHA;actual2.4.0/2.3.7 GUI and2.3.6bridge native apply/restart/data/cache checks pass. See docs/validation-2.4.1.md. Prior failed QA and product cases retained.",
       "status": "completed",
       "passes": true
+    },
+    {
+      "id": "feat-019",
+      "category": "bugfix",
+      "priority": 1,
+      "description": "繁体及共享多语言漏译恢复、校对冲突状态、PPT颜色和默认关闭备注；先验证，不发版。",
+      "steps": [
+        "区分同文公式、简繁字形与未译正文，所有保留内容有独立判断",
+        "复用成熟数字单位解析，对失败位置有限定点修复，成功内容不重做",
+        "模型复核字段缺失时先补齐同一译文的完整复核结果",
+        "校对替换保留原词颜色、强调及RGB各字母颜色",
+        "备注默认不处理，桌面、局域网、历史、保存、对照范围一致",
+        "明确未应用、已取代及已失效建议；所选有效标准优先",
+        "再次保存短暂占用有限重试，每次检查外部修改",
+        "真实获授权PPT从头复测、原生渲染、完整回归通过后再安排下一版"
+      ],
+      "test_command": "python-runtime/python.exe -X utf8 -B tools/run-regressions.py; node tools/check-readable-ui.cjs; node tools/check-comparison-ui.cjs",
+      "test_status": "passed",
+      "test_output": "最终真实韩语及繁体PPT43/43正文翻译、校对并保存，0复用、0未完成，8页原生渲染、18备注部件原样。公共覆盖/样式/恢复完整回归737项通过；早期失败保留。正式发行待验。",
+      "status": "complete",
+      "passes": true
+    },
+    {
+      "id": "feat-020",
+      "category": "feature",
+      "priority": 1,
+      "description": "默认深色及可记忆白金浅色，覆盖桌面、Web、选择器和原生更新；安装卸载固定深色",
+      "steps": [
+        "实现",
+        "独立及回归验证"
+      ],
+      "test_command": "参见 .github/workflows/release.yml 与 tools/run-regressions.py",
+      "test_status": "passed",
+      "test_output": "两主题完整桌面、独立窗口、全屏、生产原生绘制及20个Web方向参数通过；保留文档颜色。维护136项及原生5项通过。",
+      "status": "complete",
+      "passes": true
+    },
+    {
+      "id": "feat-021",
+      "category": "feature",
+      "priority": 1,
+      "description": "主术语库切换英语、繁体中文、日语和韩语，支持维护并用于校对，其他语言只读",
+      "steps": [
+        "实现",
+        "独立及回归验证"
+      ],
+      "test_command": "参见 .github/workflows/release.yml 与 tools/run-regressions.py",
+      "test_status": "passed",
+      "test_output": "13项新增测试及两主题真实界面切换、搜索、保存、重新读取、表格通过；官方缺译真实、英语字节不变、个人修改保留、冲突拒绝。",
+      "status": "complete",
+      "passes": true
     }
   ],
-  "target_version": "2.4.1",
-  "updated": "2026-11-05"
+  "target_version": "2.4.2",
+  "updated": "2026-11-06"
 }

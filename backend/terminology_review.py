@@ -43,10 +43,11 @@ def occurrences(text,words):
 
 def requirements(source,current,glossary,reference,src,dst):
     candidates={}
-    def add(anchor,targets,origin,aliases=()):
+    def add(anchor,targets,origin,aliases=(),wrong=(),note='',concept=''):
         if not anchor or not any(targets) or not contains(source or current,anchor):return
-        key=normal(anchor);row=candidates.setdefault(key,{'source':anchor,'targets':[],'aliases':[],'origin':origin})
-        for name,values in [('targets',targets),('aliases',aliases)]:
+        key=(normal(anchor),concept) if concept else normal(anchor)
+        row=candidates.setdefault(key,{'source':anchor,'targets':[],'aliases':[],'wrong_variants':[],'origin':origin,'note':note,'reference_english':concept})
+        for name,values in [('targets',targets),('aliases',aliases),('wrong_variants',wrong)]:
             row[name]+=list(v for v in values if v and v not in row[name])
     for entry in glossary.entries:
         if entry.priority!=1:continue
@@ -60,7 +61,12 @@ def requirements(source,current,glossary,reference,src,dst):
         terms=row.get('terms',{});target=terms.get(dst)
         if not target:continue
         if not source and dst in ('en-US','zh-CN'):continue
-        aliases=[]
+        maintained=row.get('maintenance',{}).get(dst,{})
+        if maintained and maintained.get('priority')!=1:continue
+        aliases=maintained.get('variants',[]);wrong=maintained.get('wrong_variants',[])
+        origin='本机已确认词库' if maintained else '官方多语言词库'
+        note=maintained.get('note','')
+        concept=terms.get('en-US','') if dst not in ('en-US','zh-CN') else ''
         if source and dst=='en-US':
             local=next((entry for entry in glossary.entries if entry.priority==1 and normal(entry.zh)==normal(terms.get('zh-CN',''))),None)
             if local:target=local.en;aliases=local.variants
@@ -68,18 +74,19 @@ def requirements(source,current,glossary,reference,src,dst):
             anchor=terms.get(src)
             # Editable Chinese/English standards supersede the old official pair.
             if {src,dst}<={'zh-CN','en-US'} and anchor and normal(anchor) in candidates:continue
-            add(anchor,[target],'官方多语言词库',aliases)
+            anchors=[anchor]+row.get('maintenance',{}).get(src,{}).get('variants',[])
+            for form in anchors:add(form,[target],origin,aliases,wrong,note,concept)
             # Technical decks commonly mix Chinese slides and English notes.
             # A task's source selector must not hide literal English terms.
-            if src!='en-US':add(terms.get('en-US'),[target],'官方多语言词库',aliases)
+            if src!='en-US':add(terms.get('en-US'),[target],origin,aliases,wrong,note,concept)
         elif not source:
             for language,anchor in terms.items():
-                if language!=dst:add(anchor,[target],'官方多语言词库')
+                if language!=dst:add(anchor,[target],origin,aliases,wrong,note,concept)
     rows=[]
     for row in candidates.values():
         expected=occurrences(source,[row['source']]) if source else 1
         actual=occurrences(current,row['targets']+row['aliases'])
-        if actual>=max(1,expected):continue
+        if actual>=max(1,expected) and not any(contains(current,v) for v in row['wrong_variants']):continue
         row={**row,'id':str(len(rows)),'source_occurrences':expected,'standard_or_alias_occurrences':actual};rows.append(row)
     return rows
 
@@ -116,7 +123,7 @@ def augment(segments,glossary,findings,stats,*,source_language=None,target_langu
     if not use_llm:return findings,stats
     src=source_language;dst=target_language
     cancel=cancel or threading.Event();catalog_error=None
-    try:reference=catalog.read()
+    try:reference=catalog.effective()
     except (OSError,ValueError) as error:
         reference={'entries':[]};catalog_error=str(error)
         stats.setdefault('warnings',[]).append('官方术语检查未完成：'+catalog_error)
@@ -193,10 +200,13 @@ def augment(segments,glossary,findings,stats,*,source_language=None,target_langu
             stats.setdefault('warnings',[]).append(f'{segment.file}（{segment.locator}）：术语检查未完成：{error}')
             stats.setdefault('terminology_pending',[]).append({'segment_id':segment.id,'locator':segment.locator,'slide':segment.slide,'reason':error})
         for item in accepted:
-            if any(f.segment_id==segment.id and f.found_text==item['original'] and f.suggested==item['replacement'] for f in findings+extra):continue
+            duplicate=next((f for f in findings+extra if f.segment_id==segment.id and f.found_text==item['original'] and f.suggested==item['replacement']),None)
+            if duplicate:
+                duplicate.terminology_standard=True
+                continue
             finding=Finding(segment_id=segment.id,file=segment.file,file_path=segment.file_path,slide=segment.slide,
                 para=segment.para,source=segment.source,found_text=item['original'],suggested=item['replacement'],
-                context=segment.text,reason='术语校对：'+item['reason'],method='llm',kind='term')
+                context=segment.text,reason='术语校对：'+item['reason'],method='llm',kind='term',terminology_standard=True)
             extra.append(finding)
             if on_finding:on_finding([finding.to_dict()])
         stats['resumed_segments']=stats.get('resumed_segments',0)+int(reused)

@@ -379,7 +379,7 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
 .term-detail-head h4 { font-size: 18px; }
 .term-detail-actions { display:flex; align-items:center; flex-wrap:wrap; gap:6px; flex-shrink:0; }
 .term-detail-actions label { font-size:14px; color:var(--fg2); }
-.term-detail-actions select, #termCategoryFilter { min-height:34px; padding:5px 8px; width:auto; }
+.term-detail-actions select, #termCategoryFilter, #lexiconLanguage { min-height:34px; padding:5px 8px; width:auto; }
 .lexicon-card table.grid select { width:100%; min-width:100px; min-height:36px; }
 .lexicon-card .term-form { padding: 12px; gap: 10px; }
 .lexicon-card .term-form textarea { min-height: 50px; font-size: 16px; line-height: 1.45; padding: 6px 8px; }

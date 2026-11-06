@@ -2,6 +2,8 @@ dialog#multilingualDialog { width:min(1100px,calc(100vw - 40px)); height:min(780
 dialog#multilingualDialog[open] { display:flex; flex-direction:column; gap:12px; }
 #multilingualDialog .panel-head, #multilingualDialog > p { margin:0; flex:none; }
 .document-language-pair { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:12px; }
+.task-flags { display:flex; align-items:center; flex-wrap:wrap; gap:4px 12px; }
+.task-flags .check { white-space:nowrap; }
 .document-language-pair .document-direction { min-width:0; flex-direction:column; align-items:stretch; gap:5px; }
 .document-language-pair .document-direction > span { white-space:nowrap; }
 .document-language-pair select { width:100%; min-width:0; }

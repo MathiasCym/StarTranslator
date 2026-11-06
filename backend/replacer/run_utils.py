@@ -62,12 +62,19 @@ def replace_spans(runs, spans):
         if len(edits)!=1 or edits[0]!=(start,end,replacement):
             replace_spans(runs,edits)
             continue
+        # A replacement can consume an unstyled separator before a styled
+        # word (" R" / " " / white "Bit depth"). Inherit the first actual
+        # replaced character, not the separator's default black formatting.
+        anchor=start
+        if replacement.strip():
+            anchor=next((offset for offset in range(start,end) if not text[offset].isspace()),start)
+        owner=next((i for i,(a,b) in enumerate(bounds) if a<=anchor<b),None)
         for i,(a,b) in enumerate(bounds):
             if b <= start or a >= end:
                 continue
             left = runs[i].text[:max(0,start-a)]
             right = runs[i].text[max(0,end-a):] if end < b else ''
-            insert = replacement if a <= start < b else ''
+            insert = replacement if i == owner else ''
             runs[i].text = left + insert + right
 
 

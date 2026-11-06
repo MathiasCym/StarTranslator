@@ -127,13 +127,18 @@ class TransportTests(unittest.TestCase):
             doc.add_paragraph('亮度500尼特'); doc.add_paragraph('支持图像处理'); doc.save(source)
             original = source.read_bytes()
             client = LLMClient(provider='compatible', base_url='http://127.0.0.1:1/v1', model='fixture', api_key='', retries=1)
-            with patch('backend.llm.client._urlopen', side_effect=[reply({'translation': 'Brightness 500 nits'}),
-                    http.client.IncompleteRead(b''), http.client.IncompleteRead(b'')]), patch('backend.llm.client.time.sleep'):
+            client._transport.cooldown=0;calls=[]
+            def send(*args,**kwargs):
+                calls.append(1)
+                if len(calls)==1:return reply({'translation': 'Brightness 500 nits'})
+                raise http.client.IncompleteRead(b'')
+            with patch('backend.llm.client._urlopen', side_effect=send), patch('backend.llm.client.time.sleep'):
                 result = translate_file(str(source), Glossary([]), None, client=client, workers=1)
             self.assertEqual([p.text for p in Document(result['path']).paragraphs], ['Brightness 500 nits', '支持图像处理'])
             self.assertEqual(result['status'], 'needs_review')
             self.assertEqual(result['needs_review'], 1)
             self.assertEqual(source.read_bytes(), original)
+            self.assertEqual(len(calls),5)  # initial success, two tries, one bounded two-try recovery
 
 
 class BatchTests(unittest.TestCase):

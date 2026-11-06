@@ -5,6 +5,8 @@ const runtimeLog = require('./lib/runtime-log').createLogger(() =>
 require('./lib/runtime-log').installDiagnosticConsole(runtimeLog)
 if (dataDirectory.warning) runtimeLog.error(dataDirectory.warning)
 
+if (!process.argv.includes('--star-render-pages')) require('./lib/appearance').install()
+
 if (process.argv.includes('--star-render-pages')) {
   require('./lib/page-renderer').run().catch(() => { require('electron').app.exit(1) })
 } else if (process.argv.includes('--star-setup') || process.argv.includes('--star-uninstall')) {
@@ -314,13 +316,15 @@ ipcMain.handle('open-shared-service', async (event, address) => {
   const window = new BrowserWindow({ ...size, show:false,
     x:display.workArea.x+Math.round((display.workArea.width-size.width)/2),y:display.workArea.y+Math.round((display.workArea.height-size.height)/2),
     title:'星译官 · 共享工作台', icon:path.join(__dirname,'renderer','assets','app-icon.png'),
-    parent:mainWindow, backgroundColor:'#081524', autoHideMenuBar:true,
+    parent:mainWindow, backgroundColor:require('./lib/appearance').background(), autoHideMenuBar:true,
     webPreferences:{zoomFactor:require('./lib/window-size').referenceZoom(display.scaleFactor,display.workArea),nodeIntegration:false,contextIsolation:true,sandbox:true,partition:'persist:star-lan-'+new URL(target).host} })
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}))
   require('./lib/window-size').installDisplaySizing(window,screen,display)
   window.webContents.on('will-navigate',(evt,url)=>{if(new URL(url).origin!==new URL(target).origin)evt.preventDefault()})
   window.once('ready-to-show',()=>window.show())
-  try { await window.loadURL(target) } catch(error) { window.destroy(); throw new Error('未能连接共享电脑，请确认地址和共享服务已开启。') }
+  require('./lib/appearance').shared(window)
+  const themedTarget=new URL(target);themedTarget.searchParams.set('star-theme',require('./lib/appearance').get())
+  try { await window.loadURL(themedTarget.href) } catch(error) { window.destroy(); throw new Error('未能连接共享电脑，请确认地址和共享服务已开启。') }
   return true
 })
 
@@ -452,7 +456,7 @@ function createWindow() {
     show: false,           // 等首帧画好再显示，避免白闪
     title: `星译官 v${app.getVersion()} — 中英技术文档翻译与审校工作台`,
     icon: iconPath(),
-    backgroundColor: '#0f1720',
+    backgroundColor: require('./lib/appearance').background(),
     webPreferences: {
       zoomFactor: require('./lib/window-size').referenceZoom(display.scaleFactor,display.workArea),
       preload: path.join(__dirname, 'preload.js'),

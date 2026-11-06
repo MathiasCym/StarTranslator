@@ -18,7 +18,7 @@ async function buildSmallUpdater(patch,{root=path.resolve(__dirname,'..'),output
   const filename=`StarTranslator-SmallUpdate-${patch.from}-to-${patch.to}.exe`,file=path.join(output,filename)
   const compiler=path.join(process.env.SystemRoot,'Microsoft.NET/Framework64/v4.0.30319/csc.exe')
   execFileSync(compiler,['/nologo','/target:winexe','/platform:x64','/optimize+',`/out:${file}`,`/resource:${zip},payload.zip`,'/win32icon:'+path.join(root,'build/icon.ico'),
-   '/reference:System.IO.Compression.dll','/reference:System.IO.Compression.FileSystem.dll','/reference:System.Windows.Forms.dll','/reference:System.Drawing.dll',path.join(root,'build/small-update-launcher.cs')],{windowsHide:true,encoding:'utf8'})
+   '/reference:System.IO.Compression.dll','/reference:System.IO.Compression.FileSystem.dll','/reference:System.Windows.Forms.dll','/reference:System.Drawing.dll','/reference:System.Web.Extensions.dll',path.join(root,'build/small-update-launcher.cs'),path.join(root,'build/appearance-native.cs')],{windowsHide:true,encoding:'utf8'})
   const bytes=await fs.readFile(file);return {filename,size:bytes.length,sha256:hash(bytes),from:patch.from,to:patch.to}
  }finally{
   if(path.dirname(folder)!==path.join(root,'dist/qa'))throw Error('Unsafe small-updater build cleanup')

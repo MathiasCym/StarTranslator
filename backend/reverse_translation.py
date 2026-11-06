@@ -105,6 +105,8 @@ def anchor_runs(answer,target,groups):
 
 
 def mapped(client, source, groups, glossary, cancel, context, mode, fixed_order=False,person_terms=None,style_warnings=None):
+    from .replacer.styled_text import VISIBLE_STYLE_RULE
+    if len(groups)>1:context+='\n'+VISIBLE_STYLE_RULE
     value = translate_piece(client, source, glossary, 'en-zh', cancel, context,
                             groups=groups, return_result=True, mode=mode, fixed_order=fixed_order,person_terms=person_terms)
     verify=inline_runs if fixed_order else response_runs
@@ -182,6 +184,9 @@ def audit_saved(path, paragraphs, pending=()):
     return {'status': 'partial' if issues else 'complete', 'issues': issues, 'target_language': 'zh'}
 
 
+from .speaker_notes import option as speaker_notes_option
+
+@speaker_notes_option
 def translate_file(path, glossary, references, output_dir=None, client=None, progress=None, cancel=None,
                    workers=3, translation_mode='faithful', activity=None, defer_visual=False):
     from . import officecli_bridge
@@ -224,17 +229,23 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     changed, issues, pending, alignment = [], [], [], []
     from .document_context import DocumentContext
     page_context=DocumentContext([s for s in segments if s.editable])
-    processed=0
-    for position, (segment,members) in enumerate(todo):
-        check_cancel(cancel)
-        notify('translate', '正在英译中并对照复核原文', processed, total)
-        paragraph = by_locator[segment.locator]
-        fixed_order=len(members)>1
-        source_text=''.join(m.text for m in members)
-        groups = ([{'id':i,'text':member.text,'key':('inline',i)} for i,member in enumerate(members)] if fixed_order else style_groups(paragraph))
-        mapped_groups = slice_groups(groups, 0, len(source_text), visual_keys=True)
-        key = translation_key(segment, source_text, mapped_groups)
-        local_style=[]
+    from .document_translation_core import repaired_pages
+    from .document_parallel import Activity
+    from .translation_activity import RequestActivity
+    from copy import deepcopy
+    tracker=Activity(total,lambda message,n,t:notify('translate',message,n,t),progress)
+    prepared=[]
+    for segment,members in todo:
+        groups=([{'id':i,'text':m.text,'key':('inline',i)} for i,m in enumerate(members)]
+                if len(members)>1 else style_groups(by_locator[segment.locator]))
+        prepared.append((segment,members,groups))
+    def compute(item,repair_error=None):
+        segment,members,groups=item
+        source_text=''.join(m.text for m in members);fixed_order=len(members)>1
+        mapped_groups=slice_groups(groups,0,len(source_text),visual_keys=True);key=translation_key(segment,source_text,mapped_groups)
+        local_style=[];update=lambda message:tracker.update(segment.id,message)
+        request_client=RequestActivity(client,update)
+        check_cancel(cancel);update('正在英译中并对照复核原文')
         try:
             if entity_error:raise ValueError(entity_error)
             cached = checkpoint.get(key) if checkpoint else None
@@ -253,13 +264,14 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 except (ValueError, KeyError, TypeError): pass
                 else:
                     for _ in members:checkpoint.used()
-                    notify('translate', '正在复用已验证的英译中断点', processed, total)
+                    update('正在复用已验证的英译中断点')
             if runs is None:
                 runs, offset = [], 0
                 context = '\n'.join(s.text for s in page_context.neighbors(segment))[:4000]
                 extra = [s.text for values in getattr(references, 'by_path', {}).values() for s in values if s.text.strip()]
                 context += '\n参考资料：' + '\n'.join(extra)[:1500]
-                check_source=pdf_source_text(source_text,client,cancel) if Path(path).suffix.lower()=='.pdf' else source_text
+                if repair_error:context+='\n本段上次未完成的具体问题：'+repair_error+'。只修复本段，保持事实及样式边界。'
+                check_source=pdf_source_text(source_text,request_client,cancel) if Path(path).suffix.lower()=='.pdf' else source_text
                 pdf_reflow=check_source!=source_text
                 if pdf_reflow and len({g['key'] for g in groups})!=1:raise ValueError('PDF 混合样式不能安全合并物理折行。')
                 for piece in translation_chunks(check_source, 1500):
@@ -267,29 +279,43 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                               slice_groups(groups, offset, offset+len(piece), visual_keys=True)); offset += len(piece)
                     if not piece.strip() or not needs_translation(piece):
                         runs += [{'id': g['id'], 'text': g['text']} for g in sliced]
-                    else: runs += mapped(client, piece, sliced, glossary, cancel, context, mode,fixed_order=fixed_order,person_terms=person_terms,
+                    else: runs += mapped(request_client, piece, sliced, glossary, cancel, context, mode,fixed_order=fixed_order,person_terms=person_terms,
                         style_warnings=local_style if Path(path).suffix.lower() in {'.doc','.docx','.pdf'} else None)
                 target = ''.join(run['text'] for run in runs)
                 validate(check_source, target, 'en-zh')
                 validate_names(check_source,target,person_terms)
                 if not local_style:(inline_runs if fixed_order else response_runs)({'runs': runs}, target, mapped_groups)
                 if checkpoint and not local_style: checkpoint.put(key, {'translation': target, 'runs': runs,'validated_source':check_source})
-            if fixed_order:
-                for i,member in enumerate(members):
-                    by_locator[member.locator].text=''.join(r['text'] for r in runs if r['id']==i)
-            else:write_styled(paragraph, groups, runs)
-            issues.extend({'locator':segment.locator,'slide':segment.slide,'text':source_text,'reason':reason} for reason in local_style)
+            return item,runs,local_style,None
+        except Cancelled:raise
+        except Exception as error:return item,None,[],error
+    for item,runs,local_style,error in repaired_pages(prepared,compute,workers,cancel,lambda item:item[0],
+            on_retry=lambda item,error:tracker.update(item[0].id,'准备定点补译未通过内容'),client=client):
+        check_cancel(cancel);segment,members,groups=item
+        if error is None:
+            snapshots=[(by_locator[m.locator]._p,deepcopy(by_locator[m.locator]._p)) for m in members]
+            try:
+                if len(members)>1:
+                    for i,member in enumerate(members):
+                        by_locator[member.locator].text=''.join(r['text'] for r in runs if r['id']==i)
+                else:write_styled(by_locator[segment.locator],groups,runs)
+            except Exception as failure:
+                for node,snapshot in snapshots:
+                    node.clear();node.attrib.update(snapshot.attrib);node.tail=snapshot.tail
+                    for child in snapshot:node.append(deepcopy(child))
+                error=failure
+        if error is None:
+            issues.extend({'locator':segment.locator,'slide':segment.slide,'text':segment.text,'reason':reason} for reason in local_style)
             for member in members:
                 changed.append(member.locator)
                 alignment.append({'translation':by_locator[member.locator].text,'source':member.text,'locator':member.locator})
-        except Cancelled: raise
-        except Exception as error:
-            # A segment failure cannot erase an otherwise usable document.
-            pending += [{'locator':member.locator,'slide':member.slide,'para':member.para,
-                'source_text':member.text,'translation':by_locator[member.locator].text,'reason':str(error),'retained_source':True,
-                'service_unavailable':isinstance(error,LLMUnavailable)} for member in members]
-        processed+=len(members)
-        if progress: progress(processed,total)
+        else:
+            pending.extend({'locator':m.locator,'slide':m.slide,'para':m.para,'source_text':m.text,
+                'translation':by_locator[m.locator].text,'reason':str(error),'retained_source':True,
+                'service_unavailable':isinstance(error,LLMUnavailable)} for m in members)
+        tracker.finish(segment.id,len(members))
+    from .document_translation_core import ensure_coverage
+    pending=ensure_coverage([m for _,members in todo for m in members],changed,pending,by_locator)
     if store.fingerprint(path) != before: raise ValueError('原稿在翻译期间被修改，请重新加载。')
     translated_count=len(alignment)  # Layout repair may append additional changed locators.
     adjustments, layout = fit_document(document, changed, original) if is_ppt else ([], [])
@@ -313,8 +339,12 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             fd, temporary = tempfile.mkstemp(prefix='.star-chinese-', suffix=destination.suffix, dir=destination.parent)
             os.close(fd)
             try:
-                shutil.copyfile(staged, temporary); check_cancel(cancel)
-                os.replace(temporary, destination)
+                shutil.copyfile(staged, temporary)
+                def guard_publish():
+                    check_cancel(cancel)
+                    if store.fingerprint(path)!=before:raise ValueError('原稿在保存期间被修改。')
+                from .document_translation_core import publish_new_file
+                publish_new_file(temporary,destination,guard_publish)
             finally:
                 if os.path.exists(temporary): os.unlink(temporary)
     blocked = [s for s in segments if not s.editable]
@@ -341,6 +371,8 @@ def check_segments(segments, glossary, use_llm=True, *, client=None, cancel=None
     cancel = cancel or __import__('threading').Event()
     client = client or LLMClient() if use_llm else None
     editable = [s for s in segments if s.editable and any(c.isalnum() for c in prose(s.text))]
+    from .review_format import attach,hints,normalize_suggestion
+    attach(editable)
     if aligned_sources is None and hasattr(references,'aligned_sources'):
         aligned_sources=references.aligned_sources(editable)
     findings, errors, resumed = [], [], 0
@@ -358,6 +390,7 @@ def check_segments(segments, glossary, use_llm=True, *, client=None, cancel=None
             try:
                 context = '\n'.join(s.text for s in editable[max(0,position-2):position+3] if s.file_path==segment.file_path)
                 payload = {'中文译文': segment.text, '上下文': context,
+                        **hints(segment),
                         '对应英文原文': (aligned_sources or {}).get(segment.id,''),
                         '参考资料': '\n'.join(s.text for values in getattr(references,'by_path',{}).values() for s in values)[:3000],
                         '术语': glossary_context(segment.text, glossary, 'zh-en'), '全文人名统一写法':person_terms or {}}
@@ -386,6 +419,9 @@ def check_segments(segments, glossary, use_llm=True, *, client=None, cancel=None
                                     or segment.text.count(item['original'])!=1):
                                 raise ValueError('中文审校建议未能唯一定位本段文字，请返回完整原段或唯一的原文片段。')
                             if item['original']==item['replacement']:continue
+                            original,replacement=normalize_suggestion(segment,item['original'],item['replacement'])
+                            if original==replacement:continue
+                            item={**item,'original':original,'replacement':replacement}
                             revised=segment.text.replace(item['original'],item['replacement'],1)
                             content_validate(segment.text,revised,'en-zh')
                             from .reverse_entities import validate_names

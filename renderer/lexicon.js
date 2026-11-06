@@ -1,11 +1,16 @@
 function installLexicon({ $, action, callApi, esc, basename }) {
   // Both views edit the same rows, with one fingerprint and one save action.
   const state = { path: '', columns: [], header: [], rows: [], fingerprint: '', dirty: false,
-    busy: false, selected: -1, page: 0, view: 'list', visibleColumns: new Set(['zh', 'en', 'note', 'category']) }
+    busy: false, selected: -1, page: 0, view: 'list', language: 'en-US', visibleColumns: new Set(['zh', 'en', 'note', 'category']) }
+  const languages = {'en-US':'英语','zh-Hant-TW':'繁体中文','ja-JP':'日语',ko:'韩语'}
+  try { const saved=localStorage.getItem('startranslator-lexicon-language'); if(languages[saved])state.language=saved } catch {}
+  const specialized = () => state.language !== 'en-US'
+  const endpoint = () => specialized() ? '/api/glossary/language' : '/api/glossary/table'
+  const targetName = () => '标准'+(state.language==='en-US'?'英文':languages[state.language])
   const names = { zh: '中文术语', en: '标准英文', variants: '正确别名', machine_variants: '机翻候选',
     wrong_variants: '已确认错译', note: '解释 / 备注', priority: '确认状态', source: '来源', category: '分类' }
   const fields = { termZh: 'zh', termEn: 'en', termAliases: 'variants', termMachine: 'machine_variants',
-    termWrong: 'wrong_variants', termNote: 'note', termCategory: 'category' }
+    termWrong: 'wrong_variants', termNote: 'note', termCategory: 'category', termPriority:'priority' }
   const listFields = ['variants', 'machine_variants', 'wrong_variants'], pageSize = 40
   let suggesting = false
   const cell = (row, key) => String(row?.[state.columns.indexOf(key)] ?? '')
@@ -33,9 +38,17 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     $('deleteTerm').disabled = !selected || state.busy
     $('termCategory').disabled = !selected || state.busy
     $('termCategoryFilter').disabled = state.busy
+    $('lexiconLanguage').disabled = state.busy
+    // Existing team/exchange formats describe Chinese/English entries only.
+    // Never send a projected Japanese/Korean cell to those endpoints.
+    for(const id of ['importTerms','exportTerms','lexiconExportFormat','openTeamSync','syncReviewed','suggestVariants']) {
+      if(specialized())$(id).disabled=true
+      $(id).title=specialized()?'此操作用于中英词库；当前语种可在本页维护并保存，用于校对。':$(id).title.replace('此操作用于中英词库；当前语种可在本页维护并保存，用于校对。','')
+    }
     $('saveLexicon').disabled = !loaded || !state.dirty || state.busy
-    $('termForm').querySelectorAll('textarea,button').forEach(element => { element.disabled = !selected || state.busy })
-    $('suggestVariants').disabled = !selected || state.busy || suggesting
+    $('termForm').querySelectorAll('textarea,button,select').forEach(element => { element.disabled = !selected || state.busy })
+    $('suggestVariants').disabled = specialized() || !selected || state.busy || suggesting
+    $('termZh').readOnly = specialized() && !!cell(selectedRow(),'_id')
     $('tableBody').querySelectorAll('textarea,select,button').forEach(element => { element.disabled = state.busy })
     $('lexiconColumnOptions').querySelectorAll('input').forEach(element => { element.disabled = state.busy })
     $('lexiconDirtyBadge').textContent = state.dirty ? '未保存' : loaded ? '已保存' : '未读取'
@@ -67,7 +80,9 @@ function installLexicon({ $, action, callApi, esc, basename }) {
   }
   function changeCell(row, key, value, columnIndex) {
     row[columnIndex ?? ensureColumn(key)] = value
-    if (['zh', 'en', 'wrong_variants'].includes(key)) row[ensureColumn('priority')] = '2'
+    if (['zh', 'en', 'wrong_variants'].includes(key)) {
+      row[ensureColumn('priority')] = '2'; $('termPriority').value='2'
+    }
     markDirty()
   }
   function filteredRows() {
@@ -88,7 +103,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     $('termRows').innerHTML = rows.map(({ row, index }) => {
       const aliases = lines(cell(row, 'variants')).length, wrong = lines(cell(row, 'wrong_variants')).length
       return '<button class="term-card' + (index === state.selected ? ' active' : '') + '" data-term="' + index + '" role="listitem" aria-current="' + (index === state.selected) + '">' +
-        '<span class="term-card-zh" title="' + esc(cell(row, 'zh') || '新术语') + '">' + esc(cell(row, 'zh') || '新术语') + '</span><span class="term-card-en" title="' + esc(cell(row, 'en') || '尚未填写标准英文') + '">' + esc(cell(row, 'en') || '尚未填写标准英文') + '</span>' +
+        '<span class="term-card-zh" title="' + esc(cell(row, 'zh') || '新术语') + '">' + esc(cell(row, 'zh') || '新术语') + '</span><span class="term-card-en" title="' + esc(cell(row, 'en') || '未提供译法') + '">' + esc(cell(row, 'en') || '未提供译法') + '</span>' +
         (aliases || wrong || category(row)==='person' ? '<span class="term-card-tags">' + (category(row)==='person'?'<span>人名</span>':'') + (aliases ? '<span>' + aliases + ' 个别名</span>' : '') +
           (wrong ? '<span class="wrong-tag">' + wrong + ' 项错译</span>' : '') + '</span>' : '') + '</button>'
     }).join('') || '<div class="lexicon-empty">没有匹配的术语<br><span>试试其他关键词，或新增术语。</span></div>'
@@ -106,11 +121,11 @@ function installLexicon({ $, action, callApi, esc, basename }) {
   }
   function visibleColumns() {
     return state.columns.map((key, index) => ({ key, index })).filter(({ key, index }) =>
-      !['priority', 'source'].includes(key) && (['zh', 'en'].includes(key) || state.visibleColumns.has(key || 'extra-' + index)))
+      !key.startsWith('_') && !['priority', 'source'].includes(key) && (['zh', 'en'].includes(key) || state.visibleColumns.has(key || 'extra-' + index)))
   }
   function renderColumnOptions() {
     $('lexiconColumnOptions').innerHTML = state.columns.map((key, index) => ({ key, index }))
-      .filter(({ key }) => !['priority', 'source', 'zh', 'en'].includes(key)).map(({ key, index }) => {
+      .filter(({ key }) => !key.startsWith('_') && !['priority', 'source', 'zh', 'en'].includes(key)).map(({ key, index }) => {
         const token = key || 'extra-' + index
         return '<label><input type="checkbox" data-column="' + esc(token) + '"' + (state.visibleColumns.has(token) ? ' checked' : '') + '>' +
           esc(names[key] || state.header[index] || '附加字段') + '</label>'
@@ -131,6 +146,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
       '<td class="grid-actions"><button class="btn ghost sm" data-detail="' + index + '">详情</button><button class="btn ghost sm danger" data-delete="' + index + '">删除</button></td></tr>').join('') ||
       '<tr><td colspan="' + (columns.length + 1) + '"><div class="lexicon-empty">没有匹配的术语</div></td></tr>'
     $('tableBody').querySelectorAll('textarea,select').forEach(element => {
+      if(specialized() && state.columns[Number(element.dataset.c)]==='zh' && cell(state.rows[Number(element.dataset.r)],'_id'))element.readOnly=true
       resizeCell(element)
       element.oninput = () => {
         const column = Number(element.dataset.c)
@@ -149,6 +165,10 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     $('termForm').hidden = !row; $('termEmpty').hidden = !!row
     $('termHeading').textContent = row ? cell(row, 'zh') || '新术语' : '选择一个术语'
     for (const [id, key] of Object.entries(fields)) { $(id).value = key==='category'?category(row):cell(row, key); resizeCell($(id)) }
+    $('termLanguageReference').hidden=!specialized()
+    $('termLanguageReference').textContent=specialized() ? [
+      '英文参考：'+(cell(row,'_english') || '未提供'), '官方译法：'+(cell(row,'_official') || '未提供'),
+      cell(row,'_conflict') || '各语种独立保存；已确认译法用于校对。'].join(' · ') : ''
     $('termForm').scrollTop = 0
     availability()
   }
@@ -176,9 +196,22 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     $('lexiconKind').textContent = /\.(xlsx|xlsm)$/i.test(result.path) ? 'Excel 词库' : /\.(csv|tsv)$/i.test(result.path) ? '表格词库' : 'JSON 词库'
     renderColumnOptions(); render()
   }
-  async function load(keepPosition = false) {
-    setData(await callApi('GET', '/api/glossary/table'), keepPosition)
-    state.bundledUpdate = (await refreshGlossary()).bundled_update || null
+  async function load(keepPosition = false, language=state.language) {
+    const result=await callApi('GET',language==='en-US'?'/api/glossary/table':'/api/glossary/language?language='+encodeURIComponent(language))
+    state.language=language; $('lexiconLanguage').value=language
+    names.en=targetName(); $('termTargetLabel').textContent=names.en; $('lexiconPairTitle').textContent='中文 / '+names.en
+    $('termEn').placeholder=specialized()?'未提供时留空，可填写并确认标准译法':'例如：pixel-level calibration'
+    $('termSearch').placeholder='搜索中文、'+languages[language]+'、别名或备注…'
+    try {localStorage.setItem('startranslator-lexicon-language',language)} catch {}
+    setData(result, keepPosition)
+    state.bundledUpdate = specialized()?null:(await refreshGlossary()).bundled_update || null
+    if(specialized())status(result.maintenance_note)
+  }
+  $('lexiconLanguage').onchange=async()=>{
+    const language=$('lexiconLanguage').value; $('lexiconLanguage').value=state.language
+    if(!languages[language] || !await dirtyGuard('放弃并切换语言'))return
+    try {await operation(async()=>{await load(false,language);showBundledUpdate(specialized()?'当前语种可直接维护，已确认译法用于校对。':'词库已就绪。')},'正在读取所选语种…')}
+    catch { $('lexiconLanguage').value=state.language }
   }
   function showConflicts(conflicts,summary) {
     $('lexiconImportReport').hidden=!conflicts.length; $('lexiconImportReport').open=false
@@ -235,7 +268,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
     const row = state.columns.map(key => key === 'priority' ? '2' : key === 'source' ? '团队维护' : '')
     if($('termCategoryFilter').value==='person')row[ensureColumn('category')]='person'
     state.rows.unshift(row); state.selected = 0; state.page = 0; $('termSearch').value = ''
-    markDirty(); render(); status('填写新术语的中文和标准英文，再保存词库。')
+    markDirty(); render(); status('填写新术语的中文和'+targetName()+'，确认后保存词库。')
     if (state.view === 'list') $('termZh').focus(); else $('tableBody').querySelector('textarea')?.focus()
   })
   function deleteRow(index) {
@@ -247,7 +280,7 @@ function installLexicon({ $, action, callApi, esc, basename }) {
   }
   action('deleteTerm', () => deleteRow(state.selected))
   action('saveLexicon', () => operation(async () => {
-    const result = await callApi('POST', '/api/glossary/table', { path: state.path, rows: state.rows, columns: state.columns, fingerprint: state.fingerprint })
+    const result = await callApi('POST', endpoint(), { language:state.language,path: state.path, rows: state.rows, columns: state.columns, fingerprint: state.fingerprint })
     state.fingerprint = result.fingerprint; state.dirty = false
     try { await load(true); status('已保存 ' + result.count + ' 条术语。') }
     catch (error) { status('已保存，但重新读取失败：' + error.message, true) }

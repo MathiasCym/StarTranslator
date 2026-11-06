@@ -26,9 +26,28 @@ function setProgress(progress,value,active) {
 }
 function showError(error) { $('error').textContent = error.message; $('error').hidden = false }
 function action(id, fn) { $(id).onclick = async () => { try { await fn() } catch(e) { showError(e) } } }
+let documentTranslation='zh-en',documentCheck='zh-en'
+try {documentTranslation=StarDocumentLanguages.direction(...StarDocumentLanguages.pair(localStorage.getItem('star-shared-document-pair')));documentCheck=StarDocumentLanguages.direction(...StarDocumentLanguages.pair(localStorage.getItem('star-shared-document-check')))} catch {}
+function saveDocumentLanguages(){try{localStorage.setItem('star-shared-document-pair',documentTranslation);localStorage.setItem('star-shared-document-check',documentCheck)}catch{}}
+function renderDocumentLanguages(){
+ const checking=document.querySelector('[name=kind]:checked').value==='check'
+ StarDocumentLanguages.configure($('documentDirection'),'check',documentCheck)
+ StarDocumentLanguages.configurePair($('documentSource'),$('documentTarget'),documentTranslation)
+ $('documentCheckLanguage').hidden=!checking;$('documentTranslationLanguages').hidden=checking
+}
+$('documentSource').onchange=()=>{
+ const [oldSource,oldTarget]=StarDocumentLanguages.pair(documentTranslation),source=$('documentSource').value
+ documentTranslation=StarDocumentLanguages.direction(source,source===oldTarget?oldSource:oldTarget)
+ saveDocumentLanguages();renderDocumentLanguages()
+}
+$('documentTarget').onchange=()=>{documentTranslation=StarDocumentLanguages.direction($('documentSource').value,$('documentTarget').value);saveDocumentLanguages();renderDocumentLanguages()}
+$('documentDirection').onchange=()=>{documentCheck=$('documentDirection').value;saveDocumentLanguages()}
+$('swapDocumentLanguages').onclick=()=>{const [source,target]=StarDocumentLanguages.pair(documentTranslation);documentTranslation=StarDocumentLanguages.direction(target,source);saveDocumentLanguages();renderDocumentLanguages()}
 function mode() {
   const kind=document.querySelector('[name=kind]:checked').value,hasPresentation=[...$('files').files].some(file=>/\.pptx$/i.test(file.name))
-  StarDocumentLanguages.configure($('documentDirection'),kind,$('documentDirection').value || 'zh-en')
+  renderDocumentLanguages()
+  $('speakerNotesOption').hidden=!hasPresentation
+  if(!hasPresentation)$('includePptNotes').checked=false
   $('outputField').hidden=kind!=='translate_review'; $('translationOptions').hidden=kind==='check'||!hasPresentation
   if(!hasPresentation){document.querySelector('[name=translationMode][value=faithful]').checked=true;$('translationOptions').querySelector('.translation-help-button').setAttribute('aria-expanded','false');$('translationOptions').querySelector('.translation-help').hidden=true}
 }
@@ -39,7 +58,7 @@ $('form').onsubmit = async event => {
   const form = new FormData(), kind = document.querySelector('[name=kind]:checked').value
   for (const file of $('files').files) form.append('files',file)
   for (const file of $('references').files) form.append('references',file)
-  form.append('options',JSON.stringify({kind,direction:$('documentDirection').value,translation_mode:document.querySelector('[name=translationMode]:checked').value,combined_output:$('outputMode').value,use_llm:$('useLlm').checked,workers:$('parallelWork').checked?3:1}))
+  form.append('options',JSON.stringify({kind,direction:kind==='check'?documentCheck:documentTranslation,translation_mode:document.querySelector('[name=translationMode]:checked').value,combined_output:$('outputMode').value,use_llm:$('useLlm').checked,include_ppt_notes:$('includePptNotes').checked,workers:$('parallelWork').checked?3:1}))
   $('submit').disabled = true; $('uploadProgress').hidden = false; setProgress($('uploadProgress'),0,true)
   try {
     const job = await new Promise((resolve,reject) => {
@@ -98,15 +117,16 @@ function renderDetail() {
   if(report) (report.findings||[]).forEach((f,i)=>{if(f.applied){draft.selected.delete(i);delete draft.edits[i]}})
   const noSuggestions=report&&!report.findings?.length
   const outputs=(result.outputs||[]).map((o,i)=>`<div class="row-actions"><span>${esc(o.path)}${o.staged?' · 等待确认后保存':''}</span>${o.comparison_id?`<button class="comparison-button" data-compare="${i}" title="对照原稿与${o.draft?'翻译初稿':'当前文件'}">${PageComparison.buttonContent}<span>· ${o.draft?'初稿':'当前文件'}</span></button>`:''}</div>${o.consistency_hits&&!report?`<p class="hint">发现 ${o.consistency_hits} 项全文用语统一建议，可在校对报告中确认。</p>`:''}${[...(o.review_items||[]),...(o.layout_warnings||[])].length?`<details><summary>查看需检查的位置</summary>${o.consistency_hits&&!report?`<p class="hint">发现 ${o.consistency_hits} 项全文用语统一建议，可在校对报告中确认。</p>`:''}${[...(o.review_items||[]),...(o.layout_warnings||[])].map(w=>`<p class="hint">${esc(w.reason)}</p>`).join('')}</details>`:''}`).join('')
-  const reportHtml=report?`<h3 id="sharedReviewHeading" tabindex="-1">校对报告 · ${(report.findings||[]).length} 项建议</h3><p class="hint">${report.stats?.model_status==='complete'?'校对完成，确认建议后保存。':'请查看检查范围和提示；未完成的检查不能视为全文通过。'}</p><p class="hint">${report.stats?.consistency_hits?`${report.stats.consistency_hits} 项全文用语统一建议。`:''} ${esc((report.stats?.warnings||[]).join('\n'))}</p><div class="filters"><select id="reportFile" aria-label="选择报告文档">${(report.files||[]).map((f,i)=>`<option value="${i}">${esc(f.name)}</option>`).join('')}</select><select id="reportFilter" aria-label="筛选建议"><option value="pending">未替换</option><option value="applied">已替换</option><option value="all">全部建议</option></select><select id="reportType" aria-label="筛选建议类型"><option value="all">全部类型</option><option value="rule">术语规范</option><option value="consistency">全文一致性</option><option value="llm">深度审校</option></select></div><div class="review-selection"><label><input id="selectAllSuggestions" type="checkbox">全选当前建议</label><span id="selectionCount" class="hint"></span></div><div id="findings"></div><div class="review-controls"><button id="reportCompare" class="comparison-button" hidden>${PageComparison.buttonContent}</button><button id="saveReview" class="primary"${noSuggestions?' hidden':''}>应用所选并保存</button>${job.kind==='translate_review'||noSuggestions?`<button id="saveUnchanged"${noSuggestions?' class="primary"':''}>${noSuggestions?'保存译文':'不应用建议，保存译文'}</button>`:''}</div><p id="savedMessage" class="hint" role="status" aria-live="polite">${esc(draft.savedMessage||'')}</p>`:''
-  const remaining=(report?.findings||[]).filter(f=>!f.applied).length
+  const reportHtml=report?`<h3 id="sharedReviewHeading" tabindex="-1">校对报告 · ${(report.findings||[]).length} 项建议</h3><p class="hint">${report.stats?.model_status==='complete'?'校对完成，确认建议后保存。':'请查看检查范围和提示；未完成的检查不能视为全文通过。'}</p><p class="hint">${report.stats?.consistency_hits?`${report.stats.consistency_hits} 项全文用语统一建议。`:''} ${esc((report.stats?.warnings||[]).join('\n'))}</p><div class="filters"><select id="reportFile" aria-label="选择报告文档">${(report.files||[]).map((f,i)=>`<option value="${i}">${esc(f.name)}</option>`).join('')}</select><select id="reportFilter" aria-label="筛选建议"><option value="pending">未替换</option><option value="applied">已替换</option><option value="all">全部建议</option></select><select id="reportType" aria-label="筛选建议类型"><option value="all">全部类型</option><option value="rule">术语规范</option><option value="consistency">全文一致性</option><option value="llm">深度审校</option><option value="translation">未完成翻译</option></select></div><div class="review-selection"><label><input id="selectAllSuggestions" type="checkbox">全选当前建议</label><span id="selectionCount" class="hint"></span></div><div id="findings"></div><div class="review-controls"><button id="reportCompare" class="comparison-button" hidden>${PageComparison.buttonContent}</button><button id="saveReview" class="primary"${noSuggestions?' hidden':''}>应用所选并保存</button>${job.kind==='translate_review'||noSuggestions?`<button id="saveUnchanged"${noSuggestions?' class="primary"':''}>${noSuggestions?'保存译文':'不应用建议，保存译文'}</button>`:''}</div><p id="savedMessage" class="hint" role="status" aria-live="polite">${esc(draft.savedMessage||'')}</p>`:''
+  const remaining=(report?.findings||[]).filter(f=>f.source!=='translation'&&!f.applied&&f.review_status!=='superseded').length
   const reviewGuide=report?`<div class="review-guide"><div><strong>${remaining?`有 ${remaining} 项校对建议供你确认`:'查看本次检查报告'}</strong><p class="hint">${remaining?'建议不会自动应用，请查看原因与上下文后选择采纳、编辑或保留译文。':'查看检查范围、提示和已采用的修改；需要保存时请使用报告中的保存按钮。'}</p></div><button id="jumpToReview" class="primary">${remaining?'查看并处理建议':'查看校对报告'}</button></div>`:''
-  $('results').innerHTML=`<p class="error">${esc([job.error,...(result.errors||[]).map(e=>(e.path?e.path+'：':'')+e.error)].filter(Boolean).join('\n'))}</p>${reviewGuide}${outputs}${reportHtml}${downloadMarkup(job)}`
+  $('results').innerHTML=`<p class="error">${esc([job.error,result.transport_interruption?.message,...(result.errors||[]).map(e=>(e.path?e.path+'：':'')+e.error)].filter(Boolean).join('\n'))}</p>${reviewGuide}${outputs}${reportHtml}${downloadMarkup(job)}`
   $('results').querySelectorAll('[data-compare]').forEach(b=>b.onclick=async()=>{try{comparisonBase=`/shared/jobs/${job.id}/comparison/${b.dataset.compare}`;comparison=await api(comparisonBase);openComparison()}catch(e){showError(e)}})
   if(!report) return
   $('jumpToReview').onclick=()=>{const heading=$('sharedReviewHeading');heading.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'});heading.focus({preventScroll:true})}
   $('reportFile').value=String(Math.min(draft.file,Math.max(0,report.files.length-1)));$('reportFilter').value=draft.filter;$('reportType').value=draft.type||'all'
-  const rows=()=> (report.findings||[]).map((f,i)=>({f,i})).filter(({f})=>f.file_index===Number($('reportFile').value)&&(!draft.type||draft.type==='all'||f.method===draft.type)&&(draft.filter==='all'||(draft.filter==='applied'?f.applied:!f.applied)))
+  const category=f=>f.source==='translation'?'translation':f.terminology_standard||f.method==='rule'?'rule':f.method
+  const rows=()=> (report.findings||[]).map((f,i)=>({f,i})).filter(({f})=>f.file_index===Number($('reportFile').value)&&(!draft.type||draft.type==='all'||category(f)===draft.type)&&(draft.filter==='all'||(draft.filter==='applied'?f.applied:!f.applied&&f.review_status!=='superseded')))
   const usable=({f,i})=>f.editable&&!f.applied&&String(draft.edits[i]??f.suggested).trim()
   function selection() {
     const available=rows().filter(usable),chosen=available.filter(({i})=>draft.selected.has(i))
@@ -121,7 +141,7 @@ function renderDetail() {
     const compare=$('reportCompare'),index=report.files[Number($('reportFile').value)]?.comparison_index
     compare.hidden=!Number.isInteger(index);const isDraft=result.outputs?.[index]?.draft;compare.title=isDraft?'对照原稿与翻译初稿':'对照原稿与当前保存的文件';compare.innerHTML=PageComparison.buttonContent+`<span>· ${isDraft?'初稿':'当前文件'}</span>`
     compare.onclick=async()=>{try{comparisonBase=`/shared/jobs/${job.id}/comparison/${index}`;comparison=await api(comparisonBase);openComparison()}catch(e){showError(e)}}
-    $('findings').innerHTML=rows().map(({f,i})=>`<article class="suggestion"><div class="section-head"><label><input type="checkbox" data-select="${i}"${draft.selected.has(i)?' checked':''}${!usable({f,i})?' disabled':''}> ${esc(f.file)}${f.slide?' · 第 '+f.slide+' 页':''}</label><span class="badge">${f.applied?'已替换':'未替换'}</span><span class="badge">${f.method==='consistency'?'全文一致性':f.method==='rule'?'术语规范':'深度审校'}</span></div><p>${esc(f.found_text)}</p><textarea aria-label="替换文本" data-edit="${i}"${f.applied||!f.editable?' readonly':''}>${esc(draft.edits[i]??f.suggested)}</textarea><p class="hint">${esc(f.reason)} ${esc(f.not_editable_reason)}</p><details><summary>查看上下文</summary><p class="hint">${esc(f.context)}</p></details></article>`).join('')||`<p class="empty">${noSuggestions?'本次没有替换建议，可以直接保存译文。':'该筛选条件下没有建议，已替换的项目可切换筛选查看。'}</p>`
+    $('findings').innerHTML=rows().map(({f,i})=>`<article class="suggestion"><div class="section-head"><label><input type="checkbox" data-select="${i}"${draft.selected.has(i)?' checked':''}${!usable({f,i})?' disabled':''}> ${esc(f.file)}${f.slide?' · 第 '+f.slide+' 页':''}</label><span class="badge">${f.applied?'已替换':f.review_status==='superseded'?'由术语建议取代':f.review_status==='stale'?'原文已变化':'未替换'}</span><span class="badge">${category(f)==='translation'?'未完成翻译':f.method==='consistency'?'全文一致性':category(f)==='rule'?'术语规范':'深度审校'}</span></div><p>${esc(f.found_text)}</p><textarea aria-label="替换文本" data-edit="${i}"${f.applied||!f.editable?' readonly':''}>${esc(draft.edits[i]??f.suggested)}</textarea><p class="hint">${esc(f.reason)} ${esc(f.not_editable_reason)}</p><details><summary>查看上下文</summary><p class="hint">${esc(f.context)}</p></details></article>`).join('')||`<p class="empty">${noSuggestions?'本次没有替换建议，可以直接保存译文。':'该筛选条件下没有建议，已替换的项目可切换筛选查看。'}</p>`
     $('findings').querySelectorAll('[data-select]').forEach(el=>el.onchange=()=>{const i=Number(el.dataset.select);el.checked?draft.selected.add(i):draft.selected.delete(i);selection()})
     $('findings').querySelectorAll('[data-edit]').forEach(el=>el.oninput=()=>{const i=Number(el.dataset.edit);draft.edits[i]=el.value;const box=$('findings').querySelector(`[data-select="${i}"]`);box.disabled=!usable({f:report.findings[i],i});if(box.disabled){draft.selected.delete(i);box.checked=false}selection()})
     selection()

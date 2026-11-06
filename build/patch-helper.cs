@@ -54,7 +54,7 @@ class PatchHelper {
  static void OpenProgress(){if(!plan.showProgress)return;try{
   form=new Form(){Text="星译官 · 更新",Width=520,Height=185,StartPosition=FormStartPosition.CenterScreen,FormBorderStyle=FormBorderStyle.FixedDialog,ControlBox=false,BackColor=Color.FromArgb(12,29,46),ForeColor=Color.FromArgb(220,237,250),Font=new Font("Microsoft YaHei UI",10)};
   try{form.Icon=Icon.ExtractAssociatedIcon(Path.Combine(root,"星译官.exe"));}catch{}
-  label=new Label(){Left=24,Top=24,Width=460,Height=48};bar=new ProgressBar(){Left=24,Top=88,Width=460,Height=16};form.Controls.Add(label);form.Controls.Add(bar);form.Show();Application.DoEvents();
+  label=new Label(){Left=24,Top=24,Width=460,Height=48};bar=new ProgressBar(){Left=24,Top=88,Width=460,Height=16};form.Controls.Add(label);form.Controls.Add(bar);AppearancePaint.Apply(form,bar,plan.userData);form.Show();Application.DoEvents();
  }catch{form=null;}}
  static void Restore(){
   for(int i=all.Count-1;i>=0;i--){var e=all[i];string dest=Safe(e.path),backup=Path.Combine(transaction,"old-"+i);

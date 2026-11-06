@@ -76,7 +76,8 @@ def extract_pptx(path: str) -> list[Segment]:
                 ))
 
         # 演讲者备注
-        if slide.has_notes_slide:
+        from ..speaker_notes import enabled as include_notes
+        if include_notes() and slide.has_notes_slide:
             placeholder = slide.notes_slide.notes_placeholder
             if placeholder is None or not has_text_frame(placeholder):
                 continue

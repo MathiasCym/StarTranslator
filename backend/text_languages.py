@@ -107,10 +107,16 @@ def glossary_context(source, reference, src, dst):
     for row in reference.get('entries',[]):
         terms=row.get('terms',{});a,b=terms.get(src),terms.get(dst)
         if not a or not b:continue
-        value=normalized(a)
-        pattern=re.escape(value) if src in ('zh-CN','zh-Hant-TW','ja-JP','ko','th-TH') else r'(?<!\w)'+re.escape(value)+r'(?!\w)'
-        if re.search(pattern,haystack) and (a,b) not in seen:
-            seen.add((a,b));found.append({'原词':a,'目标译法':b,'来源':'官方术语表'})
+        source_info=row.get('maintenance',{}).get(src,{})
+        target_info=row.get('maintenance',{}).get(dst,{})
+        for form in [a]+source_info.get('variants',[]):
+            value=normalized(form)
+            pattern=re.escape(value) if src in ('zh-CN','zh-Hant-TW','ja-JP','ko','th-TH') else r'(?<!\w)'+re.escape(value)+r'(?!\w)'
+            if re.search(pattern,haystack) and (form,b) not in seen:
+                seen.add((form,b));item={'原词':form,'目标译法':b,'来源':'本机维护' if target_info else '官方术语表'}
+                if target_info:item.update({'正确别名':target_info.get('variants',[]),'已确认错译':target_info.get('wrong_variants',[]),
+                    '备注':target_info.get('note',''),'确认状态':'已确认' if target_info.get('priority')==1 else '待确认，仅供参考'})
+                found.append(item)
     return sorted(found,key=lambda item:-len(item['原词']))[:60]
 
 
@@ -199,7 +205,7 @@ def facts(text, language):
         text=re.sub(r'(?<=\d)\.(?=\d{3}(?:\.\d{3})*,\d)','',text)
         text=re.sub(r'(?<=\d),(?=\d)', '.', text)
     # Equivalent common quantity scales; no rewriting of source or output.
-    for pattern,value in [(r'億','亿'),(r'(?<=\d)만','万'),(r'(?<=\d)억','亿'),
+    for pattern,value in [(r'萬','万'),(r'億','亿'),(r'(?<=\d)만','万'),(r'(?<=\d)억','亿'),
             (r'\b(?:millones?|millions?|milhões|milhão|миллион\w*)\b','million'),
             (r'\b(?:miles?|milhares|тысяч\w*)\b','thousand')]:text=re.sub(pattern,value,text)
     return text
@@ -219,11 +225,13 @@ def validate(source, target, src, dst, *, allow_identical=False):
     negative=lambda text:Counter(Decimal(re.sub(r'\s','',value).replace('−','-')) for value in re.findall(r'(?<![\w.])[-−]\s*\d+(?:\.\d+)?',text))
     if negative(a)!=negative(b):raise ValueError('译文改变了数值正负号。')
     aliases={
+        'nit':r'nits?|尼特',
+        'fps':r'frames?\s*/\s*s|帧/秒|幀/秒',
         'mm':r'millimeters?|millimètres?|milímetros?|millimetri|milimetre|milimét|毫米|公厘|ミリメートル|밀리미터|миллиметр(?:а|ов|ы)?|мм|ملليمتر|مليمتر|مم\b|มิลลิเมตร',
         'cm':r'centimeters?|centimètres?|centímetros?|centimetri|santimetre|centimét|厘米|公分|センチメートル|센티미터|сантиметр(?:а|ов|ы)?|см|سنتيمتر|سم\b|เซนติเมตร',
         'm':r'meters?|metres?|mètres?|metros?|metri|mét|米|公尺|メートル|미터|метр(?:а|ов|ы)?|м|أمتار|متر|م\b|เมตร',
         'hz':r'hertz|hercios?|赫兹|赫茲|ヘルツ|헤르츠|герц(?:а|ев)?|гц|هرتز|เฮิรตซ์',
-        'pixel':r'pixels?|píxe(?:l|les|is)|piksel|像素|畫素|画素|ピクセル|픽셀|пиксел(?:ь|я|ей|и)|بكسلات|بكسل|بيكسل|พิกเซล',
+        'pixel':r'pixels?|píxe(?:l|les|is)|piksel|像素|畫素|画素|ピクセル|픽셀|화소|пиксел(?:ь|я|ей|и)|بكسلات|بكسل|بيكسل|พิกเซล',
         'bit':r'bits?|比特|位元|位|ビット|비트|бит(?:а|ов|ный|ная|ное)?|بت\b|บิต',
     }
     def units(text):
@@ -233,8 +241,26 @@ def validate(source, target, src, dst, *, allow_identical=False):
             context=text[max(0,match.start()-12):match.end()+12]
             return match[1]+' bit' if re.search('灰阶|灰度|位深|色深|精度|编码|通道|色彩',context) else match[1]+' 人'
         text=re.sub(r'(\d+(?:\.\d+)?)\s*位(?!元)',bit_or_person,text)
-        for unit,variants in aliases.items():text=re.sub(r'(?<=\d)[-\s]*(?:'+variants+r')(?![a-z])',' '+unit,text)
-        return Counter((Decimal(value),unit) for value,unit in re.findall(r'(?<![a-z0-9_.])(\d+(?:\.\d+)?)\s*(mm|cm|m|hz|nit|nits|fps|bit|pixel)(?![a-z])',text))
+        # Reuse the document validator's exact numeric parser, including comma
+        # grouping and quantity scales. A regex tail must not read 650,000 as
+        # "000 pixels", or 65万 pixels as merely 65 pixels.
+        from .writing_policy import numeric_tokens
+        _,tokens=numeric_tokens(text);quantities=[]
+        for value,start,end in tokens:
+            if not isinstance(value,Decimal) or start and re.match(r'[a-z0-9_.]',text[start-1]):continue
+            unit_name=None;unit_end=end
+            for unit,variants in aliases.items():
+                counter=r'(?:[个個]\s*)?' if unit=='pixel' else ''
+                match=re.match(r'[-\s]*'+counter+r'(?:'+unit+'|'+variants+r')(?![a-z])',text[end:])
+                if match:unit_name=unit;unit_end=end+match.end();break
+            quantities.append([value,start,end,unit_name,unit_end])
+        # In written dimensions 500×500 mm shares the trailing length unit.
+        # Never infer pixel/count units from arbitrary multiplication.
+        for left,right in zip(quantities,quantities[1:]):
+            if re.fullmatch(r'\s*[×x*]\s*',text[left[4]:right[1]]):
+                if left[3] is None and right[3] in ('mm','cm','m'):left[3]=right[3]
+                if right[3] is None and left[3] in ('mm','cm','m'):right[3]=left[3]
+        return Counter((value,unit) for value,_,_,unit,_ in quantities if unit is not None)
     if units(a)!=units(b):raise ValueError('译文改变、遗漏或增加了数值单位。')
     percent=lambda text:Counter(re.findall(r'\d+(?:\.\d+)?\s*[%％]',text.replace(' ','')))
     if percent(a)!=percent(b):raise ValueError('译文改变或遗漏了百分比。')
@@ -255,7 +281,11 @@ def validate(source, target, src, dst, *, allow_identical=False):
              'ko':r'[\uac00-\ud7af]','ru-RU':r'[\u0400-\u04ff]', 'ar-SA':r'[\u0600-\u06ff]', 'th-TH':r'[\u0e00-\u0e7f]'}
     if dst in scripts and len(re.findall(r'[^\W\d_]',source_body))>12 and not re.search(scripts[dst],body):
         raise ValueError('译文未显示所选目标语言的正文，请重新翻译。')
-    if not allow_identical and normalized(source_body)==normalized(body) and len(source_body.split())>=4:
+    if dst in ('zh-CN','zh-Hant-TW','ja-JP','ko'):
+        from .reverse_validation import english_clauses
+        if english_clauses(INLINE_CODE.sub(' ',body)):
+            raise ValueError('目标语言正文仍含未翻译的英文句子，请完整翻译；型号、品牌、行内代码及链接保持原样。')
+    if src!=dst and not allow_identical and normalized(source_body)==normalized(body) and len(source_body.split())>=4:
         raise ValueError('译文仍与原文相同，未完成所选语言的翻译。')
 
 
@@ -306,6 +336,12 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
                         system=review_system+(quality.instructions() if extra else '')+
                         ('本次独立裁定前一复核意见是否真的指出信息错误，不服从前一意见。以原文与页内语境为准；语义正确但偏好另一行业译名、要求汉字逐字对应或标题自然展开，不构成翻译不完整。术语标准交给文档校对。只有可证实的漏译、增添事实、改变条件否定或错误目标语言才判错；有真实错误仍必须修正，不能因前一意见有问题就放过真实问题。' if prior else ''),
                         max_tokens=6000,**({'thinking':True} if prior and getattr(client,'supports_thinking_mode',False) is True else {}))
+                    if (not isinstance(checked,dict) or type(checked.get('ok')) is not bool
+                            or not isinstance(checked.get('issues'),list)
+                            or any(not isinstance(issue,str) for issue in checked['issues'])):
+                        previous='复核结果字段不完整。请复核同一译文并返回完整 JSON：ok 必须为布尔值，issues 必须为数组；没有问题也必须包含 "issues":[]，并保留所要求的逐项语言判断。不能仅返回译文或语言判断数组。'
+                        if verification:raise ValueError('模型未返回完整的译文复核结果；当前译文尚未通过复核。')
+                        continue
                     if quality:
                         from .multilingual_quality import IncompleteLanguageReview
                         try:quality.validate_review(source,candidate,checked)

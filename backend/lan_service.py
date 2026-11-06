@@ -230,6 +230,15 @@ def create_app(testing=False):
     @app.get('/document-languages.js')
     def document_languages_script(): return send_file(ROOT / 'document-languages.js')
 
+    @app.get('/appearance.<extension>')
+    def appearance_asset(extension):
+        if extension not in ('js','css'): return '', 404
+        name='appearance.js' if extension=='js' else 'appearance-light.css'
+        return send_file(ROOT / name)
+
+    @app.get('/appearance-light.css')
+    def appearance_light(): return send_file(ROOT / 'appearance-light.css')
+
     @app.get('/shared.css')
     def style(): return send_file(ROOT / 'shared.css')
 
@@ -322,6 +331,7 @@ def create_app(testing=False):
                 paths = [save_upload(f,folder/'input') for f in files]
                 references = [save_upload(f,folder/'reference') for f in refs]
                 job = workflow.start({'kind':data['kind'], 'paths':paths, 'references':references,
+                    'include_ppt_notes':data.get('include_ppt_notes',False),
                     'output_dir':str(folder/'output'), 'use_llm':data.get('use_llm',True) is True,
                     'workers':data.get('workers',3),'translation_mode':data.get('translation_mode','faithful'),'direction':data.get('direction','zh-en'),
                     'combined_output':data.get('combined_output','both')})

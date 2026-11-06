@@ -159,7 +159,7 @@ class DocumentSkillTests(unittest.TestCase):
         source = fixture(self.root / 'styled.pptx')
         original = source.read_bytes()
         model = Model()
-        result = translate_file(str(source), self.glossary, None, client=model)
+        result = translate_file(str(source), self.glossary, None, client=model, include_ppt_notes=True)
         output = Path(result['path']); deck = Presentation(output)
         p = deck.slides[0].shapes[1].text_frame.paragraphs[0]
         self.assertEqual(p.text, 'Use pixel-level calibration at a brightness of 500 nits.')
@@ -222,7 +222,7 @@ class DocumentSkillTests(unittest.TestCase):
                 result['runs'][-1]['text'] = ' at a brightness of 500 nits.\n'
             return result
         model.chat_json = response
-        result = translate_file(str(source), self.glossary, None, client=model)
+        result = translate_file(str(source), self.glossary, None, client=model, include_ppt_notes=True)
         p = Presentation(result['path']).slides[0].shapes[1].text_frame.paragraphs[0]
         self.assertEqual(p.text, 'Use pixel-level calibration at a brightness of 500 nits.')
         self.assertTrue(any(r.font.bold and r.text == 'pixel-level calibration' for r in p.runs))
@@ -237,7 +237,7 @@ class DocumentSkillTests(unittest.TestCase):
                 result['runs'][1]['text'] = 'a different wording'
             return result
         model.chat_json = response
-        result = translate_file(str(source), self.glossary, None, client=model)
+        result = translate_file(str(source), self.glossary, None, client=model, include_ppt_notes=True)
         self.assertEqual(result['layout_warnings'], [])
         self.assertEqual(len(model.prompts), 5)
         p = Presentation(result['path']).slides[0].shapes[1].text_frame.paragraphs[0]

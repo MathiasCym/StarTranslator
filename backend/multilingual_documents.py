@@ -28,7 +28,7 @@ from .replacer.pptx_package import save_office
 
 def terms(source,glossary,src,dst):
     """Local bilingual edits take precedence; supplied multilingual cells stay facts."""
-    reference=catalog.read()
+    reference=catalog.effective()
     rows=text.glossary_context(source,reference,src,dst)
     if {src,dst}<={'zh-CN','en-US'}:
         from .text_translation import glossary_context
@@ -82,6 +82,8 @@ def mapped(client,source,groups,reference,src,dst,cancel,context,mode,fixed_orde
         '原文样式片段':[{'id':g['id'],'text':g['text'],'original_style':g.get('key',())} for g in groups],
         '样式绑定':'译文每个ID由程序原样继承同一原文ID的格式；original_style为原文明确设置，未设置部分继承原段落。不得推测同ID改变颜色或加粗。',
         '已复核的完整译文':target}
+    from .replacer.styled_text import VISIBLE_STYLE_RULE
+    payload['样式绑定']+=VISIBLE_STYLE_RULE
     error='';service_failed=False
     def reviewed(runs):
         if activity:activity('独立复核强调与样式对应')
@@ -142,6 +144,9 @@ def audit_saved(path,paragraphs,pending=(),target_language='ja-JP',image_review=
     return result
 
 
+from .speaker_notes import option as speaker_notes_option
+
+@speaker_notes_option
 def translate_file(path,glossary,references,output_dir=None,client=None,progress=None,cancel=None,
                    workers=3,translation_mode='faithful',activity=None,defer_visual=False,direction='zh-CN>ja-JP'):
     from . import officecli_bridge
@@ -186,35 +191,41 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
     glossary,references=without_glossary(references)
     reference={'entries':[]};page_context=DocumentContext([s for s in segments if s.editable])
     changed=[];pending=[];alignment=[];issues=[]
-    from .multilingual_parallel import ordered_pages,Activity
+    from .document_parallel import ordered_pages,Activity
     tracker=Activity(total,lambda message,n,t:notify('translate',message,n,t),progress)
     prepared=[]
     for segment,members in todo:
         fixed=len(members)>1
         groups=([{'id':i,'text':m.text,'key':('inline',i)} for i,m in enumerate(members)] if fixed else style_groups(by_locator[segment.locator]))
         prepared.append((segment,members,groups))
-    def compute(item):
+    def compute(item,repair_error=None):
         from .multilingual_quality import LanguageReview
         segment,members,groups=item
         quality=LanguageReview(src,dst)
         source=''.join(m.text for m in members);fixed=len(members)>1
         activity=lambda message:tracker.update(segment.id,message)
+        from .translation_activity import RequestActivity
+        request_client=RequestActivity(client,activity)
         check_cancel(cancel);activity('等待模型翻译')
         mapped_groups=slice_groups(groups,0,len(source),visual_keys=True)
         key=translation_key(segment,source,mapped_groups);style_warnings=[]
         try:
-            cached=checkpoint.get(key) if checkpoint else None;runs=None
+            cached=checkpoint.get(key) if checkpoint else None;runs=None;verified_target=None
             if cached:
                 try:
                     if not quality.reusable(source,cached['translation'],cached.get('language_review')):
                         activity('正在重新核对旧断点的目标语言')
-                        if not quality.review_existing(client,source,cached['translation'],cancel,None):
-                            raise ValueError('旧断点尚未通过当前日语残留检查。')
+                        if not quality.review_existing(request_client,source,cached['translation'],cancel,None):
+                            raise ValueError('旧断点尚未通过当前目标语言残留检查。')
                         cached={**cached,'language_review':quality.proof(source,cached['translation'])}
                         if checkpoint:checkpoint.put(key,cached)
                     content_validate(source,cached['translation'],src,dst,allow_identical=bool(
                         quality.reusable(source,cached['translation'],cached.get('language_review'))
                         and quality.review_identical_formula(source,cached['translation'])))
+                    # Older checkpoints contain only the whole paragraph. A
+                    # newly rejected style must not invalidate verified text.
+                    verified_target=cached['translation']
+                    quality.approved.update((cached.get('language_review') or {}).get('approved',[]))
                     runs=(inline_runs if fixed else response_runs)(cached,cached['translation'],mapped_groups)
                 except (ValueError,KeyError,TypeError):runs=None
                 else:
@@ -225,6 +236,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
                 context='\n'.join(s.text for s in page_context.neighbors(segment))[:5000]
                 context+='\n参考资料：'+'\n'.join(s.text for values in getattr(references,'by_path',{}).values() for s in values)[:2000]
                 context+='\n'+('本次允许简洁表达，但事实、限定、否定、数值和专名必须完整。' if mode=='compact' else '忠实完整翻译，不删减或概括事实。')
+                if repair_error:context+='\n本段上次未通过的具体问题：'+repair_error+'。只修复本段，保留全部事实、数值、单位、格式边界；不要重复周围内容。'
                 # Respect PDF logical paragraphs while leaving Word/PPT's
                 # authored breaks and inline relationships entirely untouched.
                 for piece in translation_chunks(source,1500):
@@ -234,6 +246,8 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
                     else:
                         piece_key=['verified-content',translation_key(segment,piece,sliced)]
                         content=checkpoint.get(piece_key) if checkpoint else None;initial=None
+                        if not isinstance(content,dict) and piece==source and verified_target is not None:
+                            content={'translation':verified_target,'language_review':quality.proof(source,verified_target)}
                         if isinstance(content,dict) and isinstance(content.get('translation'),str):
                             try:
                                 value=content['translation'];proof=content.get('language_review')
@@ -250,7 +264,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
                             proof=quality.proof(piece,value)
                             if checkpoint and proof is not None:
                                 checkpoint.put(piece_key,{'translation':value,'language_review':proof})
-                        runs.extend(mapped(client,piece,sliced,reference,src,dst,cancel,context,mode,fixed,
+                        runs.extend(mapped(request_client,piece,sliced,reference,src,dst,cancel,context,mode,fixed,
                             # Speaker-note styling must not discard already
                             # independently verified translated content. Visible
                             # slide text keeps the stricter emphasis gate.
@@ -258,8 +272,8 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
                             initial_target=initial,on_verified=verified))
                 target=''.join(r['text'] for r in runs)
                 if quality.proof(source,target) is None:
-                    if not quality.review_existing(client,source,target,cancel,None):
-                        raise ValueError('日语译文仍有未确认的原语言片段。')
+                    if not quality.review_existing(request_client,source,target,cancel,None):
+                        raise ValueError('译文仍有未确认的原语言片段。')
                 content_validate(source,target,src,dst,allow_identical=bool(quality.proof(source,target)
                     and quality.review_identical_formula(source,target)))
                 if not style_warnings:
@@ -268,11 +282,12 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
             return item,runs,style_warnings,None
         except Cancelled:raise
         except Exception as exc:return item,None,[],exc
-        finally:
-            if not cancel.is_set():tracker.finish(segment.id,len(members))
-    for item,runs,style_warnings,error in ordered_pages(prepared,compute,workers,cancel,lambda item:item[0]):
+    from .document_translation_core import repaired_pages,ensure_coverage
+    for item,runs,style_warnings,error in repaired_pages(prepared,compute,workers,cancel,lambda item:item[0],
+            on_retry=lambda item,error:tracker.update(item[0].id,'准备定点补译未通过内容'),client=client):
         check_cancel(cancel)
         segment,members,groups=item
+        tracker.finish(segment.id,len(members))
         snapshots=[]
         if error is None:
             snapshots=[(by_locator[m.locator]._p,deepcopy(by_locator[m.locator]._p)) for m in members]
@@ -297,6 +312,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
             changed.append(m.locator);alignment.append({'locator':m.locator,'translation':by_locator[m.locator].text,'source':m.text})
         issues.extend({'locator':segment.locator,'slide':segment.slide,'reason':w} for w in style_warnings)
     check_cancel(cancel)
+    pending=ensure_coverage([m for _,members in todo for m in members],changed,pending,by_locator)
     if store.fingerprint(path)!=before:raise ValueError('原稿在处理期间被修改，已保留原稿。')
     image_review=None
     if Path(path).suffix.lower()=='.pdf':
@@ -320,7 +336,13 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
         with OUTPUT_LOCK:
             destination=output_path(path,output_dir,languages.SUFFIXES[dst]+('_Draft' if pending else ''))
             fd,temporary=tempfile.mkstemp(prefix='.star-multilingual-',suffix=destination.suffix,dir=destination.parent);os.close(fd)
-            try:shutil.copyfile(staged,temporary);check_cancel(cancel);os.replace(temporary,destination)
+            try:
+                shutil.copyfile(staged,temporary)
+                def guard_publish():
+                    check_cancel(cancel)
+                    if store.fingerprint(path)!=before:raise ValueError('原稿在保存期间被修改。')
+                from .document_translation_core import publish_new_file
+                publish_new_file(temporary,destination,guard_publish)
             finally:
                 if os.path.exists(temporary):os.unlink(temporary)
     warnings=[{'text':s.text[:100],'reason':s.not_editable_reason,'slide':s.slide} for s in segments if not s.editable
@@ -348,12 +370,15 @@ def check_segments(segments,glossary,use_llm=True,*,client=None,cancel=None,prog
     if dst not in languages.LANGUAGES:raise ValueError('不支持的文档校对语言。')
     cancel=cancel or threading.Event();client=(client or LLMClient()) if use_llm else None
     editable=[s for s in segments if s.editable and any(c.isalpha() for c in text.prose(s.text))]
+    from .review_format import attach,hints,normalize_suggestion
+    attach(editable)
     if aligned_sources is None and hasattr(references,'aligned_sources'):
         aligned_sources=references.aligned_sources(editable)
+    reference=catalog.effective()
     checkpoint=open_checkpoint('review-multi',{'source':checkpoint_origin or '', 'target_language':dst,
-        'source_language':source_language,'schema':'multilingual-v1','catalog':languages.reference_identity()},glossary,references,client) if use_llm else None
-    findings=[];errors=[];resumed=0;reference=catalog.read()
-    from .multilingual_parallel import ordered_pages,Activity
+        'source_language':source_language,'schema':'multilingual-v1','catalog':reference},glossary,references,client) if use_llm else None
+    findings=[];errors=[];resumed=0
+    from .document_parallel import ordered_pages,Activity
     tracker=Activity(len(editable),lambda message,n,t:progress(n,t,message) if progress else None)
     def compute(item):
         position,segment=item
@@ -364,6 +389,7 @@ def check_segments(segments,glossary,use_llm=True,*,client=None,cancel=None,prog
                 context='\n'.join(s.text for s in editable[max(0,position-2):position+3] if s.file_path==segment.file_path)
                 source=(aligned_sources or {}).get(segment.id,'')
                 payload={'目标语言':languages.LANGUAGES[dst],'本段待校对文字':segment.text,'相邻段落（仅供理解）':context,
+                    **hints(segment),
                     '对应原文':source,'源语言':languages.LANGUAGES.get(source_language,''),
                     '必须逐字保留的地址':text.IDENTIFIERS.findall(segment.text),
                     '相关官方译法':text.glossary_context(source or segment.text,reference,source_language if source else dst,dst),
@@ -389,6 +415,9 @@ def check_segments(segments,glossary,use_llm=True,*,client=None,cancel=None,prog
                             if not isinstance(item,dict) or not all(isinstance(item.get(k),str) and item[k].strip() for k in ('original','replacement','reason')) or segment.text.count(item['original'])!=1:
                                 raise ValueError('校对建议不能唯一定位本段文字。')
                             if item['original']==item['replacement']:continue
+                            original,replacement=normalize_suggestion(segment,item['original'],item['replacement'])
+                            if original==replacement:continue
+                            item={**item,'original':original,'replacement':replacement}
                             revised=segment.text.replace(item['original'],item['replacement'],1)
                             protected=preserve_address_boundaries(segment.text,revised)
                             if protected==segment.text:continue

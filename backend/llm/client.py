@@ -44,7 +44,7 @@ class LLMResponseInvalid(LLMUnavailable):
 
 
 class LLMRequestFailed(LLMUnavailable):
-    """The transport already used its retry budget; callers must not retry again."""
+    """No immediate retry; only the bounded document recovery phase may probe."""
     retry_exhausted = True
 
 
@@ -141,8 +141,8 @@ class LLMClient:
         self.timeout = timeout
         self.retries = retries
         self.last_error = ""
-        self._transport_lock = threading.Lock()
-        self._transport_pause_until = 0
+        from .transport_recovery import RecoveryGate
+        self._transport = RecoveryGate()
 
     @staticmethod
     def _profile_key(provider: str, base_url: str) -> str:
@@ -201,22 +201,34 @@ class LLMClient:
             self._endpoint(path), data=data,
             headers=headers,
         )
+        from .transport_recovery import TransportStopped
+        try:return self._post_retries(req)
+        except TransportStopped as error:
+            failed=LLMRequestFailed('任务已取消。' if error.cancelled else '模型连接恢复仍未成功，已保留已完成译文与断点；请恢复连接后继续任务。')
+            if not error.cancelled:failed.transport_epoch=error.epoch
+            raise failed from None
+        finally:self._transport.release()
+
+    def transport_recovered(self,epoch):return self._transport.recovered(epoch)
+
+    def can_recover_transport(self,epoch):return self._transport.may_recover(epoch)
+
+    def _post_retries(self,req):
         error_message = "无法连接模型服务，请检查网络或稍后重试。"
         for attempt in range(self.retries + 1):
             cancel = getattr(self, 'cancel', None)
             if cancel and cancel.is_set():
                 raise LLMRequestFailed('任务已取消。')
             started = time.monotonic()
+            from ..translation_activity import notify_transport
+            self._transport.before(cancel,notify_transport)
             try:
                 with request_slot(cancel):
-                    with self._transport_lock:
-                        paused = time.monotonic() < self._transport_pause_until
-                    if paused: raise LLMRequestFailed('模型连接暂时不可用，已暂停后续请求并保留本机断点，请稍后继续任务。')
                     with _urlopen(req, timeout=self.timeout) as resp:
                         result = json.loads(resp.read().decode("utf-8"))
                 if not isinstance(result, dict) or result.get("error"):
                     raise LLMUnavailable("模型服务返回了无效响应，请稍后重试。")
-                with self._transport_lock: self._transport_pause_until = 0
+                self._transport.success()
                 logging.getLogger(__name__).info('Model request complete: attempt=%s elapsed=%.2fs', attempt+1, time.monotonic()-started)
                 return result
             except urllib.error.HTTPError as e:
@@ -243,8 +255,8 @@ class LLMClient:
                     if cancel.wait(delay): raise LLMRequestFailed('任务已取消。')
                 else:
                     time.sleep(delay)
-        with self._transport_lock: self._transport_pause_until = time.monotonic()+15
-        raise LLMRequestFailed(error_message) from None
+        failed=LLMRequestFailed(error_message);failed.transport_epoch=self._transport.failure()
+        raise failed from None
 
     def _headers(self) -> dict:
         headers = {}
