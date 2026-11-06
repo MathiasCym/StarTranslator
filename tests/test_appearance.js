@@ -43,3 +43,18 @@ test('every app entry loads the same theme with explicit surface scope',()=>{
  const sources=JSON.parse(fs.readFileSync(path.join(__dirname,'../renderer/shared/appearance-sources.json'))),crypto=require('node:crypto')
  for(const [name,sha] of Object.entries(sources))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(path.resolve(__dirname,'..',name),'utf8').replace(/\r\n/g,'\n')).digest('hex'),sha,'Uncovered changed style '+name)
 })
+
+test('shared-window initial theme hint is consumed so reload preserves the browser choice',async()=>{
+ const memory=new Map();let url=new URL('http://127.0.0.1:8765/?star-theme=dark&other=keep')
+ function visit(){
+  const root={dataset:{},classList:{add(){},remove(){}}},listeners={}
+  const context={requestAnimationFrame:fn=>fn(),location:{search:url.search,href:url.href},URL,URLSearchParams,
+   localStorage:{getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v)},
+   document:{documentElement:root,querySelectorAll:()=>[],addEventListener:(name,fn)=>listeners[name]=fn},
+   window:{history:{replaceState:(_a,_b,value)=>url=new URL(value)},addEventListener(){}}}
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname,'../renderer/shared/appearance.js'),'utf8'),context);listeners.DOMContentLoaded()
+  return {root,api:context.window.StarAppearance}
+ }
+ const first=visit();assert.equal(first.root.dataset.theme,'dark');assert(!url.searchParams.has('star-theme'));assert.equal(url.searchParams.get('other'),'keep')
+ await first.api.set('light');assert.equal(visit().root.dataset.theme,'light')
+})

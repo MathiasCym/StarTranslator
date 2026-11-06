@@ -48,6 +48,15 @@ async function connect(port, suffix) {
   throw new Error('Installer page not available: ' + suffix)
 }
 async function images(client) {
+  // A CDP page target exists before the picker body has been parsed. Wait for
+  // the real document; an empty image list is not evidence of broken assets.
+  let ready=false
+  for(let i=0;i<100;i++){
+    ready=await client.evaluate("document.readyState==='complete' && document.images.length>0")
+    if(ready)break
+    await wait(100)
+  }
+  assert(ready,'Installer/picker document did not finish loading its image elements')
   const data = await client.evaluate(`(async()=>{
     const list=[...document.images]; await Promise.all(list.map(image=>image.decode()));
     return list.map(image=>{const r=image.getBoundingClientRect();return {src:image.getAttribute('src'),width:image.naturalWidth,height:image.naturalHeight,visible:r.width>0&&r.height>0&&r.bottom>0&&r.top<innerHeight}})

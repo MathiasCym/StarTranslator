@@ -4,6 +4,11 @@
  let saved='dark';try{const v=localStorage.getItem(key);if(valid(v))saved=v}catch{}
  const requested=new URLSearchParams(location.search).get('star-theme')
  let current=valid(window.appearance?.initial)?window.appearance.initial:valid(requested)?requested:saved
+ // The desktop may seed a shared window's first visit. Consume that hint so
+ // reloading after a browser-side choice restores the user's saved mode.
+ if(valid(requested)&&location.href&&window.history?.replaceState){
+  try{const url=new URL(location.href);url.searchParams.delete('star-theme');window.history.replaceState(null,'',url.href)}catch{}
+ }
  function apply(value,persist=true){
   if(!valid(value))return
   const root=document.documentElement,changing=root.dataset.theme&&root.dataset.theme!==value
