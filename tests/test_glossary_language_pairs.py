@@ -91,6 +91,9 @@ class LanguagePairsTests(unittest.TestCase):
         rows=review.requirements('刷新率','確定レートと誤レート',glossary,ref,'zh-CN','ja-JP')
         self.assertEqual(rows[0]['targets'],['確定レート']);self.assertEqual(rows[0]['wrong_variants'],['誤レート'])
         self.assertEqual(rows[0]['note'],'显示参数')
+        standalone=review.requirements('','誤レート',glossary,ref,None,'ja-JP')
+        self.assertEqual(standalone[0]['targets'],['確定レート'])
+        self.assertEqual(review.requirements('','許可レート',glossary,ref,None,'ja-JP'),[])
         self.edit(priority='2')
         self.assertFalse(any('確定レート' in r['targets'] for r in review.requirements('刷新率','誤レート',glossary,catalog.effective(),'zh-CN','ja-JP')))
     def test_free_text_context_has_maintained_alias_error_and_truthful_provenance(self):
@@ -102,7 +105,7 @@ class LanguagePairsTests(unittest.TestCase):
         self.assertEqual(reverse[0]['目标译法'],'재생률')
     def test_actual_review_calls_model_with_local_confirmed_standard(self):
         self.reference['entries']=self.reference['entries'][:2]
-        self.edit(en='確定レート',priority='1')
+        self.edit(en='確定レート',wrong_variants='誤レート',priority='1')
         class Model:
             requests=[]
             def chat_json(inner,prompt,**kwargs):
@@ -112,5 +115,8 @@ class LanguagePairsTests(unittest.TestCase):
         with patch.object(review,'open_checkpoint',return_value=None):
             findings,stats=review.augment([segment],Glossary([]),[],{'errors':0,'unreviewed':0,'warnings':[]},source_language='zh-CN',target_language='ja-JP',aligned_sources={'p':'刷新率'},client=model,workers=1,cancel=threading.Event())
         self.assertEqual(len(model.requests),1);self.assertEqual(findings[0].suggested,'確定レート');self.assertTrue(findings[0].terminology_standard)
+        with patch.object(review,'open_checkpoint',return_value=None):
+            findings,stats=review.augment([segment],Glossary([]),[],{'errors':0,'unreviewed':0,'warnings':[]},target_language='ja-JP',client=model,workers=1,cancel=threading.Event())
+        self.assertEqual(len(model.requests),2);self.assertEqual(findings[0].suggested,'確定レート')
 
 if __name__=='__main__':unittest.main()

@@ -82,6 +82,9 @@ def requirements(source,current,glossary,reference,src,dst):
         elif not source:
             for language,anchor in terms.items():
                 if language!=dst:add(anchor,[target],origin,aliases,wrong,note,concept)
+            # Independent review has no aligned original. Maintained target-
+            # language errors must still be discoverable in the actual text.
+            for form in wrong:add(form,[target],origin,aliases,wrong,note,concept)
     rows=[]
     for row in candidates.values():
         expected=occurrences(source,[row['source']]) if source else 1
