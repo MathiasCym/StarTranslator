@@ -125,8 +125,8 @@ class MultilingualImageTests(unittest.TestCase):
   self.assertEqual(job['status'],'complete',job.get('error') or job['result'])
   output=job['result']['outputs'][0];self.assertEqual(output['translated'],0);self.assertEqual(output['image_review']['translated_lines'],1)
   self.assertEqual(output['output_audit']['status'],'complete')
-  saved=workflow.apply_report({'report_id':job['result']['report']['report_id'],'path':output['path'],'save_unchanged':True},client=model)
-  self.assertEqual(saved['output_audit']['status'],'complete');self.assertEqual(images.audit_saved(saved['output'],output['image_review']),[])
+  self.assertTrue(output['auto_exported']);self.assertNotIn('report',job['result'])
+  self.assertEqual(images.audit_saved(output['path'],output['image_review']),[])
 
 
 if __name__=='__main__':unittest.main()

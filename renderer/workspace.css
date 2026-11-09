@@ -1,4 +1,5 @@
 /* StarTranslator workspace: readable layout with the original blue glass finish. */
+.job-progress-labels{display:flex;justify-content:space-between;gap:12px;margin:8px 0 5px;font-size:14px;color:var(--fg2)}.job-phase-track{height:6px!important;min-height:6px}.job-phase-track progress{height:6px!important;min-height:6px}
 .task-start { display: flex; gap: 10px; }
 .task-start .btn { flex: 1; min-width: 0; padding-inline: 10px; font-size: 17px; }
 body.results-view > main { display: flex; flex-direction: column; overflow: hidden; }

@@ -11,6 +11,11 @@ For bit-depth fields use 8-bit, 10-bit / 12-bit consistently. Use 8-bit input
 or 10-bit color depth as modifiers; a count can remain 8 bits. Preserve literal
 identifiers, code and interface labels, and do not confuse bits per channel with
 bits per pixel. A three-channel RGB pixel with 8 bits per channel uses 24 bpp.
+For multilingual parameter tables and formulas, keep Latin bit in numeric values
+such as 8bit and 10bit / 12bit (English modifiers may use 8-bit). Do not mix
+8bit and 8ビット, 8비트 or 8位元 in the same parameter series. Prose terminology
+such as bit depth / ビット深度 still translates normally. Never change bit to
+byte, edit bit/s, identifiers or literal UI labels, or lose per-channel qualifiers.
 Do not invent facts, reactions, new examples, or a marketing voice. Follow the
 source's tone. Review the draft internally and return only the final JSON required
 by the application. Do not output the review, Markdown wrappers, or skill commands.

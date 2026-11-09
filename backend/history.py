@@ -66,10 +66,20 @@ def finish(job, data):
                            'needs_review': sum(item.get('needs_review', 0) for item in outputs),
                            'replaced': sum(item.get('corrected', 0) for item in outputs) + sum(item.get('replaced', 0) for item in row.get('exports', []))})
         if 'can_resume' in job: row['can_resume'] = job['can_resume']
-        row['outputs'] = unique_outputs([*({'path': item['path'], 'source': item.get('source', ''), 'comparison_id':item.get('comparison_id')} for item in outputs if not item.get('staged')), *row.get('outputs', [])])
+        saved = [{key:item[key] for key in ('path','source','comparison_id','auto_exported','draft','needs_review') if key in item}
+                 for item in outputs if not item.get('staged')]
+        if result.get('automatic_combined'):
+            saved.extend({'path':item['translation_path'],'source':item['source'],'draft':True}
+                         for item in outputs if item.get('auto_exported') and item.get('output_mode')=='both'
+                         and item.get('translation_path') and item['translation_path']!=item['path'])
+        row['outputs'] = unique_outputs([*saved,*row.get('outputs',[])])
         exported_sources = {item['source'] for item in row.get('exports',[])}
         row['drafts'] = [{'path':item['path'],'source':item['source']} for item in outputs if item.get('staged') and item['source'] not in exported_sources]
-        row['awaiting_confirmation'] = bool(row['drafts'])
+        row['automatic_combined']=bool(result.get('automatic_combined'))
+        if row['automatic_combined']:
+            row['automatic_summary']=result.get('automatic_summary',{})
+        row['awaiting_confirmation'] = bool(row['drafts']) and not row['automatic_combined']
+        if row['automatic_combined']:row['counts']['replaced']=sum(item.get('replaced',0) for item in row.get('exports',[]))
         row['processing_status'] = job['status']
         processing = row['counts'].get('review_processing_status', row['counts'].get('model_status'))
         if row['status'] == 'complete' and (row['errors'] or processing in ('partial', 'unavailable', 'cancelled','not_started')):

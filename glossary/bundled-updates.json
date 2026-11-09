@@ -3799,6 +3799,31 @@
         "裸眼3D",
         "主KV"
       ]
+    },
+    {
+      "id": "technical-usage-20261106",
+      "mode": "annotations",
+      "catalog": "technical-usage-english.json",
+      "terms": [
+        "位深",
+        "色深",
+        "输入位深",
+        "刷新率",
+        "码率",
+        "网口",
+        "带载",
+        "带载能力",
+        "单网口带载",
+        "8bit",
+        "10bit",
+        "12bit",
+        "16bit",
+        "18bit",
+        "20bit",
+        "22bit",
+        "24bit",
+        "32bit"
+      ]
     }
   ]
 }

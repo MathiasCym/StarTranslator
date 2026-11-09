@@ -37,6 +37,8 @@ def terms(source,glossary,src,dst):
 
 
 def content_validate(source,target,src,dst,*,allow_identical=False):
+    from .parameter_notation import validate
+    validate(source,target)
     text.validate(source,target,src,dst,allow_identical=allow_identical)
     # Japanese legitimately uses Han; Chinese identifiers must remain literal.
     # Do not recycle the English-only "all Han is residual" rule here.
@@ -188,6 +190,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
     checkpoint=open_checkpoint('translation-multi',{'source':os.path.abspath(path),'fingerprint':before,
         'direction':direction,'mode':mode,'policy':'multilingual-v1','catalog':languages.reference_identity()},glossary,references,client)
     from .document_translation_policy import without_glossary
+    from .work_progress import format_callback
     glossary,references=without_glossary(references)
     reference={'entries':[]};page_context=DocumentContext([s for s in segments if s.editable])
     changed=[];pending=[];alignment=[];issues=[]
@@ -200,6 +203,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
         prepared.append((segment,members,groups))
     def compute(item,repair_error=None):
         from .multilingual_quality import LanguageReview
+        from .parameter_notation import is_field
         segment,members,groups=item
         quality=LanguageReview(src,dst)
         source=''.join(m.text for m in members);fixed=len(members)>1
@@ -208,6 +212,8 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
         request_client=RequestActivity(client,activity)
         check_cancel(cancel);activity('等待模型翻译')
         mapped_groups=slice_groups(groups,0,len(source),visual_keys=True)
+        if is_field(source):
+            return item,[{'id':g['id'],'text':g['text']} for g in mapped_groups],[],None
         key=translation_key(segment,source,mapped_groups);style_warnings=[]
         try:
             cached=checkpoint.get(key) if checkpoint else None;runs=None;verified_target=None
@@ -321,14 +327,16 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
     from .multilingual_typography import apply as apply_typography,font_for
     issues+=apply_typography(document,paragraphs,set(changed),dst)
     adjustments,layout=fit_document(document,changed,original) if is_ppt else ([],[])
-    visual={'status':'not_requested'}
+    visual={'status':'pending' if is_ppt and defer_visual else 'not_requested'}
     with tempfile.TemporaryDirectory(prefix='star-multilingual-') as folder:
         staged=Path(folder)/('translated'+output_extension(path))
         notify('layout','正在写入译文，保留图片、超链接与局部格式');save_office(path,document,staged,changed)
         if is_ppt:
-            warnings,changes=review_pptx(path,staged,document,changed,original,client,cancel,workers=workers,
-                progress=lambda message,n,t:notify('format',message,n,t),audit=visual,target_language=dst)
-            layout+=warnings;adjustments+=changes;issues+=verify_styles(document,paragraphs,styles,changed,script_font=font_for(dst))
+            if not defer_visual:
+                warnings,changes=review_pptx(path,staged,document,changed,original,client,cancel,workers=workers,
+                    progress=format_callback(notify),audit=visual,target_language=dst)
+                layout+=warnings;adjustments+=changes
+            issues+=verify_styles(document,paragraphs,styles,changed,script_font=font_for(dst))
             layout+=officecli_bridge.compare(baseline,officecli_bridge.inspect(staged,cancel=cancel))
         notify('consistency','正在重新读取实际输出，核对文字、数字、型号和链接')
         audit=audit_saved(staged,by_locator,pending,dst,image_review)
@@ -355,7 +363,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
         'translation_complete':not pending and (image_review is None or image_review['status']=='complete'),'resumed_segments':checkpoint.resumed if checkpoint else 0,
         'checkpoint_available':checkpoint.available if checkpoint else False,'translation_mode':mode,'review_items':pending+(image_review or {}).get('issues',[]),
         'warnings':warnings,'output_audit':audit,'source_alignment':alignment,'needs_review':len(pending)+len((image_review or {}).get('issues',[])),
-        'status':'needs_review' if pending or (image_review or {}).get('issues') else 'complete','remaining_chinese':[], 'format_review_deferred':False,
+        'status':'needs_review' if pending or (image_review or {}).get('issues') else 'complete','remaining_chinese':[], 'format_review_deferred':is_ppt and defer_visual,
         'image_review':image_review,
         'style_warnings':issues,
         'format_review':visual,'layout_warnings':[*layout,*issues],'layout_adjustments':adjustments,

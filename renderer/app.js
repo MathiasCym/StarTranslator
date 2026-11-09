@@ -272,7 +272,7 @@ async function runTask(combined = false, restored = null) {
       loadReport(state.job.result); showCheckCompletion()
     } else if (state.job.status === 'failed') {
       renderLiveFindings(state.job.partial_findings || []); throw new Error(state.job.error)
-    } else if (kind === 'translate' && state.job.result) {
+    } else if ((kind === 'translate' || state.job.result?.automatic_combined) && state.job.result) {
       state.outputs = state.job.result.outputs || []; showTranslation(state.job.result, state.job.status === 'cancelled')
     } else { showWorkspace(); toast(state.job.message) }
   } catch (error) { showTaskFailure(error) } finally { busy(false); renderFiles() }
@@ -287,21 +287,29 @@ function chooseCombinedOutput() {
 }
 function renderJobPhase(job) {
   const labels = { preparing: '准备', translate: '翻译', repair:'补译与核对',image_text:'图片文字核对',output_check:'实际输出复查',layout:'文字排版',consistency:'全文一致性',format:'格式对照',check: '校对', export: '保存', complete: '完成' }
-  const phase = labels[job.phase] || '处理'
-  const unit=job.phase==='image_text'?'张':['format','output_check'].includes(job.phase)?'页':'段',elapsed=job.activity_at?Math.max(0,Math.floor(Date.now()/1000-job.activity_at)):0
-  $('jobDetail').textContent = job.status === 'queued' ? '等待前面的任务完成，可随时取消' : [job.total?`${phase}：${job.done} / ${job.total} ${unit}`:phase,job.detail||(job.phase==='check'?'正在准备校对译文…':'正在处理文档…'),elapsed>=8?`本步骤已等待 ${elapsed} 秒`:''].filter(Boolean).join(' · ')
+  const phase = job.phase_label || labels[job.phase] || '处理'
+  const unit=job.stage_unit||(job.phase==='image_text'?'张':['format','output_check'].includes(job.phase)?'页':'段'),elapsed=job.activity_at?Math.max(0,Math.floor(Date.now()/1000-job.activity_at)):0
+  $('jobStageLabel').textContent=phase
+  $('jobStageCount').textContent=job.total?`${job.done} / ${job.total} ${unit}`:'处理中'
+  const stagePercent=Number.isFinite(job.stage_percent)?job.stage_percent:job.total?100*job.done/job.total:null
+  if(stagePercent===null)$('jobStageProgress').removeAttribute('value');else $('jobStageProgress').value=Math.min(100,Math.max(0,stagePercent))
+  $('jobStageProgress').setAttribute('aria-valuetext',phase+(job.total?`：${job.done}/${job.total}${unit}`:'处理中'))
+  $('jobDetail').textContent = job.status === 'queued' ? '等待前面的任务完成，可随时取消' : [job.detail||(job.phase==='check'?'正在准备校对译文…':'正在处理文档…'),elapsed>=8?`本步骤已等待 ${elapsed} 秒`:''].filter(Boolean).join(' · ')
   const percent = Number.isFinite(job.percent) ? job.percent : job.total ? 100 * job.done / job.total : null
   const progress = $('jobProgress'), track = $('jobProgressTrack')
   if (percent !== null) {
+    $('jobOverallPercent').textContent=Math.floor(percent)+'%'
     progress.value = Math.min(100, Math.max(0, percent))
     track.style.setProperty('--job-percent', progress.value + '%')
   } else {
+    $('jobOverallPercent').textContent='准备中'
     progress.removeAttribute('value'); track.style.setProperty('--job-percent', '100%')
   }
   track.classList.toggle('indeterminate', percent === null)
   progress.setAttribute('aria-valuetext', percent === null ? phase + '中' : phase + '：' + Math.round(progress.value) + '%')
   $('jobStages').querySelectorAll('[data-phase]').forEach(chip => {
-    const active = chip.dataset.phase === (job.phase==='output_check'?'format':['repair','layout','consistency','image_text'].includes(job.phase)?'translate':job.phase)
+    const stage=String(job.phase||'')
+    const active = chip.dataset.phase === (stage.startsWith('format')||['output_check','final_audit','final_layout'].includes(stage)?'format':['terminology','replace'].includes(stage)?'check':['write','validate','preflight_output','publish'].includes(stage)?'export':['repair','layout','consistency','image_text'].includes(stage)?'translate':stage)
     chip.classList.toggle('active', active)
     if (active) chip.setAttribute('aria-current', 'step'); else chip.removeAttribute('aria-current')
   })
@@ -567,14 +575,21 @@ function showTranslation(result, cancelled) {
   $('translationTitle').textContent = cancelled ? '翻译已取消，保留已完成文件' : !result.outputs.length ? '翻译未完成' : pending ? '翻译草稿已保存 · 部分内容待核对' : result.errors.length ? '部分译文已完成' : '翻译结果 · 是否继续校对？'
   if (combined && !cancelled && result.outputs.length) $('translationTitle').textContent = pending || result.errors.length ? '翻译并校对 · 部分内容待检查' : '翻译并校对已完成'
   $('translationNotice').textContent = pending ? '已保留处理结果，原稿未修改。待核对内容与未译正文列在下方，可继续结合原稿校对。' : result.outputs.length ? '译文单独保存，原稿保留。文字排版已适配，仍需关注的位置列在下方。' : '尚未生成译文，原稿保留。未完成的原因见下方。'
+  if(result.automatic_combined&&!cancelled&&result.outputs.length){
+    const finalSaved=result.outputs.every(o=>o.auto_exported)
+    $('translationTitle').textContent=!finalSaved?'高精度翻译未全部保存 · 可用译稿已保留':pending||result.errors.length?'高精度翻译已保存 · 有待检查的位置':'高精度翻译完成'
+    $('translationNotice').textContent=finalSaved?`已结合术语库处理，自动应用 ${result.automatic_summary?.applied||0} 处修改并保存最终文件。`+(pending?'未解决的位置列在下方。':'可直接查看原译对照或打开文件。'):'最终保存未全部完成。可打开已保留的文件，查看下方提示。'
+  }
   $('translationFiles').innerHTML = result.outputs.map((r, i) => `<li><div class="file-copy"><div>${esc(basename(r.path))}${r.needs_review ? ' · 待核对草稿' : ''}</div><div class="fpath">翻译 ${r.translated} 段${r.needs_review ? `；${r.needs_review} 段待核对` : ''}${r.untranslated ? `；${r.untranslated} 处${StarDocumentLanguages.names[StarDocumentLanguages.pair(r.direction)[0]]}未完成翻译` : ''}${r.skipped ? `；${r.skipped} 处需人工检查` : ''}。${r.layout_checked ? ' 已检查文档结构并适配文字排版。' : ''}<br>${esc(r.path)}</div>${r.review_items?.length ? `<details open><summary>查看待核对内容（${r.review_items.length} 处）</summary>${r.review_items.map(w => `<p class="hint">${w.slide ? '第 ' + w.slide + ' 页 · ' : ''}${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}</details>` : ''}${r.warnings.length ? `<details><summary>查看未处理内容</summary>${r.warnings.map(w => `<p class="hint">${w.slide ? '第' + w.slide + '页：' : ''}${esc(w.reason)} ${esc(w.text)}</p>`).join('')}</details>` : ''}${r.consistency_hits ? `<p class="hint">发现 ${r.consistency_hits} 项全文用语统一建议，继续校对可在报告中确认。</p>` : ''}${layoutWarningMarkup(r.layout_warnings)}</div><div class="row-actions">${r.comparison_id ? `<button class="btn ghost sm comparison-button" data-comparison="${r.comparison_id}">${PageComparison.buttonContent}</button>` : ''}<button class="btn ghost sm" data-open="${i}">打开译文</button><button class="btn ghost sm" data-folder="${i}">所在位置</button></div></li>`).join('')
   $('translationFiles').querySelectorAll('[data-open]').forEach(b => { b.onclick = () => openResult('openFile', result.outputs[Number(b.dataset.open)].path) })
   $('translationFiles').querySelectorAll('[data-folder]').forEach(b => { b.onclick = () => openResult('openFolder', result.outputs[Number(b.dataset.folder)].path) })
   $('translationErrors').textContent = result.errors.map(e => `${e.path ? basename(e.path) + '：' : ''}${e.error || '未提供错误说明'}`).join('\n')
   $('translationExportLog').hidden = !result.errors.length
+  $('translationResume').hidden = !state.job?.can_resume
   $('translationErrors').hidden = !result.errors.length
   $('reviewTranslation').disabled = !result.outputs.length
   $('reviewTranslation').textContent = combined ? '再次校对' : '继续校对译文'
+  $('reviewTranslation').hidden=!!result.automatic_combined
   $('finishTranslation').textContent = result.outputs.length ? '暂不校对' : '返回文档'
   if (combined) $('finishTranslation').textContent = '返回文档'
   $('translationOutput').innerHTML = result.outputs.map((r,i) => `<option value="${i}">${esc(basename(r.path))}</option>`).join('')
@@ -609,6 +624,7 @@ async function resumeHistoryTask(row) {
 }
 action('failureResume',()=>resumeHistoryTask(state.job))
 action('completionResume',()=>resumeHistoryTask(state.job))
+action('translationResume',()=>resumeHistoryTask(state.job))
 const historyEditor = installHistory({ $, action, callApi, esc, basename, openResult, resumeTask:resumeHistoryTask })
 
 /* ---------- 关于星译官 ---------- */

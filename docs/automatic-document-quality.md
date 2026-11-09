@@ -29,17 +29,17 @@ Windows 页图实际像素可能受显示缩放影响。只对 OCR 和视觉模�
 下面示例中的文件路径应换成已获授权的测试材料。`--allow-model` 表示允许发送所选文件到配置的模型；涉及客户材料时先取得相应授权。
 
 ```powershell
-.\python-runtime\python.exe -X utf8 -B tools/check-document-quality.py --source "D:\QA\sample.pdf" --evidence dist/qa/document-quality/fresh --allow-model --apply-suggestions
+.\python-runtime\python.exe -X utf8 -B tools/check-document-quality.py --source "D:\QA\sample.pdf" --evidence dist/qa/document-quality/fresh --allow-model
 ```
 
 `--source` 可重复指定，分别检查 Word、PDF、PPT 等格式；PDF 的专用检查不进入 Word/PPT 处理路径。`--expected-host` 可限制模型目的主机，配置不符即拒绝发送。只有已明确授权使用公司模型的测试才使用 `--company-model`，该参数不会改用户配置。
 
 2.2.7 起可用 `--direction en-zh` 验收英译中，默认仍为 `zh-en`。英译中核对未完成翻译及实际保存稿的 `output_audit`，不把目标中文当成残留；从头与恢复使用同一方向和同一份冻结策略。PDF 英译中只处理文字层并输出 Word，位图内英文保留原图并提示，与上文中译英的图片翻译闭环分别记录。
 
-从头验收必须用新目录，不复制既有断点；机器结果记录 `mode=fresh` 及正文复用数。随后单独复测恢复：
+2.4.3 起验收入口读取高精度流程直接保存的最终文件，也可使用 `--direction 'zh-CN>ja-JP'` 等文档方向。从头验收使用新目录，机器结果记录 `mode=fresh` 及正文复用数。随后单独复测显式恢复。
 
 ```powershell
-.\python-runtime\python.exe -X utf8 -B tools/check-document-quality.py --source "D:\QA\sample.pdf" --evidence dist/qa/document-quality/fresh --resume --forbid-requests --apply-suggestions
+.\python-runtime\python.exe -X utf8 -B tools/check-document-quality.py --source "D:\QA\sample.pdf" --evidence dist/qa/document-quality/fresh --resume --forbid-requests
 ```
 
 `--forbid-requests` 拦截模型请求，任何请求尝试都会使验收不通过，不能把失败当作零请求成功。实际原生渲染仍会运行，以便根据当前页图判断是否可复用。更换词库、模型或输入导致断点失效时，这项严格测试应失败，而不是放宽身份检查。

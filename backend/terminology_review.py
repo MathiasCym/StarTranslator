@@ -52,11 +52,11 @@ def requirements(source,current,glossary,reference,src,dst):
     for entry in glossary.entries:
         if entry.priority!=1:continue
         if dst=='en-US':
-            if source and src=='zh-CN':add(entry.zh,[entry.en],'本机已确认词库',entry.variants)
+            if source and src=='zh-CN':add(entry.zh,[entry.en],'本机已确认词库',entry.variants,note=entry.note)
             else:
-                for form in entry.all_forms():add(form,[entry.en],'本机已确认词库',entry.variants)
+                for form in entry.all_forms():add(form,[entry.en],'本机已确认词库',entry.variants,note=entry.note)
         elif dst=='zh-CN':
-            for form in entry.all_forms():add(form,[entry.zh],'本机已确认词库')
+            for form in entry.all_forms():add(form,[entry.zh],'本机已确认词库',note=entry.note)
     for row in reference.get('entries',[]):
         terms=row.get('terms',{});target=terms.get(dst)
         if not target:continue
@@ -64,8 +64,8 @@ def requirements(source,current,glossary,reference,src,dst):
         maintained=row.get('maintenance',{}).get(dst,{})
         if maintained and maintained.get('priority')!=1:continue
         aliases=maintained.get('variants',[]);wrong=maintained.get('wrong_variants',[])
-        origin='本机已确认词库' if maintained else '官方多语言词库'
-        note=maintained.get('note','')
+        origin='本机已确认词库' if maintained else row.get('source','官方多语言词库')
+        note='\n'.join(v for v in (maintained.get('note',''),row.get('guidance',{}).get('note','')) if v)
         concept=terms.get('en-US','') if dst not in ('en-US','zh-CN') else ''
         if source and dst=='en-US':
             local=next((entry for entry in glossary.entries if entry.priority==1 and normal(entry.zh)==normal(terms.get('zh-CN',''))),None)
@@ -155,7 +155,8 @@ def augment(segments,glossary,findings,stats,*,source_language=None,target_langu
         'target_language':dst,'catalog':reference},glossary,references,client)
     from .document_context import DocumentContext
     context=DocumentContext(segments)
-    if progress:progress(len(segments),len(segments),'正在逐项核对术语、允许别名与原文语境')
+    from .work_progress import emit
+    emit(progress,0,len(work),'正在逐项核对术语、允许别名与原文语境','terminology')
     def check(item):
         segment,source,rows=item;error='';reused=False;whole=False
         payload={'目标语言':dst,'对应原文':source,'当前译文':segment.text,'术语待核对':rows,
@@ -214,7 +215,7 @@ def augment(segments,glossary,findings,stats,*,source_language=None,target_langu
             if on_finding:on_finding([finding.to_dict()])
         stats['resumed_segments']=stats.get('resumed_segments',0)+int(reused)
         finished+=1
-        if progress:progress(len(segments),len(segments),f'术语逐项核对 {finished}/{len(work)} 组')
+        emit(progress,finished,len(work),'正在逐项核对术语、允许别名与原文语境','terminology')
     findings+=extra;stats['llm_hits']=stats.get('llm_hits',0)+len(extra);stats['findings']=len(findings)
     stats['terminology_hits']=len(extra)
     if errors:

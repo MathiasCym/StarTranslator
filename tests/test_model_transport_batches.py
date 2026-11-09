@@ -455,15 +455,16 @@ class CheckpointTests(unittest.TestCase):
             return job
         responses=[reply({'translation':'Brightness 500 nits'}),reply({'translation':'Supports image processing'}),reply([]),http.client.IncompleteRead(b'')]
         with patch('backend.llm.client._urlopen',side_effect=responses):first=run('first-attempt',self.client())
-        self.assertEqual(first['result']['report']['stats']['model_status'],'partial')
+        self.assertEqual(first['result']['stats']['model_status'],'partial')
+        self.assertTrue(first['result']['outputs'][0]['auto_exported'])
         with patch('backend.llm.client._urlopen',return_value=reply([])) as send:second=run('resume-attempt',self.client())
         self.assertEqual(send.call_count,1)
         self.assertEqual(second['result']['outputs'][0]['resumed_segments'],2)
-        self.assertEqual(second['result']['report']['stats']['resumed_segments'],1)
-        self.assertEqual(second['result']['report']['stats']['model_status'],'complete')
+        self.assertEqual(second['result']['stats']['resumed_segments'],1)
+        self.assertEqual(second['result']['stats']['model_status'],'complete')
         self.assertNotEqual(first['result']['outputs'][0]['path'],second['result']['outputs'][0]['path'])
         self.assertEqual(self.source.read_bytes(),before)
-        self.assertFalse(list((self.root/'output').glob('*')))  # Final-only remains private until confirmation.
+        self.assertEqual(len(list((self.root/'output').glob('*.docx'))),2)
 
     def test_swapping_reference_pairs_invalidates_cache_but_new_draft_path_does_not(self):
         from backend.checkpoints import context_identity

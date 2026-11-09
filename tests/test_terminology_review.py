@@ -114,7 +114,7 @@ class TerminologyTests(unittest.TestCase):
         self.assertEqual(rows[0]['targets'],['Refresh frequency'])
         self.assertFalse(terms.requirements('リフレッシュレート','Display refresh frequency',g,TABLE,'ja-JP','en-US'))
 
-    def test_document_generation_never_receives_glossary_but_combined_review_corrects_it(self):
+    def test_standalone_generation_has_no_glossary_and_combined_uses_and_applies_it(self):
         path=self.source('.docx','刷新率为 60 Hz。');glossary=Glossary([GlossaryEntry('刷新率','SENTINEL_GLOSSARY_ONLY',priority=1)])
         first=TermModel()
         with patch('backend.workflow.store.load_glossary',return_value=glossary),patch('backend.terminology_review.catalog.read',return_value=TABLE):
@@ -130,10 +130,11 @@ class TerminologyTests(unittest.TestCase):
         with patch('backend.workflow.store.load_glossary',return_value=glossary),patch('backend.terminology_review.catalog.read',return_value=TABLE):
             combined=self.job(self.options(path,'zh-CN','ja-JP'),second)
         self.assertEqual(combined['status'],'complete',combined)
-        report=combined['result']['report'];self.assertEqual(report['findings'][0]['kind'],'term')
-        saved=workflow.apply_report({'report_id':report['report_id'],'path':combined['result']['outputs'][0]['path'],
-            'edits':[{'index':0,'text':'リフレッシュレート'}]},client=second)
-        self.assertFalse(saved['failed']);self.assertIn('リフレッシュレート',''.join(s.text for s in extract(saved['output'])))
+        result=combined['result'];self.assertNotIn('report',result)
+        output=result['outputs'][0];self.assertTrue(output['auto_exported']);self.assertFalse(output['unapplied_changes'])
+        self.assertGreater(second.term_calls,0)
+        self.assertTrue(any('相关术语（仅作参考）' in prompt and 'リフレッシュレート' in prompt for prompt,_ in second.requests))
+        self.assertIn('リフレッシュレート',''.join(s.text for s in extract(output['path'])))
 
     def test_repeated_target_term_is_repaired_with_a_unique_full_paragraph(self):
         class Repeat(TermModel):

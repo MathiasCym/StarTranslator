@@ -105,7 +105,9 @@
     <section class="job-panel" id="jobPanel" hidden>
       <div class="panel-head"><h3 id="jobMessage">正在准备…</h3><button id="cancelJob" class="btn ghost sm">取消任务</button></div><img class="mascot" src="assets/normal.png" alt="">
       <ol id="jobStages" class="job-stages" aria-label="任务阶段" hidden><li data-phase="translate">翻译</li><li data-phase="check">校对</li><li data-phase="format">格式对照</li><li data-phase="export">保存</li></ol>
-      <div id="jobProgressTrack" class="job-progress-track"><progress id="jobProgress" max="100" aria-label="任务进度"></progress><span class="job-progress-light" aria-hidden="true"></span></div><p id="jobDetail" class="hint" role="status"></p>
+      <div class="job-progress-labels"><span title="按处理阶段计算，不是预计耗时">整体阶段</span><span id="jobOverallPercent"></span></div>
+      <div id="jobProgressTrack" class="job-progress-track"><progress id="jobProgress" max="100" aria-label="整体阶段进度"></progress><span class="job-progress-light" aria-hidden="true"></span></div>
+      <div class="job-progress-labels"><span id="jobStageLabel">当前阶段</span><span id="jobStageCount"></span></div><div id="jobStageTrack" class="job-progress-track job-phase-track"><progress id="jobStageProgress" max="100" aria-label="当前阶段进度"></progress></div><p id="jobDetail" class="hint" role="status"></p>
       <div id="liveFindings" class="live-findings" hidden></div>
     </section>
     <section class="panel task-failure" id="taskFailurePanel" hidden aria-labelledby="taskFailureTitle">
@@ -122,7 +124,7 @@
     </section>
     <section class="panel" id="translationPanel" hidden>
       <div class="panel-head"><div class="dialog-title"><img id="translationFace" class="mascot dialog-mascot" src="assets/happy.png" width="48" height="48" alt="" draggable="false"><h3 id="translationTitle">翻译结果</h3></div><button class="btn ghost sm" id="translationBack">返回文档</button></div>
-      <div class="results-grid"><div class="result-main result-scroll"><p class="notice" id="translationNotice">译文单独保存，原稿保留。</p><ul id="translationFiles" class="filelist"></ul><p id="translationErrors" class="notice"></p><button id="translationExportLog" class="btn ghost" hidden>导出错误日志</button></div>
+      <div class="results-grid"><div class="result-main result-scroll"><p class="notice" id="translationNotice">译文单独保存，原稿保留。</p><ul id="translationFiles" class="filelist"></ul><p id="translationErrors" class="notice"></p><div class="row-actions"><button id="translationResume" class="btn ghost" hidden>从断点继续</button><button id="translationExportLog" class="btn ghost" hidden>导出错误日志</button></div></div>
         <aside class="result-side" aria-label="译文文件与后续操作"><div class="result-destination"><h4>输出文件</h4><select id="translationOutput" aria-label="选择译文文件" hidden></select><p id="translationOutputPath" class="fpath"></p><button id="translationOpenFolder" class="btn ghost" disabled>打开所在位置</button><button id="translationOpenFile" class="btn ghost" disabled>打开译文</button></div><div class="result-next"><button class="btn primary" id="reviewTranslation">继续校对译文</button><button class="btn ghost" id="finishTranslation">暂不校对</button></div></aside>
       </div>
     </section>
@@ -209,9 +211,9 @@
   </section></div>
   <div class="modal" id="combinedOutputModal" hidden><section class="modal-card combined-output-card" role="dialog" aria-modal="true" aria-labelledby="combinedOutputTitle" aria-describedby="combinedOutputHint">
     <div class="panel-head"><h3 id="combinedOutputTitle"><img class="mascot dialog-mascot" src="assets/normal.png" width="48" height="48" alt="" draggable="false">翻译并校对 · 输出方式</h3><button id="combinedOutputCancel" class="btn ghost sm">取消</button></div>
-    <p id="combinedOutputHint" class="hint">翻译和校对自动完成，建议由你确认后应用。</p>
-    <label class="output-choice"><input type="radio" name="combinedOutput" value="final" checked><span><strong>只输出最终校对文件</strong><small>译文先暂存，确认建议并保存后，目标文件夹只保留一份目标语言文件。</small></span></label>
-    <label class="output-choice"><input type="radio" name="combinedOutput" value="both"><span><strong>保留翻译文件和校对文件</strong><small>翻译文件单独保留；确认建议后，另外保存校对文件。</small></span></label>
+    <p id="combinedOutputHint" class="hint">结合术语库完成高精度翻译、内容复核和格式检查，自动应用通过安全检查的修改并保存。无法解决的位置会在结果中说明。</p>
+    <label class="output-choice"><input type="radio" name="combinedOutput" value="final" checked><span><strong>只输出最终文件</strong><small>译文先暂存，处理结束后自动保存一份最终文件。</small></span></label>
+    <label class="output-choice"><input type="radio" name="combinedOutput" value="both"><span><strong>保留翻译初稿和最终文件</strong><small>保留两个阶段的文件，结果对照默认使用最终文件。</small></span></label>
     <div class="actions"><button id="combinedOutputStart" class="btn primary">开始翻译并校对</button></div>
   </section></div>
   <div class="modal" id="aboutModal" hidden><section class="modal-card about-card" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">

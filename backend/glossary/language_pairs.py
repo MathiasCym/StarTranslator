@@ -44,7 +44,10 @@ def bases(reference,entries,language):
     for item in reference.get('entries',[]):
         terms=item.get('terms',{});zh=terms.get('zh-CN','').strip();en=terms.get('en-US','').strip()
         if not zh:continue
-        key=identity(zh,en);row=rows.setdefault(key,{'zh':zh,'english':en,'official':[],'category':'term','source':'官方多语言词库'})
+        guidance=item.get('guidance',{})
+        key=identity(zh,en);row=rows.setdefault(key,{'zh':zh,'english':en,'official':[],'category':'term','curated':bool(item.get('source')),
+            'source':item.get('source','官方多语言词库'),'note':guidance.get('note','')})
+        if guidance.get('source') and guidance['source'] not in row['source']:row['source']+='\n'+guidance['source']
         value=terms.get(language,'')
         if value and value not in row['official']:row['official'].append(value)
     for entry in entries:
@@ -57,11 +60,11 @@ def bases(reference,entries,language):
     return rows
 def base_value(base):
     choices=base['official'];target=choices[0] if len(choices)==1 else ''
-    return {'zh':base['zh'],'english':base['english'],'translation':target,'note':'','variants':[],
+    return {'zh':base['zh'],'english':base['english'],'translation':target,'note':base.get('note',''),'variants':[],
         'machine_variants':[],'wrong_variants':[],'priority':1 if target else 2,'category':base['category'],'source':base['source'],'baseline':choices}
 
 def table(language):
-    supported(language);source=scope();reference=catalog.read();english=store.read()
+    supported(language);source=scope();reference=catalog.reference();english=store.read()
     data=read_data();saved=records(data,source,language);base=bases(reference,english['entries'],language);rows=[]
     # An obsolete official anchor with personal work remains a visible local row.
     for key,item in saved.items():
@@ -73,7 +76,7 @@ def table(language):
         conflict=('官方译法已变化，当前保留本机译法；请核对后确认。' if own and own.get('baseline')!=item['official'] else
             '原表存在多个不同译法，请结合英文参考确认标准。' if len(item['official'])>1 else '')
         row={**value,'en':value.get('translation',''),'_id':key,'_english':item['english'],
-             '_official':' / '.join(item['official']),'_conflict':conflict}
+             '_official':'' if item.get('curated') else ' / '.join(item['official']),'_conflict':conflict}
         rows.append(['\n'.join(row.get(k,[])) if k in LISTS else str(row.get(k,'')) for k in FIELDS])
     binding={'file':store.fingerprint(path()) if path().exists() else '', 'english':english['fingerprint'],
         'official':digest(reference),'scope':source,'language':language}
@@ -108,7 +111,7 @@ def save(language,rows,columns,fingerprint):
             current=table(language)
             if not fingerprint or current['fingerprint']!=fingerprint:raise store.FileChanged('小语种词库、官方资料或中英词库已变化，请重新读取后保存，现有内容未覆盖。')
             source=scope();data=read_data();old=records(data,source,language)
-            reference=catalog.read();english=store.read();base=bases(reference,english['entries'],language)
+            reference=catalog.reference();english=store.read();base=bases(reference,english['entries'],language)
             known={r[FIELDS.index('_id')]:dict(zip(FIELDS,r)) for r in current['rows']}
             output={};seen=set()
             for index,row in enumerate(rows,1):

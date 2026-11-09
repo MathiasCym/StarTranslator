@@ -173,37 +173,40 @@ class PdfQualityTests(unittest.TestCase):
         model=Cached();third=self.audit(model)
         self.assertEqual(third['resumed_pages'],0);self.assertEqual(len(model.calls),1)
 
-    def test_translate_review_and_each_save_automatically_call_the_product_checker(self):
+    def test_translate_review_checks_both_draft_and_automatically_saved_file(self):
         source=self.root/'original.pdf';pdf_fixture(source);self.page_texts=[ENGLISH];self.visual_words=ENGLISH
         job=dict(id='automatic-pdf-quality',kind='translate_review',cancel=threading.Event(),status='running')
-        with patch('backend.workflow.store.load_glossary',return_value=Glossary([])):
+        with patch('backend.workflow.store.load_glossary',return_value=Glossary([])),patch.object(quality,'audit',wraps=quality.audit) as audit:
             workflow.run(job,dict(kind='translate_review',combined_output='final',paths=[str(source)],
                 references=[],pairs={},output_dir=str(self.root/'output'),workers=1,_client=Model()))
         result=job['result'];output=result['outputs'][0]
         self.assertEqual(output['output_audit']['checked_pages'],1);self.assertEqual(job['status'],'complete',result)
-        events=[]
-        saved=workflow.apply_report(dict(report_id=job['id'],path=output['path'],save_unchanged=True),
-            client=Model(),progress=lambda *args:events.append(args))
-        self.assertEqual(saved['output_audit']['checked_pages'],1)
-        self.assertTrue(any('实际' in str(e) for e in events));self.assertTrue(Path(saved['output']).is_file())
+        self.assertTrue(output['auto_exported']);self.assertNotIn('report',result)
+        self.assertGreaterEqual(audit.call_count,2)
+        self.assertTrue(Path(output['path']).is_file())
 
     def test_saved_checks_use_latest_edited_bytes_and_retain_an_unverified_file(self):
         source=self.root/'original.pdf';pdf_fixture(source);self.page_texts=[ENGLISH];self.visual_words=ENGLISH
         job=dict(id='saved-pdf-quality',kind='translate_review',cancel=threading.Event(),status='running')
-        with patch('backend.workflow.store.load_glossary',return_value=Glossary([])):
+        original_audit=quality.audit
+        calls=[]
+        def audit(path,*args,**kwargs):
+            calls.append(path)
+            if len(calls)>1:kwargs['client']=object()
+            return original_audit(path,*args,**kwargs)
+        with patch('backend.workflow.store.load_glossary',return_value=Glossary([])),patch.object(quality,'audit',side_effect=audit):
             workflow.run(job,dict(kind='translate_review',combined_output='final',paths=[str(source)],
                 references=[],pairs={},output_dir=str(self.root/'output'),workers=1,_client=Model()))
         output=job['result']['outputs'][0]
-        saved=workflow.apply_report(dict(report_id=job['id'],path=output['path'],save_unchanged=True),client=object())
-        self.assertTrue(Path(saved['output']).is_file());self.assertGreater(saved['needs_review'],0)
-        self.assertEqual(saved['output_audit']['status'],'partial');self.assertTrue(saved['content_warnings'])
+        self.assertTrue(output['auto_exported']);self.assertTrue(Path(output['path']).is_file());self.assertGreater(output['needs_review'],0)
+        self.assertEqual(output['output_audit']['status'],'partial');self.assertTrue(output['warnings'])
 
     def test_manual_replacement_with_chinese_is_detected_in_the_newly_written_file(self):
         from backend.models import Finding
         source=self.root/'original.pdf';pdf_fixture(source);self.page_texts=[ENGLISH];self.visual_words=ENGLISH
         job=dict(id='post-edit-pdf',kind='translate_review',cancel=threading.Event(),status='running')
-        with patch('backend.workflow.store.load_glossary',return_value=Glossary([])):
-            workflow.run(job,dict(kind='translate_review',combined_output='final',paths=[str(source)],
+        with patch('backend.workflow.store.load_glossary',return_value=Glossary([])),patch('backend.workflow.predominantly_chinese',return_value=True):
+            workflow.run(job,dict(kind='check',combined_output='final',paths=[str(source)],
                 references=[],pairs={},output_dir=str(self.root/'output'),workers=1,_client=Model()))
         output=job['result']['outputs'][0];report=workflow.REPORTS[job['id']]
         segment=next(s for s in report['segments'] if s.editable and s.text==ENGLISH)

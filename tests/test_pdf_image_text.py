@@ -206,12 +206,12 @@ class PdfImageTextTests(unittest.TestCase):
                 output_dir=str(self.root/'output'),combined_output='final',use_llm=True,workers=1,_client=TextOnly()))
         result=job['result'];self.assertTrue(result['outputs'],result)
         output=result['outputs'][0];self.assertFalse(output['translation_complete'])
-        report=result['report'];issues=[f for f in report['findings'] if f['source']=='image']
-        self.assertEqual(len(issues),1);self.assertFalse(issues[0]['editable'])
-        self.assertIn('原图',issues[0]['reason']);self.assertEqual(report['stats']['model_status'],'partial')
-        saved=workflow.apply_report(dict(report_id=job['id'],path=output['path'],save_unchanged=True))
-        self.assertTrue(Path(saved['output']).is_file());self.assertFalse(saved_residuals(saved['output']))
-        self.assertEqual(len(Document(saved['output']).inline_shapes),1)
+        self.assertNotIn('report',result);self.assertTrue(output['auto_exported'])
+        self.assertEqual(len(output['image_review']['issues']),1)
+        self.assertTrue(any('图片' in w['reason'] for w in output['warnings']))
+        self.assertEqual(result['stats']['model_status'],'partial')
+        self.assertTrue(Path(output['path']).is_file());self.assertFalse(saved_residuals(output['path']))
+        self.assertEqual(len(Document(output['path']).inline_shapes),1)
         self.assertEqual(self.source.read_bytes(),original)
 
     def test_verified_image_is_present_in_the_final_reviewed_file(self):
@@ -231,9 +231,8 @@ class PdfImageTextTests(unittest.TestCase):
         result=job['result'];self.assertTrue(result['outputs'],result)
         output=result['outputs'][0];self.assertTrue(output['translation_complete'],output)
         self.assertEqual(output['image_review']['translated_images'],1)
-        self.assertEqual(result['report']['stats']['model_status'],'complete')
-        saved=workflow.apply_report(dict(report_id=job['id'],path=output['path'],save_unchanged=True))
-        self.assertFalse(saved_residuals(saved['output']));self.assertEqual(len(Document(saved['output']).inline_shapes),1)
+        self.assertEqual(result['stats']['model_status'],'complete');self.assertTrue(output['auto_exported'])
+        self.assertFalse(saved_residuals(output['path']));self.assertEqual(len(Document(output['path']).inline_shapes),1)
         self.assertEqual(self.source.read_bytes(),original)
 
     def test_image_only_pdf_uses_the_image_pass_without_inventing_body_text(self):

@@ -25,13 +25,15 @@ def main():
     parser.add_argument('--company-model',action='store_true',help='Use the built-in company connection for explicitly authorized materials; do not change the live configuration')
     parser.add_argument('--resume',action='store_true',help='Reuse this QA profile after a separate fresh acceptance')
     parser.add_argument('--forbid-requests',action='store_true',help='With --resume, fail any attempted model request to prove complete checkpoint reuse')
-    parser.add_argument('--apply-suggestions',action='store_true',help='Apply suggestions to test copies before the final save')
+    parser.add_argument('--apply-suggestions',action='store_true',help=argparse.SUPPRESS)  # accepted by older QA commands
     parser.add_argument('--workers',type=int,choices=(1,3),default=3)
-    parser.add_argument('--direction',choices=('zh-en','en-zh'),default='zh-en')
+    parser.add_argument('--direction',default='zh-en',help='Document pair, e.g. zh-en or zh-CN>ja-JP')
     args=parser.parse_args()
     if not args.allow_model and not (args.resume and args.forbid_requests):parser.error('--allow-model is required; this command uses the configured model')
     if args.forbid_requests and not args.resume:parser.error('--forbid-requests requires --resume')
-    from backend import workflow
+    from backend import workflow,history,document_languages
+    try:document_languages.pair(args.direction)
+    except ValueError as error:parser.error(str(error))
     from backend.glossary import store
     from backend.llm.client import LLMClient,DEFAULT_BASE_URL,DEFAULT_MODEL
     from backend.translation_audit import saved_residuals
@@ -61,44 +63,45 @@ def main():
     if checkpoint.exists() and not args.resume:parser.error('Fresh acceptance requires a new evidence directory; use --resume separately')
     if args.resume and not checkpoint.exists():parser.error('No checkpoints exist in this evidence directory')
     profile.mkdir(parents=True,exist_ok=True)
-    store.atomic_json(profile/'lexicon.json',entries)
+    if not (profile/'lexicon.json').exists():store.atomic_json(profile/'lexicon.json',entries)
     os.environ['NOVATERM_DATA_DIR']=str(profile)
     run_id=uuid.uuid4().hex
     source_paths=list(dict.fromkeys(str(Path(p).resolve()) for p in args.source))
+    data=dict(kind='translate_review',paths=source_paths,references=[],pairs={},
+        direction=args.direction,combined_output='final',output_dir=str(root/'output'),workers=args.workers,_client=client)
+    if args.resume:
+        saved_run=root/'latest-run.json'
+        if not saved_run.exists():parser.error('This evidence predates explicit resume. Start a fresh QA run.')
+        previous=history.resume_options(json.loads(saved_run.read_text('utf-8'))['job_id'])
+        if previous['paths']!=source_paths or previous.get('direction','zh-en')!=args.direction:
+            parser.error('Resume requires the same source paths and language pair')
+        data={**previous,'_client':client}
     fingerprints={p:store.fingerprint(p) for p in source_paths}
     job=dict(id=run_id,kind='translate_review',status='running',cancel=threading.Event())
     finished=threading.Event();started=time.monotonic()
     def watch():
         while not finished.wait(2):
-            store.atomic_json(root/'progress.json',{k:job.get(k) for k in ('status','phase','done','total','detail')})
+            store.atomic_json(root/'progress.json',{k:job.get(k) for k in ('status','phase','done','total','detail','percent','stage_percent')})
     watcher=threading.Thread(target=watch,daemon=True);watcher.start()
     try:
-        workflow.run(job,dict(kind='translate_review',paths=source_paths,references=[],pairs={},
-            direction=args.direction,combined_output='final',output_dir=str(root/'output'),workers=args.workers,_client=client))
-        value=job.get('result') or {};report=value.get('report') or {};records=[]
+        workflow.run(job,data)
+        value=job.get('result') or {};stats=value.get('stats',{});records=[]
+        store.atomic_json(root/'latest-run.json',{'job_id':run_id})
         store.atomic_json(root/f'{run_id}-result-private.json',value)
         for output in value.get('outputs',[]):
-            edits=[dict(index=i,text=f['suggested']) for i,f in enumerate(report.get('findings',[]))
-                if f.get('file_path')==output['path'] and f.get('editable') and f.get('suggested') and not f.get('applied')]
-            job.update(status='running',phase='export',detail='正在保存并复查校对结果')
-            def export_progress(phase,done,total,message):
-                job.update(phase='output_check' if phase=='render' else phase,done=done,total=total,detail=message)
-            saved=workflow.apply_report(dict(report_id=job['id'],path=output['path'],save_unchanged=True,
-                edits=edits if args.apply_suggestions else []),client=client,progress=export_progress)
-            store.atomic_json(root/f'{run_id}-{len(records)}-saved-private.json',saved)
-            residuals=saved_residuals(saved['output']) if args.direction=='zh-en' else []
-            audit=saved.get('output_audit')
+            residuals=saved_residuals(output['path']) if args.direction=='zh-en' else []
+            audit=output.get('output_audit')
             unchanged=store.fingerprint(output['source'])==fingerprints[output['source']]
-            passed=bool(output['translation_complete'] and not residuals and unchanged and
-                not saved.get('failed') and not saved.get('untranslated') and (audit is None or audit['status']=='complete') and
+            passed=bool(output.get('auto_exported') and output['translation_complete'] and not residuals and unchanged and
+                not output.get('unapplied_changes') and not output.get('untranslated') and (audit is None or audit['status']=='complete') and
                 (output.get('image_review') is None or output['image_review']['status']=='complete') and
-                report.get('stats',{}).get('review_processing_status',report.get('stats',{}).get('model_status'))=='complete')
+                stats.get('review_processing_status',stats.get('model_status'))=='complete')
             if not args.resume and output.get('resumed_segments'):passed=False
-            records.append(dict(source=output['source'],output=saved['output'],passed=passed,
+            records.append(dict(source=output['source'],output=output['path'],passed=passed,
                 translated=output['translated'],resumed_segments=output['resumed_segments'],
-                remaining_chinese=len(residuals) if args.direction=='zh-en' else None,untranslated=saved.get('untranslated',0),
-                direction=args.direction,source_unchanged=unchanged,applied=saved['applied_count'],
-                image_review=output.get('image_review'),output_audit=audit))
+                remaining_chinese=len(residuals) if args.direction=='zh-en' else None,untranslated=output.get('untranslated',0),
+                direction=args.direction,source_unchanged=unchanged,applied=output.get('corrected',0),
+                image_review=output.get('image_review'),output_audit=audit,format_review=output.get('format_review')))
         summary=dict(passed=bool(records) and len(records)==len(source_paths) and all(r['passed'] for r in records) and not requests['blocked'],
             mode='resume' if args.resume else 'fresh',direction=args.direction,records=records,errors=value.get('errors',[]),
             model_requests=requests,seconds=round(time.monotonic()-started,2))

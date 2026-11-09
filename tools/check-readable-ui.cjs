@@ -318,13 +318,18 @@ server.listen(0,'127.0.0.1',async()=>{
   await run("busy(true);$('workspace').hidden=true;$('jobStages').hidden=false;$('jobMessage').textContent='处理 1/1：progress-fixture.docx'")
   for(const value of progressCases){
    await run(`renderJobPhase(${JSON.stringify({...value,phase:'translate',status:'running'})})`)
-   const text=await run("$('jobDetail').textContent")
-   assert.equal(text,`翻译：${value.done} / ${value.total} 段 · ${value.detail}`)
-   assert.equal((text.match(/\d+ \/ \d+/g)||[]).length,1)
+   const stage=await run("({label:$('jobStageLabel').textContent,count:$('jobStageCount').textContent,detail:$('jobDetail').textContent})")
+   assert.deepEqual(stage,{label:'翻译',count:`${value.done} / ${value.total} 段`,detail:value.detail})
+   assert.equal((Object.values(stage).join(' ').match(/\d+ \/ \d+/g)||[]).length,1)
   }
   await run(`renderJobPhase(${JSON.stringify({...progressCases[0],phase:'translate',status:'running'})})`)
   await snap('progress-count-once');await run("busy(false);$('workspace').hidden=false")
   result.checks.push('desktop progress shows one completed count and retains sequential/concurrent/resume/retry/validation activity')
+  await run("renderJobPhase({phase:'terminology',phase_label:'术语逐项复核',stage_unit:'组',status:'running',done:4,total:10,percent:68,stage_percent:40,detail:'正在检查标准译法'})")
+  assert.deepEqual(await run("[$('jobOverallPercent').textContent,$('jobStageCount').textContent,$('jobStageProgress').value]"),['68%','4 / 10 组',40])
+  await run("state.job={can_resume:false};showTranslation({automatic_combined:true,automatic_summary:{applied:2},errors:[],outputs:[{path:'C:/qa/final.docx',direction:'zh-en',translated:3,auto_exported:true,auto_reviewed:true,warnings:[],review_items:[]}]},false)")
+  assert.deepEqual(await run("[$('translationTitle').textContent,$('reviewTranslation').hidden,$('translationResume').hidden,$('reportModal').hidden]"),['高精度翻译完成',true,true,true])
+  await run('showWorkspace()')
   const resumeOptions={kind:'check',paths:['C:/qa/unfinished.docx'],references:[],pairs:{},workers:3,use_llm:false,combined_output:'final',translation_mode:'faithful',resume_from:'resume-fixture'}
   let resumedRequest,historyResumeReads=0
   const taskStarts=[]
@@ -519,6 +524,13 @@ server.listen(0,'127.0.0.1',async()=>{
    assert.equal((text.match(/\d+ \/ \d+/g)||[]).length,1)
   }
   result.checks.push('shared progress shows one completed count and preserves all translation activity states')
+  sharedJobs=[{id:'progress-fixture',kind:'translate_review',status:'running',phase:'terminology',phase_label:'术语逐项复核',done:4,total:10,stage_percent:40,stage_unit:'组',detail:'正在检查标准译法',percent:68,downloads:[]}]
+  await sr('refresh()');await sr("$('jobs').querySelector('[data-show]').click()")
+  assert.deepEqual(await sr("[$('taskStageLabel').textContent,$('taskStageProgress').value,$('taskStageDetail').textContent]"),['术语逐项复核：4 / 10 组',40,'正在检查标准译法'])
+  sharedJobs[0]={...sharedJobs[0],status:'complete',percent:100,downloads:[{index:0,name:'final.docx'}],result:{automatic_combined:true,automatic_summary:{applied:2},outputs:[{path:'final.docx',auto_exported:true}]}}
+  await sr('refresh()')
+  assert(await sr("$('taskStage').hidden && !$('sharedReviewHeading') && $('results').textContent.includes('自动应用 2 处修改')"))
+  result.checks.push('automatic final result and a separate stage progress indicator render without a manual report on desktop and LAN')
   await sr("(()=>{const d=new DataTransfer();d.items.add(new File([''],'demo.pptx'));$('files').files=d.files;$('files').dispatchEvent(new Event('change'));$('translationHelpButton').click()})()")
   for(const w of [900,480]){shared.setContentSize(w,850);await wait(100);const rect=await sr("(()=>{const r=$('translationHelp').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth}})()");assert(rect.left>=0&&rect.right<=rect.width&&rect.bottom<=850,JSON.stringify(rect))}
   result.checks.push('floating help geometry; Escape focus; source file changes close modal; shared 480/900px')

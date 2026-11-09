@@ -13,7 +13,7 @@ from .glossary import store
 from .matcher import check_segments
 from .references import ReferenceIndex
 from .translation import translate_file, Cancelled, check_cancel, output_path, OUTPUT_LOCK, TRANSLATION_MODES
-from .replacer.run_utils import replace_spans
+from .replacer.run_utils import replace_spans,styled_edits
 from .matcher.retriever import _form_pattern
 from .models import RunInfo, Finding
 from .replacer.pptx_package import save_office
@@ -156,6 +156,9 @@ def predominantly_chinese(path):
 def run(job,data):
     from .task_resume import activate
     data=dict(data)
+    data['_automatic_combined']=data.get('kind')=='translate_review'
+    job['automatic_combined']=data['_automatic_combined']
+    if data['_automatic_combined'] and data.get('_client') is None:data['_client']=LLMClient()
     previous=data.get('_resume_row')
     if data.get('resume_from') and previous is None:previous=history.record(data['resume_from'])
     session=previous.get('checkpoint_session') if previous else data.get('_checkpoint_session',job['id'])
@@ -167,7 +170,8 @@ def run(job,data):
             counts=job.setdefault('resume_counts',{})
             counts[stage]=counts.get(stage,0)+1
     from .speaker_notes import processing
-    with activate(session,resumed),processing(data.get('include_ppt_notes',False)):
+    from .document_translation_policy import combined_processing
+    with activate(session,resumed),processing(data.get('include_ppt_notes',False)),combined_processing(data['_automatic_combined']):
         _run(job,data)
         with LOCK:
             if job['id'] in REPORTS:REPORTS[job['id']]['include_ppt_notes']=data.get('include_ppt_notes',False)
@@ -188,7 +192,10 @@ def _run(job,data):
                     job.setdefault('_history_data',{})['kind']='translate_review'
         except Cancelled: pass
         except Exception: pass  # Normal read errors are recorded per file below.
-    def progress(done,total,message,phase='check',percent=None,detail=''):
+    from .work_progress import WorkProgress,format_callback
+    paths = list(dict.fromkeys(os.path.abspath(p) for p in data['paths']))
+    work=WorkProgress(data['kind'],paths)
+    def progress(done,total,message,phase='check',detail=''):
         import time
         with LOCK:
             if job.get('resuming'):
@@ -196,7 +203,8 @@ def _run(job,data):
                 reused=sum(counts.get(stage,0) for stage in (('translation','translation-zh','translation-multi') if phase=='translate' else ('review','review-zh','review-multi') if phase=='check' else ()))
                 detail=('正在恢复原任务；'+(f'已复用 {reused} 处断点；' if reused else (job.get('resume_notice','')+'；' if job.get('resume_notice') else ''))+(detail or message))
             job.update(done=done,total=total,message=message,phase=phase,detail=detail or message,activity_at=time.time())
-            job['percent'] = max(job.get('percent', 0), percent if percent is not None else 100*done/total if total else 0)
+            job.update(work.update(job.get('file_index',1)-1,phase,done,total,detail or message))
+    progress.stage=lambda phase,n,t,message:progress(n,t,job.get('message','正在校对'),phase,detail=message)
     try: history.begin(job['id'], data)
     except Exception: logging.getLogger(__name__).exception('Could not create local task history')
     try:
@@ -213,7 +221,6 @@ def _run(job,data):
                 job['resume_notice']=task_resume.guard_legacy(data,glossary,references,data.get('_client'))
         try:history.save_resume_context(job['id'],current_context)
         except Exception:logging.getLogger(__name__).exception('Could not save task resume context')
-        paths = list(dict.fromkeys(os.path.abspath(p) for p in data['paths']))
         if data['kind'] in ('translate','translate_review'):
             outputs, errors = [], []
             job['result'] = {'outputs':outputs,'errors':errors,'completed_paths':[]}
@@ -221,50 +228,39 @@ def _run(job,data):
                 check_cancel(job['cancel'])
                 job.update(file_index=index+1,file_total=len(paths))
                 combined = data['kind'] == 'translate_review'
-                fraction = .45 if combined else .8
-                progress(0,0,f'翻译 {index+1}/{len(paths)}：{Path(path).name}','translate',100*index/len(paths))
+                progress(0,0,f'翻译 {index+1}/{len(paths)}：{Path(path).name}','preparing')
                 try:
                     final_only = combined and data.get('combined_output') == 'final'
                     folder = store.data_dir() / 'translation-drafts' / job['id'] if final_only else data.get('output_dir')
                     def activity(phase,message,done=0,total=0):
                         if phase=='translate' and job.get('phase')=='translate':done,total=job.get('done',0),job.get('total',0)
-                        ranges={'preparing':(0,.02),'translate':(.02,.43 if combined else .70),
-                            'image_text':(.50 if combined else .80,.04 if combined else .15),
-                            'output_check':(.54 if combined else .95,.01 if combined else .025),
-                            'repair':(.45 if combined else .72,.05 if combined else .08),
-                            'layout':(.50 if combined else .80,.04),'consistency':(.54 if combined else .98,.01),
-                            'format':(.84,.14)}
-                        start,span=ranges.get(phase,(.5,.02))
-                        if phase=='format':
-                            if '原稿' in message:start,span=.84,.035
-                            elif '输出' in message:start,span=.875,.035
-                            elif '重新渲染' in message:start,span=.96,.015
-                            else:start,span=.91,.05
-                        progress(done,total,f'处理 {index+1}/{len(paths)}：{Path(path).name}',phase,
-                            100*(index+start+span*done/max(1,total))/len(paths),message)
+                        progress(done,total,f'处理 {index+1}/{len(paths)}：{Path(path).name}',phase,detail=message)
                     result = translate_file(path,glossary,references,folder,client=data.get('_client'),cancel=job['cancel'],workers=data.get('workers',3),translation_mode=data.get('translation_mode','faithful'),
                         activity=activity,defer_visual=combined,**({'direction':data['direction']} if data.get('direction','zh-en')!='zh-en' else {}),
                         progress=lambda n,t:progress(n,t,f'翻译 {index+1}/{len(paths)}：{Path(path).name}',
-                            'translate',100*(index+(.02+(.43 if combined else .70)*n/max(1,t)))/len(paths),job.get('detail','正在翻译')))
+                            'translate',detail=job.get('detail','正在翻译')))
                     result.update(staged=final_only, output_mode=data.get('combined_output', 'both'),
                                   target_dir=str(Path(data.get('output_dir') or Path(path).parent).absolute()))
                     outputs.append(result)
                     if combined:
-                        progress(0,0,f'校对 {index+1}/{len(paths)}：{Path(result["path"]).name}', 'check',100*(index+.55)/len(paths))
+                        def review_progress(n,t,*message):
+                            progress(n,t,f'校对 {index+1}/{len(paths)}：{Path(path).name}','check',detail=str(message[0]) if message else '正在独立审校表达、术语和事实')
+                        review_progress.stage=lambda phase,n,t,message:progress(n,t,f'校对 {index+1}/{len(paths)}：{Path(path).name}',phase,detail=message)
+                        progress(0,0,f'校对 {index+1}/{len(paths)}：{Path(result["path"]).name}', 'check')
                         review = auto_review(result, glossary, references, job['cancel'],
-                            lambda n,t,*message:progress(n,t,f'校对 {index+1}/{len(paths)}：{Path(path).name}',
-                                'check',100*(index+.55+.29*n/max(1,t))/len(paths),str(message[0]) if message else '模型正在审校英文表达、术语和事实'),
-                            on_finding=lambda items: job.setdefault('partial_findings', []).extend(items),
-                            format_progress=lambda message,n,t:activity('format',message,n,t),
-                            client=data.get('_client'), workers=data.get('workers',3),on_export=lambda:progress(0,0,f'保存校对结果 {index+1}/{len(paths)}：{Path(path).name}',
-                                'export',100*(index+.9)/len(paths)))
+                            review_progress,
+                            on_finding=None if data.get('_automatic_combined') else lambda items: job.setdefault('partial_findings', []).extend(items),
+                            format_progress=format_callback(activity),
+                            client=data.get('_client'), workers=data.get('workers',3),on_export=None if data.get('_automatic_combined') else lambda:progress(0,0,f'保存校对结果 {index+1}/{len(paths)}：{Path(path).name}','export'))
                         reviews.append(review)
-                        if result['review_status'] == 'complete' and not job['cancel'].is_set():
+                        if data.get('_automatic_combined') and not job['cancel'].is_set():
+                            automatic_export(job,review,data,progress)
+                        if result['review_status'] == 'complete' and not job['cancel'].is_set() and (not data.get('_automatic_combined') or result.get('auto_exported')):
                             job['result']['completed_paths'].append(path)
                     else:
                         if result['status']=='complete': job['result']['completed_paths'].append(path)
                     check_cancel(job['cancel'])
-                    progress(1,1,f'已完成 {index+1}/{len(paths)} 个文件','export',100*(index+1)/len(paths))
+                    progress(1,1,f'已完成 {index+1}/{len(paths)} 个文件','export')
                 except Cancelled:
                     raise
                 except Exception as error:
@@ -322,7 +318,7 @@ def _run(job,data):
         outcome = ('cancelled' if job['cancel'].is_set() else 'failed'
                    if data['kind'] in ('translate', 'translate_review') and not outputs and errors else 'partial'
                    if errors or (data['kind'] in ('translate','translate_review') and any(o.get('translation_complete') is False or (o.get('output_audit') or {}).get('status')=='partial' for o in outputs))
-                   or (data['kind']=='translate_review' and any(o.get('review_status')!='complete' for o in outputs)) else 'complete')
+                   or (data['kind']=='translate_review' and any(o.get('review_status')!='complete' or o.get('unapplied_changes') for o in outputs)) else 'complete')
     except Cancelled as error:
         outcome = 'cancelled'
         job.update(message=str(error))
@@ -338,7 +334,20 @@ def _run(job,data):
             job['message'] = f'任务未完成，已保留中断前发现的 {len(partial)} 项'
     finally:
         if data['kind'] == 'translate_review' and job.get('result'):
-            publish_combined_report(job, reviews, outcome)
+            if data.get('_automatic_combined'):
+                stats=combined_stats(job,reviews,outcome)
+                for output in job['result'].get('outputs',[]):
+                    if output.get('staged'):
+                        output.update(staged=False,draft=True)
+                job['result'].update(automatic_combined=True,stats=stats)
+                job['result']['automatic_summary']={'applied':sum(o.get('corrected',0) for o in job['result'].get('outputs',[])),
+                    'unapplied':sum(len(o.get('unapplied_changes',[])) for o in job['result'].get('outputs',[])),
+                    'warnings':sum(len(o.get('warnings',[]))+len(o.get('layout_warnings',[])) for o in job['result'].get('outputs',[]))}
+                job['result'].pop('report',None);job.pop('partial_findings',None)
+                if outcome=='complete':
+                    pending=any(o.get('needs_review') for o in job['result']['outputs'])
+                    job['message']='高精度翻译已保存，有待检查的位置' if pending else '高精度翻译完成，最终文件已保存'
+            else:publish_combined_report(job, reviews, outcome)
         from .document_translation_core import interruption_summary
         interruption=interruption_summary((job.get('result') or {}).get('outputs',[]))
         if interruption:
@@ -431,7 +440,8 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
         if on_finding:on_finding([f.to_dict() for f in manual])
     guard_source()
     if store.fingerprint(translated_path)!=before:raise ValueError('译文在校对期间被外部修改，已停止写入以保留修改。')
-    if result.get('format_review_deferred') and not cancel.is_set():
+    from .document_translation_policy import automatic
+    if result.get('format_review_deferred') and not cancel.is_set() and not automatic():
         if format_progress:format_progress('英文审校已结束，正在准备原稿与译稿的逐页格式对照',0,0)
         original,original_paragraphs,_=open_office(result['source'])
         document,_,_=open_office(translated_path)
@@ -461,9 +471,8 @@ def auto_review(result, glossary, references, cancel, progress, on_finding=None,
             'stats':stats,'output':result}
 
 
-def publish_combined_report(job, reviews, outcome):
+def combined_stats(job, reviews, outcome):
     result = job['result']
-    local = {'segments':[],'hashes':{},'findings':[], 'output_options':{}}
     stats = {key:sum(r['stats'].get(key,0) for r in reviews) for key in
              ('segments','rule_hits','consistency_hits','llm_hits','judged','errors','unreviewed','manual_review','truncated','unsupported','residual_chinese','resumed_segments','format_pages','format_image_pages')}
     errors = result.get('errors',[]) + [{'path':r['output']['source'],'error':r['output']['review_error']}
@@ -477,12 +486,21 @@ def publish_combined_report(job, reviews, outcome):
         'not_started' if not reviews else 'unavailable' if all(s=='unavailable' for s in processing_states)
         else 'partial' if errors or any(s!='complete' for s in processing_states) else 'complete')
     stats['warnings'] = [warning for r in reviews for warning in r['stats']['warnings']]
-    files = []
+    stats['findings'] = sum(len(r['local']['findings']) for r in reviews)
+    if result.get('outputs') and all(o.get('direction')=='en-zh' for o in result['outputs']):stats['target_language']='zh'
+    elif result.get('outputs') and all(o.get('target_language') for o in result['outputs']):
+        stats['target_language']=result['outputs'][0]['target_language']
+    return stats
+
+
+def combined_report_data(outputs, reviews):
+    local = {'segments':[],'hashes':{},'findings':[], 'output_options':{}}
     for review in reviews:
         block, output = review['local'], review['output']
         local['segments'].extend(block['segments']); local['findings'].extend(block['findings']); local['hashes'].update(block['hashes'])
-    for output in result.get('outputs',[]):
-        local['hashes'].setdefault(output['path'],store.fingerprint(output['path']))
+    for output in outputs:
+        if output['path'] not in local['hashes']:
+            local['hashes'][output['path']]=store.fingerprint(output['path'])
         local['output_options'][output['path']] = {'mode':output.get('output_mode','both'),
             'translation_complete':output.get('translation_complete',True),
             'comparison_id':output.get('comparison_id'),
@@ -498,13 +516,19 @@ def publish_combined_report(job, reviews, outcome):
         if output.get('pdf_manifest') is not None:
             local['output_options'][output['path']].update(pdf_manifest=output['pdf_manifest'],output_audit=output.get('output_audit'))
             local['_quality_client']=next((r.get('_quality_client') for r in reviews if r['output']['path']==output['path']),None)
+    return local
+
+
+def publish_combined_report(job, reviews, outcome):
+    result = job['result']
+    stats = combined_stats(job,reviews,outcome)
+    errors = result.get('errors',[]) + [{'path':r['output']['source'],'error':r['output']['review_error']}
+        for r in reviews if r['output'].get('review_error')]
+    if job.get('error'):errors.append({'error':job['error']})
+    local = combined_report_data(result.get('outputs',[]),reviews)
     checked = {r['output']['path']:len(r['local']['segments']) for r in reviews}
     files = [{'path':o['path'],'name':Path(o['path']).name,'source':o['source'],'segments':checked.get(o['path'],0),'review_available':o['path'] in checked}
              for o in result.get('outputs',[])]
-    stats['findings'] = len(local['findings'])
-    if result.get('outputs') and all(o.get('direction')=='en-zh' for o in result['outputs']):stats['target_language']='zh'
-    elif result.get('outputs') and all(o.get('target_language') for o in result['outputs']):
-        stats['target_language']=result['outputs'][0]['target_language']
     public = {'kind':'translate_review','report_id':job['id'],'files':files,'errors':errors,'stats':stats,
         'output_mode':next((o.get('output_mode') for o in result.get('outputs',[])), 'both'),
         'findings':[f.to_dict() for f in local['findings']], 'segments':[s.to_dict() for s in local['segments']]}
@@ -516,10 +540,58 @@ def publish_combined_report(job, reviews, outcome):
         job['message'] = '文件已保留，翻译并校对已结束 · 部分内容待核对'
 
 
-def apply_report(data, progress=None, client=None):
+def automatic_export(job,review,data,progress):
+    """Compose the existing review and guarded export, without a second writer."""
+    output=review['output'];path=output['path']
+    report=combined_report_data([output],[review])
+    report.update(include_ppt_notes=data.get('include_ppt_notes',False),_checkpoint_session=data['_checkpoint_session'],
+                  use_llm=True,_quality_client=data.get('_client'),_cancel=job['cancel'])
+    edits=[]
+    report['skipped_edits']=[]
+    for index,finding in enumerate(report['findings']):
+        if not finding.editable or finding.applied or not finding.suggested or finding.source in ('translation','quality','image'):
+            continue
+        try:
+            replacement=checked_replacement(path,finding.suggested)
+        except ValueError as error:
+            report['skipped_edits'].append({'segment_id':finding.segment_id,'index':index,'reason':str(error)})
+            continue
+        edits.append({'index':index,'text':replacement})
+    try:
+        check_cancel(job['cancel'])
+        saved=apply_report({'report_id':job['id'],'path':path,'edits':edits,'save_unchanged':True},client=data.get('_client'),internal_report=report,
+            progress=lambda phase,n=0,t=0,message='':progress(n,t,f'正在完成：{Path(output["source"]).name}',phase,detail=message))
+        output.update(path=saved['output'],comparison_id=saved.get('comparison_id') or output.get('comparison_id'),
+            corrected=saved['applied_count'],auto_exported=True,review_exported=True,staged=False,draft=False,
+            format_review_deferred=False,layout_warnings=saved.get('layout_warnings',[]),
+            layout_adjustments=[*output.get('layout_adjustments',[]),*saved.get('layout_adjustments',[])],
+            layout_checked=saved.get('layout_checked',False),unapplied_changes=saved.get('failed',[]))
+        if saved.get('output_audit') is not None:output['output_audit']=saved['output_audit']
+        if saved.get('format_review'):
+            output['format_review']=saved['format_review']
+            review['stats'].update(format_pages=saved['format_review'].get('pages',0),format_image_pages=saved['format_review'].get('image_pages',0))
+        output.setdefault('warnings',[]).extend({'reason':s,'text':''} for s in saved.get('content_warnings',[]))
+        remaining=[f for f in report['findings'] if f.suggested and not f.applied and f.review_status!='superseded'
+                   and f.source not in ('translation','quality','image')]
+        output.setdefault('review_items',[]).extend({'slide':f.slide,'para':f.para,'reason':f.reason,
+            'source_text':f.found_text,'translation':f.context} for f in remaining)
+        output['needs_review']=len(output['review_items'])+saved.get('needs_review',0)+(1 if review['stats']['model_status']!='complete' else 0)
+        output['consistency_hits']=0
+        output['status']='needs_review' if output['needs_review'] or saved['failed'] else 'complete'
+        if saved['failed']:
+            output['warnings'].append({'reason':f'{len(saved["failed"])} 项修改未通过安全检查，已保留原文和可用文件。','text':''})
+    except Cancelled:raise
+    except Exception as error:
+        logging.getLogger(__name__).exception('Automatic final export unfinished')
+        output.update(auto_exported=False,status='needs_review',needs_review=max(1,output.get('needs_review',0)))
+        output.setdefault('warnings',[]).append({'reason':'最终保存未完成，已保留可用译稿：'+error_message(error),'text':''})
+        job['result'].setdefault('errors',[]).append({'path':output['source'],'error':'最终保存未完成：'+error_message(error)})
+
+
+def apply_report(data, progress=None, client=None, *, internal_report=None):
     with LOCK:
         if task_queue.MAINTENANCE: raise ValueError('正在校验安装文件，请稍后保存。')
-        report = REPORTS.get(data.get('report_id'))
+        report = internal_report if internal_report is not None else REPORTS.get(data.get('report_id'))
         if report:
             export_lock = report.setdefault('export_lock', threading.Lock())
     if not report:
@@ -542,8 +614,21 @@ def apply_report(data, progress=None, client=None):
         with LOCK: task_queue.ACTIVE_EXPORTS -= 1
 
 
+def checked_replacement(path,value):
+    if not isinstance(value,str) or not value.strip() or len(value)>12000:
+        raise ValueError('请填写有效的替换文本。')
+    allowed_controls='\n\t\r\v' if Path(path).suffix.lower()=='.pptx' else '\n\t\r'
+    if any(ord(c)<32 and c not in allowed_controls for c in value):
+        raise ValueError('替换文本含有无效字符。')
+    return value.strip()
+
+
 def _apply_report(data, report, progress=None, client=None):
+    automatic=report.get('_cancel') is not None
     def notify(phase,done=0,total=0,message=''):
+        if automatic:
+            check_cancel(report['_cancel'])
+            phase={'preparing':'replace','layout':'final_layout'}.get(phase,phase)
         if progress: progress(phase,done,total,message)
     notify('preparing',message='正在核对原文件和替换内容')
     overwrite = data.get('overwrite') is True
@@ -565,15 +650,13 @@ def _apply_report(data, report, progress=None, client=None):
         raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
     edits = {}
     for item in data.get('edits', []):
-        if not isinstance(item, dict) or type(item.get('index')) is not int or not isinstance(item.get('text'), str) or not item['text'].strip() or len(item['text']) > 12000:
+        if not isinstance(item, dict) or type(item.get('index')) is not int:
             raise ValueError('请填写有效的替换文本。')
         index = item['index']
         if index < 0 or index >= len(report['findings']): raise ValueError('建议不存在。')
         finding = report['findings'][index]
         if finding.file_path != path or not finding.editable or finding.applied: raise ValueError('该项建议不可替换。')
-        allowed_controls='\n\t\r\v' if Path(path).suffix.lower()=='.pptx' else '\n\t\r'
-        if any(ord(c) < 32 and c not in allowed_controls for c in item['text']): raise ValueError('替换文本含有无效字符。')
-        edits[index] = item['text'].strip()
+        edits[index] = checked_replacement(path,item.get('text'))
     selected = data.get('selected',{})
     if not isinstance(selected, dict): raise ValueError('替换选项格式不正确。')
     if edits:
@@ -586,7 +669,7 @@ def _apply_report(data, report, progress=None, client=None):
     page_context = DocumentContext(list(segments.values()))
     document, paragraphs, _ = open_office(input_path)
     para_map = {loc:para for loc,para,*_ in paragraphs}
-    done, failed, changed_locators, applied_indices = [], [], [], set()
+    done, failed, changed_locators, applied_indices = [], list(report.get('skipped_edits',[])), [], set()
     superseded={}
     def standard(finding):
         return finding.terminology_standard or finding.method=='rule' and finding.kind=='term'
@@ -594,13 +677,15 @@ def _apply_report(data, report, progress=None, client=None):
     output_audit=None
     origin=option.get('source') or path
     pdf_source=origin if Path(origin).suffix.lower()=='.pdf' and not reverse else None
+    validate_phase='preflight_output' if automatic and pdf_source else 'validate'
+    audit_phase='final_audit' if automatic else 'render'
     pdf_expected=option.get('pdf_manifest')
     pdf_client=None
     if pdf_source and report.get('use_llm',True):
         import copy
         frozen=client if client is not None else report.get('_quality_client')
         pdf_client=copy.copy(frozen) if frozen is not None else LLMClient() if report.get('use_llm',True) else None
-        if hasattr(pdf_client,'cancel'):pdf_client.cancel=None
+        if hasattr(pdf_client,'cancel'):pdf_client.cancel=report.get('_cancel')
     if pdf_source and pdf_expected is None:
         from .pdf_quality import manifest
         pdf_expected=manifest(document.document if hasattr(document,'document') else document)
@@ -647,8 +732,7 @@ def _apply_report(data, report, progress=None, client=None):
             pattern = _form_pattern(old) if finding.method in ('rule', 'consistency') else re.compile(re.escape(old),re.I)
             matches = list(pattern.finditer(segment.text))
             from difflib import SequenceMatcher
-            candidates=[(match.start()+a,match.start()+b,new[c:d]) for match in matches
-                for op,a,b,c,d in SequenceMatcher(None,match.group(),new,autojunk=False).get_opcodes() if op!='equal']
+            candidates=[edit for match in matches for edit in styled_edits(match.group(),new,match.start())]
             from .text_integrity import IDENTIFIERS, validate_identifiers
             try:
                 validate_identifiers(old,new)
@@ -700,7 +784,9 @@ def _apply_report(data, report, progress=None, client=None):
     layout_adjustments, fitting_warnings = fit_document(document,changed_locators,original_layout) if is_pptx else ([],[])
     fitting_warnings+=typography_warnings+option.get('style_warnings',[])
     def visual_progress(message,done=0,total=0): notify('render',done,total,message)
-    visual_options = {'progress':visual_progress} if progress else {}
+    visual_progress.stage=lambda stage,message,done=0,total=0:notify(stage,done,total,message)
+    visual_audit={}
+    visual_options = {'progress':visual_progress,'audit':visual_audit,'cancel':report.get('_cancel')} if progress else {'audit':visual_audit,'cancel':report.get('_cancel')}
     if reverse:visual_options['target_language']=target_language if multilingual else 'zh'
     reference_changes={}
     reference_warnings=[*option.get('reference_warnings',[]),*getattr(document,'_star_reference_warnings',[])]
@@ -735,11 +821,11 @@ def _apply_report(data, report, progress=None, client=None):
             layout_adjustments+=visual_adjustments
             if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators,**({'script_font':typography_font} if multilingual else {}))
             if visual_warnings:logging.getLogger(__name__).warning('Private format follow-up: %s',[(w.get('slide'),w.get('locator')) for w in visual_warnings])
-            notify('validate',message='正在检查输出文件完整性')
+            notify(validate_phase,message='正在检查输出文件完整性')
             structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
             layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings or not is_pptx else structure_warnings
             from .translation_audit import saved_residuals
-            notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
+            notify(validate_phase,message='正在复查保存后的可见中文，保护链接目标和域指令')
             if reverse:
                 if multilingual:
                     from .multilingual_documents import audit_saved
@@ -751,7 +837,7 @@ def _apply_report(data, report, progress=None, client=None):
             if pdf_source:
                 from .pdf_quality import audit
                 output_audit=audit(temporary,pdf_expected,source=pdf_source,client=pdf_client,
-                    progress=lambda message,n,t:notify('render',n,t,message))
+                    progress=lambda message,n,t:notify(audit_phase,n,t,message))
             def guard_output():
                 if store.fingerprint(path) != report['hashes'][path]:
                     raise ValueError('导出时原文件已变化，请重新校对。')
@@ -784,11 +870,11 @@ def _apply_report(data, report, progress=None, client=None):
             layout_adjustments+=visual_adjustments
             if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators,**({'script_font':typography_font} if multilingual else {}))
             if visual_warnings:logging.getLogger(__name__).warning('Private format follow-up: %s',[(w.get('slide'),w.get('locator')) for w in visual_warnings])
-            notify('validate',message='正在检查输出文件完整性')
+            notify(validate_phase,message='正在检查输出文件完整性')
             structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
             layout_warnings=[*visual_warnings,*structure_warnings,*fitting_warnings] if visual_warnings or not is_pptx else structure_warnings
             from .translation_audit import saved_residuals
-            notify('validate',message='正在复查保存后的可见中文，保护链接目标和域指令')
+            notify(validate_phase,message='正在复查保存后的可见中文，保护链接目标和域指令')
             if reverse:
                 if multilingual:
                     from .multilingual_documents import audit_saved
@@ -800,7 +886,7 @@ def _apply_report(data, report, progress=None, client=None):
             if pdf_source:
                 from .pdf_quality import audit
                 output_audit=audit(temporary,pdf_expected,source=pdf_source,client=pdf_client,
-                    progress=lambda message,n,t:notify('render',n,t,message))
+                    progress=lambda message,n,t:notify(audit_phase,n,t,message))
             def guard_original():
                 if store.fingerprint(path) != report['hashes'][path]:
                     raise ValueError('覆盖前原文件已变化，请重新校对。')
@@ -858,13 +944,14 @@ def _apply_report(data, report, progress=None, client=None):
         updates.append({'index':index,'finding':finding.to_dict()})
     pending_translation=[f for f in report['findings'] if f.file_path==path
         and f.reason.startswith(('翻译待核对：','英译中未完成：','多语言翻译未完成：')) and not f.applied]
-    content_warnings=[f'已保存可用文件；仍有 {len(pending_translation)} 处翻译待核对，请查看报告中的对应位置。'] if pending_translation else []
+    detail='结果' if report.get('_cancel') is not None else '报告'
+    content_warnings=[f'已保存可用文件；仍有 {len(pending_translation)} 处翻译待核对，请查看{detail}中的对应位置。'] if pending_translation else []
     if final_residuals:content_warnings.append(f'输出复查仍发现 {len(final_residuals)} 处可见中文，已保留内容和原有链接；当前文件不能视为完整英文。')
     content_warnings.extend('输出复查：'+i['reason'] for i in (output_audit or {}).get('issues',[]))
     content_warnings.extend(dict.fromkeys(i['reason'] for i in reference_warnings))
     pending_images=sum(f.file_path==path and f.source=='image' and not f.applied for f in report['findings'])
     if pending_images:
-        content_warnings.append('原 PDF 仍有图片文字或读取问题未解决，请查看报告中的图片位置；有效文件已保存。')
+        content_warnings.append(f'原 PDF 仍有图片文字或读取问题未解决，请查看{detail}中的图片位置。有效文件已保存。')
     return {'output':output,'report_path':path,'comparison_id':option.get('comparison_id'),'applied_count':len(done),'failed':failed,'overwritten':overwrite,'finding_updates':updates,'content_warnings':content_warnings,
             'remaining_chinese':final_residuals,'untranslated':len(pending_translation) if reverse else len(final_residuals),'output_audit':output_audit,
-            'layout_warnings':layout_warnings,'layout_adjustments':layout_adjustments,'layout_checked':is_pptx and not layout_warnings,'needs_review':len(layout_warnings)+len(final_residuals)+pending_images+len((output_audit or {}).get('issues',[]))}
+            'format_review':visual_audit,'layout_warnings':layout_warnings,'layout_adjustments':layout_adjustments,'layout_checked':is_pptx and not layout_warnings,'needs_review':len(layout_warnings)+len(final_residuals)+pending_images+len((output_audit or {}).get('issues',[]))}

@@ -243,20 +243,17 @@ class ReverseTests(unittest.TestCase):
         self.assertEqual(Path(result['path']).suffix,'.docx')
         self.assertIn(TARGET,'\n'.join(s.text for s in extract(result['path'])))
         self.assertTrue(any('图片内英文' in w['reason'] for w in result['warnings']))
-    def test_combined_review_save_unchanged_and_apply_chinese_suggestion(self):
+    def test_combined_review_applies_chinese_suggestion_and_saves(self):
         source=self.doc();model=Model(suggestions=True)
         with patch('backend.workflow.LLMClient',return_value=model),patch('backend.translation.LLMClient',return_value=model):
             job=workflow.start({'kind':'translate_review','direction':'en-zh','paths':[str(source)],'combined_output':'final'})
             final=asyncio.run(task_queue.wait(job['id'],.005))
         self.assertEqual(final['status'],'complete',final.get('error'))
-        report=final['result']['report'];self.assertTrue(report['findings'])
-        path=report['files'][0]['path'];data={'report_id':job['id'],'path':path,'save_unchanged':True}
-        with patch('backend.translation_audit.saved_residuals',side_effect=AssertionError('Chinese is intended')):
-            saved=workflow.apply_report(data)
-        self.assertIn('Chinese_checked',saved['output']);self.assertEqual(saved['untranslated'],0)
-        applied=workflow.apply_report({**data,'edits':[{'index':0,'text':'像素间距为 2.5 mm。'}]})
-        self.assertEqual(Document(applied['output']).paragraphs[0].text,'像素间距为 2.5 mm。')
-        self.assertEqual(comparison.read(applied['comparison_id'])['output_path'],applied['output'])
+        result=final['result'];self.assertNotIn('report',result)
+        saved=result['outputs'][0];self.assertTrue(saved['auto_exported']);self.assertEqual(saved['corrected'],1)
+        self.assertIn('Chinese_checked',saved['path']);self.assertEqual(saved['untranslated'],0)
+        self.assertEqual(Document(saved['path']).paragraphs[0].text,'像素间距为 2.5 mm。')
+        self.assertEqual(comparison.read(saved['comparison_id'])['output_path'],saved['path'])
         options=__import__('backend.history',fromlist=['resume_options']).resume_options(job['id'])
         self.assertEqual(options['direction'],'en-zh')
     def test_chinese_proofreading_does_not_route_back_to_english(self):
@@ -280,21 +277,10 @@ class ReverseTests(unittest.TestCase):
         output=result['result']['outputs'][0]
         self.assertEqual(output['untranslated'],1)
         self.assertEqual(output['output_audit']['status'],'partial')
-        data={'report_id':job['id'],'path':output['path'],'save_unchanged':True}
-        first=workflow.apply_report(data)
-        self.assertEqual(first['untranslated'],1)
-        self.assertGreaterEqual(first['needs_review'],1)
-        self.assertTrue(any('翻译待核对' in warning for warning in first['content_warnings']))
+        self.assertTrue(output['auto_exported']);self.assertGreaterEqual(output['needs_review'],1)
+        self.assertTrue(any('翻译待核对' in warning['reason'] for warning in output['warnings']))
         self.assertEqual(__import__('backend.history',fromlist=['record']).record(job['id'])['status'],'partial')
-        report=result['result']['report'];index=next(i for i,f in enumerate(report['findings']) if f['reason'].startswith('英译中未完成：'))
-        fixed=workflow.apply_report({**data,'edits':[{'index':index,'text':'保修仅适用于室内显示屏。'}]})
-        self.assertFalse(fixed['failed']);self.assertEqual(fixed['untranslated'],0)
-        self.assertEqual(fixed['output_audit']['status'],'complete')
-        recorded=__import__('backend.history',fromlist=['record']).record(job['id'])
-        self.assertEqual(recorded['status'],'complete');self.assertFalse(recorded['can_resume'])
-        again=workflow.apply_report(data)
-        self.assertEqual(again['untranslated'],0)
-        self.assertIn('保修仅适用于室内显示屏。',Document(again['output']).paragraphs[1].text)
+        self.assertIn('The warranty applies only to indoor displays.',Document(output['path']).paragraphs[1].text)
 
     def test_chinese_review_accepts_only_uniquely_locatable_substring(self):
         from backend.reverse_translation import check_segments
@@ -422,7 +408,7 @@ class ReverseTests(unittest.TestCase):
             result=asyncio.run(task_queue.wait(job['id'],.005))
         self.assertEqual(result['status'],'complete',result.get('error'))
         self.assertEqual(model.translations,2);self.assertEqual(model.reviews,2)
-        self.assertEqual(result['result']['report']['findings'],[])
+        self.assertEqual(result['result']['stats']['findings'],0)
         output=result['result']['outputs'][0]
         self.assertIn('Chen Yiming',Document(output['path']).paragraphs[0].text)
 

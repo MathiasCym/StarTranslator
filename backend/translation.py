@@ -47,9 +47,12 @@ TRANSLATION_MODES=('faithful','compressed')
 
 def translation_system(mode):
     if mode not in TRANSLATION_MODES:raise ValueError('翻译方式不正确。')
+    from .document_translation_policy import automatic
+    system=SYSTEM.replace('根据原文语境完成准确、自然的专业翻译，术语规范检查留给文档校对。',
+        '结合原文语境，采用相关术语数据中的已确认标准，保持译义完整。') if automatic() else SYSTEM
     if mode=='faithful':
-        return SYSTEM+'\n【忠实翻译】逐项保留原文含义、信息、修饰、条件、限定和逻辑关系。不得为适应版面而概括、删减或压缩文案；英文变长时交由排版处理。'
-    return SYSTEM+'\n【用户选择文案压缩】可合并重复表达、删去不承载事实的宣传套话并使用简洁英文。必须保留所有事实、参数、数字、单位、型号、术语、条件、限定、比较范围和逻辑关系。不得删除整项信息或为排版擅自改写事实；不输出说明。'
+        return system+'\n【忠实翻译】逐项保留原文含义、信息、修饰、条件、限定和逻辑关系。不得为适应版面而概括、删减或压缩文案；英文变长时交由排版处理。'
+    return system+'\n【用户选择文案压缩】可合并重复表达、删去不承载事实的宣传套话并使用简洁英文。必须保留所有事实、参数、数字、单位、型号、术语、条件、限定、比较范围和逻辑关系。不得删除整项信息或为排版擅自改写事实；不输出说明。'
 
 
 class Cancelled(Exception):
@@ -248,6 +251,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     checkpoint = open_checkpoint('translation', {'source':os.path.normcase(os.path.abspath(path)),
         'fingerprint':before,'mode':translation_mode}, glossary, references, client)
     from .document_translation_policy import without_glossary
+    from .work_progress import format_callback
     glossary,references=without_glossary(references)
     cached_whole = {}
     if checkpoint:
@@ -595,7 +599,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
         visual_warnings=[];visual_audit={'status':'pending' if defer_visual else 'not_requested'}
         if is_pptx:
             visual_warnings,visual_adjustments=([],[]) if defer_visual else review_pptx(path,staged,document,changed,original_layout,client,cancel,workers=workers,
-                progress=lambda message,n,t:notify('format',message,n,t),audit=visual_audit)
+                progress=format_callback(notify),audit=visual_audit)
             layout_adjustments+=visual_adjustments
             # Final measurements may resolve an initial estimate warning.
             if visual_adjustments:

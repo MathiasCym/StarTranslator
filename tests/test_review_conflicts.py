@@ -5,6 +5,27 @@ sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from backend.replacer.run_utils import replace_spans
 
 class ReviewReplacementTests(unittest.TestCase):
+    def test_suffix_insertions_inherit_the_word_not_the_next_black_spacer(self):
+        from pptx import Presentation
+        from pptx.util import Inches
+        from pptx.dml.color import RGBColor
+        from backend.replacer.run_utils import styled_edits
+        for source,target in [('Port load','Port load capacity'),('网口带载','网口带载能力'),('網路埠帶載','網路埠帶載能力'),
+                              ('ネットワークポート負荷','イーサネットポート負荷容量'),('포트 부하','포트 부하 용량')]:
+            with self.subTest(target=target):
+                deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
+                p=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(8),Inches(1)).text_frame.paragraphs[0]
+                for text,color in [(source,'FFC000'),(' ','000000'),('× Rate','FFFFFF')]:
+                    run=p.add_run();run.text=text;run.font.color.rgb=RGBColor.from_string(color)
+                replace_spans(list(p.runs),styled_edits(source,target))
+                self.assertEqual(p.text,target+' × Rate')
+                self.assertTrue(all(str(r.font.color.rgb)=='FFC000' for r in p.runs if r.text.strip() and 'Rate' not in r.text))
+                self.assertEqual(str(p.runs[-1].font.color.rgb),'FFFFFF')
+
+    def test_raw_insertions_inside_separators_do_not_reorder_text(self):
+        from types import SimpleNamespace
+        runs=[SimpleNamespace(text=v) for v in ['A','  ','B']]
+        replace_spans(runs,[(2,2,'X')]);self.assertEqual(''.join(r.text for r in runs),'A X B')
     def test_spacer_only_styles_cannot_create_visible_text_in_any_target_language(self):
         from backend.replacer.styled_text import response_runs,dominant_runs,StyleMappingError
         groups=[{'id':0,'text':'网口带载','key':('yellow',)}, {'id':1,'text':' ','key':('dark',)},
@@ -129,6 +150,13 @@ class ConflictTests(unittest.TestCase):
         self.assertFalse(findings[1].applied);self.assertFalse(findings[1].editable)
         self.assertEqual(findings[1].review_status,'stale');self.assertIn('未应用',findings[1].not_editable_reason)
 
+    def test_prefix_and_suffix_insertions_do_not_consume_the_same_anchor_twice(self):
+        from types import SimpleNamespace
+        from backend.replacer.run_utils import styled_edits
+        runs=[SimpleNamespace(text='A'),SimpleNamespace(text=' '),SimpleNamespace(text='Z')]
+        replace_spans(runs,styled_edits('A','XAY'))
+        self.assertEqual(''.join(run.text for run in runs),'XAY Z')
+
     def test_unsafe_standard_still_fails_and_does_not_suppress_valid_grammar(self):
         from docx import Document
         ident,path,findings=self.report(unsafe=True)
@@ -142,5 +170,23 @@ class ConflictTests(unittest.TestCase):
         self.assertTrue(result['failed']);self.assertTrue(findings[0].applied);self.assertFalse(findings[1].applied)
         self.assertNotEqual(findings[0].review_status,'superseded')
         self.assertIn('ordinary usage rate',Document(result['output']).paragraphs[0].text)
+
+    def test_automatic_save_skips_one_invalid_suggestion_and_keeps_valid_changes(self):
+        import threading
+        from docx import Document
+        from backend import workflow
+        ident,path,findings=self.report()
+        local=workflow.REPORTS.pop(ident)
+        findings[1].suggested='invalid\x00replacement'
+        before=path.read_bytes()
+        output={'path':str(path),'source':str(path),'target_dir':str(self.root),'output_mode':'final','warnings':[]}
+        job={'id':ident,'cancel':threading.Event(),'result':{'outputs':[output],'errors':[]}}
+        workflow.automatic_export(job,{'local':local,'stats':{'model_status':'complete'},'output':output},
+                                  {'_checkpoint_session':ident},lambda *args,**kwargs:None)
+        self.assertTrue(output['auto_exported']);self.assertEqual(output['corrected'],1)
+        self.assertEqual(len(output['unapplied_changes']),1)
+        self.assertIn('无效字符',output['unapplied_changes'][0]['reason'])
+        self.assertIn('ordinary usage rate',Document(output['path']).paragraphs[0].text)
+        self.assertEqual(path.read_bytes(),before);self.assertNotIn(ident,workflow.REPORTS)
 
 if __name__=='__main__':unittest.main()

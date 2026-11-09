@@ -9,5 +9,7 @@ from .writing_policy import validate_translation
 
 
 def validate_for_file(path, source, target):
+    from .parameter_notation import validate
+    validate(source,target)
     return validate_translation(source, target,
         allow_reflow=Path(path).suffix.lower() == '.pdf' if path else False)

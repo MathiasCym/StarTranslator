@@ -10,7 +10,12 @@ from .loader import DEFAULT_PATH
 def effective():
     """Local maintained standards for proofreading/free text only."""
     from .language_pairs import overlay
-    return overlay(read())
+    return overlay(reference())
+
+
+def reference():
+    from .technical_usage import compose
+    return compose(read())
 
 
 def read():

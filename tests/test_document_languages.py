@@ -98,13 +98,12 @@ class DocumentLanguageTests(unittest.TestCase):
       self.assertEqual(output['target_language'],dst);self.assertEqual(output['resumed_segments'],0)
       self.assertEqual(output['review_status'],'complete');self.assertGreater(job['result']['stats']['judged'],0)
       self.assertEqual(output['output_audit']['status'],'complete')
-      report_id=job['result']['report']['report_id']
-      saved=workflow.apply_report({'report_id':report_id,'path':output['path'],'save_unchanged':True},client=model)
-      self.assertEqual(saved['output_audit']['status'],'complete',saved)
-      self.assertEqual(saved['remaining_chinese'],[])
-      self.assertIn(local_target,'\n'.join(s.text for s in extract(saved['output'])))
+      self.assertTrue(output['auto_exported']);self.assertNotIn('report',job['result'])
+      self.assertEqual(output['remaining_chinese'],[])
+      self.assertIn(local_target,'\n'.join(s.text for s in extract(output['path'])))
       self.assertEqual(path.read_bytes(),before)
       self.assertEqual(comparison.read(output['comparison_id'])['direction'],languages.direction(src,dst))
+      self.assertEqual(comparison.read(output['comparison_id'])['output_path'],output['path'])
 
  def test_independent_review_apply_and_save_all_three_new_languages(self):
   for dst in ('zh-Hant-TW','ja-JP','ko'):
@@ -132,8 +131,8 @@ class DocumentLanguageTests(unittest.TestCase):
   # Two generation attempts, followed by one bounded failed-segment repair;
   # persistent invalid facts still remain pending rather than marked complete.
   self.assertTrue(job['can_resume']);self.assertEqual(model.translations,4)
-  saved=workflow.apply_report({'report_id':job['result']['report']['report_id'],'path':output['path'],'save_unchanged':True},client=model)
-  self.assertEqual(saved['output_audit']['status'],'partial');self.assertEqual(saved['untranslated'],1)
+  self.assertTrue(output['auto_exported']);self.assertNotIn('report',job['result'])
+  self.assertEqual(output['output_audit']['status'],'partial')
 
  def test_new_language_resume_is_explicit_and_restores_original_language(self):
   from docx import Document
@@ -255,11 +254,11 @@ class DocumentLanguageTests(unittest.TestCase):
      job=self.job(self.options(path,'en-US',dst),model)
      self.assertEqual(job['status'],'complete',job.get('error') or job.get('result'))
      result=job['result']['outputs'][0];self.assertFalse(result['review_items'])
-     saved=workflow.apply_report({'report_id':job['result']['report']['report_id'],'path':result['path'],'save_unchanged':True},client=model)
-     self.assertIn(target,'\n'.join(s.text for s in extract(saved['output'])))
-     if suffix=='.html':self.assertIn('href="https://example.com/中文"',Path(saved['output']).read_text('utf-8'))
-     if suffix=='.srt':self.assertIn('00:00:01,000 --> 00:00:04,000',Path(saved['output']).read_text('utf-8'))
-     if suffix=='.json':self.assertEqual(json.loads(Path(saved['output']).read_text('utf-8'))['id'],'A8')
+     self.assertTrue(result['auto_exported']);saved=result['path']
+     self.assertIn(target,'\n'.join(s.text for s in extract(saved)))
+     if suffix=='.html':self.assertIn('href="https://example.com/中文"',Path(saved).read_text('utf-8'))
+     if suffix=='.srt':self.assertIn('00:00:01,000 --> 00:00:04,000',Path(saved).read_text('utf-8'))
+     if suffix=='.json':self.assertEqual(json.loads(Path(saved).read_text('utf-8'))['id'],'A8')
 
  def test_failed_pdf_source_is_not_sent_to_target_proofreading(self):
   path=self.source('.pdf',SAMPLES['en-US']);model=Model('invalid 99 Hz')
@@ -301,9 +300,9 @@ class DocumentLanguageTests(unittest.TestCase):
   job=self.job(self.options(path,'en-US','ja-JP'),model)
   self.assertEqual(job['status'],'complete',job)
   output=job['result']['outputs'][0];self.assertFalse(output['review_items']);self.assertTrue(output['style_warnings'])
-  saved=workflow.apply_report({'report_id':job['result']['report']['report_id'],'path':output['path'],'save_unchanged':True},client=model)
-  self.assertTrue(any('局部强调' in warning['reason'] for warning in saved['layout_warnings']))
-  self.assertIn(SAMPLES['ja-JP'],'\n'.join(s.text for s in extract(saved['output'])))
+  self.assertTrue(output['auto_exported'])
+  self.assertTrue(any('局部强调' in warning['reason'] for warning in output['layout_warnings']))
+  self.assertIn(SAMPLES['ja-JP'],'\n'.join(s.text for s in extract(output['path'])))
 
  def test_style_review_uses_actual_original_format_not_invented_id_colors(self):
   from backend.replacer.styled_text import style_groups,slice_groups

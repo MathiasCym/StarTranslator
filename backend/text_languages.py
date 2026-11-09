@@ -113,7 +113,8 @@ def glossary_context(source, reference, src, dst):
             value=normalized(form)
             pattern=re.escape(value) if src in ('zh-CN','zh-Hant-TW','ja-JP','ko','th-TH') else r'(?<!\w)'+re.escape(value)+r'(?!\w)'
             if re.search(pattern,haystack) and (form,b) not in seen:
-                seen.add((form,b));item={'原词':form,'目标译法':b,'来源':'本机维护' if target_info else '官方术语表'}
+                seen.add((form,b));item={'原词':form,'目标译法':b,'来源':'本机维护' if target_info else row.get('source','官方术语表')}
+                if row.get('guidance'):item['技术使用说明']=row['guidance']
                 if target_info:item.update({'正确别名':target_info.get('variants',[]),'已确认错译':target_info.get('wrong_variants',[]),
                     '备注':target_info.get('note',''),'确认状态':'已确认' if target_info.get('priority')==1 else '待确认，仅供参考'})
                 found.append(item)
@@ -290,6 +291,8 @@ def validate(source, target, src, dst, *, allow_identical=False):
 
 
 def translate_piece(client, source, reference, src, dst, cancel, *, context='', humanize=False, activity=None, mode='faithful',quality=None,source_scripts=None,terminology=True):
+    from . import document_translation_policy as policy
+    if policy.automatic():reference=policy.reference();terminology=True
     terms=glossary_context(source,reference,src,dst) if terminology else []
     payload={'待译原文':source,'相邻原文（仅供理解）':context,'相关术语（仅作参考）':terms,
              '源语言':LANGUAGES[src],'目标语言':LANGUAGES[dst],'必须逐字保留的地址':IDENTIFIERS.findall(source)}
@@ -302,6 +305,8 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
             '简体与繁体中文是不同目标：繁体正文使用台湾繁体字形及自然用词，简体正文使用简体字形。日语中的汉字属于日语，不机械转换成中文字形。')
     if source_scripts:common+='原文上下标属于公式语义，平面文本中的109可能是10的9次方。保留原字符及上下标归属，由程序继承原样式；不能将其改写成109个、10^9、10⁹或丢掉指数。'
     if not terminology:common=common.replace('按语境使用词库中实际存在的目标译法；缺项由你翻译，但不得声称是官方词条。','根据原文语境翻译，不对照任何术语表判定用词规范。')
+    from .parameter_notation import INSTRUCTION
+    common+=INSTRUCTION
     system=f'将{LANGUAGES[src]}完整翻译为{LANGUAGES[dst]}。'+common+'只返回 {"translation":"完整译文"}。'
     if mode=='compact':system+='本次用于演示文稿文案压缩：在完整保留全部事实、限定、否定、数字、型号和专名的前提下，优先简洁自然的表达，删除多余措辞；不得概括掉信息。'
     if humanize:system+='\n'+humanizer_rules()

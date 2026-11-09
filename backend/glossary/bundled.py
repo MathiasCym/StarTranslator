@@ -37,7 +37,7 @@ def manifest():
         for name in ('catalog','baseline','deletion_baseline'):
             if name in batch and (not isinstance(batch[name],str) or not re.fullmatch(r'[a-z0-9-]+\.json',batch[name])):
                 raise ValueError('随包词库来源文件名无效。')
-        if batch.get('mode','append') not in ('append','revision'):raise ValueError('词库升级模式无效。')
+        if batch.get('mode','append') not in ('append','revision','annotations'):raise ValueError('词库升级模式无效。')
         seen.add(ident)
     return value['batches']
 
@@ -101,7 +101,21 @@ def apply_batch(path, batch):
     for entry in entries:
         current.setdefault(key(entry['zh']), []).append(entry)
     details={'added':0,'updated':0,'removed':0,'conflicts':[]}
-    if batch.get('mode')=='revision':
+    if batch.get('mode')=='annotations':
+        # Exact concepts only: add usage information, never a second standard.
+        incoming=catalog(batch['catalog']);combined=copy.deepcopy(entries)
+        if set(incoming)!={key(term) for term in batch['terms']}:raise ValueError('使用说明与升级清单不一致。')
+        for entry in combined:
+            candidates=incoming.get(key(entry['zh']),[])
+            exact=[e for e in candidates if key(e['en'])==key(entry['en'])]
+            if len(exact)!=1:continue
+            changed=False
+            for field in ('note','source'):
+                value=exact[0].get(field,'')
+                if value and value not in entry.get(field,''):
+                    entry[field]=(entry.get(field,'')+'\n'+value).strip();changed=True
+            if changed:details['updated']+=1
+    elif batch.get('mode')=='revision':
         from .bundled_revision import revise
         incoming=catalog(batch['catalog']);baseline=catalog(batch['baseline'])
         if set(incoming)!={key(term) for term in batch['terms']}:raise ValueError('新版官方词库与升级清单不一致。')

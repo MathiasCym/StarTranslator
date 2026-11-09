@@ -250,7 +250,7 @@ class ConsistencyWorkflowTests(unittest.TestCase):
         for p in Document(result['path']).paragraphs:
             self.assertTrue(p.runs[0].bold);self.assertFalse(bool(p.runs[1].bold))
 
-    def test_final_only_combined_report_requires_confirmation_and_keeps_document_parts(self):
+    def test_final_only_automatically_applies_consistency_and_keeps_document_parts(self):
         source=self.root/'source.docx';doc=Document()
         for _ in range(2):
             p=doc.add_paragraph();p.add_run('下半年').bold=True;p.add_run('战略')
@@ -269,17 +269,14 @@ class ConsistencyWorkflowTests(unittest.TestCase):
                 'combined_output':'final','output_dir':str(out)})
         self.assertEqual(job['status'],'complete')
         self.assertEqual((model.translations,model.reviews),(2,2))
-        report=job['result']['report'];self.assertEqual(report['stats']['consistency_hits'],1)
-        self.assertFalse(any(f['applied'] for f in report['findings']))
-        self.assertEqual(list(out.glob('*.docx')),[])
-        working=report['files'][0]['path']
-        self.assertEqual(Document(working).paragraphs[1].text,'Second half Strategy')
-        saved=workflow.apply_report({'report_id':report['report_id'],'path':working,
-            'edits':[{'index':0,'text':'H2 Strategy'}]})
+        result=job['result'];self.assertEqual(result['stats']['consistency_hits'],1)
+        self.assertNotIn('report',result);self.assertNotIn(job['id'],workflow.REPORTS)
+        self.assertEqual(result['automatic_summary']['applied'],1)
+        saved=result['outputs'][0]['path']
         self.assertEqual(len(list(out.glob('*.docx'))),1)
-        self.assertEqual(Document(saved['output']).paragraphs[1].text,'H2 Strategy')
-        self.assertTrue(Document(saved['output']).paragraphs[1].runs[0].bold)
-        with ZipFile(source) as a,ZipFile(saved['output']) as b:
+        self.assertEqual(Document(saved).paragraphs[1].text,'H2 Strategy')
+        self.assertTrue(Document(saved).paragraphs[1].runs[0].bold)
+        with ZipFile(source) as a,ZipFile(saved) as b:
             for name in a.namelist():
                 if name.startswith('word/media/'): self.assertEqual(a.read(name),b.read(name))
         self.assertEqual(source.read_bytes(),original)

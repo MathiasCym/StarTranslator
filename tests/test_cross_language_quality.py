@@ -67,9 +67,9 @@ class CrossLanguageTests(unittest.TestCase):
                     result=job['result'];output=result['outputs'][0]
                     self.assertEqual(output['resumed_segments'],0);self.assertTrue(output['translation_complete'])
                     self.assertEqual(output['review_status'],'complete')
-                    saved=workflow.apply_report({'report_id':result['report']['report_id'],'path':output['path'],'save_unchanged':True},client=model)
-                    self.assertFalse(saved.get('failed'));self.assertEqual(saved['output_audit']['status'],'complete')
-                    self.assertIn(target,'\n'.join(s.text for s in extract(saved['output']) if s.editable))
+                    self.assertTrue(output['auto_exported']);self.assertNotIn('report',result)
+                    self.assertFalse(output['unapplied_changes']);self.assertEqual(output['output_audit']['status'],'complete')
+                    self.assertIn(target,'\n'.join(s.text for s in extract(output['path']) if s.editable))
                     self.assertEqual(path.read_bytes(),before)
 
     def test_semantic_review_context_and_disputed_wording_are_shared(self):

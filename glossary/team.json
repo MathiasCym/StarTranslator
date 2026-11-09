@@ -4,8 +4,8 @@
     "en": "10-bit",
     "variants": [],
     "priority": 1,
-    "note": "10位色深\n位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "展厅讲解稿:讲解稿V3.0\nNovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "note": "10位色深\n位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "展厅讲解稿:讲解稿V3.0\nNovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "10 bit",
       "10bit"
@@ -17,8 +17,8 @@
     "en": "12-bit",
     "variants": [],
     "priority": 1,
-    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "12bit"
     ],
@@ -45,8 +45,8 @@
     "en": "16-bit",
     "variants": [],
     "priority": 1,
-    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "16bit"
     ],
@@ -57,8 +57,8 @@
     "en": "18-bit",
     "variants": [],
     "priority": 1,
-    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "18bit"
     ],
@@ -69,8 +69,8 @@
     "en": "20-bit",
     "variants": [],
     "priority": 1,
-    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "20bit"
     ],
@@ -81,8 +81,8 @@
     "en": "22-bit",
     "variants": [],
     "priority": 1,
-    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "22bit"
     ],
@@ -106,8 +106,8 @@
     "en": "24-bit",
     "variants": [],
     "priority": 1,
-    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "24bit"
     ],
@@ -142,8 +142,8 @@
     "en": "32-bit",
     "variants": [],
     "priority": 1,
-    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "32bit"
     ],
@@ -249,8 +249,8 @@
     "en": "8-bit",
     "variants": [],
     "priority": 1,
-    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13",
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "8bit"
     ],
@@ -1285,8 +1285,8 @@
       "bit-depth"
     ],
     "priority": 1,
-    "note": "人工修正：bit 单独出现过于宽泛，不作变体，避免误报\n位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "人工修正\nNovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n公司官方术语库（英语）",
+    "note": "人工修正：bit 单独出现过于宽泛，不作变体，避免误报\n位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "人工修正\nNovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n公司官方术语库（英语）\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "bit-depth"
     ],
@@ -1880,8 +1880,8 @@
     "en": "refresh rate",
     "variants": [],
     "priority": 1,
-    "note": "诺瓦标准译法\n\n中文定义来自课件；英文为补充建议，待确认。\n帧频\n3\n6\n1\n刷新率指显示屏画面更新的速率，通常用赫兹（Hz）表示。\n规则种子：LED 技术语境下的常见非标准机翻，请按团队规范维护。",
-    "source": "人工修正\n未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第11行\n专业术语.pptx / 第33页\n公司官方术语库（英语）",
+    "note": "诺瓦标准译法\n\n中文定义来自课件；英文为补充建议，待确认。\n帧频\n3\n6\n1\n刷新率指显示屏画面更新的速率，通常用赫兹（Hz）表示。\n规则种子：LED 技术语境下的常见非标准机翻，请按团队规范维护。\n参数数值中的 Hz 保留，不与视频帧率 fps 混用；正文标签按目标语种翻译。原文没有数值时不补写刷新率。",
+    "source": "人工修正\n未来显示专业词汇（中英对照）收录.xlsx / 驱动IC / 第11行\n专业术语.pptx / 第33页\n公司官方术语库（英语）\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [
       "refresh-rate"
     ],
@@ -2133,8 +2133,8 @@
     "en": "per-port loading capacity",
     "variants": [],
     "priority": 1,
-    "note": "2026-09-29 校订：由影院 PPT 的 per-cable loading 和带载参数语义规范化；网口能力与整机最大带载分开。",
-    "source": "2026-09-29 核对依据：PPT:13, EDITORIAL",
+    "note": "2026-09-29 校订：由影院 PPT 的 per-cable loading 和带载参数语义规范化；网口能力与整机最大带载分开。\n仅单个网口的带载能力，不得扩写为整机总带载；保留原有刷新率、位深、RGB 通道和计算条件。",
+    "source": "2026-09-29 核对依据：PPT:13, EDITORIAL\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -3349,8 +3349,8 @@
     "en": "loading capacity",
     "variants": [],
     "priority": 1,
-    "note": "接收卡/控制器带载像素或箱体的能力\n2026-09-29 校订：用于参数标题或带载能力；作动词“带载某屏”仍可用 load / drive，不做通用词自动替换。",
-    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：PPT:5,13, ARMOR, COEXCN",
+    "note": "接收卡/控制器带载像素或箱体的能力\n2026-09-29 校订：用于参数标题或带载能力；作动词“带载某屏”仍可用 load / drive，不做通用词自动替换。\n在 LED 参数语境指可驱动的像素或显示单元数量；不能与接口带宽或速率混淆。作动词时可按语法表达，不机械替换为参数名。",
+    "source": "展厅讲解稿:讲解稿V3.0\n2026-09-29 核对依据：PPT:5,13, ARMOR, COEXCN\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -3359,8 +3359,8 @@
     "en": "loading capacity",
     "variants": [],
     "priority": 1,
-    "note": "2026-09-29 校订：参数名；数值单位通常为像素，不应与接口带宽混淆。",
-    "source": "2026-09-29 核对依据：ARMOR, COEXCN",
+    "note": "2026-09-29 校订：参数名；数值单位通常为像素，不应与接口带宽混淆。\n参数名；像素数、刷新率及位深共同限定带载条件，不删去条件，不把像素数量换成网络速率。",
+    "source": "2026-09-29 核对依据：ARMOR, COEXCN\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -6396,8 +6396,8 @@
     "en": "color depth",
     "variants": [],
     "priority": 1,
-    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。",
-    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n公司官方术语库（英语）",
+    "note": "位深参数及数值修饰语统一使用 n-bit，如 8-bit、10-bit / 12-bit。描述比特数量可使用 8 bits；型号、代码、软件界面原名和 bit/s 不按此规则改写。每通道 8-bit 不等于整像素总共 8-bit；RGB 三通道合计为 24 bits per pixel。\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "NovaStar H5 Specifications V1.6.0 (Color Depth); Microsoft WIC Native Pixel Formats / 2026-10-13\n公司官方术语库（英语）\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -7008,8 +7008,8 @@
     "en": "input bit depth",
     "variants": [],
     "priority": 1,
-    "note": "2026-09-29 校订：",
-    "source": "2026-09-29 核对依据：MX",
+    "note": "2026-09-29 校订：\n参数值、表格和公式中的 bit 是单位记法：保留 8bit、10bit / 12bit 中的拉丁单位，不改成 8ビット、8비트 或 8位元；空格和连字符可按目标文档统一。英文数值修饰语沿用 8-bit。正文术语“位深/色深”仍正常翻译，如 bit depth、ビット深度；正文叙述比特数量可自然本地化。不得将 bit 改成 byte，不把 bit/s、型号、代码或界面原名按本规则改写，不混淆每通道与每像素位数。",
+    "source": "2026-09-29 核对依据：MX\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -7920,8 +7920,8 @@
     "en": "Ethernet port",
     "variants": [],
     "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
+    "note": "本词指接口。接口速率 Gbps 与可带载像素数是不同参数，不能相互替换；复合词按实际语境翻译，保留原型号和速率。",
+    "source": "公司官方术语库（英语）\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [],
     "wrong_variants": []
   },
@@ -9470,8 +9470,8 @@
     "en": "bit rate",
     "variants": [],
     "priority": 1,
-    "note": "",
-    "source": "公司官方术语库（英语）",
+    "note": "码率是单位时间的数据量；bit/s、kbit/s、Mbit/s 等保持大小写和量级，不把码率误写成位深，不将 bit 误换为 byte。",
+    "source": "公司官方术语库（英语）\n星译官技术参数使用规范（维护补充，2026-11-06；非官方表新增译法）",
     "machine_variants": [],
     "wrong_variants": []
   },

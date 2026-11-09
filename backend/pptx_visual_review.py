@@ -246,8 +246,10 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
     images disappear on success, failure or cancellation and are never published.
     """
     pending={'slide':None,'text':'','reason':'文档排版处理未完成。'}
-    def notify(message,done=0,total=0):
-        if progress:progress(message,done,total)
+    def notify(message,done=0,total=0,stage='format_adjust'):
+        handler=getattr(progress,'stage',None)
+        if handler:handler(stage,message,done,total)
+        elif progress:progress(message,done,total)
     audit=audit if audit is not None else {}
     audit.update(pages=0,image_pages=0,native_pages=0,renderer='unavailable',status='pending')
     adjustments=[]
@@ -257,10 +259,10 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
         try:
             if Path(source).resolve()==Path(output).resolve():
                 baseline=folder/'baseline.pptx';shutil.copyfile(source,baseline);source=baseline
-            notify('正在渲染原稿页面')
-            original=render_pages(reference or source,folder/'source',cancel,**({'progress':lambda n,t:notify('正在渲染原稿页面',n,t)} if progress else {}))
-            notify('正在渲染输出页面')
-            current=render_pages(output,folder/'output-0',cancel,**({'progress':lambda n,t:notify('正在渲染输出页面',n,t)} if progress else {}))
+            notify('正在渲染原稿页面',stage='format_source')
+            original=render_pages(reference or source,folder/'source',cancel,**({'progress':lambda n,t:notify('正在渲染原稿页面',n,t,stage='format_source')} if progress else {}))
+            notify('正在渲染输出页面',stage='format_output')
+            current=render_pages(output,folder/'output-0',cancel,**({'progress':lambda n,t:notify('正在渲染输出页面',n,t,stage='format_output')} if progress else {}))
             if len(original['pages'])!=len(document.slides) or len(current['pages'])!=len(document.slides):
                 return [pending],adjustments
             audit.update(pages=len(current['pages']),renderer='powerpoint' if original.get('native') and current.get('native') else 'officecli')
@@ -268,9 +270,12 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
             objects=_objects(document,snapshots);readability_feedback=[]
             native_seen,image_seen,incomplete_pages=set(),set(),set()
             vision_unavailable=threading.Event()
+            inspection=0
             def inspect(manifest,numbers):
+                nonlocal inspection
+                stage='format_model_'+str(min(inspection,2));inspection+=1
                 numbers=list(numbers)
-                notify('正在逐页检查版式',0,len(numbers))
+                notify('正在逐页检查版式',0,len(numbers),stage=stage)
                 def inspect_page(number):
                     issues=[]
                     _cancel(cancel)
@@ -331,10 +336,10 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                     # Probe one page first, so a text-only model does not receive
                     # one doomed image request per page. Native bounds still run.
                     if numbers:
-                        issues.extend(inspect_page(numbers[0]));notify('正在逐页检查版式',1,len(numbers))
+                        issues.extend(inspect_page(numbers[0]));notify('正在逐页检查版式',1,len(numbers),stage=stage)
                     for done,page_issues in enumerate(pool.map(inspect_page,numbers[1:]),2):
                         issues.extend(page_issues)
-                        notify('正在逐页检查版式',done,len(numbers))
+                        notify('正在逐页检查版式',done,len(numbers),stage=stage)
                 return issues
             issues=inspect(current,range(1,len(document.slides)+1))
             best=folder/'best.pptx';shutil.copyfile(output,best)
@@ -363,8 +368,8 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                 fixes+=growth
                 adjustments.extend(fixes)
                 save_office(source,document,output,changed)
-                notify('正在重新渲染并检查调整后的页面')
-                revised=render_pages(output,folder/f'output-{attempt}',cancel,**({'progress':lambda n,t:notify('正在重新渲染调整后的页面',n,t)} if progress else {}))
+                notify('正在重新渲染并检查调整后的页面',stage='format_rerender')
+                revised=render_pages(output,folder/f'output-{attempt}',cancel,**({'progress':lambda n,t:notify('正在重新渲染调整后的页面',n,t,stage='format_rerender')} if progress else {}))
                 native_rendering=native_rendering and bool(revised.get('native'))
                 if not native_rendering:audit['renderer']='officecli'
                 if len(revised['pages'])!=len(document.slides):return [*issues,pending],adjustments

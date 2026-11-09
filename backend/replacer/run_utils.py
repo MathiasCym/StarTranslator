@@ -12,6 +12,27 @@
 from difflib import SequenceMatcher
 
 
+def styled_edits(source,replacement,offset=0):
+    """Keep suffix/prefix insertions attached to a real unchanged word glyph."""
+    from ..text_integrity import IDENTIFIERS
+    protected=[m.span() for m in IDENTIFIERS.finditer(source)]
+    opcodes=SequenceMatcher(None,source,replacement,autojunk=False).get_opcodes()
+    claimed={index for op,start,end,_,_ in opcodes if op!='equal' for index in range(start,end)}
+    def safe(position):
+        return position not in claimed and not any(a<=position<b for a,b in protected)
+    edits=[]
+    for op,a,b,c,d in opcodes:
+        if op=='equal':continue
+        value=replacement[c:d]
+        if a==b and value.strip():
+            if a and source[a-1].isalnum() and safe(a-1):
+                a-=1;value=source[a]+value;claimed.add(a)
+            elif b<len(source) and source[b].isalnum() and safe(b):
+                value+=source[b];claimed.add(b);b+=1
+        edits.append((offset+a,offset+b,value))
+    return edits
+
+
 def _native_break_edits(runs,spans):
     """Keep span calculations in text, then materialize DrawingML line breaks."""
     from types import SimpleNamespace
@@ -53,12 +74,19 @@ def replace_spans(runs, spans):
         if start==end:
             if not runs:raise ValueError('段落没有可写文字样式')
             index=next((i for i,(a,b) in enumerate(bounds) if a<=start<b),len(runs)-1)
+            if replacement.strip() and not runs[index].text.strip():
+                # Appending a term's missing suffix at its end belongs to that
+                # visible word, not the following separator's default color.
+                left=next((i for i in range(index-1,-1,-1) if runs[i].text.strip()),None)
+                if left is not None and start==bounds[index][0] and text[:start] and not text[start-1].isspace():
+                    index=left
             offset=start-bounds[index][0]
+            offset=min(max(0,offset),len(runs[index].text))
             runs[index].text=runs[index].text[:offset]+replacement+runs[index].text[offset:]
             continue
         # A full-sentence suggestion often changes just a comma or one verb.
         # Retain the original styled runs for every unchanged word and number.
-        edits=[(start+a,start+b,replacement[c:d]) for op,a,b,c,d in SequenceMatcher(None,text[start:end],replacement,autojunk=False).get_opcodes() if op!='equal']
+        edits=styled_edits(text[start:end],replacement,start)
         if len(edits)!=1 or edits[0]!=(start,end,replacement):
             replace_spans(runs,edits)
             continue

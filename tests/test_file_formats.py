@@ -169,10 +169,10 @@ class FormatTests(unittest.TestCase):
                 job = {'id':'final-'+extension,'cancel':threading.Event(),'status':'running'}
                 with patch('backend.workflow.store.load_glossary',return_value=self.glossary),patch('backend.workflow.check_segments',side_effect=rule_review):
                     workflow.run(job,{'kind':'translate_review','combined_output':'final','paths':[str(source)],'output_dir':str(folder),'_client':Model()})
-                self.assertEqual(job['status'],'partial' if extension=='.pdf' else 'complete',job); self.assertEqual(list(folder.iterdir()),[])
-                report = job['result']['report']; path = report['files'][0]['path']
-                saved = workflow.apply_report({'report_id':job['id'],'path':path,'selected':{},'save_unchanged':True})
-                self.assertEqual(len(list(folder.iterdir())),1); output = Path(saved['output'])
+                self.assertEqual(job['status'],'partial' if extension=='.pdf' else 'complete',job)
+                result=job['result'];self.assertNotIn('report',result)
+                self.assertTrue(result['outputs'][0]['auto_exported'])
+                output=Path(result['outputs'][0]['path']);self.assertEqual(list(folder.iterdir()),[output])
                 self.assertEqual(output.suffix,'.docx' if extension == '.pdf' else extension)
                 self.assertIn(ENGLISH,[s.text for s in extract(str(output))])
                 self.assertNotIn('_Draft',output.name)

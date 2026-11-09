@@ -102,7 +102,7 @@ class SharedAdapterTests(unittest.TestCase):
                 job=self.job(self.options(path,'zh-CN',dst),Offline(fixtures.SAMPLES[dst]))
                 self.assertEqual(job['status'],'partial')
                 self.assertEqual(job['result']['transport_interruption']['pending'],1)
-                self.assertEqual(job['result']['report']['transport_interruption']['pending'],1)
+                self.assertNotIn('report',job['result'])
                 self.assertIn('模型连接中断',job['message']);self.assertEqual(path.read_bytes(),before)
 
     def test_every_document_target_uses_bounded_transport_recovery_before_proofreading(self):

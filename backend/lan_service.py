@@ -106,7 +106,8 @@ def owned_job(job_id):
              'message':'共享服务已重启，本机记录和断点保留。','archived':True,
              'resume_pending':row.get('can_resume',state in ('interrupted','partial','failed','cancelled')),
              'restore_report':row.get('awaiting_confirmation',False),
-             'result':{'outputs':row.get('outputs',[]),'errors':row.get('errors',[])},'error':''}
+             'result':{'outputs':row.get('outputs',[]),'errors':row.get('errors',[]),
+                'automatic_combined':row.get('automatic_combined',False),'automatic_summary':row.get('automatic_summary',{})},'error':''}
     return job
 
 
@@ -118,6 +119,8 @@ def report_of(job):
 def download_files(job):
     result = job.get('result') or {}
     files = [o['path'] for o in result.get('outputs',[]) if not o.get('staged')]
+    files += [o['translation_path'] for o in result.get('outputs',[])
+              if o.get('auto_exported') and o.get('output_mode')=='both' and o.get('translation_path')]
     local = workflow.REPORTS.get(job['id']) or {}
     files += list(local.get('working_paths',{}).values())
     return list(dict.fromkeys(path for path in files if Path(path).is_file()))
@@ -137,7 +140,7 @@ def public(job):
     working = (workflow.REPORTS.get(job['id']) or {}).get('working_paths',{})
     for raw,output in zip((job.get('result') or {}).get('outputs',[]),(value.get('result') or {}).get('outputs',[])):
         saved=working.get(raw.get('path'))
-        output['draft']=job.get('kind')=='translate_review' and not raw.get('review_exported')
+        output['draft']=raw.get('draft',job.get('kind')=='translate_review' and not raw.get('review_exported'))
         if saved and Path(saved).is_file(): output.update(path=Path(saved).name,staged=False,draft=False)
     raw_report = report_of(job)
     report = report_of(value)

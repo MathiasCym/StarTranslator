@@ -68,6 +68,8 @@ def needs_translation(text):
 
 
 def validate_revision(source, target):
+    from .parameter_notation import validate as validate_parameter
+    validate_parameter(source,target)
     validate(source, target, 'en-zh')
 
 
@@ -220,6 +222,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     checkpoint = open_checkpoint('translation-zh', {'source': os.path.abspath(path), 'fingerprint': before,
         'direction': 'en-zh', 'mode': mode}, glossary, references, client)
     from .document_translation_policy import without_glossary
+    from .work_progress import format_callback
     glossary,references=without_glossary(references)
     from .reverse_entities import identify, validate_names
     entity_error=''
@@ -243,6 +246,9 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
         segment,members,groups=item
         source_text=''.join(m.text for m in members);fixed_order=len(members)>1
         mapped_groups=slice_groups(groups,0,len(source_text),visual_keys=True);key=translation_key(segment,source_text,mapped_groups)
+        from .parameter_notation import is_field
+        if is_field(source_text):
+            return item,[{'id':g['id'],'text':g['text']} for g in mapped_groups],[],None
         local_style=[];update=lambda message:tracker.update(segment.id,message)
         request_client=RequestActivity(client,update)
         check_cancel(cancel);update('正在英译中并对照复核原文')
@@ -258,7 +264,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                         if re.sub(r'\s+','',check_source)!=re.sub(r'\s+','',source_text):raise ValueError('PDF 断点原文字符不一致。')
                         validate_identifiers(source_text,check_source)
                     elif check_source!=source_text:raise ValueError('断点原文不一致。')
-                    validate(check_source, cached['translation'], 'en-zh')
+                    validate_revision(check_source, cached['translation'])
                     validate_names(check_source,cached['translation'],person_terms)
                     runs = (inline_runs if fixed_order else response_runs)(cached, cached['translation'], mapped_groups)
                 except (ValueError, KeyError, TypeError): pass
@@ -282,7 +288,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                     else: runs += mapped(request_client, piece, sliced, glossary, cancel, context, mode,fixed_order=fixed_order,person_terms=person_terms,
                         style_warnings=local_style if Path(path).suffix.lower() in {'.doc','.docx','.pdf'} else None)
                 target = ''.join(run['text'] for run in runs)
-                validate(check_source, target, 'en-zh')
+                validate_revision(check_source, target)
                 validate_names(check_source,target,person_terms)
                 if not local_style:(inline_runs if fixed_order else response_runs)({'runs': runs}, target, mapped_groups)
                 if checkpoint and not local_style: checkpoint.put(key, {'translation': target, 'runs': runs,'validated_source':check_source})
@@ -319,16 +325,17 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     if store.fingerprint(path) != before: raise ValueError('原稿在翻译期间被修改，请重新加载。')
     translated_count=len(alignment)  # Layout repair may append additional changed locators.
     adjustments, layout = fit_document(document, changed, original) if is_ppt else ([], [])
-    visual = {'status': 'not_requested'}
+    visual = {'status': 'pending' if is_ppt and defer_visual else 'not_requested'}
     with tempfile.TemporaryDirectory(prefix='star-chinese-') as folder:
         staged = Path(folder) / ('translated' + output_extension(path))
         notify('layout', '正在写入中文译文，保留图片、链接和文字格式')
         save_office(path, document, staged, changed)
         if is_ppt:
-            visual_warnings, visual_adjustments = review_pptx(path, staged, document, changed, original, client,
-                cancel, workers=workers, progress=lambda message,n,t: notify('format', message,n,t), audit=visual, target_language='zh')
-            layout += visual_warnings
-            adjustments += visual_adjustments
+            if not defer_visual:
+                visual_warnings, visual_adjustments = review_pptx(path, staged, document, changed, original, client,
+                    cancel, workers=workers, progress=format_callback(notify), audit=visual, target_language='zh')
+                layout += visual_warnings
+                adjustments += visual_adjustments
             issues += verify_styles(document, paragraphs, styles, changed)
             layout += officecli_bridge.compare(baseline, officecli_bridge.inspect(staged, cancel=cancel))
         notify('consistency', '正在重新读取实际中文输出，核对段落、数字、型号及链接')
@@ -359,7 +366,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
         'source_alignment': alignment,
         'person_terms':person_terms,
         'needs_review': len(pending), 'status': 'needs_review' if pending else 'complete', 'remaining_chinese': [],
-        'format_review_deferred': False, 'format_review': visual, 'layout_warnings': [*layout, *issues],
+        'format_review_deferred': is_ppt and defer_visual, 'format_review': visual, 'layout_warnings': [*layout, *issues],
         'layout_adjustments': adjustments, 'layout_checked': is_ppt and visual.get('status') == 'complete',
         'comparison_id': safe_create(segments, by_locator, path, destination, direction='en-zh'),
         'layout_note': '保留原有图片、链接、对象及局部强调；图片内英文不自动改写。'}

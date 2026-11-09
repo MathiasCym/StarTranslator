@@ -114,11 +114,9 @@ class QualityGateTests(unittest.TestCase):
         with patch('backend.workflow.translate_file',return_value=result):
             workflow.run(job,dict(kind='translate_review',paths=[str(source)],use_llm=True,_client=Model()))
         self.assertFalse(job['result']['completed_paths']);self.assertEqual(result['review_status'],'partial')
-        report=job['result']['report'];self.assertEqual(len(report['findings']),1)
-        self.assertIn('翻译待核对',report['findings'][0]['reason'])
-        saved=workflow.apply_report(dict(report_id=job['id'],path=str(draft),save_unchanged=True))
-        self.assertEqual(Document(saved['output']).paragraphs[0].text,'中文原稿')
-        self.assertTrue(saved['content_warnings'])
+        self.assertNotIn('report',job['result']);self.assertTrue(result['auto_exported'])
+        self.assertEqual(Document(result['path']).paragraphs[0].text,'中文原稿')
+        self.assertTrue(any('翻译待核对' in w['reason'] for w in result['warnings']))
     def test_language_detection_parse_failure_uses_normal_task_error_handling(self):
         from zipfile import BadZipFile
         source=self.root/'invalid.pptx';source.write_bytes(b'not an office archive')
@@ -456,7 +454,7 @@ class QualityGateTests(unittest.TestCase):
             workflow.run(job,dict(kind='translate_review',paths=[str(source)],use_llm=True,_client=model,workers=1))
         self.assertTrue(job['result']['outputs'][0]['translation_complete'])
         self.assertEqual(model.translations,1);self.assertGreater(model.reviews,0)
-        self.assertGreater(job['result']['report']['stats']['judged'],0)
+        self.assertGreater(job['result']['stats']['judged'],0)
         self.assertEqual(source.read_bytes(),original)
 
     def test_one_unfixable_numeric_paragraph_does_not_block_review_or_final_export(self):
@@ -474,17 +472,13 @@ class QualityGateTests(unittest.TestCase):
         client=Model();job=dict(id='quality-one-local-failure',kind='translate_review',status='running',cancel=threading.Event())
         with patch('backend.workflow.store.load_glossary',return_value=Glossary([])):
             workflow.run(job,dict(kind='translate_review',paths=[str(source)],combined_output='final',output_dir=str(self.root/'output'),_client=client,workers=1))
-        output=job['result']['outputs'][0];report=job['result']['report']
+        output=job['result']['outputs'][0];stats=job['result']['stats']
         self.assertEqual(job['status'],'partial');self.assertTrue(job['can_resume'])
-        self.assertEqual(report['stats']['judged'],1);self.assertEqual(report['stats']['unreviewed'],1)
+        self.assertEqual(stats['judged'],1);self.assertEqual(stats['unreviewed'],1)
         self.assertEqual(client.reviews,1);self.assertLessEqual(client.translations,5)
-        saved=workflow.apply_report(dict(report_id=job['id'],path=output['path'],save_unchanged=True))
-        self.assertEqual([p.text for p in Document(saved['output']).paragraphs],['分辨率为3840×2160。','Brightness 500 nits.'])
-        self.assertTrue(saved['content_warnings']);self.assertEqual(source.read_bytes(),original)
-        issue=next(i for i,f in enumerate(report['findings']) if f['reason'].startswith('翻译待核对'))
-        fixed=workflow.apply_report(dict(report_id=job['id'],path=output['path'],edits=[dict(index=issue,text='Resolution: 3840 x 2160.')]))
-        self.assertEqual(fixed['output'],saved['output']);self.assertFalse(fixed['content_warnings'])
-        self.assertEqual(Document(fixed['output']).paragraphs[0].text,'Resolution: 3840 x 2160.')
+        self.assertTrue(output['auto_exported']);self.assertNotIn('report',job['result'])
+        self.assertEqual([p.text for p in Document(output['path']).paragraphs],['分辨率为3840×2160。','Brightness 500 nits.'])
+        self.assertTrue(output['warnings']);self.assertEqual(source.read_bytes(),original)
 
     def test_total_model_outage_still_saves_a_marked_document(self):
         from backend.llm.client import LLMUnavailable

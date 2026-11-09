@@ -20,5 +20,24 @@ module.exports=function auditThemePaint(){
   check(element);for(const pseudo of ['::before','::after']){const s=getComputedStyle(element,pseudo);if(s.content!=='none'&&s.content!=='normal'&&s.display!=='none')check(element,pseudo)}
  }
  for(const dialog of document.querySelectorAll('dialog[open]'))check(dialog,'::backdrop')
+ // White is the base surface. A selected state needs an opaque highlight and
+ // a strong boundary/glyph; text contrast alone cannot establish selection.
+ const selected='.mode.active,.chip.active,.term-card.active,.profile-row.active,.picker-entry.selected,.lexicon-views button.active,button[aria-pressed="true"],.translation-choice:has(input:checked),.output-choice:has(input:checked)'
+ for(const element of document.querySelectorAll(selected)){
+  if(!element.getClientRects().length)continue
+  const style=getComputedStyle(element),fill=parse(style.backgroundColor),edge=parse(style.borderColor)
+  if(!fill||fill[3]<.95||Math.max(...fill.slice(0,3))-Math.min(...fill.slice(0,3))<45)issues.push({name:element.id||element.className,kind:'selection-not-distinct',color:style.backgroundColor})
+  if(edge&&fill&&style.borderStyle!=='none'&&(Math.max(luminance(edge),luminance(fill))+.05)/(Math.min(luminance(edge),luminance(fill))+.05)<3)issues.push({name:element.id||element.className,kind:'selected-boundary-contrast'})
+ }
+ for(const element of document.querySelectorAll('input[type="checkbox"]:checked,input[type="radio"]:checked,input:indeterminate')){
+  if(!element.getClientRects().length||element.disabled)continue
+  const style=getComputedStyle(element),fill=parse(style.backgroundColor)
+  if(!fill||fill[3]<.95||fill[0]-fill[2]<60||!(/111111|rgb\(17, 17, 17\)/.test(style.backgroundImage)))issues.push({name:element.id,kind:'checked-glyph-not-distinct',fill:style.backgroundColor,image:style.backgroundImage.slice(0,100)})
+ }
+ for(const element of document.querySelectorAll('body,.card,.panel,.modal-card,.review-complete,.term-detail,.lexicon-list,.profile-block')){
+  if(!element.getClientRects().length||element.matches(selected))continue
+  const style=getComputedStyle(element),fill=parse(style.backgroundColor)
+  if(fill&&fill[3]>.5&&(Math.min(...fill.slice(0,3))<245||Math.max(...fill.slice(0,3))-Math.min(...fill.slice(0,3))>5))issues.push({name:element.id||element.className,kind:'base-surface-not-white',color:style.backgroundColor})
+ }
  return issues.slice(0,24)
 }

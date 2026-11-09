@@ -36,6 +36,7 @@ names+=['test_document_core']
 names+=['test_checkpoint_241']
 names+=['test_review_format']
 names+=['test_multilingual_pdf_images']
+names+=['test_technical_usage']
 suite=unittest.TestSuite(unittest.defaultTestLoader.loadTestsFromModule(importlib.import_module(name)) for name in names)
 result=unittest.TextTestRunner(verbosity=2).run(suite)
 folder=root/'dist/qa/release-200';folder.mkdir(parents=True,exist_ok=True)

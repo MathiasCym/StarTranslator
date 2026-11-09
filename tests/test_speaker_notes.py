@@ -1,6 +1,7 @@
 """PPT notes are an explicit task-local opt-in, including save and resume."""
 import json,sys,threading,unittest
 from pathlib import Path
+from unittest.mock import patch
 from zipfile import ZipFile
 sys.path[:0]=[str(Path(__file__).resolve().parents[1]),str(Path(__file__).resolve().parent)]
 from backend import workflow,comparison,history
@@ -58,15 +59,17 @@ class SpeakerNotesTests(unittest.TestCase):
     def test_combined_review_and_final_save_obey_the_same_scope(self):
         for include in (False,True):
             path=self.deck('en-US','combined'+str(include));notes=self.notes(path);data=self.options(path,'en-US','ja-JP')
-            data['include_ppt_notes']=include;model=Model(SAMPLES['ja-JP']);job=self.job(data,model)
+            data['include_ppt_notes']=include;model=Model(SAMPLES['ja-JP'])
+            with patch('backend.pptx_visual_review.review_pptx',side_effect=AssertionError('Visual review belongs after final edits')) as early, \
+                 patch('backend.workflow.review_pptx',return_value=([],[])) as final:
+                job=self.job(data,model)
+            early.assert_not_called();final.assert_called_once()
             self.assertEqual(job['status'],'complete',job.get('result'))
-            report=workflow.REPORTS[job['id']]
-            self.assertEqual(report['include_ppt_notes'],include)
-            self.assertEqual(sum(s.source=='notes' for s in report['segments']),int(include))
             out=job['result']['outputs'][0]
-            saved=workflow.apply_report({'report_id':job['id'],'path':out['path'],'save_unchanged':True},client=model)
-            self.assertEqual(saved['output_audit']['status'],'complete')
-            if not include:self.assertEqual(self.notes(saved['output']),notes)
+            self.assertTrue(out['auto_exported']);self.assertNotIn(job['id'],workflow.REPORTS)
+            self.assertEqual(out['output_audit']['status'],'complete')
+            self.assertEqual(job['result']['stats']['segments'],1+int(include))
+            if not include:self.assertEqual(self.notes(out['path']),notes)
             self.assertFalse(enabled())
 
     def test_context_isolated_and_checkpoint_scope_cannot_mix_notes(self):

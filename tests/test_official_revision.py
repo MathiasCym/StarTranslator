@@ -62,7 +62,9 @@ class OfficialRevisionTests(unittest.TestCase):
             file=Path(directory)/'lexicon.json';old=json.loads((bundled.ROOT/'bundled-english-20261026.json').read_text('utf-8'))
             store.atomic_json(file,old);bundled.upgrade_local(file)
             data=json.loads(file.read_text('utf-8'));self.assertEqual(len(data),2456)
-            self.assertEqual(bundled.status(file)['updated'],9);self.assertEqual(bundled.status(file)['removed'],60)
+            revision=next(batch for batch in bundled.manifest() if batch.get('mode')=='revision')
+            self.assertEqual(bundled.read_receipt(file,revision['id'])['updated'],9)
+            self.assertEqual(bundled.status(file)['removed'],60)
             self.assertEqual(bundled.status(file)['conflicts'],[])
             changed=[e for e in data if e['zh']=='防松螺母'];self.assertEqual([e['en'] for e in changed],['anti-loosening nut'])
             before=file.read_bytes();bundled.upgrade_local(file);self.assertEqual(file.read_bytes(),before)
@@ -77,7 +79,7 @@ class OfficialRevisionTests(unittest.TestCase):
             bundled.upgrade_local(file);self.assertEqual(len(json.loads(file.read_text('utf-8'))),2456)
 
     def test_revision_write_failure_keeps_original_and_recovers_without_duplicate_standards(self):
-        latest=bundled.manifest()[-1];older=bundled.manifest()[0]
+        latest=next(batch for batch in reversed(bundled.manifest()) if batch.get('mode')=='revision');older=bundled.manifest()[0]
         with tempfile.TemporaryDirectory() as directory,patch.dict(os.environ,{'NOVATERM_DATA_DIR':directory}):
             file=Path(directory)/'lexicon.json';store.atomic_json(file,json.loads((bundled.ROOT/older['catalog']).read_text('utf-8')))
             store.atomic_json(bundled.receipt(file,older['id']),{'schema':1,'id':older['id'],'completed':True,'added':1880,'conflicts':[],'backup':''})

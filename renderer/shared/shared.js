@@ -20,7 +20,7 @@ function progressMarkup(value) {
   return `<div class="shared-progress active"><progress value="${percent}" max="100" aria-label="任务进度"></progress><span class="shared-reflection" aria-hidden="true"></span></div>`
 }
 function setProgress(progress,value,active) {
-  progress.value=Math.max(0,Math.min(100,Number(value)||0))
+  if(value===null)progress.removeAttribute('value');else progress.value=Math.max(0,Math.min(100,Number(value)||0))
   const track=progress.closest('.shared-progress');track.style.setProperty('--shared-percent',progress.value+'%');track.classList.toggle('active',active)
   if(!track.style.getPropertyValue('--reflection-delay'))track.style.setProperty('--reflection-delay',-(Date.now()%2400)+'ms')
 }
@@ -106,21 +106,30 @@ function downloadMarkup(job) {
 function renderDetail() {
   const job=jobs.find(j=>j.id===selected)
   if(!job) return
-  const key=JSON.stringify([job.id,job.status,job.percent,job.downloads,job.result?.outputs?.map(o=>[o.path,o.draft,o.comparison_id]),job.result?.report?.findings?.length,job.result?.report?.findings?.filter(f=>f.applied).length])
+  const key=JSON.stringify([job.id,job.status,job.percent,job.phase,job.done,job.total,job.detail,job.downloads,job.result?.outputs?.map(o=>[o.path,o.draft,o.comparison_id]),job.result?.report?.findings?.length,job.result?.report?.findings?.filter(f=>f.applied).length])
   if(key===lastDetail) return
   lastDetail=key;$('detail').hidden=false;$('detailTitle').textContent=labels[job.kind]+' · '+labels[job.status];$('detailMessage').textContent=job.message
   const active=['queued','running'].includes(job.status)
   $('taskProgress').hidden=!active;setProgress($('taskProgress'),job.percent,active)
+  $('taskStage').hidden=!active
+  $('taskStageLabel').textContent=(job.phase_label||({translate:'翻译',check:'校对',repair:'补译与核对',layout:'文字排版',output_check:'实际输出复查',export:'保存'}[job.phase])||'处理')+(job.total?`：${job.done} / ${job.total} ${job.stage_unit||'段'}`:'：处理中')
+  setProgress($('taskStageProgress'),Number.isFinite(job.stage_percent)?job.stage_percent:null,active)
+  $('taskStageDetail').textContent=job.detail||'正在处理文档…'
   const result=job.result||{},report=result.report||(result.report_id?result:null)
   const draft=reportDrafts.get(job.id)||{selected:new Set(),edits:{},file:0,filter:'pending'}
   reportDrafts.set(job.id,draft)
   if(report) (report.findings||[]).forEach((f,i)=>{if(f.applied){draft.selected.delete(i);delete draft.edits[i]}})
   const noSuggestions=report&&!report.findings?.length
-  const outputs=(result.outputs||[]).map((o,i)=>`<div class="row-actions"><span>${esc(o.path)}${o.staged?' · 等待确认后保存':''}</span>${o.comparison_id?`<button class="comparison-button" data-compare="${i}" title="对照原稿与${o.draft?'翻译初稿':'当前文件'}">${PageComparison.buttonContent}<span>· ${o.draft?'初稿':'当前文件'}</span></button>`:''}</div>${o.consistency_hits&&!report?`<p class="hint">发现 ${o.consistency_hits} 项全文用语统一建议，可在校对报告中确认。</p>`:''}${[...(o.review_items||[]),...(o.layout_warnings||[])].length?`<details><summary>查看需检查的位置</summary>${o.consistency_hits&&!report?`<p class="hint">发现 ${o.consistency_hits} 项全文用语统一建议，可在校对报告中确认。</p>`:''}${[...(o.review_items||[]),...(o.layout_warnings||[])].map(w=>`<p class="hint">${esc(w.reason)}</p>`).join('')}</details>`:''}`).join('')
+  const outputs=(result.outputs||[]).map((o,i)=>{
+    const warnings=[...new Set([...(o.review_items||[]),...(o.layout_warnings||[]),...(result.automatic_combined?o.warnings||[]:[])].map(w=>w.reason).filter(Boolean))]
+    const label=o.draft?'初稿':o.auto_exported?'最终文件':'当前文件'
+    return `<div class="row-actions"><span>${esc(o.path)}${o.staged?' · 等待确认后保存':''}</span>${o.comparison_id?`<button class="comparison-button" data-compare="${i}" title="对照原稿与${label}">${PageComparison.buttonContent}<span>· ${label}</span></button>`:''}</div>${o.consistency_hits&&!report?`<p class="hint">发现 ${o.consistency_hits} 项全文用语统一建议，可在校对报告中确认。</p>`:''}${warnings.length?`<details><summary>查看需检查的位置</summary>${warnings.map(w=>`<p class="hint">${esc(w)}</p>`).join('')}</details>`:''}`
+  }).join('')
   const reportHtml=report?`<h3 id="sharedReviewHeading" tabindex="-1">校对报告 · ${(report.findings||[]).length} 项建议</h3><p class="hint">${report.stats?.model_status==='complete'?'校对完成，确认建议后保存。':'请查看检查范围和提示；未完成的检查不能视为全文通过。'}</p><p class="hint">${report.stats?.consistency_hits?`${report.stats.consistency_hits} 项全文用语统一建议。`:''} ${esc((report.stats?.warnings||[]).join('\n'))}</p><div class="filters"><select id="reportFile" aria-label="选择报告文档">${(report.files||[]).map((f,i)=>`<option value="${i}">${esc(f.name)}</option>`).join('')}</select><select id="reportFilter" aria-label="筛选建议"><option value="pending">未替换</option><option value="applied">已替换</option><option value="all">全部建议</option></select><select id="reportType" aria-label="筛选建议类型"><option value="all">全部类型</option><option value="rule">术语规范</option><option value="consistency">全文一致性</option><option value="llm">深度审校</option><option value="translation">未完成翻译</option></select></div><div class="review-selection"><label><input id="selectAllSuggestions" type="checkbox">全选当前建议</label><span id="selectionCount" class="hint"></span></div><div id="findings"></div><div class="review-controls"><button id="reportCompare" class="comparison-button" hidden>${PageComparison.buttonContent}</button><button id="saveReview" class="primary"${noSuggestions?' hidden':''}>应用所选并保存</button>${job.kind==='translate_review'||noSuggestions?`<button id="saveUnchanged"${noSuggestions?' class="primary"':''}>${noSuggestions?'保存译文':'不应用建议，保存译文'}</button>`:''}</div><p id="savedMessage" class="hint" role="status" aria-live="polite">${esc(draft.savedMessage||'')}</p>`:''
   const remaining=(report?.findings||[]).filter(f=>f.source!=='translation'&&!f.applied&&f.review_status!=='superseded').length
   const reviewGuide=report?`<div class="review-guide"><div><strong>${remaining?`有 ${remaining} 项校对建议供你确认`:'查看本次检查报告'}</strong><p class="hint">${remaining?'建议不会自动应用，请查看原因与上下文后选择采纳、编辑或保留译文。':'查看检查范围、提示和已采用的修改；需要保存时请使用报告中的保存按钮。'}</p></div><button id="jumpToReview" class="primary">${remaining?'查看并处理建议':'查看校对报告'}</button></div>`:''
-  $('results').innerHTML=`<p class="error">${esc([job.error,result.transport_interruption?.message,...(result.errors||[]).map(e=>(e.path?e.path+'：':'')+e.error)].filter(Boolean).join('\n'))}</p>${reviewGuide}${outputs}${reportHtml}${downloadMarkup(job)}`
+  const automatic=result.automatic_combined?`<p class="hint">高精度翻译已自动应用 ${result.automatic_summary?.applied||0} 处修改${(result.outputs||[]).some(o=>o.auto_exported)?'并保存最终文件':''}。${(result.outputs||[]).some(o=>o.needs_review)?'未解决的位置列在下方，请结合原稿核对。':'可直接查看原译对照或下载文件。'}</p>`:''
+  $('results').innerHTML=`<p class="error">${esc([job.error,result.transport_interruption?.message,...(result.errors||[]).map(e=>(e.path?e.path+'：':'')+e.error)].filter(Boolean).join('\n'))}</p>${automatic}${reviewGuide}${outputs}${reportHtml}${downloadMarkup(job)}`
   $('results').querySelectorAll('[data-compare]').forEach(b=>b.onclick=async()=>{try{comparisonBase=`/shared/jobs/${job.id}/comparison/${b.dataset.compare}`;comparison=await api(comparisonBase);openComparison()}catch(e){showError(e)}})
   if(!report) return
   $('jumpToReview').onclick=()=>{const heading=$('sharedReviewHeading');heading.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'auto':'smooth',block:'start'});heading.focus({preventScroll:true})}

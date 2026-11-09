@@ -1,5 +1,21 @@
 # Reverse translation quality repair and delivery
 
+## 2026-11-06 — 2.4.2 FORMAL DELIVERY VERIFIED
+
+- Canonical source 378d0747dfb25e2e37a3652f88dd14a4a0f269e1, formal run 42187841412; original full installer StarTranslator-Setup-2.4.2.exe, 144835531 bytes, SHA256 6610a82a4e2397b846b819c5fbe56dcce957bdb8b88bcbca11f9f7a412af86ea.
+- Formal GitHub/domestic releases verified; 6 anonymous direct assets match original GitHub bytes. Recent three patches from2.3.7/2.4.0/2.4.1, no legacy wrapper required. Full package 1326 files plus recovery/source equality verified; original packaged runtime specialty 58 PASS. Three actual old native GUIs upgrade via realIPC/AtomGit/restart, exacttargetmanifest, personalEnglish/Japanese terms, model config and light preference kept, cache cleanup done. Real user installation untouched.
+- Earlier accepted-source pending snapshots below are historical. Initial CI failed a picker-DOM timing assertion, fixed without weakening image checks; intermediate workflow cancelled by newer source, not counted PASS. Final source also covers independent target-only maintained wrong variants. Follow RELEASING.md for future batches; do not rebuild/overwrite2.4.2 assets.
+
+
+## 2026-11-09 — 2.4.3 SOURCE VALIDATION
+
+- Implemented glossary-aware automatic combined translation, validated replacement and final format review. Standalone translation and review retain their existing roles. Results keep recoverable failures visible.
+- Added separate real-stage progress and clearer light-theme selection. Preserved dark setup and uninstall appearance.
+- Corrected style inheritance for inserted suffixes and supplemented attributed multilingual bit-parameter guidance without replacing personal standards or the original official catalog.
+- Full backend regression: 748 passed. Maintenance: 137 passed. Follow-up: 60 passed. Light and dark desktop/shared UI and native window checks passed. Additional checks after the last source changes are recorded in the ignored QA directory.
+- Authorized isolated PPT fresh run passed with 43 editable segments, eight native-rendered pages, unchanged source and notes, preserved RGB colors and consistent bit parameters. A second QA replay reused validated text under an explicitly pinned provisional policy and performed final visual review without new text requests. Product compatibility across policy changes is not inferred from this replay. Layout suggestions remain visible.
+- Version 2.4.3 is not yet published. Finish CI, domestic asset verification and actual old-client upgrade acceptance under RELEASING.md.
+
 ## 2026-11-06 — 2.4.2 SOURCE ACCEPTED; FORMAL DELIVERY STILL PENDING
 
 This section supersedes earlier pending snapshots below. Version selected once at 2.4.2. No formal package or release yet. Follow RELEASING.md; preserve local evidence, do not send more private material without authorization.

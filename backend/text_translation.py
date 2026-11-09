@@ -62,7 +62,7 @@ def glossary_context(text, glossary, direction):
         if any(form and (form in text if direction == 'zh-en' else
                 re.search(r'(?<![A-Za-z0-9])' + re.escape(form) + r'(?![A-Za-z0-9])', text, re.I)) for form in forms):
             matches.append({'中文': entry.zh, '英文': entry.en, '分类': entry.category,
-                            '已确认': entry.priority == 1})
+                            '已确认': entry.priority == 1,'备注':entry.note})
     # Keep ambiguity visible: several Chinese terms can share one English form.
     return sorted(matches, key=lambda item: not item['已确认'])[:60]
 
