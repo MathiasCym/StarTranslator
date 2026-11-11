@@ -254,6 +254,7 @@ def _run(job,data):
                             client=data.get('_client'), workers=data.get('workers',3),on_export=None if data.get('_automatic_combined') else lambda:progress(0,0,f'保存校对结果 {index+1}/{len(paths)}：{Path(path).name}','export'))
                         reviews.append(review)
                         if data.get('_automatic_combined') and not job['cancel'].is_set():
+                            repair_pending_in_review(review,data.get('_client'),job['cancel'],review_progress)
                             automatic_export(job,review,data,progress)
                         if result['review_status'] == 'complete' and not job['cancel'].is_set() and (not data.get('_automatic_combined') or result.get('auto_exported')):
                             job['result']['completed_paths'].append(path)
@@ -540,6 +541,42 @@ def publish_combined_report(job, reviews, outcome):
         job['message'] = '文件已保留，翻译并校对已结束 · 部分内容待核对'
 
 
+def repair_pending_in_review(review,client,cancel,progress=None):
+    """Retry unfinished source passages during combined review, with full validation."""
+    if client is None:return
+    from . import document_languages, text_languages
+    from .multilingual_quality import LanguageReview
+    output=review['output'];direction=output.get('direction','zh-en')
+    src,dst=document_languages.pair(direction)
+    pending=output.get('review_items',[])
+    segments={s.id:s for s in review['local']['segments']}
+    candidates=[]
+    for finding in review['local']['findings']:
+        if (finding.source!='translation' and not finding.reason.startswith('翻译待核对：')) or not finding.editable or finding.suggested:continue
+        segment=segments.get(finding.segment_id)
+        if not segment:continue
+        matches=[item for item in pending if not item.get('image') and item.get('locator')==segment.locator
+                 and item.get('translation')==finding.found_text and not item.get('service_unavailable')]
+        if len(matches)==1 and matches[0].get('source_text')==finding.found_text:
+            candidates.append((finding,matches[0]))
+    for index,(finding,item) in enumerate(candidates):
+        check_cancel(cancel)
+        if progress:progress(index,len(candidates),'正在对未完成位置自动补译并复核')
+        try:
+            quality=LanguageReview(src,dst)
+            translated=text_languages.translate_piece(client,item['source_text'],None,src,dst,cancel,
+                context='校对阶段补译此前未完成的原文。只翻译本段，保留全部事实和格式边界。',
+                humanize=text_languages.natural_expression(item['source_text']),quality=quality)
+            from .multilingual_documents import content_validate
+            content_validate(item['source_text'],translated,src,dst,
+                allow_identical=bool(quality.proof(item['source_text'],translated) and quality.review_identical_formula(item['source_text'],translated)))
+            finding.suggested=translated
+            finding.source='translation'
+        except Cancelled:raise
+        except Exception as error:
+            logging.getLogger(__name__).warning('Review-stage retranslation did not complete: %s',type(error).__name__)
+
+
 def automatic_export(job,review,data,progress):
     """Compose the existing review and guarded export, without a second writer."""
     output=review['output'];path=output['path']
@@ -549,7 +586,7 @@ def automatic_export(job,review,data,progress):
     edits=[]
     report['skipped_edits']=[]
     for index,finding in enumerate(report['findings']):
-        if not finding.editable or finding.applied or not finding.suggested or finding.source in ('translation','quality','image'):
+        if not finding.editable or finding.applied or not finding.suggested or finding.source in ('quality','image'):
             continue
         try:
             replacement=checked_replacement(path,finding.suggested)
@@ -566,6 +603,17 @@ def automatic_export(job,review,data,progress):
             format_review_deferred=False,layout_warnings=saved.get('layout_warnings',[]),
             layout_adjustments=[*output.get('layout_adjustments',[]),*saved.get('layout_adjustments',[])],
             layout_checked=saved.get('layout_checked',False),unapplied_changes=saved.get('failed',[]))
+        repaired={segments.locator for finding in report['findings'] if finding.source=='translation' and finding.applied
+                  for segments in report['segments'] if segments.id==finding.segment_id and segments.file_path==path}
+        if repaired:
+            output['review_items']=[item for item in output.get('review_items',[]) if item.get('locator') not in repaired or item.get('image')]
+            output['untranslated']=sum(not item.get('image') for item in output['review_items'])
+            output['translation_complete']=not output['review_items']
+            review['stats']['unreviewed']=max(0,review['stats'].get('unreviewed',0)-len(repaired))
+            review['stats']['manual_review']=max(0,review['stats'].get('manual_review',0)-len(repaired))
+            if not output['review_items'] and not review['stats']['unreviewed'] and not review['stats'].get('errors'):
+                review['stats']['model_status']='complete';review['stats']['review_processing_status']='complete'
+                output['review_status']='complete'
         if saved.get('output_audit') is not None:output['output_audit']=saved['output_audit']
         if saved.get('format_review'):
             output['format_review']=saved['format_review']

@@ -251,7 +251,7 @@ class QualityTests(unittest.TestCase):
                 return documents.translate_file(str(path),Glossary([]),None,str(self.root/'saved'),
                     client=model,direction='en-US>ja-JP',workers=3)
         first=StyleModel(fixtures.SAMPLES['ja-JP']);first.fail_style=True
-        a=run(first);self.assertEqual(a['untranslated'],1);self.assertEqual(first.translations,1)
+        a=run(first);self.assertEqual(a['untranslated'],0);self.assertTrue(a['style_warnings']);self.assertEqual(first.translations,1)
         second=StyleModel(fixtures.SAMPLES['ja-JP']);second.fail_style=False
         b=run(second);self.assertTrue(b['translation_complete']);self.assertEqual(second.translations,0)
         self.assertEqual(b['resumed_segments'],1)

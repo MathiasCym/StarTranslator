@@ -19,7 +19,6 @@
       <img class="brand-mark" id="aboutOpen" src="assets/app-icon.png" width="40" height="40" alt="" draggable="false" title="关于星译官">
       <div>
         <h1 title="发布者：MathiasCym">星译官 <span class="app-version" id="appVersion"></span></h1>
-        <p class="sub">译步到位 · 中英技术文档工作台</p>
       </div>
     </div>
     <div class="topbar-right"><button class="btn ghost sm appearance-toggle" type="button" data-theme-toggle aria-label="切换为浅色模式" aria-pressed="false" title="切换为浅色模式"><svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5" fill="none" stroke="currentColor" stroke-width="1.6"/></svg></button>
@@ -61,10 +60,10 @@
       <section class="dropzone" id="dropzone">
         <div class="dz-inner">
           <img class="welcome-portrait" src="assets/welcome.png" width="128" height="128" alt="星译官翻译与审校助手" draggable="false">
-          <div class="dz-copy"><span class="welcome-label">星译官 · 专业术语，各就其位</span>
+          <div class="dz-copy">
             <h2 id="dropTitle">添加英文译文</h2>
             <p>拖入文档，可一次添加多份</p>
-            <p class="hint" title="还支持 HTML、JSON、EPUB、SRT 和 ASS">Word · PPT · PDF · Excel · 文本 · Markdown 等<br>PDF 文字层输出为 Word；扫描件需先识别文字。</p>
+            <p class="hint" title="还支持 HTML、JSON、EPUB、SRT 和 ASS">Word · PPT · PDF · Excel · 文本 · Markdown 等<br>PDF 文字层输出为 Word；图片文字和扫描件需先识别。</p>
             <button class="btn ghost" id="pickBtn">选择文档</button>
           </div>
         </div>
@@ -76,13 +75,12 @@
       </section>
       <details class="reference-panel" id="referencesPanel">
         <summary>原译对照与参考材料 <span id="referenceCount">（可选）</span></summary>
-        <p class="hint">添加原文、定稿或双语资料；可在文件旁指定对应材料。</p>
         <div class="actions"><button class="btn ghost sm" id="addReference">添加参考材料</button><button class="btn ghost sm" id="clearReferences">清空参考</button></div>
         <ul id="referenceList" class="filelist"></ul>
       </details>
       </div>
       <aside class="task-options" aria-labelledby="taskOptionsTitle">
-        <div class="task-heading"><span class="eyebrow">准备就绪，即可开始</span><h3 id="taskOptionsTitle">本次任务</h3></div>
+        <div class="task-heading"><h3 id="taskOptionsTitle">本次任务</h3></div>
         <div class="task-option-row"><label class="check" id="llmOption" title="进一步检查译文表达和上下文，需要连接模型；处理时间会增加。"><input type="checkbox" id="useLlm" checked>深度审校</label><span id="glossaryInfo" class="hint">正在读取词库…</span></div>
         <label class="document-direction" id="documentCheckLanguage" for="documentDirection"><span id="documentDirectionLabel">校对语言</span><select id="documentDirection"><option value="zh-en">英文</option><option value="en-zh">中文</option></select></label>
         <div class="document-language-pair" id="documentTranslationLanguages" hidden>
@@ -96,7 +94,6 @@
           <dialog id="translationHelp" class="translation-help help-dialog" aria-labelledby="translationHelpTitle" hidden><header class="help-heading"><h3 id="translationHelpTitle"><img src="assets/normal.png" width="48" height="48" alt="">翻译方式与排版</h3><button type="button" class="btn ghost sm" data-close-help autofocus>关闭</button></header><div class="help-body"><p>不同语言所需的文字空间不同。翻译后文字变长时，软件会适配字号和行距，尽量保留原稿布局。</p><p><strong>忠实翻译</strong>保留全部信息，适合技术说明、参数和正式资料。</p><p><strong>文案压缩</strong>可精简重复表达和宣传套话，仍保留事实、参数、型号、数字和条件。</p><p>PPT 同类文字在每页统一字号，保留原稿的文字位置与强调层级。导出后仍建议检查重点页面。</p></div></dialog>
         </fieldset>
         <div class="output-row"><label for="outputDir">输出位置</label><input id="outputDir" readonly placeholder="默认另存到原文件旁"><button class="btn ghost sm" id="pickOutput">选择位置</button></div>
-        <p class="hint" id="scopeHint">修改由你确认，支持另存或覆盖原文件。</p>
         <div class="task-flags"><label class="check" title="在模型支持同时处理请求时提升速度；关闭后按顺序处理。"><input id="parallelWork" type="checkbox" checked>并发加速</label>
         <label id="speakerNotesOption" class="check" hidden title="开启后翻译和校对 PPT 演讲者备注；关闭时原样保留，不计入处理范围。"><input id="includePptNotes" type="checkbox">处理演讲者备注</label></div>
         <div class="task-start"><button class="btn primary lg" id="runBtn" disabled>开始校对</button><button class="btn ghost lg" id="runCombined" disabled hidden>翻译并校对</button></div>
@@ -147,7 +144,7 @@
   </div>
   <div class="modal" id="lexiconModal" hidden><section class="modal-card lexicon-card" role="dialog" aria-modal="true" aria-labelledby="lexiconTitle">
     <div class="lexicon-heading">
-      <div class="lexicon-title"><img class="mascot" src="assets/normal.png" alt=""><div><h3 id="lexiconTitle">术语库 <span class="badge" id="lexiconTotal">0 条</span></h3><p>标准译法，一处维护</p></div></div>
+      <div class="lexicon-title"><img class="mascot" src="assets/normal.png" alt=""><div><h3 id="lexiconTitle">术语库 <span class="badge" id="lexiconTotal">0 条</span></h3></div></div>
       <div class="actions lexicon-share-actions"><button class="btn ghost sm" id="importTerms" title="支持 JSON、Excel、CSV 和 TSV；不同译法会列出供核对">导入词库</button><label class="sr-only" for="lexiconExportFormat">导出格式</label><select id="lexiconExportFormat" aria-label="导出格式" title="词库文件适合完整分享；Excel 表格可直接编辑"><option value="json">词库文件 (.json)</option><option value="xlsx">Excel 表格 (.xlsx)</option></select><button class="btn ghost sm" id="exportTerms" title="导出全部词条，包含当前尚未保存的完整修改">导出词库</button><button class="btn ghost sm" id="closeLexicon">关闭</button></div>
     </div>
     <div class="lexicon-source"><span class="lexicon-source-kind" id="lexiconKind">当前词库</span><span id="lexiconFile"></span><button class="btn ghost sm" id="openMultilingual">多语言词库</button><button class="btn ghost sm" id="openTeamSync" title="先保存当前编辑，再获取团队内容或提交修改">团队同步</button><button class="btn ghost sm" id="revealLexicon">打开位置</button></div>
@@ -182,7 +179,7 @@
         </div>
       </div>
       <div class="lexicon-grid-pane" id="lexiconGridPane" hidden>
-        <div class="lexicon-grid-options"><span class="hint">直接编辑单元格；点击“详情”查看全部字段。</span><details class="lexicon-columns" id="lexiconColumns"><summary>显示列</summary><div id="lexiconColumnOptions"></div></details></div>
+        <div class="lexicon-grid-options"><details class="lexicon-columns" id="lexiconColumns"><summary>显示列</summary><div id="lexiconColumnOptions"></div></details></div>
         <div class="tablewrap gridwrap"><table class="report grid"><thead id="tableHead"></thead><tbody id="tableBody"></tbody></table></div>
       </div>
     </div>
@@ -191,7 +188,6 @@
   </section></div>
   <div class="modal" id="modelModal" hidden><section class="modal-card model-card" role="dialog" aria-modal="true" aria-labelledby="modelTitle">
     <div class="panel-head"><h3 id="modelTitle"><img class="mascot dialog-mascot" src="assets/normal.png" width="48" height="48" alt="" draggable="false">模型连接</h3><button id="modelClose" class="btn ghost sm">关闭</button></div>
-    <p class="hint">支持本机、公司内网及兼容接口；本机模型请先启动对应服务。</p>
     <div class="model-body"><div class="profile-block">
       <div class="profile-head"><span>已保存的配置</span><span class="hint" id="profileLimit"></span></div>
       <div id="profileList" class="profile-list"></div>
@@ -226,7 +222,7 @@
       </div>
       <button class="btn ghost sm" id="closeAbout">关闭</button>
     </div>
-    <div class="about-toolbar"><p class="hint">各版本更新内容，当前版本已高亮。</p><div class="actions"><button class="btn ghost sm" id="openUpdates">软件更新</button><button class="btn ghost sm" id="openIntegrity">校验完整性</button><button class="btn ghost sm" id="contactAuthor" aria-expanded="false" aria-controls="authorContactDetails">联系作者</button></div></div>
+    <div class="about-toolbar"><div class="actions"><button class="btn ghost sm" id="openUpdates">软件更新</button><button class="btn ghost sm" id="openIntegrity">校验完整性</button><button class="btn ghost sm" id="contactAuthor" aria-expanded="false" aria-controls="authorContactDetails">联系作者</button></div></div>
     <div class="about-contact" id="authorContactDetails" role="region" aria-label="作者联系方式" hidden>
       <div class="about-contact-address"><span class="hint">邮箱</span><span id="authorEmail">chenym1@novastar.tech</span></div>
       <button class="btn ghost sm" id="copyAuthorEmail">复制邮箱</button>
@@ -262,7 +258,6 @@
 <dialog id="teamDialog" class="shared-dialog community-dialog" aria-labelledby="teamTitle">
   <div class="panel-head"><h3 id="teamTitle"><img src="assets/normal.png" width="48" height="48" alt="">团队词库同步</h3><button id="closeTeamSync" class="btn ghost sm">关闭</button></div>
   <div class="community-body">
-    <p class="hint">共享同一套专业译法。获取最新内容无需登录；维护者可以提交修改，双方改动同一词条时先选择保留内容。</p>
     <div class="community-summary"><span>StarTranslator 团队词库</span><span id="teamLastSync" class="hint">尚未同步</span></div><p id="teamReadSource" class="hint"></p>
     <div class="actions"><button id="teamPull" class="btn primary">获取团队最新词库</button><button id="teamPush" class="btn ghost" disabled>提交本机修改</button><button id="teamHistory" class="btn ghost sm">最近维护记录</button></div>
     <div id="teamHistoryRows" class="community-history" hidden></div>
@@ -280,24 +275,23 @@
 <dialog id="lanDialog" class="shared-dialog" aria-labelledby="lanTitle">
   <div class="panel-head"><h3 id="lanTitle"><img src="assets/normal.png" width="48" height="48" alt="">局域网协作</h3><button class="btn ghost sm" id="closeLan">关闭</button></div>
   <div class="lan-dialog-body">
-    <p class="hint">开启后，同一局域网内的同事可以使用本机的模型与术语库，无需注册或登录。关闭窗口后共享服务继续运行，退出星译官时结束。</p><p id="lanState" role="status"></p>
+    <p class="hint">关闭此窗口后共享服务继续运行，退出星译官时结束。</p><p id="lanState" role="status"></p>
     <p id="lanMessage" class="lan-message" role="alert" hidden></p>
     <label>共享端口<input id="lanPort" type="number" min="1024" max="65535" value="8765" required aria-describedby="lanMessage"></label><button id="lanToggle" class="btn primary">开启共享服务</button><div id="lanAddresses"></div>
-    <p class="hint">最多同时处理 2 项任务，其余排队；浏览器各自保留任务列表与结果。请通过共享电脑在局域网中的地址访问。</p>
-    <div class="shared-section"><h3>连接其他电脑</h3><label>共享地址<input id="lanRemote" type="url" placeholder="http://192.168.1.10:8765" aria-describedby="lanMessage"></label><button id="lanConnect" class="btn primary">连接共享工作台</button><p class="hint">在独立窗口中处理共享任务，不影响本机的文档和配置。</p></div>
+    <div class="shared-section"><h3>连接其他电脑</h3><label>共享地址<input id="lanRemote" type="url" placeholder="http://192.168.1.10:8765" aria-describedby="lanMessage"></label><button id="lanConnect" class="btn primary">连接共享工作台</button></div>
   </div>
 </dialog>
 <dialog id="comparisonDialog" class="shared-dialog comparison-dialog" aria-labelledby="comparisonTitle"><div class="panel-head"><h3 id="comparisonTitle"><img src="assets/normal.png" width="48" height="48" alt="">原文与译文</h3><button id="closeComparison" class="btn ghost sm">关闭</button></div><p id="comparisonNote" class="hint"></p><div class="comparison-filters"><input id="compareSearch" type="search" placeholder="搜索原文或译文" aria-label="搜索对照"><select id="comparePage" aria-label="筛选页面"><option value="">全部页面</option></select></div><div class="comparison-scroll"><table class="comparison-table"><thead><tr><th>原文</th><th>译文</th></tr></thead><tbody id="comparisonRows"></tbody></table></div></dialog>
 <dialog id="updateNoticeDialog" class="shared-dialog community-dialog update-notice" aria-labelledby="updateNoticeTitle" aria-describedby="updateNoticeIntro">
   <div class="panel-head"><h3 id="updateNoticeTitle"><img src="assets/happy.png" width="48" height="48" alt="">发现新版本</h3><button id="closeUpdateNotice" class="btn ghost sm">关闭</button></div>
-  <div class="community-body"><p id="updateNoticeIntro"></p><ul id="updateNoticeHighlights"></ul><p class="hint">可稍后更新，不影响本次工作。</p></div>
+  <div class="community-body"><p id="updateNoticeIntro"></p><ul id="updateNoticeHighlights"></ul></div>
   <p id="updateNoticeError" class="error" role="alert" hidden></p>
   <label class="check"><input type="checkbox" id="ignoreUpdateVersion">此版本不再提示</label>
   <footer class="community-footer"><button id="laterUpdateNotice" class="btn ghost">稍后</button><button id="viewUpdateNotice" class="btn primary">查看更新</button></footer>
 </dialog>
 <dialog id="multilingualDialog" class="shared-dialog" aria-labelledby="multilingualTitle">
   <div class="panel-head"><h3 id="multilingualTitle">多语言术语查阅</h3><button class="btn ghost sm" id="closeMultilingual">关闭</button></div>
-  <p class="hint">按下方语言筛选可直接查看该语言全部词条。官方表部分词条只有中英文，缺少的译法会单独说明。文档支持简体中文、繁体中文、英语、日语和韩语；文本支持下列词库语言互译。</p>
+  <p class="hint">部分词条的译法未提供。</p>
   <div class="catalog-filters"><input id="catalogSearch" type="search" aria-label="搜索多语言术语" placeholder="搜索任一语言的词条…"><label class="sr-only" for="catalogLanguage">搜索语言</label><select id="catalogLanguage"><option value="">全部语言</option></select></div>
   <p id="catalogStatus" class="hint" role="status" aria-live="polite"></p>
   <div class="catalog-content"><div id="catalogRows" class="catalog-rows" role="list" aria-label="多语言术语列表"></div><div id="catalogDetail" class="catalog-detail" aria-label="各语言译法"></div></div>

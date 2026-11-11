@@ -271,10 +271,11 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
                             if checkpoint and proof is not None:
                                 checkpoint.put(piece_key,{'translation':value,'language_review':proof})
                         runs.extend(mapped(request_client,piece,sliced,reference,src,dst,cancel,context,mode,fixed,
-                            # Speaker-note styling must not discard already
-                            # independently verified translated content. Visible
-                            # slide text keeps the stricter emphasis gate.
-                            style_warnings if Path(path).suffix.lower() in {'.doc','.docx','.pdf'} or segment.source=='notes' else None,activity,quality,
+                            # On a targeted retry, keep independently verified
+                            # PPT text even if precise emphasis mapping fails.
+                            # The existing fallback retains confirmed anchors and
+                            # reports uncertain styling for review.
+                            style_warnings if Path(path).suffix.lower() in {'.doc','.docx','.pdf'} or segment.source=='notes' or repair_error is not None else None,activity,quality,
                             initial_target=initial,on_verified=verified))
                 target=''.join(r['text'] for r in runs)
                 if quality.proof(source,target) is None:
@@ -319,6 +320,35 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
         issues.extend({'locator':segment.locator,'slide':segment.slide,'reason':w} for w in style_warnings)
     check_cancel(cancel)
     pending=ensure_coverage([m for _,members in todo for m in members],changed,pending,by_locator)
+    # A failed segment is not proofreading input: try a final targeted
+    # translation recovery before producing the draft. Do not repeat a known
+    # transport failure without a recovered connection, or touch successful
+    # segments. The same content and structural gates still apply.
+    failed_by_location={row['locator']:row for row in pending}
+    recoverable=[item for item in prepared if any(m.locator in failed_by_location for m in item[1])
+                 and not any(failed_by_location.get(m.locator,{}).get('service_unavailable') for m in item[1])]
+    for index,item in enumerate(recoverable):
+        check_cancel(cancel)
+        segment,members,groups=item
+        notify('repair','正在自动补译尚未完成的内容',index,len(recoverable))
+        reason='；'.join(dict.fromkeys(failed_by_location[m.locator]['reason'] for m in members if m.locator in failed_by_location))
+        _,runs,style_warnings,error=compute(item,repair_error=reason)
+        if error is not None:continue
+        snapshots=[(by_locator[m.locator]._p,deepcopy(by_locator[m.locator]._p)) for m in members]
+        try:
+            if len(members)>1:
+                for i,m in enumerate(members):by_locator[m.locator].text=''.join(r['text'] for r in runs if r['id']==i)
+            else:write_styled(by_locator[segment.locator],groups,runs)
+        except Exception:
+            for node,snapshot in snapshots:
+                node.clear();node.attrib.update(snapshot.attrib);node.tail=snapshot.tail
+                node.extend(deepcopy(child) for child in snapshot)
+            continue
+        recovered={m.locator for m in members}
+        pending=[row for row in pending if row['locator'] not in recovered]
+        for m in members:
+            changed.append(m.locator);alignment.append({'locator':m.locator,'translation':by_locator[m.locator].text,'source':m.text})
+        issues.extend({'locator':segment.locator,'slide':segment.slide,'reason':w} for w in style_warnings)
     if store.fingerprint(path)!=before:raise ValueError('原稿在处理期间被修改，已保留原稿。')
     image_review=None
     if Path(path).suffix.lower()=='.pdf':

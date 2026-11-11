@@ -475,7 +475,8 @@ class QualityGateTests(unittest.TestCase):
         output=job['result']['outputs'][0];stats=job['result']['stats']
         self.assertEqual(job['status'],'partial');self.assertTrue(job['can_resume'])
         self.assertEqual(stats['judged'],1);self.assertEqual(stats['unreviewed'],1)
-        self.assertEqual(client.reviews,1);self.assertLessEqual(client.translations,5)
+        # One normal review plus two bounded review-stage recovery requests.
+        self.assertEqual(client.reviews,3);self.assertLessEqual(client.translations,5)
         self.assertTrue(output['auto_exported']);self.assertNotIn('report',job['result'])
         self.assertEqual([p.text for p in Document(output['path']).paragraphs],['分辨率为3840×2160。','Brightness 500 nits.'])
         self.assertTrue(output['warnings']);self.assertEqual(source.read_bytes(),original)

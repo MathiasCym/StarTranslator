@@ -661,8 +661,8 @@ server.listen(0,'127.0.0.1',async()=>{
   result.checks.push('free text editor: actual desktop entry, 942/1280/1600px layouts, English-Chinese request, verified output, copy enabled, swap direction and reopen during processing')
   for(const w of [360,480,900,1280]){
    shared.setContentSize(w,850);await sr('scrollTo(0,0)');await wait(100)
-   const entry=await sr("(()=>{const b=$('openTextTranslation'),r=b.getBoundingClientRect(),s=getComputedStyle(b);return {inTaskCard:!!b.closest('.prepare'),primary:b.classList.contains('primary'),type:b.type,description:$('textEntryHint').textContent,visible:r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&b.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)),horizontal:document.documentElement.scrollWidth-innerWidth}})()")
-   assert(entry.inTaskCard&&entry.primary&&entry.type==='button'&&entry.visible&&entry.horizontal<2,JSON.stringify({width:w,...entry}));assert(entry.description.includes('无需上传文件'))
+   const entry=await sr("(()=>{const b=$('openTextTranslation'),r=b.getBoundingClientRect();return {inTaskCard:!!b.closest('.prepare'),primary:b.classList.contains('primary'),type:b.type,name:b.textContent.trim(),visible:r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&b.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)),horizontal:document.documentElement.scrollWidth-innerWidth}})()")
+   assert(entry.inTaskCard&&entry.primary&&entry.type==='button'&&entry.visible&&entry.horizontal<2,JSON.stringify({width:w,...entry}));assert.equal(entry.name,'文本翻译')
   }
   result.checks.push('shared text entry is prominent in the new-task card and visible without scrolling at 360/480/900/1280px')
   await sr("$('openTextTranslation').click()")

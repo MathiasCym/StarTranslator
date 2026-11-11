@@ -129,9 +129,9 @@ class ParallelTests(unittest.TestCase):
                 paragraph._p.clear();raise ValueError('synthetic local writer failure')
             return original(paragraph,groups,runs)
         with patch.object(documents,'write_styled',side_effect=write):result=self.translate(path,3,SlowModel())
-        self.assertEqual(result['untranslated'],1);self.assertEqual(result['translated'],5)
+        self.assertEqual(result['untranslated'],0);self.assertEqual(result['translated'],6)
         texts=[s.text for s in extract(result['path']) if s.editable]
-        self.assertEqual(texts[0],SAMPLES['en-US']);self.assertEqual(texts[1:],[SAMPLES['ja-JP']]*5)
+        self.assertEqual(texts,[SAMPLES['ja-JP']]*6)
 
     def test_completed_future_timeout_is_not_an_endless_wait(self):
         from types import SimpleNamespace

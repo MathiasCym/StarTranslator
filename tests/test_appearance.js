@@ -29,6 +29,12 @@ test('external and comparison frames cannot change local preferences',async t=>{
 test('unwritable preference does not change the active mode',async t=>{
  const f=fixture(t);fs.mkdirSync(path.join(f.dir,'appearance.json'));await assert.rejects(f.handlers['set-appearance-theme']({sender:f.sender},'light'));assert.equal(f.appearance.get(),'dark');assert(!fs.existsSync(path.join(f.dir,'appearance.json.tmp')))
 })
+test('closing a shared window never reads its destroyed webContents', t=>{
+ const f=fixture(t);let closed, destroyed=false, reads=0
+ const contents={getURL:()=> 'http://127.0.0.1:8765/'}
+ const window={get webContents(){reads++;if(destroyed)throw new Error('Object has been destroyed');return contents},once:(event,fn)=>{assert.equal(event,'closed');closed=fn}}
+ f.appearance.shared(window);destroyed=true;assert.doesNotThrow(()=>closed());assert.equal(reads,1)
+})
 test('browser theme remains local, validates input, and preserves data on toggle',async()=>{
  const memory=new Map(),listeners={},button={setAttribute(){},addEventListener:(name,fn)=>listeners[name]=fn},root={dataset:{},classList:{add(){},remove(){}}},node={value:'untouched translation'}
  const context={requestAnimationFrame:fn=>fn(),location:{search:''},URLSearchParams,localStorage:{getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v)},document:{documentElement:root,querySelectorAll:selector=>selector==='[data-theme-toggle]'?[button]:[],addEventListener:(event,fn)=>listeners[event]=fn},window:{addEventListener(){}}}

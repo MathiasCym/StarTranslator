@@ -23,10 +23,10 @@ function textSurface(open) {
     if (previous) { document.body.classList.toggle('results-view',previous.results); $('reportModal').hidden = !previous.reportOpen }
   }
   document.querySelector('.workspace-heading h2').textContent = open ? '文本工作台' : '文档工作台'
+  $('workspaceHint').textContent = open ? '选择语言，直接输入或粘贴文本' : state.mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
   for (const [id,active] of [['modeCheck',!open && state.mode === 'check'],['modeTranslate',!open && state.mode === 'translate'],['openTextTranslation',open]]) {
     $(id).classList.toggle('active',active); $(id).setAttribute('aria-pressed',String(active))
   }
-  $('workspaceHint').textContent = open ? '选择语言，直接输入或粘贴文本' : state.mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
   return true
 }
 const textEditor = window.StarTextTranslation.mount({ button: $('openTextTranslation'), host: $('textWorkspace'), request: callApi, prefix: '/api/jobs', languagesPath:'/api/text/languages',
@@ -79,6 +79,7 @@ function setMode(mode) {
   state.edits = {}; state.outputs = []; state.exportRecords = []; state.savedReviewFiles.clear()
   $('modeCheck').classList.toggle('active', mode === 'check'); $('modeTranslate').classList.toggle('active', mode === 'translate')
   $('modeCheck').setAttribute('aria-pressed', String(mode === 'check')); $('modeTranslate').setAttribute('aria-pressed', String(mode === 'translate'))
+  $('workspaceHint').textContent = mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
   const [sourceLanguage,targetLanguage] = StarDocumentLanguages.pair(state.direction)
   const languageName = StarDocumentLanguages.names[mode === 'check' ? targetLanguage : sourceLanguage]
   $('dropTitle').textContent = '添加'+languageName+(mode === 'check' ? '译文' : '原稿')
@@ -86,12 +87,10 @@ function setMode(mode) {
   StarDocumentLanguages.configurePair($('documentSource'),$('documentTarget'),state.direction)
   $('documentCheckLanguage').hidden = mode !== 'check'
   $('documentTranslationLanguages').hidden = mode !== 'translate'
-  $('workspaceHint').textContent = mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
   $('llmOption').hidden = mode !== 'check'
   $('translationOptions').hidden = mode !== 'translate' || !state.files.some(path => /\.pptx$/i.test(path))
   $('runBtn').textContent = mode === 'check' ? '开始校对' : '开始翻译'
   $('runCombined').hidden = mode !== 'translate'
-  $('scopeHint').textContent = mode === 'check' ? '修改由你确认，支持另存或覆盖原文件。' : '译文单独保存；图片内文字需手动处理。'
   showWorkspace()
 }
 $('documentDirection').onchange = () => {

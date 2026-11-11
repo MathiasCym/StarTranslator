@@ -128,9 +128,9 @@ class DocumentLanguageTests(unittest.TestCase):
   self.assertEqual(job['status'],'partial',job)
   output=job['result']['outputs'][0];self.assertEqual(output['untranslated'],1)
   self.assertIn(SAMPLES['en-US'],'\n'.join(s.text for s in extract(output['path'])))
-  # Two generation attempts, followed by one bounded failed-segment repair;
+  # Two generation attempts per pass, followed by bounded translation and review recovery;
   # persistent invalid facts still remain pending rather than marked complete.
-  self.assertTrue(job['can_resume']);self.assertEqual(model.translations,4)
+  self.assertTrue(job['can_resume']);self.assertEqual(model.translations,8)
   self.assertTrue(output['auto_exported']);self.assertNotIn('report',job['result'])
   self.assertEqual(output['output_audit']['status'],'partial')
 
@@ -303,6 +303,80 @@ class DocumentLanguageTests(unittest.TestCase):
   self.assertTrue(output['auto_exported'])
   self.assertTrue(any('局部强调' in warning['reason'] for warning in output['layout_warnings']))
   self.assertIn(SAMPLES['ja-JP'],'\n'.join(s.text for s in extract(output['path'])))
+
+ def test_ppt_retries_failed_style_mapping_without_discarding_verified_translation(self):
+  from pptx import Presentation
+  from pptx.util import Inches
+  from backend.replacer.styled_text import StyleMappingError
+  for target in ('ja-JP','ko','zh-Hant-TW'):
+   with self.subTest(target=target):
+    deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
+    paragraph=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(8),Inches(2)).text_frame.paragraphs[0]
+    paragraph.add_run().text='Do not';paragraph.add_run().text=SAMPLES['en-US'][6:]
+    path=self.root/(target+'-retry.pptx');deck.save(path);seen=[]
+    def mapped_retry(client,source,groups,reference,src,dst,cancel,context,mode,fixed,warnings,activity,quality,**kwargs):
+     seen.append(warnings is not None)
+     if warnings is None:raise StyleMappingError('style mapping unavailable')
+     warnings.append('局部强调未能可靠映射')
+     return [{'id':g['id'],'text':SAMPLES[target] if i==0 else ''} for i,g in enumerate(groups)]
+    with patch.object(documents,'mapped',side_effect=mapped_retry):
+     result=documents.translate_file(str(path),Glossary([]),None,str(self.root/'output'),client=Model(SAMPLES[target]),workers=1,direction='en-US>'+target)
+    self.assertEqual(seen,[False,True]);self.assertEqual(result['untranslated'],0)
+    self.assertTrue(result['style_warnings']);self.assertIn(SAMPLES[target],'\n'.join(s.text for s in extract(result['path'])))
+
+ def test_multilingual_ppt_final_recovery_rechecks_only_unfinished_content(self):
+  for target in ('ja-JP','ko','zh-Hant-TW'):
+   with self.subTest(target=target):
+    path=self.source('.pptx',SAMPLES['en-US'],target+'-recovery');attempts=[]
+    def recover(client,source,groups,reference,src,dst,cancel,context,mode,fixed,warnings,activity,quality,**kwargs):
+     attempts.append(source)
+     if len(attempts)<3:raise ValueError('temporary translation failure')
+     return [{'id':g['id'],'text':SAMPLES[target] if i==0 else ''} for i,g in enumerate(groups)]
+    with patch.object(documents,'mapped',side_effect=recover):
+     # Empty candidate proof for this English source/target pairing is valid.
+     result=documents.translate_file(str(path),Glossary([]),None,str(self.root/'output'),client=Model(SAMPLES[target]),workers=1,direction='en-US>'+target)
+    self.assertEqual(len(attempts),3);self.assertEqual(result['untranslated'],0)
+    self.assertTrue(result['translation_complete']);self.assertIn(SAMPLES[target],'\n'.join(s.text for s in extract(result['path'])))
+
+ def test_multilingual_recovery_preserves_source_when_all_attempts_fail(self):
+  for target in ('ja-JP','ko','zh-Hant-TW'):
+   with self.subTest(target=target):
+    path=self.source('.pptx',SAMPLES['en-US'],target+'-persistent');before=path.read_bytes()
+    with patch.object(documents,'mapped',side_effect=ValueError('persistent failure')) as translate:
+     result=documents.translate_file(str(path),Glossary([]),None,str(self.root/'output'),client=Model(SAMPLES[target]),workers=1,direction='en-US>'+target)
+    self.assertEqual(translate.call_count,3);self.assertEqual(result['untranslated'],1)
+    self.assertFalse(result['translation_complete']);self.assertTrue(result['review_items'])
+    self.assertIn(SAMPLES['en-US'],'\n'.join(s.text for s in extract(result['path'])))
+    self.assertEqual(path.read_bytes(),before)
+
+ def test_combined_review_retranslates_unfinished_ppt_and_saves_it(self):
+  for target in ('ja-JP','ko','zh-Hant-TW'):
+   with self.subTest(target=target):
+    path=self.source('.pptx',SAMPLES['en-US'],target+'-review-repair');before=path.read_bytes()
+    model=Model(SAMPLES[target])
+    with patch.object(documents,'mapped',side_effect=ValueError('translation temporarily failed')):
+     with patch('backend.text_languages.translate_piece',return_value=SAMPLES[target]) as recovery:
+      job=self.job(self.options(path,'en-US',target),model)
+    output=job['result']['outputs'][0]
+    self.assertEqual(recovery.call_count,1);self.assertTrue(output['auto_exported'],output)
+    self.assertEqual(output['untranslated'],0);self.assertTrue(output['translation_complete'])
+    self.assertIn(SAMPLES[target],'\n'.join(s.text for s in extract(output['path'])))
+    self.assertEqual(path.read_bytes(),before)
+
+ def test_review_retranslation_covers_all_maintained_targets_and_rejects_wrong_numbers(self):
+  from backend.models import Finding,Segment
+  source=SAMPLES['zh-CN']
+  for target in ('en-US','ja-JP','ko','zh-Hant-TW'):
+   with self.subTest(target=target):
+    segment=Segment(id='one',file='a.pptx',file_path='a.pptx',text=source,locator='slide1/shape1/p0')
+    finding=Finding(segment_id='one',file='a.pptx',file_path='a.pptx',slide=1,para=1,source='translation',found_text=source)
+    review={'output':{'direction':languages.direction('zh-CN',target),'review_items':[{'locator':segment.locator,'source_text':source,'translation':source}]},'local':{'segments':[segment],'findings':[finding]}}
+    with patch('backend.text_languages.translate_piece',return_value='incorrect 99 Hz'):
+     workflow.repair_pending_in_review(review,Model(SAMPLES[target]),threading.Event())
+    self.assertEqual(finding.suggested,'')
+    with patch('backend.text_languages.translate_piece',return_value=SAMPLES[target]):
+     workflow.repair_pending_in_review(review,Model(SAMPLES[target]),threading.Event())
+    self.assertEqual(finding.suggested,SAMPLES[target])
 
  def test_style_review_uses_actual_original_format_not_invented_id_colors(self):
   from backend.replacer.styled_text import style_groups,slice_groups
