@@ -350,17 +350,19 @@ class DocumentLanguageTests(unittest.TestCase):
     self.assertEqual(path.read_bytes(),before)
 
  def test_combined_review_retranslates_unfinished_ppt_and_saves_it(self):
-  for target in ('ja-JP','ko','zh-Hant-TW'):
-   with self.subTest(target=target):
-    path=self.source('.pptx',SAMPLES['en-US'],target+'-review-repair');before=path.read_bytes()
-    model=Model(SAMPLES[target])
+  cases=[('en-US',target,SAMPLES['en-US'],SAMPLES[target]) for target in ('ja-JP','ko','zh-Hant-TW')]
+  cases.append(('zh-CN','ko','为影院打造的一套LED控制系统','영화관용 LED 제어 시스템'))
+  for src,target,source,translation in cases:
+   with self.subTest(source=src,target=target):
+    path=self.source('.pptx',source,src+'-'+target+'-review-repair');before=path.read_bytes()
+    model=Model(translation)
     with patch.object(documents,'mapped',side_effect=ValueError('translation temporarily failed')):
-     with patch('backend.text_languages.translate_piece',return_value=SAMPLES[target]) as recovery:
-      job=self.job(self.options(path,'en-US',target),model)
+     with patch('backend.text_languages.translate_piece',return_value=translation) as recovery:
+      job=self.job(self.options(path,src,target),model)
     output=job['result']['outputs'][0]
     self.assertEqual(recovery.call_count,1);self.assertTrue(output['auto_exported'],output)
     self.assertEqual(output['untranslated'],0);self.assertTrue(output['translation_complete'])
-    self.assertIn(SAMPLES[target],'\n'.join(s.text for s in extract(output['path'])))
+    self.assertIn(translation,'\n'.join(s.text for s in extract(output['path'])))
     self.assertEqual(path.read_bytes(),before)
 
  def test_review_retranslation_covers_all_maintained_targets_and_rejects_wrong_numbers(self):

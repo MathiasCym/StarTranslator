@@ -24,6 +24,13 @@ SHIPPED_241={
     'review-multi':'44c6417fb5318db51929cec1b6b5f9454768d1e4f12aba6e4ee134ef2559e0cc',
     'terminology-review':'5bb35abbb65b25e9d458ba224e55da3a2aaeb44bfcf7d9be8405292ed0cd9b4a'}
 
+# The shipped 2.4.4 multilingual checkpoints use the same source and model
+# identity. Their translations and review findings still pass current checks.
+SHIPPED_244={
+    'translation-multi':'7650501b3f8117e26e58755a5b79bb44c00611adb6c53b95d3e7ea0b7ea02414',
+    'review-multi':'95f61e367809b4f4bbc60992410b4056cd003c14170511f091cfaa88e7e522cc',
+}
+
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
@@ -78,12 +85,15 @@ class Checkpoint:
                     db.execute('CREATE TABLE IF NOT EXISTS checkpoint_scopes (scope TEXT PRIMARY KEY, origin TEXT NOT NULL)')
                     db.execute('INSERT OR REPLACE INTO checkpoint_scopes VALUES (?,?)',(self.scope,str(identity.get('source',''))))
                 rows = db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?', (self.scope,stage)).fetchall()
-                if stage in SHIPPED_241 and identity.get('task_session') is not None:
-                    legacy=digest({'policy':SHIPPED_241[stage],'input':identity})
-                    known={key for key,_ in rows}
-                    rows.extend((key,value) for key,value in db.execute(
-                        'SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?',
-                        (legacy,stage)).fetchall() if key not in known)
+                if identity.get('task_session') is not None:
+                    for shipped in (SHIPPED_244, SHIPPED_241):
+                        if stage not in shipped:
+                            continue
+                        legacy=digest({'policy':shipped[stage],'input':identity})
+                        known={key for key,_ in rows}
+                        rows.extend((key,value) for key,value in db.execute(
+                            'SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?',
+                            (legacy,stage)).fetchall() if key not in known)
                 # Explicit compatibility with the shipped 2.0.11–2.0.14 translators.
                 # Source/model/glossary/references/styles remain in the identity;
                 # every resumed paragraph still passes today's content checks.

@@ -686,7 +686,7 @@ def _apply_report(data, report, progress=None, client=None):
     option = report.get('output_options',{}).get(path,{})
     direction=option.get('direction',report.get('direction','zh-en'))
     multilingual=document_languages.extended(direction)
-    target_language=document_languages.pair(direction)[1]
+    source_language,target_language=document_languages.pair(direction)
     reverse = direction!='zh-en'  # Suppress English-only repair/audit for every other policy.
     final_only = option.get('mode') == 'final'
     managed_output = bool(option)
@@ -787,7 +787,8 @@ def _apply_report(data, report, progress=None, client=None):
                 if reverse:
                     if multilingual:
                         from .multilingual_documents import content_validate
-                        content_validate(old,new,target_language,target_language)
+                        edit_source_language=source_language if finding.source=='translation' else target_language
+                        content_validate(old,new,edit_source_language,target_language)
                     else:
                         from .reverse_translation import validate_revision
                         validate_revision(old,new)

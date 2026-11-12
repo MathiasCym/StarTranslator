@@ -9,7 +9,49 @@ from backend.multilingual_quality import LanguageReview,IncompleteLanguageReview
 from backend.translation_retry import repaired_pages
 
 class CoverageTests(unittest.TestCase):
+    def test_ordinal_ranks_are_equivalent_but_changed_rank_is_rejected(self):
+        for src,dst,source,target in [
+            ('zh-CN','ko','中国银幕数量位居世界第一','중국 스크린 수는 세계 1위입니다'),
+            ('zh-CN','ja-JP','位居世界第一','世界一です'),
+            ('zh-CN','zh-Hant-TW','世界第一','世界第一'),
+            ('zh-CN','en-US','世界第一','first in the world'),
+            ('en-US','ko','the third display','세 번째 디스플레이'),
+        ]:
+            with self.subTest(src=src,dst=dst):validate(source,target,src,dst,allow_identical=True)
+        for target in ('세계 2위입니다','second in the world','世界第二'):
+            with self.subTest(target=target):
+                with self.assertRaises(ValueError):validate('世界第一',target,'zh-CN','ko')
+        validate('首先检查连接','First check the connection','zh-CN','en-US')
+        validate('世界一流技术','world-class technology','zh-CN','en-US')
+
+    def test_korean_document_titles_are_translated_and_original_name_glosses_allowed(self):
+        source='2021年《“十四五”规划》'
+        validate(source,'2021년 제14차 5개년 계획','zh-CN','ko')
+        with self.assertRaisesRegex(ValueError,'未译汉字'):
+            validate(source,'2021년 《“十四五”规划》','zh-CN','ko')
+        with self.assertRaises(ValueError):
+            validate(source,'2021년 제15차 5개년 계획','zh-CN','ko')
+        validate('中影完成制版','중국영화(中影)가 마스터링을 완료했다','zh-CN','ko')
+        with self.assertRaisesRegex(ValueError,'未译汉字'):
+            validate('中影完成制版','中影가 마스터링을 완료했다','zh-CN','ko')
+
     def test_exact_scaled_quantities_grouping_counters_and_dimensions(self):
+        validate('21.4万块，市场体量庞大','21만 4천 개, 시장 규모가 방대하다','zh-CN','ko')
+        validate('亮度≥300尼特，支持4K 120Hz','밝기 ≥ 300니트, 4K 120Hz 지원','zh-CN','ko')
+        validate('2024 六部委方案','2024 6개 부처 방안','zh-CN','ko')
+        with self.assertRaises(ValueError):validate('2024 六部委方案','2024 5개 부처 방안','zh-CN','ko')
+        validate('保证每一块LED屏幕显示准确','모든 LED 화면의 정확한 표시를 보장합니다','zh-CN','ko')
+        with self.assertRaises(ValueError):validate('保证每两块LED屏幕显示准确','모든 LED 화면의 정확한 표시를 보장합니다','zh-CN','ko')
+        validate('基于一个基础假设','기본 가정에 근거합니다','zh-CN','ko')
+        with self.assertRaises(ValueError):validate('基于两个基础假设','기본 가정에 근거합니다','zh-CN','ko')
+        validate('实现从零到一的突破','0에서 1로의 돌파구를 마련했다','zh-CN','ko')
+        with self.assertRaises(ValueError):validate('实现从零到一的突破','0에서 2로의 돌파구를 마련했다','zh-CN','ko')
+        with self.assertRaises(ValueError):validate('亮度≥300尼特','밝기 ≥ 300밀리미터','zh-CN','ko')
+        with self.assertRaises(ValueError):validate('21.4万块','21만 5천 개','zh-CN','ko')
+        with self.assertRaises(ValueError):validate('21.4万块','21만, 4천 개','zh-CN','ko')
+        validate('为影院打造的一套LED控制系统','영화관용 LED 제어 시스템','zh-CN','ko')
+        with self.assertRaises(ValueError):validate('为影院打造的两套LED控制系统','영화관용 LED 제어 시스템','zh-CN','ko')
+        with self.assertRaises(ValueError):validate('为影院打造的一套LED控制系统','영화관용 여러 LED 시스템들','zh-CN','ko')
         validate('130万像素','130만 화소','zh-CN','ko')
         validate('130만 화소','1,300,000 pixels','ko','en-US')
         with self.assertRaises(ValueError):validate('130万像素','13만 화소','zh-CN','ko')
@@ -104,5 +146,29 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'完整的译文复核'):
             translate_piece(broken,source,None,'zh-CN','zh-Hant-TW',threading.Event(),quality=LanguageReview('zh-CN','zh-Hant-TW'),terminology=False)
         self.assertEqual(broken.translations,2);self.assertEqual(broken.reviews,4)
+
+    def test_combined_review_arbitrates_an_invented_unit_without_weakening_validation(self):
+        from unittest.mock import patch
+        from backend import document_translation_policy as policy
+        source='设备支持多种场景，最大处理量为360万，可满足'
+        target='장비는 다양한 환경을 지원하며 최대 처리량은 360만으로, 충족할 수 있는 범위는'
+        class Model:
+            def __init__(self,accept):
+                self.accept=accept;self.calls=[]
+            def chat_json(self,prompt,**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                self.calls.append(payload)
+                if '待译原文' in payload:return {'translation':target}
+                if '待独立裁定的复核意见' in payload and self.accept:return {'ok':True,'issues':[]}
+                return {'ok':False,'issues':['要求补写像素单位'],
+                        'corrected_translation':target.replace('360만','360만 화소')}
+        with policy.combined_processing(True),patch.object(policy,'reference',return_value={}):
+            accepted=Model(True)
+            self.assertEqual(translate_piece(accepted,source,None,'zh-CN','ko',threading.Event()),target)
+            self.assertEqual(len(accepted.calls),3)
+            self.assertEqual(accepted.calls[-1]['译文'],target)
+            self.assertIn('待独立裁定的复核意见',accepted.calls[-1])
+            with self.assertRaisesRegex(ValueError,'增加了数值单位'):
+                translate_piece(Model(False),source,None,'zh-CN','ko',threading.Event())
 
 if __name__=='__main__':unittest.main()

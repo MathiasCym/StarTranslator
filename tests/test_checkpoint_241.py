@@ -3,7 +3,7 @@ import os,sys,tempfile,unittest,json
 from pathlib import Path
 from unittest.mock import patch
 sys.path[:0]=[str(Path(__file__).resolve().parents[1]),str(Path(__file__).resolve().parent)]
-from backend.checkpoints import Checkpoint,SHIPPED_241
+from backend.checkpoints import Checkpoint,SHIPPED_241,SHIPPED_244
 from backend.task_resume import activate
 import test_document_languages as fixtures
 
@@ -11,7 +11,7 @@ class ScopeTests(unittest.TestCase):
     def test_shipped_scopes_require_original_task_model_and_language_and_do_not_write_in_read_only_mode(self):
         with tempfile.TemporaryDirectory() as folder,patch.dict(os.environ,{'NOVATERM_DATA_DIR':folder}):
             identity={'source':'fixture.docx','fingerprint':'original','direction':'zh-CN>ko','model':{'model':'original'}}
-            for stage,old_policy in SHIPPED_241.items():
+            for stage,old_policy in [*SHIPPED_241.items(), *SHIPPED_244.items()]:
                 with self.subTest(stage=stage),activate('original-task'):
                     with patch('backend.checkpoints.policy',return_value=old_policy):Checkpoint(stage,identity).put('one',{'translation':'valid cached text'})
                     data=Checkpoint(stage,identity,read_only=True)
