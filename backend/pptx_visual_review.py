@@ -13,6 +13,7 @@ from .replacer.pptx_geometry import walk_shapes, bounds, has_text_frame
 from .replacer.pptx_layout import fit_document
 from .replacer.pptx_package import save_office
 from .text_integrity import contains_chinese
+from .llm.client import LLMResponseInvalid, LLMTruncated
 
 RENDER_LOCK=threading.Lock()
 SYSTEM='''你是演示文稿版式审查员。必须观察两张页面图像：第一张是原稿，第二张是译文。
@@ -288,9 +289,12 @@ def review_pptx(source,output,document,changed,snapshots,client,cancel=None,refe
                         vision_unavailable.set();return issues
                     try:
                         prompt=f'第 {number} 页；页面宽高为 {document.slide_width/12700:g} × {document.slide_height/12700:g} 点，所有坐标与尺寸单位为点。译文对象清单：\n'+json.dumps(objects[number-1],ensure_ascii=False)+'\n本机对先前建议的测量反馈（请修正方案）：'+json.dumps([v for v in readability_feedback if v['slide']==number],ensure_ascii=False)
+                        system=review_system(target_language)
                         for attempt in range(2):
-                            system=review_system(target_language)
-                            result=client.chat_images_json(prompt,images=[first['image'],second['image']],system=system,max_tokens=3200)
+                            try:
+                                result=client.chat_images_json(prompt,images=[first['image'],second['image']],system=system,max_tokens=3200)
+                            except (LLMResponseInvalid,LLMTruncated):
+                                result=None
                             _cancel(cancel)
                             if _valid_result(result):break
                             if not attempt:

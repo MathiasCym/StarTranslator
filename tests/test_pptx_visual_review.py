@@ -287,7 +287,7 @@ class VisualTests(unittest.TestCase):
         class Vision:
             def chat_images_json(_,prompt,**kwargs):
                 calls.append(prompt)
-                if len(calls)==1:return {'reviewed':True,'issues':[{'kind':'small_font','reason':'格式不符合约定'}]}
+                if len(calls)==1:raise visual.LLMResponseInvalid('页面检查响应无效。')
                 return {'reviewed':True,'issues':[]}
         with patch.object(visual,'render_pages',side_effect=self.renderer):
             issues,_=visual.review_pptx(source,out,deck,[],capture_layout(deck,[]),Vision(),audit=audit)

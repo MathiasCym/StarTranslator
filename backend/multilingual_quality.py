@@ -34,6 +34,20 @@ def chinese_script(value,target):
     return buffer.value
 
 
+def copied_simplified_glyphs(source,target,target_language):
+    """Find copied simplified forms unsupported by the target's legacy script."""
+    # An explicitly glossed name may cite its original characters. Its actual
+    # Japanese reading and the use of the gloss still require model review.
+    native_kana=r'\u3040-\u30ff' if target_language=='ja-JP' else ''
+    encoding='cp932' if target_language=='ja-JP' else 'cp950'
+    name_pattern=r'(?<=['+native_kana+HAN+r'])\s*\(\s*(['+HAN+r']{1,20})\s*\)'
+    target=re.sub(name_pattern,lambda m:' ' if m[1] in source else m[0],target)
+    common_simplifications=set('电广园场设显际决厅员为发线须务进业术开闭测')
+    return {glyph for glyph in set(re.findall('['+HAN+']',target)) & set(source)
+            if glyph.encode(encoding,errors='replace')==b'?'
+            and (glyph in common_simplifications or chinese_script(glyph,'zh-Hant-TW') not in (glyph,None))}
+
+
 class LanguageReview:
     VERSION=1
     def __init__(self,source_language,target_language):

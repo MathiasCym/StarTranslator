@@ -57,19 +57,26 @@ class QualityTests(unittest.TestCase):
     def test_document_rejected_wording_is_independently_adjudicated_without_weakening_review(self):
         class ReviewModel:
             supports_thinking_mode=True
-            def __init__(self):self.calls=[]
+            def __init__(self,inconclusive=False):self.calls=[];self.inconclusive=inconclusive
             def chat_json(inner,prompt,**options):
                 data=json.JSONDecoder().raw_decode(prompt)[0];inner.calls.append((data,options))
                 if '待译原文' in data:return {'translation':'送信カードの駆動能力'}
                 if '待独立裁定的复核意见' not in data:
                     return {'ok':False,'issues':['Meaning correct, but prefer literal wording.'],'corrected_translation':'送信カードの帯載'}
+                if inner.inconclusive and not options.get('thinking'):
+                    return {'ok':False,'issues':['No actionable correction.'],'corrected_translation':data['译文']}
                 return certificate('发送卡带载','送信カードの駆動能力')
         model=ReviewModel()
         result=text_languages.translate_piece(model,'发送卡带载',None,'zh-CN','ja-JP',threading.Event(),
             context='LED表示のピクセル容量',quality=LanguageReview('zh-CN','ja-JP'),terminology=False)
         self.assertEqual(result,'送信カードの駆動能力');self.assertEqual(len(model.calls),3)
         self.assertNotIn('thinking',model.calls[0][1]);self.assertNotIn('thinking',model.calls[1][1])
-        self.assertTrue(model.calls[2][1]['thinking'])
+        self.assertNotIn('thinking',model.calls[2][1])
+        model=ReviewModel(inconclusive=True)
+        result=text_languages.translate_piece(model,'发送卡带载',None,'zh-CN','ja-JP',threading.Event(),
+            quality=LanguageReview('zh-CN','ja-JP'),terminology=False)
+        self.assertEqual(result,'送信カードの駆動能力');self.assertEqual(len(model.calls),4)
+        self.assertTrue(model.calls[3][1]['thinking'])
 
     def test_mixed_english_notes_keep_exact_counts_without_language_selector_guessing(self):
         for src in ('zh-CN','en-US'):
@@ -117,7 +124,9 @@ class QualityTests(unittest.TestCase):
         self.assertEqual(result,good);self.assertEqual(model.translations,2)
 
     def test_corrected_translation_still_gets_independent_review(self):
-        source='请检查 A8 控制系统。';bad='A8 を確認します。请检查控制系统。';good='A8 の制御システムを確認してください。'
+        # The copied clause uses only shared glyphs, so semantic review still
+        # has work even after the deterministic simplified-glyph check.
+        source='確認 A8 控制機能。';bad='A8 を確認します。確認控制機能。';good='A8 の制御機能を確認してください。'
         class Repair(LanguageModel):
             def chat_json(inner,prompt,system='',**options):
                 data=json.JSONDecoder().raw_decode(prompt)[0]

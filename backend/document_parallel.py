@@ -1,7 +1,7 @@
 """Shared bounded page/block execution; only callers write document objects."""
 import threading
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor,TimeoutError
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from contextvars import copy_context
 
 def ordered_groups(groups,work,workers,cancel):
@@ -13,19 +13,23 @@ def ordered_groups(groups,work,workers,cancel):
             check_cancel(cancel);yield work(group)
         return
     pool=ThreadPoolExecutor(max_workers=count,thread_name_prefix='star-document')
-    iterator=iter(groups);pending=[]
+    iterator=iter(enumerate(groups));pending={};ready={}
     def submit():
-        group=next(iterator,None)
-        if group is not None:pending.append(pool.submit(copy_context().run,work,group))
+        task=next(iterator,None)
+        if task is not None:
+            index,group=task
+            pending[pool.submit(copy_context().run,work,group)]=index
     try:
         for _ in range(count):submit()
-        while pending:
-            check_cancel(cancel);future=pending[0]
-            try:value=future.result(timeout=.1)
-            except TimeoutError:
-                if future.done():raise
-                continue
-            pending.pop(0);check_cancel(cancel);yield value;submit()
+        for index in range(len(groups)):
+            while index not in ready:
+                check_cancel(cancel)
+                completed,_=wait(pending,timeout=.1,return_when=FIRST_COMPLETED)
+                for future in completed:
+                    ready[pending.pop(future)]=future
+                    submit()
+            check_cancel(cancel)
+            yield ready.pop(index).result()
     finally:
         for future in pending:future.cancel()
         pool.shutdown(wait=True,cancel_futures=True)

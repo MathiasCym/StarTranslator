@@ -170,9 +170,13 @@ def mapped(client, source, groups, glossary, cancel, context, mode, fixed_order=
         raise ValueError('中文译文已生成，但强调样式未能可靠映射；保留原段落，可从断点重试。')
 
 
-def audit_saved(path, paragraphs, pending=()):
+def audit_saved(path, paragraphs, pending=(), *, repaired=()):
     """Reread the actual file; preserve duplicate occurrences and all URLs."""
     saved = extract(path)
+    if repaired:
+        actual_by_locator={segment.locator:segment.text for segment in saved if segment.editable}
+        pending=[*pending,*(item for item in repaired if actual_by_locator.get(item['locator'],'').strip()
+                             in ('',item['translation'].strip()))]
     expected = Counter(p.text for p in paragraphs.values() if is_meaningful(p.text) and editable_paragraph(p) and not getattr(p,'not_editable_reason',''))
     actual = Counter(s.text for s in saved if s.editable)
     missing = expected - actual

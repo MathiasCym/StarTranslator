@@ -96,9 +96,12 @@ def main():
                 not output.get('unapplied_changes') and not output.get('untranslated') and (audit is None or audit['status']=='complete') and
                 (output.get('image_review') is None or output['image_review']['status']=='complete') and
                 stats.get('review_processing_status',stats.get('model_status'))=='complete')
-            if not args.resume and output.get('resumed_segments'):passed=False
+            # A fresh evidence directory has no incoming checkpoint database.
+            # A later stage may reuse text verified earlier in the same run.
+            reused=output.get('resumed_segments',0)
             records.append(dict(source=output['source'],output=output['path'],passed=passed,
-                translated=output['translated'],resumed_segments=output['resumed_segments'],
+                translated=output['translated'],resumed_segments=reused if args.resume else 0,
+                reused_within_run=reused if not args.resume else None,
                 remaining_chinese=len(residuals) if args.direction=='zh-en' else None,untranslated=output.get('untranslated',0),
                 direction=args.direction,source_unchanged=unchanged,applied=output.get('corrected',0),
                 image_review=output.get('image_review'),output_audit=audit,format_review=output.get('format_review')))

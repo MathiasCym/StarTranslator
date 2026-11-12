@@ -365,6 +365,16 @@ class DocumentLanguageTests(unittest.TestCase):
     self.assertIn(translation,'\n'.join(s.text for s in extract(output['path'])))
     self.assertEqual(path.read_bytes(),before)
 
+ def test_saved_ppt_audit_keeps_an_unchanged_repair_location_pending(self):
+  source='设备已经连接，但系统仍未成功启动。'
+  path=self.source('.pptx',source,'unchanged-repair')
+  segment=next(s for s in extract(str(path)) if s.editable)
+  _,paragraphs,_=documents.open_office(str(path))
+  by_locator={locator:paragraph for locator,paragraph,*_ in paragraphs}
+  audit=documents.audit_saved(str(path),by_locator,repaired=[{'locator':segment.locator,'translation':source}])
+  self.assertEqual(audit['status'],'partial')
+  self.assertEqual([item['locator'] for item in audit['issues'] if item['kind']=='untranslated'],[segment.locator])
+
  def test_review_retranslation_covers_all_maintained_targets_and_rejects_wrong_numbers(self):
   from backend.models import Finding,Segment
   source=SAMPLES['zh-CN']

@@ -31,6 +31,20 @@ SHIPPED_244={
     'review-multi':'95f61e367809b4f4bbc60992410b4056cd003c14170511f091cfaa88e7e522cc',
 }
 
+# Parallel scheduling and current validation change the policy hash. An
+# explicit resume can still reuse matching, revalidated 2.4.5 entries.
+SHIPPED_245={
+    'translation':'c736560032582e4432c87971700b45299c0effcabf4cfdd45e747ebbb5e313c0',
+    'translation-multi':'59e0fdaeb28146db4985395d9c40861da4333c08d4b9f2c3dfb4443019e050f3',
+    'review-multi':'fe8a22b04b85dfb8246f46031e61a2968d06760b44a0654e8d07bd48d9829a82',
+    'terminology-review':'df9360afa630b4d984f50bd2ae66cf06590e197f0ccfaf9dd6906ffc12767eb6',
+    'translation-zh':'eae62802e551cfea10a5d125a8473e4c464ed60a2c97e505d129f592ab6fead1',
+    'review-zh':'8b79396343535f800788d74e568554df217173c6c274336d4ca4df21515a0c30',
+    'review':'b4ad2cf34299d1ac0c74417861316f9f4761294f1e399d0a214cae849dbc1fc2',
+    'pdf-image':'6217c80281e8a2793800857f077dbfde5dd024f19db87467ab21515a7e49366e',
+    'pdf-output':'a408f9261b803493f3aa413067da50228917770736e9d6059453b6a143b58898',
+}
+
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
@@ -86,7 +100,7 @@ class Checkpoint:
                     db.execute('INSERT OR REPLACE INTO checkpoint_scopes VALUES (?,?)',(self.scope,str(identity.get('source',''))))
                 rows = db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?', (self.scope,stage)).fetchall()
                 if identity.get('task_session') is not None:
-                    for shipped in (SHIPPED_244, SHIPPED_241):
+                    for shipped in (SHIPPED_245, SHIPPED_244, SHIPPED_241):
                         if stage not in shipped:
                             continue
                         legacy=digest({'policy':shipped[stage],'input':identity})

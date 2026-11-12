@@ -9,6 +9,93 @@ from backend.multilingual_quality import LanguageReview,IncompleteLanguageReview
 from backend.translation_retry import repaired_pages
 
 class CoverageTests(unittest.TestCase):
+    def test_localized_calendar_and_plan_counts_preserve_values(self):
+        for dst,calendar,plan in [
+            ('ja-JP','2025年5月9日','2021年の第14次五カ年計画'),
+            ('ko','2025년 5월 9일','2021년 제14차 5개년 계획'),
+            ('zh-Hant-TW','2025年5月9日','2021年《十四五規劃》'),
+            ('en-US','May 9, 2025','2021 14th Five-Year Plan'),
+        ]:
+            with self.subTest(dst=dst):
+                validate('2025.05.09',calendar,'zh-CN',dst)
+                validate('2021年《“十四五”规划》',plan,'zh-CN',dst)
+                with self.assertRaises(ValueError):
+                    validate('2025.05.10',calendar,'zh-CN',dst)
+                with self.assertRaises(ValueError):
+                    validate('2021年《“十五五”规划》',plan,'zh-CN',dst)
+        validate('为剧场设计的一套LED控制系统','劇場向けLED制御システム','zh-CN','ja-JP')
+        validate('基于一个基础假设','ある基本的な前提に基づく','zh-CN','ja-JP')
+        validate('实现从零到一的突破','ゼロからイチへの飛躍を実現','zh-CN','ja-JP')
+        validate('实现从零到一的突破','ゼロから1への飛躍を実現','zh-CN','ja-JP')
+        validate('成为升级首选','アップグレードの第一選択肢となった','zh-CN','ja-JP')
+        validate('建成北京、上海双中心','北京と上海の2拠点を整備した','zh-CN','ja-JP')
+        with self.assertRaises(ValueError):
+            validate('建成北京、上海双中心','北京と上海の3拠点を整備した','zh-CN','ja-JP')
+        with self.assertRaises(ValueError):
+            validate('为剧场设计的一套LED控制系统','劇場向けの複数のLED制御システム','zh-CN','ja-JP')
+        with self.assertRaises(ValueError):
+            validate('成为升级首选','アップグレードの第二選択肢となった','zh-CN','ja-JP')
+        source='今天的工作全部完成，明天可以正常使用。'
+        with self.assertRaisesRegex(ValueError,'仍与原文相同'):
+            validate(source,source,'zh-CN','ja-JP')
+
+    def test_japanese_rejects_copied_simplified_text_even_with_old_certificate(self):
+        source='新城LED电影公园'
+        with self.assertRaisesRegex(ValueError,'中文简化字'):
+            validate(source,source,'zh-CN','ja-JP',allow_identical=True)
+        validate(source,'新城LED映画公園','zh-CN','ja-JP')
+        validate('星辰电器推出新版','セイシン電器（星辰电器）が新版を発表','zh-CN','ja-JP')
+        validate('使用率','使用率','zh-CN','ja-JP')
+
+    def test_traditional_rejects_copied_simplified_text_but_keeps_shared_characters(self):
+        source='控制器连接后启动显示屏。'
+        with self.assertRaisesRegex(ValueError,'中文简化字'):
+            validate(source,'控制器連接後啟動显示屏。','zh-CN','zh-Hant-TW',allow_identical=True)
+        validate(source,'控制器連接後啟動顯示螢幕。','zh-CN','zh-Hant-TW')
+        validate('使用率','使用率','zh-CN','zh-Hant-TW',allow_identical=True)
+
+    def test_completed_page_refills_worker_while_earlier_page_is_slow(self):
+        from backend.document_parallel import ordered_groups
+        later_page_started=threading.Event()
+        def compute(page):
+            if page==0 and not later_page_started.wait(3):
+                raise AssertionError('Free worker remained idle behind an earlier page')
+            if page==2:later_page_started.set()
+            return page
+        self.assertEqual(list(ordered_groups(range(3),compute,2,threading.Event())),[0,1,2])
+
+    def test_title_repair_excludes_neighbors_after_copied_number(self):
+        class Model:
+            def __init__(self):self.calls=[]
+            def chat_json(self,prompt,**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                self.calls.append(payload)
+                if '待译原文' in payload:
+                    return {'translation':'階調技術 60 Hz' if len(self.calls)==1 else '階調技術'}
+                return {'ok':True,'issues':[]}
+        model=Model()
+        result=translate_piece(model,'灰阶技术',None,'zh-CN','ja-JP',threading.Event(),
+            context='相邻正文说60 Hz',terminology=False)
+        self.assertEqual(result,'階調技術')
+        self.assertEqual([p['相邻原文（仅供理解）'] for p in model.calls],['相邻正文说60 Hz','',''])
+
+    def test_script_repair_reuses_candidate_then_runs_independent_review(self):
+        source='新城LED电影公园'
+        translated='新城LED映画公園'
+        class Model:
+            def __init__(self):self.calls=[]
+            def chat_json(self,prompt,**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                self.calls.append(payload)
+                if '待译原文' in payload:
+                    return {'translation':translated if '上次译文（只修正仍未翻译的词）' in payload else source}
+                return {'ok':True,'issues':[]}
+        model=Model()
+        self.assertEqual(translate_piece(model,source,None,'zh-CN','ja-JP',threading.Event(),terminology=False),translated)
+        self.assertEqual(len(model.calls),3)
+        self.assertEqual(model.calls[1]['上次译文（只修正仍未翻译的词）'],source)
+        self.assertEqual(model.calls[2]['译文'],translated)
+
     def test_ordinal_ranks_are_equivalent_but_changed_rank_is_rejected(self):
         for src,dst,source,target in [
             ('zh-CN','ko','中国银幕数量位居世界第一','중국 스크린 수는 세계 1위입니다'),
