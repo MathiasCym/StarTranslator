@@ -186,6 +186,9 @@ class ConflictTests(unittest.TestCase):
         self.assertTrue(output['auto_exported']);self.assertEqual(output['corrected'],1)
         self.assertEqual(len(output['unapplied_changes']),1)
         self.assertIn('无效字符',output['unapplied_changes'][0]['reason'])
+        from backend import history
+        event=history.record(ident)['exports'][-1]
+        self.assertEqual(event['errors'],[]);self.assertEqual(event['unapplied_changes'],output['unapplied_changes'])
         self.assertIn('ordinary usage rate',Document(output['path']).paragraphs[0].text)
         self.assertEqual(path.read_bytes(),before);self.assertNotIn(ident,workflow.REPORTS)
 

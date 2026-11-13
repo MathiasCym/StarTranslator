@@ -169,7 +169,7 @@ class FormatTests(unittest.TestCase):
                 job = {'id':'final-'+extension,'cancel':threading.Event(),'status':'running'}
                 with patch('backend.workflow.store.load_glossary',return_value=self.glossary),patch('backend.workflow.check_segments',side_effect=rule_review):
                     workflow.run(job,{'kind':'translate_review','combined_output':'final','paths':[str(source)],'output_dir':str(folder),'_client':Model()})
-                self.assertEqual(job['status'],'partial' if extension=='.pdf' else 'complete',job)
+                self.assertEqual(job['status'],'complete',job)
                 result=job['result'];self.assertNotIn('report',result)
                 self.assertTrue(result['outputs'][0]['auto_exported'])
                 output=Path(result['outputs'][0]['path']);self.assertEqual(list(folder.iterdir()),[output])

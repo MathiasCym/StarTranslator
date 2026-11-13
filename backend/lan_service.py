@@ -136,16 +136,17 @@ def clean(value):
 
 
 def public(job):
-    value = clean(workflow.snapshot(job))
+    snapshot = workflow.snapshot(job)
+    value = clean(snapshot)
     working = (workflow.REPORTS.get(job['id']) or {}).get('working_paths',{})
-    for raw,output in zip((job.get('result') or {}).get('outputs',[]),(value.get('result') or {}).get('outputs',[])):
+    for raw,output in zip((snapshot.get('result') or {}).get('outputs',[]),(value.get('result') or {}).get('outputs',[])):
         saved=working.get(raw.get('path'))
         output['draft']=raw.get('draft',job.get('kind')=='translate_review' and not raw.get('review_exported'))
         if saved and Path(saved).is_file(): output.update(path=Path(saved).name,staged=False,draft=False)
     raw_report = report_of(job)
     report = report_of(value)
     paths = [f['path'] for f in raw_report.get('files',[])]
-    outputs=(job.get('result') or {}).get('outputs',[])
+    outputs=(snapshot.get('result') or {}).get('outputs',[])
     for raw,file in zip(raw_report.get('files',[]),report.get('files',[])):
         file['comparison_index']=next((i for i,o in enumerate(outputs) if o.get('path')==raw['path'] and o.get('comparison_id')),None)
     for original, finding in zip(raw_report.get('findings',[]), report.get('findings',[])):

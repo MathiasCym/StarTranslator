@@ -101,7 +101,8 @@ class SharedAdapterTests(unittest.TestCase):
                 path=self.source('.docx',fixtures.SAMPLES['zh-CN'],dst+'-offline');before=path.read_bytes()
                 job=self.job(self.options(path,'zh-CN',dst),Offline(fixtures.SAMPLES[dst]))
                 self.assertEqual(job['status'],'partial')
-                self.assertEqual(job['result']['transport_interruption']['pending'],1)
+                self.assertTrue(job['result']['connection_interrupted'])
+                self.assertEqual(job['result']['outputs'],[])
                 self.assertNotIn('report',job['result'])
                 self.assertIn('模型连接中断',job['message']);self.assertEqual(path.read_bytes(),before)
 

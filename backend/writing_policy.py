@@ -116,7 +116,7 @@ def _calendar_numeric_tokens(text, *, bare_months=False):
         if QUANTITY_UNIT.match(after):continue
         calendar_context=(m[4] is not None
             or re.search(r'(?:日期|时间|发布于|截至|于|自|至|\bdated|\bin|\bsince|\buntil|\bas of)\s*[:：]?\s*$',before,re.I)
-            or re.match(r'\s*(?:[月年]|[^\d\n:：]{0,16}(?:通知|方案|规划|计划|报告|会议|发布|公告))',after)
+            or re.match(r'\s*(?:[月年]|[^\d\n:：]{0,16}(?:通知|方案|规划|计划|报告|会议|发布|公告|통지|공지|공고|발표))',after)
             or (not text[:m.start()].strip(' \t\r\n•·—-:：')
                 and re.match(r'\s+(?:[A-Za-z-]+\s+){0,3}(?:notice|plan|policy|report|release|update|meeting|conference)\b',after,re.I)))
         if calendar_context:add(m,m[1],m[3],m[4])

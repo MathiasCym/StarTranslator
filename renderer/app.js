@@ -570,21 +570,30 @@ function showTranslation(result, cancelled) {
   $('workspace').hidden = true; $('reviewCompletePanel').hidden = true; $('reportModal').hidden = true; $('translationPanel').hidden = false
   const pending = result.outputs.some(r => r.needs_review)
   const combined = result.outputs.some(r => r.auto_reviewed)
+  const resumable = state.job?.can_resume === true
+  const untranslated = result.outputs.reduce((n, output) => n + (output.untranslated || 0), 0)
   $('translationFace').src = cancelled || !result.outputs.length ? 'assets/sad.png' : 'assets/happy.png'
-  $('translationTitle').textContent = cancelled ? '翻译已取消，保留已完成文件' : !result.outputs.length ? '翻译未完成' : pending ? '翻译草稿已保存 · 部分内容待核对' : result.errors.length ? '部分译文已完成' : '翻译结果 · 是否继续校对？'
-  if (combined && !cancelled && result.outputs.length) $('translationTitle').textContent = pending || result.errors.length ? '翻译并校对 · 部分内容待检查' : '翻译并校对已完成'
-  $('translationNotice').textContent = pending ? '已保留处理结果，原稿未修改。待核对内容与未译正文列在下方，可继续结合原稿校对。' : result.outputs.length ? '译文单独保存，原稿保留。文字排版已适配，仍需关注的位置列在下方。' : '尚未生成译文，原稿保留。未完成的原因见下方。'
+  $('translationTitle').textContent = cancelled ? '翻译已取消，保留已完成文件' : !result.outputs.length ? '翻译未完成' : result.errors.length ? '部分译文已完成' : resumable ? '译文已保存 · 仍有内容待处理' : '翻译结果 · 是否继续校对？'
+  if (combined && !cancelled && result.outputs.length) $('translationTitle').textContent = resumable || result.errors.length ? '翻译并校对 · 部分内容待检查' : '翻译并校对已完成'
+  $('translationNotice').textContent = !result.outputs.length ? '尚未生成译文，未完成的原因见下方。' : resumable ? '可用译文已保存，待处理的位置列在下方。' : '译文已保存，原稿保留。'
   if(result.automatic_combined&&!cancelled&&result.outputs.length){
-    const finalSaved=result.outputs.every(o=>o.auto_exported)
-    $('translationTitle').textContent=!finalSaved?'高精度翻译未全部保存 · 可用译稿已保留':pending||result.errors.length?'高精度翻译已保存 · 有待检查的位置':'高精度翻译完成'
-    $('translationNotice').textContent=finalSaved?`已结合术语库处理，自动应用 ${result.automatic_summary?.applied||0} 处修改并保存最终文件。`+(pending?'未解决的位置列在下方。':'可直接查看原译对照或打开文件。'):'最终保存未全部完成。可打开已保留的文件，查看下方提示。'
+    const finalSaved=result.outputs.every(o=>o.auto_exported)&&!result.errors.length
+    $('translationTitle').textContent=!finalSaved?'高精度翻译未全部保存 · 可用译稿已保留':resumable?'高精度翻译已保存':'高精度翻译完成'
+    const remaining=untranslated?`仍有 ${untranslated} 处正文未译，可继续补译。`:resumable?'部分检查尚未完成，可继续检查。':pending?'版式和审校提示可在下方查看。':''
+    $('translationNotice').textContent=finalSaved?`最终文件已保存，已自动应用 ${result.automatic_summary?.applied||0} 处修改。`+remaining:'可打开已保留的文件，查看下方原因。'
   }
-  $('translationFiles').innerHTML = result.outputs.map((r, i) => `<li><div class="file-copy"><div>${esc(basename(r.path))}${r.needs_review ? ' · 待核对草稿' : ''}</div><div class="fpath">翻译 ${r.translated} 段${r.needs_review ? `；${r.needs_review} 段待核对` : ''}${r.untranslated ? `；${r.untranslated} 处${StarDocumentLanguages.names[StarDocumentLanguages.pair(r.direction)[0]]}未完成翻译` : ''}${r.skipped ? `；${r.skipped} 处需人工检查` : ''}。${r.layout_checked ? ' 已检查文档结构并适配文字排版。' : ''}<br>${esc(r.path)}</div>${r.review_items?.length ? `<details open><summary>查看待核对内容（${r.review_items.length} 处）</summary>${r.review_items.map(w => `<p class="hint">${w.slide ? '第 ' + w.slide + ' 页 · ' : ''}${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}</details>` : ''}${r.warnings.length ? `<details><summary>查看未处理内容</summary>${r.warnings.map(w => `<p class="hint">${w.slide ? '第' + w.slide + '页：' : ''}${esc(w.reason)} ${esc(w.text)}</p>`).join('')}</details>` : ''}${r.consistency_hits ? `<p class="hint">发现 ${r.consistency_hits} 项全文用语统一建议，继续校对可在报告中确认。</p>` : ''}${layoutWarningMarkup(r.layout_warnings)}</div><div class="row-actions">${r.comparison_id ? `<button class="btn ghost sm comparison-button" data-comparison="${r.comparison_id}">${PageComparison.buttonContent}</button>` : ''}<button class="btn ghost sm" data-open="${i}">打开译文</button><button class="btn ghost sm" data-folder="${i}">所在位置</button></div></li>`).join('')
+  if (result.delivery_deferred && !cancelled) {
+    $('translationTitle').textContent = result.outputs.length ? '部分文件已保存' : '任务进度已保存'
+    $('translationNotice').textContent = '尚未生成可交付文件的文档可以继续处理。'
+  }
+  $('translationFiles').innerHTML = result.outputs.map((r, i) => `<li><div class="file-copy"><div>${esc(basename(r.path))}${r.draft || r.staged ? ' · 初稿' : ''}</div><div class="fpath">翻译 ${r.translated} 段${r.untranslated ? `；${r.untranslated} 处${StarDocumentLanguages.names[StarDocumentLanguages.pair(r.direction)[0]]}未完成翻译` : ''}<br>${esc(r.path)}</div>${r.review_items?.length ? `<details${r.untranslated ? ' open' : ''}><summary>查看待核对内容（${r.review_items.length} 处）</summary>${r.review_items.map(w => `<p class="hint">${w.slide ? '第 ' + w.slide + ' 页 · ' : ''}${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}</details>` : ''}${r.warnings.length ? `<details><summary>查看处理提示</summary>${r.warnings.map(w => `<p class="hint">${w.slide ? '第' + w.slide + '页：' : ''}${esc(w.reason)} ${esc(w.text)}</p>`).join('')}</details>` : ''}${r.consistency_hits ? `<p class="hint">发现 ${r.consistency_hits} 项全文用语统一建议，继续校对可在报告中确认。</p>` : ''}${layoutWarningMarkup(r.layout_warnings)}</div><div class="row-actions">${r.comparison_id ? `<button class="btn ghost sm comparison-button" data-comparison="${r.comparison_id}">${PageComparison.buttonContent}</button>` : ''}<button class="btn ghost sm" data-open="${i}">打开译文</button><button class="btn ghost sm" data-folder="${i}">所在位置</button></div></li>`).join('')
   $('translationFiles').querySelectorAll('[data-open]').forEach(b => { b.onclick = () => openResult('openFile', result.outputs[Number(b.dataset.open)].path) })
   $('translationFiles').querySelectorAll('[data-folder]').forEach(b => { b.onclick = () => openResult('openFolder', result.outputs[Number(b.dataset.folder)].path) })
   $('translationErrors').textContent = result.errors.map(e => `${e.path ? basename(e.path) + '：' : ''}${e.error || '未提供错误说明'}`).join('\n')
   $('translationExportLog').hidden = !result.errors.length
-  $('translationResume').hidden = !state.job?.can_resume
+  $('translationResume').hidden = !resumable
+  $('translationResume').textContent = result.delivery_deferred ? '继续任务' : !cancelled && result.automatic_combined && result.outputs.length && result.outputs.every(o=>o.auto_exported) ?
+    (untranslated ? '继续补译' : '继续检查') : '从断点继续'
   $('translationErrors').hidden = !result.errors.length
   $('reviewTranslation').disabled = !result.outputs.length
   $('reviewTranslation').textContent = combined ? '再次校对' : '继续校对译文'

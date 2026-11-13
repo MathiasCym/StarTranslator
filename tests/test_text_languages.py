@@ -161,6 +161,14 @@ class LanguageTests(unittest.TestCase):
   for source,target in [('Der A8-Pro ist aktiv.','The A8 is active.'),('Der A8-Controller ist aktiv.','The A9 controller is active.')]:
    with self.assertRaises(ValueError):languages.validate(source,target,'de-DE','en-US')
 
+ def test_korean_notice_dates_and_center_counts_preserve_the_original_facts(self):
+  languages.validate('2025.6 技术通知：设立专项资金。','2025.6 기술 공지: 특별 자금을 마련한다.','zh-CN','ko')
+  languages.validate('双中心布局。','두 센터 레이아웃을 구축했다.','zh-CN','ko')
+  for wrong in ('센터 레이아웃을 구축했다.','세 센터 레이아웃을 구축했다.'):
+   with self.assertRaises(ValueError):languages.validate('双中心布局。',wrong,'zh-CN','ko')
+  with self.assertRaises(ValueError):
+   languages.validate('2025.6 技术通知：设立专项资金。','2025.7 기술 공지: 특별 자금을 마련한다.','zh-CN','ko')
+
  def test_lan_forwards_only_allowed_language_and_style_fields(self):
   app=lan_service.create_app(testing=True);owner=app.test_client();csrf=owner.get('/shared/session').json['csrf']
   self.assertEqual(len(owner.get('/shared/text/languages').json['languages']),16)

@@ -22,6 +22,18 @@ test('legacy clients and incompatible baselines retain the original complete-ins
  const f=await fixture(t)
  for(const args of [{...f.args,installRoot:undefined},{...f.args,currentVersion:'2.0.9'}]){const engine=new GitHubUpdates(args);await engine.check();assert.equal(engine.snapshot().kind,'full');await engine.download();assert((await engine.prepareInstall()).endsWith('.exe'))}
 })
+test('an alternate source can supply a verified small patch before offering the full installer',async t=>{
+ const f=await fixture(t)
+ f.domestic.assets=f.domestic.assets.filter(a=>a.name==='incremental.json')
+ const state=await new GitHubUpdates(f.args).check()
+ assert.equal(state.kind,'patch');assert.equal(state.sourceName,'GitHub')
+})
+test('a different build of the same version explains why a full installer is offered',async t=>{
+ const f=await fixture(t)
+ await fs.appendFile(path.join(f.base,MANIFEST),'\n')
+ const state=await new GitHubUpdates(f.args).check()
+ assert.equal(state.kind,'full');assert.match(state.message,/安装.*基线不一致/)
+})
 test('a malformed or withdrawn patch never installs and full fallback remains available',async t=>{
  const f=await fixture(t),engine=new GitHubUpdates(f.args);await engine.check();await engine.download();f.domestic.assets=f.domestic.assets.filter(a=>a.name!==f.p.filename);await assert.rejects(engine.prepareInstall());await engine.useFullInstaller();assert.equal(engine.snapshot().kind,'full')
  for(const change of [x=>x.patches.push(x.patches[0]),x=>x.patches[0].filename='../escape',x=>x.architecture='arm64',x=>x.patches[0].baseManifest='invalid']){const index=structuredClone(f.index);change(index);assert.throws(()=>validateIndex(index,'2.0.11'))}

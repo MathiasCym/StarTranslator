@@ -28,6 +28,7 @@ from . import task_queue
 from . import document_languages
 from .llm.client import LLMClient
 from .text_integrity import CHINESE, contains_chinese, prose
+from .document_translation_core import IncompleteTranslation, verify_translation_delivery, publish_new_file
 
 JOBS = {}
 REPORTS = {}
@@ -35,7 +36,38 @@ LOCK = threading.Lock()
 
 
 def snapshot(job):
-    return {k:v for k,v in job.items() if k != 'cancel' and not k.startswith('_')}
+    value = {k:v for k,v in job.items() if k != 'cancel' and not k.startswith('_')}
+    result = value.get('result')
+    if result and (job.get('kind') == 'translate' or job.get('automatic_combined')):
+        value['result'] = {**result, 'outputs':[output for output in result.get('outputs',[]) if not output.get('staged')]}
+    return value
+
+
+def output_needs_processing(output):
+    return bool(output.get('untranslated') or output.get('review_error') or
+        any(item.get('retryable') or item.get('kind') in ('untranslated', 'chinese', 'structure', 'text')
+            for item in (output.get('output_audit') or {}).get('issues', [])) or
+        any(item.get('service_unavailable') for item in output.get('review_items', [])))
+
+
+def publish_translation_copy(output, directory, cancel):
+    draft = Path(output['path'])
+    with OUTPUT_LOCK:
+        destination = output_path(output['source'], directory,
+            document_languages.SUFFIXES[document_languages.pair(output.get('direction','zh-en'))[1]],
+            extension=draft.suffix)
+        fd, temporary = tempfile.mkstemp(prefix='.star-delivery-', suffix=draft.suffix, dir=destination.parent)
+        os.close(fd)
+        try:
+            shutil.copyfile(draft, temporary)
+            def guard():
+                check_cancel(cancel)
+                if output.get('source_fingerprint') and store.fingerprint(output['source']) != output['source_fingerprint']:
+                    raise ValueError('原稿在处理期间发生变化，请重新开始。')
+            publish_new_file(temporary, destination, guard)
+        finally:
+            Path(temporary).unlink(missing_ok=True)
+    return str(destination)
 
 
 def can_resume_processing(job, outcome):
@@ -49,10 +81,7 @@ def can_resume_processing(job, outcome):
     processing = stats.get('review_processing_status', stats.get('model_status'))
     if processing in ('partial', 'unavailable', 'cancelled', 'not_started'):
         return True
-    return any(output.get('untranslated') or output.get('review_error') or
-        any(item.get('retryable') for item in (output.get('output_audit') or {}).get('issues',[])) or
-        any(item.get('service_unavailable') for item in output.get('review_items', []))
-        for output in result.get('outputs', []))
+    return any(output_needs_processing(output) for output in result.get('outputs', []))
 
 
 def start(data):
@@ -231,7 +260,8 @@ def _run(job,data):
                 progress(0,0,f'翻译 {index+1}/{len(paths)}：{Path(path).name}','preparing')
                 try:
                     final_only = combined and data.get('combined_output') == 'final'
-                    folder = store.data_dir() / 'translation-drafts' / job['id'] if final_only else data.get('output_dir')
+                    private_delivery = not combined or data.get('_automatic_combined')
+                    folder = store.data_dir() / 'translation-drafts' / job['id'] if final_only or private_delivery else data.get('output_dir')
                     def activity(phase,message,done=0,total=0):
                         if phase=='translate' and job.get('phase')=='translate':done,total=job.get('done',0),job.get('total',0)
                         progress(done,total,f'处理 {index+1}/{len(paths)}：{Path(path).name}',phase,detail=message)
@@ -241,6 +271,8 @@ def _run(job,data):
                             'translate',detail=job.get('detail','正在翻译')))
                     result.update(staged=final_only, output_mode=data.get('combined_output', 'both'),
                                   target_dir=str(Path(data.get('output_dir') or Path(path).parent).absolute()))
+                    if private_delivery:
+                        result['staged'] = True
                     outputs.append(result)
                     if combined:
                         def review_progress(n,t,*message):
@@ -256,14 +288,33 @@ def _run(job,data):
                         if data.get('_automatic_combined') and not job['cancel'].is_set():
                             repair_pending_in_review(review,data.get('_client'),job['cancel'],review_progress)
                             automatic_export(job,review,data,progress)
-                        if result['review_status'] == 'complete' and not job['cancel'].is_set() and (not data.get('_automatic_combined') or result.get('auto_exported')):
+                        review_complete = result['review_status'] == 'complete'
+                        if data.get('_automatic_combined'):
+                            processing = review['stats'].get('review_processing_status', result['review_status'])
+                            review_complete = processing == 'complete' and result.get('auto_exported') and not output_needs_processing(result)
+                        if review_complete and not job['cancel'].is_set():
                             job['result']['completed_paths'].append(path)
                     else:
-                        if result['status']=='complete': job['result']['completed_paths'].append(path)
+                        verify_translation_delivery(result['path'],data.get('direction','zh-en'),
+                            untranslated=result.get('untranslated',0),audit=result.get('output_audit'),source=path)
+                        result.update(path=publish_translation_copy(result,result['target_dir'],job['cancel']),staged=False)
+                        if result.get('comparison_id'):
+                            from . import comparison
+                            try: comparison.update(result['comparison_id'],result['path'])
+                            except Exception: result['comparison_id']=None
+                        if not output_needs_processing(result): job['result']['completed_paths'].append(path)
                     check_cancel(job['cancel'])
                     progress(1,1,f'已完成 {index+1}/{len(paths)} 个文件','export')
                 except Cancelled:
                     raise
+                except IncompleteTranslation:
+                    if outputs and outputs[-1].get('source') == path:
+                        blocked=outputs.pop()
+                        from .document_translation_core import interruption_summary
+                        if interruption_summary([blocked]):
+                            job['result']['connection_interrupted']=True
+                    job['result']['delivery_deferred'] = True
+                    errors.append({'path':path,'error':'暂未生成可交付文件。处理进度已保存，可继续任务。'})
                 except Exception as error:
                     logging.getLogger(__name__).exception('Translation failed: %s', Path(path).name)
                     if data['kind'] == 'translate_review' and outputs and outputs[-1].get('source') == path:
@@ -316,10 +367,17 @@ def _run(job,data):
                 job['result'] = result
                 job.pop('partial_findings',None)
             job['message'] = '校对完成' if stats['model_status'] in ('complete','not_requested') else '规则检查已完成，模型复核未完成'
-        outcome = ('cancelled' if job['cancel'].is_set() else 'failed'
-                   if data['kind'] in ('translate', 'translate_review') and not outputs and errors else 'partial'
-                   if errors or (data['kind'] in ('translate','translate_review') and any(o.get('translation_complete') is False or (o.get('output_audit') or {}).get('status')=='partial' for o in outputs))
-                   or (data['kind']=='translate_review' and any(o.get('review_status')!='complete' or o.get('unapplied_changes') for o in outputs)) else 'complete')
+        translating = data['kind'] in ('translate', 'translate_review')
+        if job['cancel'].is_set():
+            outcome = 'cancelled'
+        elif translating and not outputs and errors:
+            outcome = 'partial' if job['result'].get('delivery_deferred') else 'failed'
+        elif data.get('_automatic_combined'):
+            outcome = 'complete' if len(job['result']['completed_paths']) == len(paths) and not errors else 'partial'
+        elif errors or (translating and any(output_needs_processing(o) for o in outputs)):
+            outcome = 'partial'
+        else:
+            outcome = 'complete'
     except Cancelled as error:
         outcome = 'cancelled'
         job.update(message=str(error))
@@ -337,24 +395,27 @@ def _run(job,data):
         if data['kind'] == 'translate_review' and job.get('result'):
             if data.get('_automatic_combined'):
                 stats=combined_stats(job,reviews,outcome)
-                for output in job['result'].get('outputs',[]):
-                    if output.get('staged'):
-                        output.update(staged=False,draft=True)
                 job['result'].update(automatic_combined=True,stats=stats)
                 job['result']['automatic_summary']={'applied':sum(o.get('corrected',0) for o in job['result'].get('outputs',[])),
                     'unapplied':sum(len(o.get('unapplied_changes',[])) for o in job['result'].get('outputs',[])),
                     'warnings':sum(len(o.get('warnings',[]))+len(o.get('layout_warnings',[])) for o in job['result'].get('outputs',[]))}
                 job['result'].pop('report',None);job.pop('partial_findings',None)
                 if outcome=='complete':
-                    pending=any(o.get('needs_review') for o in job['result']['outputs'])
-                    job['message']='高精度翻译已保存，有待检查的位置' if pending else '高精度翻译完成，最终文件已保存'
+                    job['message']='高精度翻译完成，最终文件已保存'
+                elif outcome=='partial' and any(o.get('auto_exported') for o in job['result']['outputs']):
+                    job['message']='可用译文已保存，仍有内容待处理'
             else:publish_combined_report(job, reviews, outcome)
         from .document_translation_core import interruption_summary
-        interruption=interruption_summary((job.get('result') or {}).get('outputs',[]))
+        private_delivery = data['kind']=='translate' or data.get('_automatic_combined')
+        interruption=interruption_summary((job.get('result') or {}).get('outputs',[])) if not private_delivery else None
         if interruption:
             job['result']['transport_interruption']=interruption
             if job['result'].get('report') is not None:job['result']['report']['transport_interruption']=interruption
             job['message']=interruption['message']
+        if job.get('result') and private_delivery:
+            job['result']['outputs']=[output for output in job['result']['outputs'] if not output.get('staged')]
+            if job['result'].get('connection_interrupted'):
+                job['message']='模型连接中断，已保存处理进度，可继续任务。'
         job['can_resume'] = can_resume_processing(job, outcome)
         try: history.finish({**job,'status':outcome}, data)
         except Exception:
@@ -558,7 +619,7 @@ def repair_pending_in_review(review,client,cancel,progress=None):
         if not segment:continue
         matches=[item for item in pending if not item.get('image') and item.get('locator')==segment.locator
                  and item.get('translation')==finding.found_text and not item.get('service_unavailable')]
-        if len(matches)==1 and matches[0].get('source_text')==finding.found_text:
+        if len(matches)==1 and matches[0].get('source_text'):
             candidates.append((finding,matches[0]))
     original_context=None
     original_segments={}
@@ -573,14 +634,14 @@ def repair_pending_in_review(review,client,cancel,progress=None):
     for index,(finding,item) in enumerate(candidates):
         check_cancel(cancel)
         if progress:progress(index,len(candidates),'正在对未完成位置自动补译并复核')
+        source_text=item['source_text']
+        context='校对阶段补译此前未完成的原文。只翻译本段，保留全部事实和格式边界。'
         try:
             quality=LanguageReview(src,dst)
             original=original_segments.get(item['locator'])
-            context='校对阶段补译此前未完成的原文。只翻译本段，保留全部事实和格式边界。'
             if original_context and original:
                 context+='\n'+ '\n'.join(s.text for s in original_context.neighbors(original))[:5000]
             if item.get('reason'):context+='\n此前未完成的原因：'+item['reason'][:600]
-            source_text=item['source_text']
             from .translation import translation_chunks
             from .parameter_notation import is_field
             translated=''.join(piece if is_field(piece) or not any(c.isalpha() for c in text_languages.prose(piece))
@@ -592,7 +653,17 @@ def repair_pending_in_review(review,client,cancel,progress=None):
                 allow_identical=bool(quality.proof(source_text,translated) and quality.review_identical_formula(source_text,translated)))
             finding.suggested=translated
             finding.source='translation'
+            finding._translation_source=source_text
         except Cancelled:raise
+        except ValueError:
+            try:
+                from .multilingual_documents import recover_paragraph
+                finding.suggested=recover_paragraph(client,source_text,src,dst,cancel,context=context)
+                finding.source='translation'
+                finding._translation_source=source_text
+            except Cancelled:raise
+            except Exception as error:
+                logging.getLogger(__name__).warning('Targeted translation recovery did not complete: %s',type(error).__name__)
         except Exception as error:
             logging.getLogger(__name__).warning('Review-stage retranslation did not complete: %s',type(error).__name__)
 
@@ -603,6 +674,9 @@ def automatic_export(job,review,data,progress):
     report=combined_report_data([output],[review])
     report.update(include_ppt_notes=data.get('include_ppt_notes',False),_checkpoint_session=data['_checkpoint_session'],
                   use_llm=True,_quality_client=data.get('_client'),_cancel=job['cancel'])
+    option=report.get('output_options',{}).get(path)
+    if option is not None:
+        option.update(verify_delivery=True,origin_fingerprint=output.get('source_fingerprint'))
     edits=[]
     report['skipped_edits']=[]
     for index,finding in enumerate(report['findings']):
@@ -618,7 +692,19 @@ def automatic_export(job,review,data,progress):
         check_cancel(job['cancel'])
         saved=apply_report({'report_id':job['id'],'path':path,'edits':edits,'save_unchanged':True},client=data.get('_client'),internal_report=report,
             progress=lambda phase,n=0,t=0,message='':progress(n,t,f'正在完成：{Path(output["source"]).name}',phase,detail=message))
+        initial_copy=None
+        if output.get('output_mode')=='both':
+            try:
+                verify_translation_delivery(path,output.get('direction','zh-en'),
+                    untranslated=output.get('untranslated',0),audit=output.get('output_audit'),source=output.get('source'))
+                initial_copy=publish_translation_copy(output,output['target_dir'],job['cancel'])
+            except IncompleteTranslation:
+                pass
+            except Exception:
+                logging.getLogger(__name__).exception('Could not publish the separately requested initial translation')
+                output.setdefault('warnings',[]).append({'reason':'已保存最终文件，未能另存初稿。','text':''})
         output.update(path=saved['output'],comparison_id=saved.get('comparison_id') or output.get('comparison_id'),
+            translation_path=initial_copy,
             corrected=saved['applied_count'],auto_exported=True,review_exported=True,staged=False,draft=False,
             format_review_deferred=False,layout_warnings=saved.get('layout_warnings',[]),
             layout_adjustments=[*output.get('layout_adjustments',[]),*saved.get('layout_adjustments',[])],
@@ -629,8 +715,6 @@ def automatic_export(job,review,data,progress):
         repaired-=unresolved
         if repaired:
             output['review_items']=[item for item in output.get('review_items',[]) if item.get('locator') not in repaired or item.get('image')]
-            output['untranslated']=sum(not item.get('image') for item in output['review_items'])
-            output['translation_complete']=not output['review_items']
             review['stats']['unreviewed']=max(0,review['stats'].get('unreviewed',0)-len(repaired))
             review['stats']['manual_review']=max(0,review['stats'].get('manual_review',0)-len(repaired))
             if not output['review_items']:
@@ -640,6 +724,9 @@ def automatic_export(job,review,data,progress):
                 review['stats']['model_status']='complete';review['stats']['review_processing_status']='complete'
                 output['review_status']='complete'
         if saved.get('output_audit') is not None:output['output_audit']=saved['output_audit']
+        output['untranslated']=saved['untranslated']
+        output['translation_complete']=not saved['untranslated'] and not any(
+            item.get('image') or item.get('service_unavailable') for item in output.get('review_items',[]))
         if saved.get('format_review'):
             output['format_review']=saved['format_review']
             review['stats'].update(format_pages=saved['format_review'].get('pages',0),format_image_pages=saved['format_review'].get('image_pages',0))
@@ -653,7 +740,7 @@ def automatic_export(job,review,data,progress):
         output['status']='needs_review' if output['needs_review'] or saved['failed'] else 'complete'
         if saved['failed']:
             output['warnings'].append({'reason':f'{len(saved["failed"])} 项修改未通过安全检查，已保留原文和可用文件。','text':''})
-    except Cancelled:raise
+    except (Cancelled, IncompleteTranslation):raise
     except Exception as error:
         logging.getLogger(__name__).exception('Automatic final export unfinished')
         output.update(auto_exported=False,status='needs_review',needs_review=max(1,output.get('needs_review',0)))
@@ -679,8 +766,10 @@ def apply_report(data, progress=None, client=None, *, internal_report=None):
             result = _apply_report(data, report, progress=progress, client=client)
             option = report.get('output_options',{}).get(data['path'],{})
             source = option.get('source',data['path'])
+            automatic = internal_report is not None and report.get('_cancel') is not None
             try: history.exported(data['report_id'], source, result['output'], result['applied_count'], result['failed'], result['overwritten'],option.get('comparison_id'),
-                **({'quality':result} if option.get('direction',report.get('direction','zh-en'))!='zh-en' else {}))
+                quality=result if automatic or option.get('direction',report.get('direction','zh-en'))!='zh-en' else None,
+                advisory=automatic)
             except Exception: logging.getLogger(__name__).exception('Could not save export history')
             return result
     finally:
@@ -816,7 +905,7 @@ def _apply_report(data, report, progress=None, client=None):
                     if multilingual:
                         from .multilingual_documents import content_validate
                         edit_source_language=source_language if finding.source=='translation' else target_language
-                        content_validate(old,new,edit_source_language,target_language)
+                        content_validate(getattr(finding,'_translation_source',old),new,edit_source_language,target_language)
                     else:
                         from .reverse_translation import validate_revision
                         validate_revision(old,new)
@@ -886,9 +975,9 @@ def _apply_report(data, report, progress=None, client=None):
         reverse_repaired=[item for item in option['translation_pending'] if item['locator'] in repaired_locations]
     if not overwrite or managed_output:
         out = Path(option['output']) if managed_output and option.get('output') else output_path(
-            option.get('source',path) if final_only else path,
-            option.get('target_dir') if managed_output else data.get('output_dir'),(document_languages.SUFFIXES[target_language]+'_checked') if final_only else 'checked',
-            extension=Path(input_path).suffix if final_only else None)
+            option.get('source',path) if final_only or option.get('verify_delivery') else path,
+            option.get('target_dir') if managed_output else data.get('output_dir'),(document_languages.SUFFIXES[target_language]+'_checked') if final_only or option.get('verify_delivery') else 'checked',
+            extension=Path(input_path).suffix if final_only or option.get('verify_delivery') else None)
         existing_hash = store.fingerprint(out) if out.exists() else None
         if existing_hash and store.fingerprint(out) != input_hash:
             raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
@@ -921,7 +1010,12 @@ def _apply_report(data, report, progress=None, client=None):
                 from .pdf_quality import audit
                 output_audit=audit(temporary,pdf_expected,source=pdf_source,client=pdf_client,
                     progress=lambda message,n,t:notify(audit_phase,n,t,message))
+            if option.get('verify_delivery'):
+                verify_translation_delivery(temporary,direction,untranslated=sum(item['editable'] or item['source'] in ('numbering','package_text')
+                    for item in final_residuals),audit=output_audit,source=origin)
             def guard_output():
+                if option.get('origin_fingerprint') and store.fingerprint(origin)!=option['origin_fingerprint']:
+                    raise ValueError('原稿在处理期间发生变化，请重新开始。')
                 if store.fingerprint(path) != report['hashes'][path]:
                     raise ValueError('导出时原文件已变化，请重新校对。')
                 if store.fingerprint(input_path) != input_hash:

@@ -274,13 +274,10 @@ class ReverseTests(unittest.TestCase):
             job=workflow.start({'kind':'translate_review','direction':'en-zh','paths':[str(source)],'combined_output':'final'})
             result=asyncio.run(task_queue.wait(job['id'],.005))
         self.assertEqual(result['status'],'partial');self.assertTrue(result['can_resume'])
-        output=result['result']['outputs'][0]
-        self.assertEqual(output['untranslated'],1)
-        self.assertEqual(output['output_audit']['status'],'partial')
-        self.assertTrue(output['auto_exported']);self.assertGreaterEqual(output['needs_review'],1)
-        self.assertTrue(any('翻译待核对' in warning['reason'] for warning in output['warnings']))
+        self.assertEqual(result['result']['outputs'],[]);self.assertTrue(result['result']['delivery_deferred'])
+        self.assertFalse(list(self.root.glob('*_checked.docx')))
         self.assertEqual(__import__('backend.history',fromlist=['record']).record(job['id'])['status'],'partial')
-        self.assertIn('The warranty applies only to indoor displays.',Document(output['path']).paragraphs[1].text)
+        self.assertIn('The warranty applies only to indoor displays.',Document(source).paragraphs[1].text)
 
     def test_chinese_review_accepts_only_uniquely_locatable_substring(self):
         from backend.reverse_translation import check_segments

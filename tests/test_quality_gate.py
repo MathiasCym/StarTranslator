@@ -1,6 +1,7 @@
 """Regressions for content gates, workbook cell identity and live export feedback."""
 import os,sys,tempfile,threading,time,unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 from io import BytesIO
 from zipfile import ZipFile
@@ -104,7 +105,7 @@ class QualityGateTests(unittest.TestCase):
         result=translate_file(str(source),Glossary([]),None,client=Model(),workers=1)
         self.assertTrue(result['translation_complete']);self.assertEqual(result['untranslated'],0)
         self.assertEqual([p.text for p in Document(result['path']).paragraphs],['Brightness 500 nits','60 Hz'])
-    def test_incomplete_draft_is_reported_and_can_be_saved_without_bulk_retranslation(self):
+    def test_incomplete_draft_stays_private_without_bulk_retranslation(self):
         source=self.root/'source.docx';doc=Document();doc.add_paragraph('中文原稿');doc.save(source)
         draft=self.root/'draft.docx';doc.save(draft)
         result=dict(path=str(draft),source=str(source),translation_complete=False,translated=0,total=1,untranslated=1,status='needs_review',needs_review=1,review_items=[{'locator':extract(str(draft))[0].locator}],warnings=[])
@@ -114,9 +115,9 @@ class QualityGateTests(unittest.TestCase):
         with patch('backend.workflow.translate_file',return_value=result):
             workflow.run(job,dict(kind='translate_review',paths=[str(source)],use_llm=True,_client=Model()))
         self.assertFalse(job['result']['completed_paths']);self.assertEqual(result['review_status'],'partial')
-        self.assertNotIn('report',job['result']);self.assertTrue(result['auto_exported'])
+        self.assertNotIn('report',job['result']);self.assertEqual(job['result']['outputs'],[])
+        self.assertTrue(job['result']['delivery_deferred'])
         self.assertEqual(Document(result['path']).paragraphs[0].text,'中文原稿')
-        self.assertTrue(any('翻译待核对' in w['reason'] for w in result['warnings']))
     def test_language_detection_parse_failure_uses_normal_task_error_handling(self):
         from zipfile import BadZipFile
         source=self.root/'invalid.pptx';source.write_bytes(b'not an office archive')
@@ -150,6 +151,24 @@ class QualityGateTests(unittest.TestCase):
             with self.subTest(result=result):self.assertTrue(workflow.can_resume_processing({'result':result},outcome))
         self.assertFalse(workflow.can_resume_processing({'result':{'stats':{'model_status':'complete'},
             'outputs':[{'needs_review':9,'layout_warnings':[{'reason':'Check layout'}]}]}},'complete'))
+    def test_saved_combined_output_with_advisories_is_complete(self):
+        source=self.root/'advisory-source.docx';doc=Document();doc.add_paragraph('影院方案');doc.save(source)
+        draft=self.root/'advisory-draft.docx';doc=Document();doc.add_paragraph('Cinema solution');doc.save(draft)
+        issue={'kind':'layout','reason':'可调整标题的留白。'}
+        output=dict(path=str(draft),source=str(source),translation_complete=True,translated=1,review_status='complete',
+                    untranslated=0,status='needs_review',needs_review=1,review_items=[],warnings=[])
+        review={'output':output,'local':{'segments':[],'findings':[]},
+                'stats':{'model_status':'complete','review_processing_status':'complete','warnings':[]}}
+        saved=dict(output=str(draft),applied_count=0,untranslated=0,needs_review=2,
+                   failed=[{'reason':'可选措辞未通过安全检查。'}],output_audit={'status':'partial','issues':[issue]})
+        job=dict(id='advisory-complete',kind='translate_review',cancel=threading.Event(),status='running')
+        with patch('backend.workflow.translate_file',return_value=output),patch('backend.workflow.auto_review',return_value=review),patch(
+                'backend.workflow.combined_report_data',return_value=review['local']),patch('backend.workflow.apply_report',return_value=saved):
+            workflow.run(job,dict(kind='translate_review',paths=[str(source)],_client=SimpleNamespace()))
+        self.assertEqual(job['status'],'complete')
+        self.assertFalse(job['can_resume']);self.assertEqual(job['result']['completed_paths'],[str(source)])
+        self.assertEqual(len(output['unapplied_changes']),1);self.assertEqual(output['output_audit']['issues'],[issue])
+        self.assertEqual(history.record(job['id'])['status'],'complete')
     def test_equal_selected_suggestions_are_all_marked_applied(self):
         source=self.root/'same.docx';doc=Document();doc.add_paragraph('dot spacing');doc.save(source);segment=extract(str(source))[0]
         findings=[Finding(segment.id,source.name,None,1,'text','dot spacing',suggested='pixel pitch',file_path=str(source),method=method) for method in ('rule','llm')]
@@ -457,7 +476,7 @@ class QualityGateTests(unittest.TestCase):
         self.assertGreater(job['result']['stats']['judged'],0)
         self.assertEqual(source.read_bytes(),original)
 
-    def test_one_unfixable_numeric_paragraph_does_not_block_review_or_final_export(self):
+    def test_one_unfixable_numeric_paragraph_retains_progress_without_publishing(self):
         source=self.root/'partial-source.docx';doc=Document()
         doc.add_paragraph('分辨率为3840×2160。');doc.add_paragraph('亮度500尼特。');doc.save(source)
         original=source.read_bytes()
@@ -472,14 +491,15 @@ class QualityGateTests(unittest.TestCase):
         client=Model();job=dict(id='quality-one-local-failure',kind='translate_review',status='running',cancel=threading.Event())
         with patch('backend.workflow.store.load_glossary',return_value=Glossary([])):
             workflow.run(job,dict(kind='translate_review',paths=[str(source)],combined_output='final',output_dir=str(self.root/'output'),_client=client,workers=1))
-        output=job['result']['outputs'][0];stats=job['result']['stats']
+        stats=job['result']['stats']
         self.assertEqual(job['status'],'partial');self.assertTrue(job['can_resume'])
         self.assertEqual(stats['judged'],1);self.assertEqual(stats['unreviewed'],1)
         # One normal review plus two bounded review-stage recovery requests.
-        self.assertEqual(client.reviews,3);self.assertLessEqual(client.translations,5)
-        self.assertTrue(output['auto_exported']);self.assertNotIn('report',job['result'])
-        self.assertEqual([p.text for p in Document(output['path']).paragraphs],['分辨率为3840×2160。','Brightness 500 nits.'])
-        self.assertTrue(output['warnings']);self.assertEqual(source.read_bytes(),original)
+        self.assertGreaterEqual(client.reviews,3);self.assertLessEqual(client.translations,5)
+        self.assertEqual(job['result']['outputs'],[]);self.assertTrue(job['result']['delivery_deferred'])
+        self.assertFalse(list((self.root/'output').glob('*.docx')))
+        self.assertNotIn('report',job['result']);self.assertEqual(source.read_bytes(),original)
+        self.assertFalse(history.record(job['id'])['outputs'])
 
     def test_total_model_outage_still_saves_a_marked_document(self):
         from backend.llm.client import LLMUnavailable

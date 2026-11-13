@@ -329,6 +329,14 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.deepEqual(await run("[$('jobOverallPercent').textContent,$('jobStageCount').textContent,$('jobStageProgress').value]"),['68%','4 / 10 组',40])
   await run("state.job={can_resume:false};showTranslation({automatic_combined:true,automatic_summary:{applied:2},errors:[],outputs:[{path:'C:/qa/final.docx',direction:'zh-en',translated:3,auto_exported:true,auto_reviewed:true,warnings:[],review_items:[]}]},false)")
   assert.deepEqual(await run("[$('translationTitle').textContent,$('reviewTranslation').hidden,$('translationResume').hidden,$('reportModal').hidden]"),['高精度翻译完成',true,true,true])
+  const savedOutput={path:'C:/qa/final.docx',direction:'zh-en',translated:3,auto_exported:true,auto_reviewed:true,
+    needs_review:2,warnings:[{reason:'保留了原措辞。'}],layout_warnings:[{reason:'可调整留白。'}],review_items:[]}
+  await run(`showTranslation({automatic_combined:true,errors:[],outputs:[${JSON.stringify(savedOutput)}]},false)`)
+  assert.deepEqual(await run("[$('translationTitle').textContent,$('translationResume').hidden,$('translationFiles').textContent.includes('草稿'),$('translationFiles').textContent.includes('查看版式提示')]"),['高精度翻译完成',true,false,true])
+  await run(`state.job.can_resume=true;showTranslation({automatic_combined:true,errors:[],outputs:[${JSON.stringify({...savedOutput,untranslated:1})}]},false)`)
+  assert.deepEqual(await run("[$('translationTitle').textContent,$('translationResume').hidden,$('translationResume').textContent]"),['高精度翻译已保存',false,'继续补译'])
+  await run("showTranslation({automatic_combined:true,delivery_deferred:true,errors:[],outputs:[]},false)")
+  assert.deepEqual(await run("[$('translationTitle').textContent,$('translationResume').textContent,$('translationFiles').children.length]"),['任务进度已保存','继续任务',0])
   await run('showWorkspace()')
   const resumeOptions={kind:'check',paths:['C:/qa/unfinished.docx'],references:[],pairs:{},workers:3,use_llm:false,combined_output:'final',translation_mode:'faithful',resume_from:'resume-fixture'}
   let resumedRequest,historyResumeReads=0

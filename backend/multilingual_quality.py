@@ -34,6 +34,40 @@ def chinese_script(value,target):
     return buffer.value
 
 
+def faithful_traditional_conversion(source):
+    """Allow an exact, reversible glyph-only fallback for ordinary prose."""
+    from .text_integrity import IDENTIFIERS
+    from .text_languages import INLINE_CODE
+    # Restrict the fallback to established equivalents. Cases such as 發/髮,
+    # 乾/幹, 只/隻 and 后/後 still need a contextual translation.
+    equivalents = dict(zip('规计将数装备电为点术级显体验业内证块还导创图须统标准对颜确阶过严着',
+                           '規計將數裝備電為點術級顯體驗業內證塊還導創圖須統標準對顏確階過嚴著'))
+    ambiguous = set('发干只后里复系征历台斗松余范制舍云丰谷尽冲钟蒙划获郁当')
+    protected = sorted([*IDENTIFIERS.finditer(source), *INLINE_CODE.finditer(source)], key=lambda match: match.start())
+    output, offset = [], 0
+    for start, end in [*(match.span() for match in protected), (len(source), len(source))]:
+        if start < offset:
+            continue
+        original = source[offset:start]
+        converted = chinese_script(original, 'zh-Hant-TW') if original else ''
+        if converted is None:
+            return None
+        converted = converted.replace('標准', '標準')
+        if len(converted) != len(original) or original and chinese_script(converted, 'zh-CN') != original:
+            return None
+        # Windows treats 划 contextually in 規劃; allow that exact compound.
+        for index, (old, new) in enumerate(zip(original, converted)):
+            if old == '划' and index and original[index-1:index+1] == '规划' and converted[index-1:index+1] == '規劃':
+                continue
+            if old in ambiguous or old != new and equivalents.get(old) != new:
+                return None
+        output.extend((converted, source[start:end]))
+        offset = end
+    target = ''.join(output)
+    # This short label is already valid in both scripts.
+    return target if target != source or source.strip() == '案例展示' else None
+
+
 def copied_simplified_glyphs(source,target,target_language):
     """Find copied simplified forms unsupported by the target's legacy script."""
     # An explicitly glossed name may cite its original characters. Its actual

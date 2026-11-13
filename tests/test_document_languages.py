@@ -126,13 +126,10 @@ class DocumentLanguageTests(unittest.TestCase):
   path=self.source('.docx',SAMPLES['en-US']);model=Model('incorrect 99 Hz')
   job=self.job(self.options(path,'en-US','ja-JP'),model)
   self.assertEqual(job['status'],'partial',job)
-  output=job['result']['outputs'][0];self.assertEqual(output['untranslated'],1)
-  self.assertIn(SAMPLES['en-US'],'\n'.join(s.text for s in extract(output['path'])))
-  # Two generation attempts per pass, followed by bounded translation and review recovery;
-  # persistent invalid facts still remain pending rather than marked complete.
-  self.assertTrue(job['can_resume']);self.assertEqual(model.translations,8)
-  self.assertTrue(output['auto_exported']);self.assertNotIn('report',job['result'])
-  self.assertEqual(output['output_audit']['status'],'partial')
+  self.assertEqual(job['result']['outputs'],[]);self.assertTrue(job['result']['delivery_deferred'])
+  self.assertFalse(list((self.root/'output').glob('*.docx')))
+  self.assertTrue(job['can_resume']);self.assertEqual(model.translations,10)
+  self.assertNotIn('report',job['result'])
 
  def test_new_language_resume_is_explicit_and_restores_original_language(self):
   from docx import Document
@@ -384,7 +381,7 @@ class DocumentLanguageTests(unittest.TestCase):
     finding=Finding(segment_id='one',file='a.pptx',file_path='a.pptx',slide=1,para=1,source='translation',found_text=source)
     review={'output':{'direction':languages.direction('zh-CN',target),'review_items':[{'locator':segment.locator,'source_text':source,'translation':source}]},'local':{'segments':[segment],'findings':[finding]}}
     with patch('backend.text_languages.translate_piece',return_value='incorrect 99 Hz'):
-     workflow.repair_pending_in_review(review,Model(SAMPLES[target]),threading.Event())
+     workflow.repair_pending_in_review(review,Model('incorrect 99 Hz'),threading.Event())
     self.assertEqual(finding.suggested,'')
     with patch('backend.text_languages.translate_piece',return_value=SAMPLES[target]):
      workflow.repair_pending_in_review(review,Model(SAMPLES[target]),threading.Event())

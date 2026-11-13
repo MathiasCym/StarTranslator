@@ -45,6 +45,18 @@ SHIPPED_245={
     'pdf-output':'a408f9261b803493f3aa413067da50228917770736e9d6059453b6a143b58898',
 }
 
+SHIPPED_246={
+    'translation':'bda630ca7fbac8c756d1b286993ba3740202981d91422e284c3fcd7f35de449a',
+    'translation-multi':'89c2dea1faf192572b2bbb9671562d7a6fcfde07af698924306d2e5ab68318c6',
+    'review-multi':'cd1b89b27cd7f31d182658ca852f55b909fb2217f03067fd0fb58d89f04e4278',
+    'terminology-review':'d9373e71645c802a2fa0f30785015ac06835f209dcabcd54468dcc7c736fe516',
+    'translation-zh':'2a937bf9b819b02f2baf21babfc8a29c6cba783a7aa272c3a28b422a0ef1a720',
+    'review-zh':'6a5cc2da3d659e2a304f526682b48e6bf3f905e0f0c8c29ff01b38c802751a24',
+    'review':'ed09f9c09f428e8fd1054c8529a08fb2b4cc9b94b5a121dff94222410fd125cf',
+    'pdf-image':'84bf568d3667e9675241bd013de9b25b09b2fa4053a21bf244fc079629311f2e',
+    'pdf-output':'bcf1d14db65a8b243639a294eb842a92cfb9aae8c38dc1ec2abccd8aa9fc76ae',
+}
+
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
@@ -100,7 +112,7 @@ class Checkpoint:
                     db.execute('INSERT OR REPLACE INTO checkpoint_scopes VALUES (?,?)',(self.scope,str(identity.get('source',''))))
                 rows = db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?', (self.scope,stage)).fetchall()
                 if identity.get('task_session') is not None:
-                    for shipped in (SHIPPED_245, SHIPPED_244, SHIPPED_241):
+                    for shipped in (SHIPPED_246, SHIPPED_245, SHIPPED_244, SHIPPED_241):
                         if stage not in shipped:
                             continue
                         legacy=digest({'policy':shipped[stage],'input':identity})

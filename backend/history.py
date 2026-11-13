@@ -89,10 +89,11 @@ def finish(job, data):
         db.execute('UPDATE tasks SET status=?,payload=? WHERE id=?', (row['status'], json.dumps(row, ensure_ascii=False), job['id']))
 
 
-def exported(report_id, source, output, count, failed, overwrite, comparison_id=None,quality=None):
+def exported(report_id, source, output, count, failed, overwrite, comparison_id=None,quality=None,*,advisory=False):
     stamp = time.time()
     event = {'id': uuid4().hex, 'at': datetime.fromtimestamp(stamp).astimezone().isoformat(),
-             'source': source, 'path': output, 'replaced': count, 'errors': failed, 'overwrite': overwrite, 'comparison_id':comparison_id}
+             'source': source, 'path': output, 'replaced': count, 'errors': [] if advisory else failed, 'overwrite': overwrite, 'comparison_id':comparison_id}
+    if advisory and failed:event['unapplied_changes']=failed
     if quality is not None:
         event['quality']={'untranslated':int(quality.get('untranslated',0)),
             'needs_review':int(quality.get('needs_review',0)),

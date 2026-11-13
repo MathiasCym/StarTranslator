@@ -172,7 +172,7 @@ def written_counts(text, *, articles=False):
     text=re.sub(r'(?<=第)(?=[一二三四五六七八九十百千])'+number,east_asian,text)
     text=re.sub(r'(?<=世界)[一二三四五六七八九十](?=$|[\s、。！？!?,.位のにがはでだとを])',east_asian,text)
     text=re.sub(r'(?<![零〇一二两兩三四五六七八九十百千])(?=[零〇一二两兩三四五六七八九十百千])'+number+
-        r'(?=部委|[カかヶ箇ヵ]年|拠点|つ|個|个|台|基|枚|本|件|套|座|块|條|条|組|组|対|对|種|种|次)',east_asian,text)
+        r'(?=部委|[カかヶ箇ヵ]年|拠点|つ|個|个|[台臺]|基|枚|本|件|套|座|[块塊]|條|条|組|组|対|对|種|种|次)',east_asian,text)
     # Native Korean counts are normal translations of explicit quantities.
     # Restrict them to counter/technical-noun contexts, never people named Hana
     # or fragments inside ordinary words such as 대한/개발/한편.
@@ -217,6 +217,7 @@ def facts(text, language, *, calendar=False):
     # 21.4万. Combine only a contiguous written scale expression; separate
     # quantities joined by punctuation remain separate facts.
     if language=='ko':
+        text=re.sub(r'(?<!\w)두\s+(?=센터(?:에|를|가|의|는|로|\s|[.,]|$))','2 ',text)
         text=re.sub(r'(?<![\d.])(\d+)만\s+(\d+)천(?![\d])',
                     lambda match:str(int(match[1])*10000+int(match[2])*1000),text)
         text=re.sub(r'(?<!\d)([1-9]\d{3})\s*년\s*(\d{1,2})\s*월(?:\s*(\d{1,2})\s*일)?',

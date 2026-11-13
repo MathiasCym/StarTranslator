@@ -6,6 +6,64 @@ Workers return data; the owner alone writes Office objects.
 from .document_parallel import ordered_pages
 
 
+class IncompleteTranslation(Exception):
+    """The resumable work is retained internally, without publishing a file."""
+
+
+def verify_translation_delivery(path, direction, *, untranslated=0, audit=None, source=None):
+    """Only a reread, complete translation may leave the private staging area."""
+    from . import document_languages
+    from .text_integrity import CHINESE, HAN, prose
+    from .text_languages import INLINE_CODE
+    from .multilingual_quality import chinese_script, copied_simplified_glyphs
+    from .reverse_validation import english_clauses
+    from .extract import extract
+    import re
+    import unicodedata
+
+    blocking = {'untranslated', 'chinese', 'text', 'image'}
+    if untranslated or any(issue.get('kind') in blocking for issue in (audit or {}).get('issues', [])):
+        raise IncompleteTranslation()
+    source_language, target = document_languages.pair(direction)
+    if target == 'en-US':
+        if direction == 'zh-en':
+            from .translation_audit import saved_residuals
+            if any(item['editable'] or item['source'] in ('numbering', 'package_text') for item in saved_residuals(path)):
+                raise IncompleteTranslation()
+            return
+        forbidden = re.compile(r'[\u3040-\u30ff\uac00-\ud7af' + HAN + ']')
+    elif target == 'ko':
+        forbidden = CHINESE
+    elif target in ('zh-CN', 'zh-Hant-TW'):
+        forbidden = re.compile(r'[\u3041-\u30fa\uac00-\ud7af]')
+    else:
+        forbidden = None
+    originals = ({segment.locator:segment.text for segment in extract(str(source)) if segment.editable}
+        if source and target in ('ja-JP', 'zh-Hant-TW', 'ko') else {})
+    for segment in extract(str(path)):
+        if not segment.editable:
+            continue
+        visible = unicodedata.normalize('NFKC', INLINE_CODE.sub(' ', prose(segment.text)))
+        original = unicodedata.normalize('NFKC', INLINE_CODE.sub(' ', prose(originals.get(segment.locator, ''))))
+        if target == 'ko':
+            # A Korean name can be followed by its original written form.
+            visible = re.sub(r'(?<=[가-힣])\s*\(\s*([' + HAN + r']{1,20})\s*\)',
+                lambda match: ' ' if match[1] in original else match[0], visible)
+        if forbidden is not None and forbidden.search(visible):
+            raise IncompleteTranslation()
+        if target != 'en-US' and english_clauses(visible):
+            raise IncompleteTranslation()
+        if source_language in ('zh-CN', 'zh-Hant-TW') and target in ('ja-JP', 'zh-Hant-TW') and original and copied_simplified_glyphs(original,visible,target):
+            raise IncompleteTranslation()
+        if source_language in ('zh-CN', 'zh-Hant-TW') and visible.strip() == original.strip():
+            if target == 'ja-JP' and len(CHINESE.findall(original)) >= 12 and re.search(r'[，。！？；,!?;]', original):
+                raise IncompleteTranslation()
+            if target == 'zh-Hant-TW':
+                mapped = chinese_script(visible, target)
+                if mapped is not None and mapped != visible:
+                    raise IncompleteTranslation()
+
+
 def transport_epoch(error):
     seen=set()
     while error is not None and id(error) not in seen:

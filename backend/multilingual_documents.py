@@ -67,6 +67,32 @@ def preserve_address_boundaries(source,target):
     return target
 
 
+def recover_paragraph(client, source, src, dst, cancel, *, context='', quality=None):
+    """Translate an isolated missing paragraph, then verify it independently."""
+    from .multilingual_quality import LanguageReview
+    quality=quality or LanguageReview(src,dst)
+    payload={'待译原文':source,'目标语言':languages.LANGUAGES[dst],
+             '源语言':languages.LANGUAGES[src], '用于理解的上下文':context,
+             '必须逐字保留的地址':text.IDENTIFIERS.findall(source)}
+    previous=''
+    for attempt in range(2):
+        check_cancel(cancel)
+        answer=client.chat_json(json.dumps({**payload,'上次检查':previous},ensure_ascii=False),
+            system='补译一段未写入文档的文字。只翻译待译原文，完整保留每个事实、日期、数量、单位、型号、品牌、链接、'
+                   '否定、条件、标点和换行边界。日期可按目标语序表达，数字含义不变。句末未完则保持未完。'
+                   '不得复制原语言正文，不添加上下文中的任何文字。只返回 {"translation":"完整译文"}。',
+            max_tokens=6000,**({'thinking':True} if attempt and getattr(client,'supports_thinking_mode',False) is True else {}))
+        try:
+            target=text.separate_link_punctuation(source,answer.get('translation')) if isinstance(answer,dict) else None
+            content_validate(source,target,src,dst,allow_identical=quality.review_identical_formula(source,target))
+            if not quality.review_existing(client,source,target,cancel,None):
+                raise ValueError('独立复核未确认语义及目标语言。')
+            return target
+        except ValueError as error:
+            previous=str(error)
+    raise ValueError(previous)
+
+
 def mapped(client,source,groups,reference,src,dst,cancel,context,mode,fixed_order=False,style_warnings=None,activity=None,quality=None,initial_target=None,on_verified=None):
     from .multilingual_quality import script_positions
     target=initial_target if initial_target is not None else text.translate_piece(client,source,reference,src,dst,cancel,context=context,
@@ -333,7 +359,20 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
         notify('repair','正在自动补译尚未完成的内容',index,len(recoverable))
         reason='；'.join(dict.fromkeys(failed_by_location[m.locator]['reason'] for m in members if m.locator in failed_by_location))
         _,runs,style_warnings,error=compute(item,repair_error=reason)
-        if error is not None:continue
+        if error is not None:
+            if (src,dst)!=('zh-CN','zh-Hant-TW') or mode!='faithful':continue
+            from .multilingual_quality import faithful_traditional_conversion
+            source_text=''.join(g['text'] for g in groups)
+            target=faithful_traditional_conversion(source_text)
+            if target is None:continue
+            try:content_validate(source_text,target,src,dst,allow_identical=True)
+            except ValueError:continue
+            offset=0;runs=[]
+            for group in groups:
+                end=offset+len(group['text'])
+                runs.append({'id':group['id'],'text':target[offset:end]})
+                offset=end
+            style_warnings=[]
         snapshots=[(by_locator[m.locator]._p,deepcopy(by_locator[m.locator]._p)) for m in members]
         try:
             if len(members)>1:

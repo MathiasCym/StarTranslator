@@ -38,6 +38,36 @@ class QualityTests(unittest.TestCase):
     job=fixtures.DocumentLanguageTests.job
     options=fixtures.DocumentLanguageTests.options
 
+    @unittest.skipUnless(sys.platform=='win32','Windows script conversion')
+    def test_traditional_repair_preserves_runs_links_and_count(self):
+        from pptx import Presentation
+        from pptx.util import Inches
+        from backend.multilingual_quality import faithful_traditional_conversion
+        from backend import document_translation_policy
+        deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
+        shape=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(7),Inches(1))
+        paragraph=shape.text_frame.paragraphs[0]
+        run=paragraph.add_run();run.text='每一块 LED 屏幕';run.font.bold=True
+        run=paragraph.add_run();run.text='必须有统一的标准。'
+        shape=slide.shapes.add_textbox(Inches(1),Inches(2),Inches(7),Inches(1))
+        shape.text='2021《“十四五”规划》：影院装备和电影技术升级。'
+        shape=slide.shapes.add_textbox(Inches(1),Inches(3),Inches(7),Inches(1))
+        shape.text='案例展示'
+        source=self.root/'script-repair.pptx';deck.save(source)
+        def refuse(*args,**kwargs):raise ValueError('模型复核重复拒绝同一位置')
+        model=fixtures.Model('')
+        with patch('backend.multilingual_documents.mapped',side_effect=refuse),document_translation_policy.combined_processing(False):
+            output=documents.translate_file(str(source),Glossary([]),None,self.root/'translated',
+                client=model,workers=1,direction='zh-CN>zh-Hant-TW',defer_visual=True)
+        self.assertEqual(output['untranslated'],0);self.assertEqual(output['output_audit']['status'],'complete')
+        translated=Presentation(output['path']).slides[0].shapes
+        self.assertEqual(translated[0].text,'每一塊 LED 屏幕必須有統一的標準。')
+        self.assertEqual(translated[0].text_frame.paragraphs[0].runs[0].text,'每一塊 LED 屏幕')
+        self.assertTrue(translated[0].text_frame.paragraphs[0].runs[0].font.bold)
+        self.assertIn('規劃',translated[1].text);self.assertEqual(translated[2].text,'案例展示')
+        self.assertEqual(faithful_traditional_conversion('显示 https://example.com/简体 `显示`'),'顯示 https://example.com/简体 `显示`')
+        self.assertIsNone(faithful_traditional_conversion('头发与发展'))
+
     def test_short_term_review_uses_page_context_and_requires_actionable_errors(self):
         context='8 bit / 10 bit / 12 bit 表格字段'
         class ReviewModel:
