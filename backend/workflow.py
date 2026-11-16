@@ -307,7 +307,8 @@ def _run(job,data):
                     progress(1,1,f'已完成 {index+1}/{len(paths)} 个文件','export')
                 except Cancelled:
                     raise
-                except IncompleteTranslation:
+                except IncompleteTranslation as error:
+                    logging.getLogger(__name__).warning('Document delivery deferred: %s',error)
                     if outputs and outputs[-1].get('source') == path:
                         blocked=outputs.pop()
                         from .document_translation_core import interruption_summary
@@ -833,6 +834,7 @@ def _apply_report(data, report, progress=None, client=None):
     para_map = {loc:para for loc,para,*_ in paragraphs}
     done, failed, changed_locators, applied_indices = [], list(report.get('skipped_edits',[])), [], set()
     superseded={}
+    pending_repairs={item['locator'] for item in option.get('translation_pending',[])}
     def standard(finding):
         return finding.terminology_standard or finding.method=='rule' and finding.kind=='term'
     final_residuals=[]
@@ -931,6 +933,24 @@ def _apply_report(data, report, progress=None, client=None):
                 owners.extend((candidate,finding_index) for candidate in candidates)
                 accepted.extend({'segment_id':segment_id,'old':match.group(),'new':new} for match in matches)
                 applied_indices.add(finding_index)
+        if spans and automatic and multilingual and segment.locator not in pending_repairs:
+            # Individually valid edits may combine into a paragraph that
+            # reintroduces source-language prose. Retain the verified draft
+            # paragraph in that case, while other paragraphs can still save.
+            from .multilingual_documents import content_validate
+            revised=segment.text
+            for start,end,value in sorted(spans,reverse=True):
+                revised=revised[:start]+value+revised[end:]
+            try:
+                content_validate(segment.text,revised,target_language,target_language)
+            except ValueError as error:
+                rejected={owner for _,owner in owners}
+                for index in rejected:
+                    applied_indices.discard(index)
+                    failed.append({'segment_id':segment_id,'index':index,'reason':str(error)})
+                for index in [i for i, conflicts in superseded.items() if rejected.intersection(conflicts)]:
+                    superseded.pop(index)
+                continue
         replace_spans(text_runs(paragraph),spans)
         if spans:
             changed_locators.append(segment.locator)

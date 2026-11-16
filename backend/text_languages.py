@@ -8,8 +8,9 @@ from functools import lru_cache
 from pathlib import Path
 from .glossary import catalog
 from .llm.client import LLMResponseInvalid, LLMTruncated
-from .text_integrity import CHINESE, HAN, prose, validate_identifiers, IDENTIFIERS
-from .writing_policy import _translation_numeric_values, numeric_values
+from .text_integrity import (CHINESE, HAN, prose, validate_identifiers, IDENTIFIERS,
+                            korean_han_fragments, bibliographic_product_label, document_clauses, foreign_script_fragments)
+from .writing_policy import _translation_numeric_values, _written_quantity_digits, numeric_values
 from .translation import check_cancel
 
 
@@ -148,7 +149,9 @@ def written_counts(text, *, articles=False):
     unit='(?:'+'|'.join(small[1:10])+')'
     below='(?:'+'|'.join(tens)+')(?:[- ]'+unit+')?|(?:'+'|'.join(small)+')'
     number='(?:'+unit+' hundred(?: (?:and )?(?:'+below+'))?|'+below+')'
-    noun=r'(?:ports?|controllers?|cabinets?|devices?|displays?|screens?|panels?|pixels?|channels?|connectors?|modules?|cards?|units?|bits?|meters?|metres?|millimeters?|millimetres?|centimeters?|centimetres?|hertz)\b'
+    noun=(r'(?:ports?|controllers?|cabinets?|devices?|displays?|screens?|panels?|pixels?|channels?|connectors?|'
+          r'modules?|cards?|units?|bits?|meters?|metres?|millimeters?|millimetres?|centimeters?|centimetres?|hertz|'
+          r'transmissions?|transmitters?|receivers?|frames?|wires?|pairs?|slots?|stations?|transitions?|volumes?|parts?|formats?|categories|types?|kinds?)\b')
     modifiers=r'(?:(?:input|output|network|ethernet|led|lcd|oled|receiving|sending)\s+){0,3}'
     def english(match):
         value=0
@@ -157,6 +160,9 @@ def written_counts(text, *, articles=False):
             elif word!='and':value+=values[word]
         return str(value)
     text=re.sub(r'(?<![\w-])'+number+r'(?=\s+'+modifiers+noun+')',english,text)
+    text=re.sub(r'(?<![\w-])single(?=\s+'+modifiers+noun+')','1',text)
+    text=re.sub(r'單一(?=\s*(?:影格|畫格|訊框))','1',text)
+    text=re.sub(r'(?:(?<=at least )|(?<=at most )|(?<=no more than )|(?<=no fewer than ))'+number+r'\b',english,text)
     digits={c:n for n,chars in enumerate(['零〇','一','二两兩','三','四','五','六','七','八','九']) for c in chars}
     def east_asian(match):
         value,current=0,0
@@ -170,9 +176,12 @@ def written_counts(text, *, articles=False):
     # Written ordinals are facts too: 第三 / 第3 / third / 3위 must
     # compare as the same number without accepting an altered rank.
     text=re.sub(r'(?<=第)(?=[一二三四五六七八九十百千])'+number,east_asian,text)
+    text=re.sub(r'\(([一二三四五六七八九十]+(?:[、,，]\s*[一二三四五六七八九十]+)*)\)',
+        lambda m:'('+re.sub(r'[一二三四五六七八九十]+',east_asian,m[1])+')',text)
     text=re.sub(r'(?<=世界)[一二三四五六七八九十](?=$|[\s、。！？!?,.位のにがはでだとを])',east_asian,text)
     text=re.sub(r'(?<![零〇一二两兩三四五六七八九十百千])(?=[零〇一二两兩三四五六七八九十百千])'+number+
-        r'(?=部委|[カかヶ箇ヵ]年|拠点|つ|個|个|[台臺]|基|枚|本|件|套|座|[块塊]|條|条|組|组|対|对|種|种|次)',east_asian,text)
+        r'(?=部委|[カかヶ箇ヵ]年|拠点|つ|個|个|[台臺]|基|枚|本|件|套|座|[块塊]|條|条|組|组|[対对對]|種|种|'
+        r'次(?!利用|活用)|回|倍|編|ビット|フレーム|ピクセル|スロット|[层層]|[维維](?:环境|環境|空间|空間|模型|坐标|座標))',east_asian,text)
     # Native Korean counts are normal translations of explicit quantities.
     # Restrict them to counter/technical-noun contexts, never people named Hana
     # or fragments inside ordinary words such as 대한/개발/한편.
@@ -185,18 +194,39 @@ def written_counts(text, *, articles=False):
     korean['스무']=20
     counts='(?:'+'|'.join(sorted(map(re.escape,korean),key=len,reverse=True))+')'
     boundary=r'(?=$|[\s.,!?;:，。！？·/()（）]|(?:의|는|은|를|을|가|이|로|에|와|과|부터|까지|입니다)(?=\s|$|[.,!?]))'
-    counters=r'(?:개|대|장|세트|비트|픽셀|밀리미터|센티미터|미터|헤르츠)'+boundary
-    devices=r'(?:(?:입력|출력|네트워크)\s*)?(?:포트|컨트롤러|캐비닛|장치)'+boundary
+    counters=r'(?:개|대|장|번|회|명|쌍|세트|비트|프레임|슬롯|스테이션|노드|픽셀|밀리미터|센티미터|미터|헤르츠)'+boundary
+    counted_nouns=r'(?:(?:입력|출력|네트워크)\s*)?(?:포트|컨트롤러|캐비닛|장치|골대|블루라인)'+boundary
     text=re.sub(r'(?<![\w-])'+counts+r'(?=\s*(?:'+counters+'))',lambda m:str(korean[m[0]]),text)
+    text=re.sub(r'(?<!\w)단일(?=\s+(?:프레임|스테이션|슬롯)'+boundary+r')','1',text)
     if articles:
         # Only resolve an existing explicit-count mismatch. An indefinite
         # article does not make every otherwise unnumbered sentence numeric.
         text=re.sub(r'(?<![\w-])(?:a|an)(?=\s+'+modifiers+noun+')','1',text)
         # Bare Korean number words can also be names (e.g. Hana). Resolve
         # noun-adjacent counts only against an existing numeric mismatch.
-        text=re.sub(r'(?<![\w-])'+counts+r'(?=(?:\s+|의\s+)(?:'+devices+'))',lambda m:str(korean[m[0]]),text)
-        text=re.sub(r'(?<![\w-])('+devices+r'\s+)('+counts+r')'+boundary,lambda m:m[1]+str(korean[m[2]]),text)
+        text=re.sub(r'(?<![\w-])'+counts+r'(?=(?:\s+|의\s+)(?:'+counted_nouns+'))',lambda m:str(korean[m[0]]),text)
+        text=re.sub(r'(?<![\w-])('+counted_nouns+r'\s+)('+counts+r')'+boundary,lambda m:m[1]+str(korean[m[2]]),text)
     return text
+
+
+def era_years(value):
+    # Japanese and Taiwanese era year offsets apply only to marked dates.
+    eras={'明治':1867,'大正':1911,'昭和':1925,'平成':1988,'令和':2018,'民國':1911,'民国':1911}
+    english={'meiji':1867,'taisho':1911,'taishō':1911,'showa':1925,'shōwa':1925,'heisei':1988,'reiwa':2018}
+    value=re.sub(r'(明治|大正|昭和|平成|令和|民[國国])\s*(元|[1-9]\d{0,2})\s*(?=年)',
+        lambda m:str(eras[m[1]]+(1 if m[2]=='元' else int(m[2]))),value)
+    roc=r'\b(?:r\.?o\.?c\.?|minguo|republic of china)\s+(?:year\s+)?([1-9]\d{0,2})\b'
+    value=re.sub(r'\b([1-9]\d{3})(\s*\('+roc+r'\))',
+        lambda m:m[1] if int(m[1])==1911+int(m[3]) else m[0],value)
+    def roc_era(match):
+        year=1911+int(match[1])
+        return str(year)+(match[2] if match[3] and int(match[3])!=year else '')
+    value=re.sub(roc+r'(\s*\(([1-9]\d{3})\))?',roc_era,value)
+    def english_era(match):
+        year=english[match[1]]+int(match[2])
+        return str(year)+(match[3] if match[4] and int(match[4])!=year else '')
+    return re.sub(r'\b(meiji|taisho|taishō|showa|shōwa|heisei|reiwa)\s+([1-9]\d?)\b'
+        r'(\s*[\[(](\d{4})[\])])?',english_era,value)
 
 
 def facts(text, language, *, calendar=False):
@@ -205,14 +235,37 @@ def facts(text, language, *, calendar=False):
     text=''.join(str(unicodedata.decimal(c)) if c.isdecimal() else c for c in text)
     text=text.replace('\u066b','.').replace('\u066c','').replace('\u066a','%')
     text=re.sub(r'(?:[从從]零到一|(?:ゼロ|零|0)から(?:一|イチ|1(?!\d))|제로에서\s*하나로)', ' 0 → 1 ',text)
+    if calendar:text=era_years(text)
     if language in ('zh-CN','zh-Hant-TW'):
         plans={'十一':11,'十二':12,'十三':13,'十四':14,'十五':15,'十六':16,'十七':17,'十八':18,'十九':19,'二十':20}
         text=re.sub(r'('+'|'.join(plans)+r')五(?=["”’》]*\s*(?:规划|規劃|计划|計畫))',
                     lambda m:f'{plans[m[1]]} 5',text)
         text=re.sub(r'[双雙](?=中心|基地|據點|据点)', '2',text)
+        text=re.sub(r'[双雙](?=人位|人座)', '2',text)
+        text=re.sub(r'[单單](?=次)', '1',text)
+        text=re.sub(r'((?:頻寬|带宽|帶寬|頻率|频率|速率)\s*)(?:加倍|翻倍|多一倍)',r'\g<1>2倍',text)
+        # Unmarked two/three-digit years in Taiwanese government citations
+        # use the local era; an ordinary short year elsewhere is ambiguous.
+        if calendar and language=='zh-Hant-TW':
+            short_year=r'(?<![\d.])([1-9]\d{0,2})\s*(?=年)'
+            if re.search(r'(?:行政院|中華民國|總統府)[^。\n]{0,56}\d{1,3}\s*年\s*\d{1,2}\s*月',text):
+                text=re.sub(short_year,lambda m:str(1911+int(m[1])),text)
+            else:
+                text=re.sub(short_year+r'(?=年\s*政府機關)',lambda m:str(1911+int(m[1])),text)
     if language=='en-US':
         text=re.sub(r'(\d+(?:st|nd|rd|th)\s+)five[- ]year(?=\s+plan\b)',r'\g<1>5-year',text)
+        text=re.sub(r'\b(ones|zeros)\s+(and|or)\s+(ones|zeros)\b',
+            lambda m:m[0] if m[1]==m[3] else f'{int(m[1]=="ones")} {m[2]} {int(m[3]=="ones")}',text)
+        text=re.sub(r'\b(?:twice|three times)\s+(?=as\s+(?:much|many)\b)',
+            lambda m:'2 ' if m[0].startswith('twice') else '3 ',text)
+        # Preserve written ranks, including an elliptical "the first one".
+        text=re.sub(r'\bthe\s+(first|second|third)(?=\s+one\b)',
+            lambda m:('the 1st','the 2nd','the 3rd')[('first','second','third').index(m[1])],text)
     text=written_counts(text)
+    text=re.sub(r'\bper\s+bit\b','per 1 bit',text)
+    text=re.sub(r'(?:([0-9]+)\s*)?(?:ビット(?=\s*(?:あたり|当たり|ごと))|비트(?=\s*당))',
+        lambda m:m[0] if m[1] else '1'+m[0],text)
+    text=re.sub(r'每\s*(?:[个個]\s*)?(?=位元|比特|bit\b)','每1 ',text)
     # Korean commonly expands one quantity as 21만 4천 rather than
     # 21.4万. Combine only a contiguous written scale expression; separate
     # quantities joined by punctuation remain separate facts.
@@ -220,8 +273,18 @@ def facts(text, language, *, calendar=False):
         text=re.sub(r'(?<!\w)두\s+(?=센터(?:에|를|가|의|는|로|\s|[.,]|$))','2 ',text)
         text=re.sub(r'(?<![\d.])(\d+)만\s+(\d+)천(?![\d])',
                     lambda match:str(int(match[1])*10000+int(match[2])*1000),text)
-        text=re.sub(r'(?<!\d)([1-9]\d{3})\s*년\s*(\d{1,2})\s*월(?:\s*(\d{1,2})\s*일)?',
-                    lambda m:f'{m[1]}年{m[2]}月'+(f'{m[3]}日' if m[3] else ''),text)
+        if calendar:
+            # Translate date markers in the analysis copy so the shared date
+            # parser retains the precision and both ends of Korean ranges.
+            text=re.sub(r'(\d{1,2}\s*)(일|월)\s*(?:부터|[-–—~])\s*(?=\d{1,2}\s*\2)',r'\1\2至',text)
+            text=re.sub(r'(?<!\d)([1-9]\d{3})\s*년\s*(?=\d{1,2}\s*월)',r'\1年',text)
+            day_range=r'(\d{1,2})\s*(?:일\s*)?(?:至|[-–—~])\s*(\d{1,2})\s*일'
+            text=re.sub(r'(?<!\d)(\d{1,2})\s*월\s*'+day_range,r'\1月\2日至\3日',text)
+            text=re.sub(r'(?<!\d)(\d{1,2})\s*월\s*(\d{1,2})\s*일',r'\1月\2日',text)
+            text=re.sub(r'(?<!\d)(\d{1,2})\s*월(?=\s*至\s*\d{1,2}\s*월|(?:부터|까지|에는|에|의|은|을)?(?:[\s.,!?;:()]|$))',r'\1月',text)
+        else:
+            text=re.sub(r'(?<!\d)([1-9]\d{3})\s*년\s*(\d{1,2})\s*월(?:\s*(\d{1,2})\s*일)?',
+                        lambda m:f'{m[1]}年{m[2]}月'+(f'{m[3]}日' if m[3] else ''),text)
     if language!='en-US' or not calendar:
         for month,names in enumerate(MONTHS,1):
             pattern=r'(?<!\w)(?:'+'|'.join(re.escape(name.casefold()) for name in names.split())+r')(?!\w)'
@@ -238,6 +301,10 @@ def facts(text, language, *, calendar=False):
     return text
 
 
+def indefinite_classifiers(text):
+    return re.findall(r'(?<![\d第每只僅仅])1\s*[个個種种項项](?!\s*(?:位元|比特|以上|以下|以內|以内))',text)
+
+
 def validate(source, target, src, dst, *, allow_identical=False):
     if not isinstance(target,str) or not target.strip():raise ValueError('模型未返回有效译文。')
     validate_identifiers(source,target)
@@ -246,6 +313,10 @@ def validate(source, target, src, dst, *, allow_identical=False):
     calendar={src,dst} <= {'zh-CN','zh-Hant-TW','en-US','ja-JP','ko'}
     numbers=_translation_numeric_values if calendar else numeric_values
     a,b=facts(source,src,calendar=calendar),facts(target,dst,calendar=calendar)
+    visible=INLINE_CODE.sub(' ',prose(target))
+    residue=foreign_script_fragments(visible,dst)
+    if residue:
+        raise SourceScriptResidue(f'{LANGUAGES[dst]}译文仍含未翻译的其他语种文字（{"、".join(residue[:8])}）。请替换这些原词，保留已译内容。')
     if dst in ('ja-JP','zh-Hant-TW') and src!=dst and CHINESE.search(prose(source)):
         from .multilingual_quality import copied_simplified_glyphs
         visible=INLINE_CODE.sub(' ',unicodedata.normalize('NFKC',prose(target)))
@@ -253,23 +324,22 @@ def validate(source, target, src, dst, *, allow_identical=False):
         copied=copied_simplified_glyphs(original,visible,dst)
         if copied:
             raise SourceScriptResidue(f'{LANGUAGES[dst]}译文仍含原文的中文简化字（{"、".join(sorted(copied))}）。请改用目标语言词形，专名可在译名后括注原拼写。')
-    if dst=='ko' and src!=dst:
-        visible=INLINE_CODE.sub(' ',unicodedata.normalize('NFKC',prose(target)))
-        original=unicodedata.normalize('NFKC',prose(source))
-        # A translated name may cite its original characters in parentheses.
-        # Chinese titles or body text elsewhere still require translation.
-        name_pattern=r'(?<=[가-힣])\s*\(\s*(['+HAN+r']+)\s*\)'
-        visible=re.sub(name_pattern,lambda m:' ' if m[1] in original else m[0],visible)
-        if CHINESE.search(visible):
-            raise ValueError('韩语译文仍含未译汉字。请翻译正文及标题；专名原字可放在韩文译名后的括号中。')
+    if dst=='ko':
+        residue=korean_han_fragments(INLINE_CODE.sub(' ',prose(source)),visible)
+        if residue:
+            raise SourceScriptResidue(f'韩语译文仍含未译汉字（{"、".join(residue[:8])}）。请替换这些原词，保留已译内容。专名原字可放在韩文译名后的括号中。')
     if numbers(a)!=numbers(b):
         article_a,article_b=written_counts(a,articles=True),written_counts(b,articles=True)
+        if src=='en-US':article_a=_written_quantity_digits(b,article_a)
+        if dst=='en-US':article_b=_written_quantity_digits(a,article_b)
         ordinal_marker=r'(?:第\d|世界\d|세계\s*\d+\s*위|\d+\s*번째|(?:첫|두|세|첫째|둘째|셋째)\s*번째|\d+(?:st|nd|rd|th)\b)'
         def ordinal_words(value):
             english={'first':1,'second':2,'third':3,'fourth':4,'fifth':5,'sixth':6,'seventh':7,'eighth':8,'ninth':9,'tenth':10}
             korean={'첫':1,'첫째':1,'두':2,'둘째':2,'세':3,'셋째':3}
             value=re.sub(r'(?<![\w-])(?:'+ '|'.join(english) +r')(?![\w-])',lambda m:str(english[m[0]]),value)
-            return re.sub(r'(?<![\w-])(?:첫째|둘째|셋째|첫|두|세)(?=\s*번째)',lambda m:str(korean[m[0]]),value)
+            value=re.sub(r'(?<![\w-])(?:첫째|둘째|셋째|첫|두|세)(?=\s*번째)',lambda m:str(korean[m[0]]),value)
+            value=re.sub(r'(?<!\w)첫(?=\s)', '1', value)
+            return re.sub(r'最初(?=の|に|$)|首[个個項项]', '第1', value)
         if re.search(ordinal_marker,article_a):article_b=ordinal_words(article_b)
         if re.search(ordinal_marker,article_b):article_a=ordinal_words(article_a)
         if src in ('zh-CN','zh-Hant-TW') and dst=='ja-JP' and re.search(r'第1(?:の)?(?:選択肢?|候補)',article_b):
@@ -280,6 +350,11 @@ def validate(source, target, src, dst, *, allow_identical=False):
             article_a=re.sub(r'每1(?=块|塊|个|個|台|枚|件|套|座|条|條)', '每一',article_a)
         if src in ('zh-CN','zh-Hant-TW') and dst=='ko' and re.search(r'기본\s+가정(?!들)',target):
             article_a=re.sub(r'1[个個](?=基础假设|基礎假設)', '一个',article_a)
+        if (src in ('zh-CN','zh-Hant-TW') and dst=='ko' and '동일한' in target
+                and not re.search(r'(?:여러|복수의|다수의)\s*동일한|동일한\s+(?:여러|복수의|다수의)',target)):
+            # 同一套 specifies reuse of the same set. Korean can express
+            # that identity through 동일한 without an extra numeric counter.
+            article_a=re.sub(r'同1套','同一套',article_a)
         if src in ('zh-CN','zh-Hant-TW') and dst=='ja-JP' and re.search(r'(?:ある|ひとつの|一つの)\s*(?:基本的な)?前提|基本(?:的な)?(?:仮定|前提)',target):
             article_a=re.sub(r'((?:基[于於]|建[立構构]在))1[个個](?=基础假设|基礎假設)', r'\g<1>一个',article_a)
         # Korean singular nouns normally omit the indefinite article. A single
@@ -298,6 +373,21 @@ def validate(source, target, src, dst, *, allow_identical=False):
                 and not re.search(r'(?:\d|[一二三四五六七八九十])(?:台|式|基|セット|つ)の?[^。！？\n]{0,10}システム',target)):
             article_b=article_b.replace('システム','1 システム',1)
         source_numbers,target_numbers=numbers(article_a),numbers(article_b)
+        if src=='en-US' and dst in ('zh-CN','zh-Hant-TW') and not source_numbers-target_numbers:
+            # A Chinese classifier can make English a/an/another explicit.
+            # Reconcile only extra singular classifiers; units remain guarded
+            # below and every clause still needs independent semantic review.
+            extra=target_numbers-source_numbers
+            implied=re.findall(r'(?<![\w-])(?:a|an|another)\b',a)
+            classifiers=indefinite_classifiers(article_b)
+            if set(extra)=={Decimal(1)} and extra[Decimal(1)]<=min(len(implied),len(classifiers)):
+                source_numbers[Decimal(1)]+=extra[Decimal(1)]
+        if dst=='en-US' and src in ('zh-CN','zh-Hant-TW') and not target_numbers-source_numbers:
+            missing=source_numbers-target_numbers
+            # Recognized technical articles have already been counted above.
+            implied=re.findall(r'(?<![\w-])(?:a|an|another)\b',article_b)
+            if set(missing)=={Decimal(1)} and missing[Decimal(1)]<=min(len(implied),len(indefinite_classifiers(article_a))):
+                target_numbers[Decimal(1)]+=missing[Decimal(1)]
         if source_numbers!=target_numbers:
             missing=', '.join(map(str,(source_numbers-target_numbers).elements()))
             extra=', '.join(map(str,(target_numbers-source_numbers).elements()))
@@ -331,7 +421,7 @@ def validate(source, target, src, dst, *, allow_identical=False):
             if not isinstance(value,Decimal) or start and re.match(r'[a-z0-9_.]',text[start-1]):continue
             unit_name=None;unit_end=end
             for unit,variants in aliases.items():
-                counter=r'(?:[个個]\s*)?' if unit=='pixel' else ''
+                counter=r'(?:[个個]\s*)?' if unit in ('pixel','bit') else ''
                 match=re.match(r'[-\s]*'+counter+r'(?:'+unit+'|'+variants+r')(?![a-z])',text[end:])
                 if match:unit_name=unit;unit_end=end+match.end();break
             quantities.append([value,start,end,unit_name,unit_end])
@@ -360,12 +450,14 @@ def validate(source, target, src, dst, *, allow_identical=False):
     body=prose(target);source_body=prose(source)
     scripts={'zh-CN':r'[\u3400-\u9fff]','zh-Hant-TW':r'[\u3400-\u9fff]', 'ja-JP':r'[\u3040-\u30ff\u3400-\u9fff]',
              'ko':r'[\uac00-\ud7af]','ru-RU':r'[\u0400-\u04ff]', 'ar-SA':r'[\u0600-\u06ff]', 'th-TH':r'[\u0e00-\u0e7f]'}
-    if dst in scripts and len(re.findall(r'[^\W\d_]',source_body))>12 and not re.search(scripts[dst],body):
+    exact_reference=allow_identical and source.strip()==target.strip() and bibliographic_product_label(source)
+    if dst in scripts and not exact_reference and len(re.findall(r'[^\W\d_]',source_body))>12 and not re.search(scripts[dst],body):
         raise ValueError('译文未显示所选目标语言的正文，请重新翻译。')
     if dst in ('zh-CN','zh-Hant-TW','ja-JP','ko'):
         from .reverse_validation import english_clauses
-        if english_clauses(INLINE_CODE.sub(' ',body)):
-            raise ValueError('目标语言正文仍含未翻译的英文句子，请完整翻译；型号、品牌、行内代码及链接保持原样。')
+        residue=english_clauses(INLINE_CODE.sub(' ',body))
+        if residue:
+            raise SourceScriptResidue(f'目标语言正文仍含未翻译的英文句子（{"、".join(residue[:4])}）。请译出这些内容，保留型号、品牌、行内代码及链接。')
     unchanged=normalized(source_body).strip()==normalized(body).strip()
     cjk_sentence=len(CHINESE.findall(source_body))>=12 and re.search(r'[，。！？；]',source_body)
     if src!=dst and not allow_identical and unchanged and (len(source_body.split())>=4 or cjk_sentence):
@@ -390,7 +482,11 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
     if source_scripts:common+='原文上下标属于公式语义，平面文本中的109可能是10的9次方。保留原字符及上下标归属，由程序继承原样式；不能将其改写成109个、10^9、10⁹或丢掉指数。'
     if not terminology:common=common.replace('仅当词库条目与该词在原文中的含义相符时使用目标译法；缺项或含义不匹配时按原文翻译。','根据原文语境翻译，不对照任何术语表判定用词规范。')
     if document_request:
-        common+='原文只写了数量而未写单位时，保留该数量，不猜测或补写单位。原文在另一行续写时，仅翻译当前行，保留未完的边界。'
+        common+='人数、座位数和设备数等计量含义必须保留。原文只写了数量而未写单位时，不猜测或补写单位。原文在另一行续写时，仅翻译当前行，保留未完的边界。'
+        if src=='zh-Hant-TW' and re.search(r'(?<!\d)\d{1,3}\s*年',source):
+            common+='台湾公文的民国纪年以1912年为元年。能明确确认时只写等值公元年，不能把两位数民国年误作19xx年。'
+        if re.fullmatch(r'\s*[A-Z][A-Z0-9/-]{1,14}\s*=\s*[A-Za-z][A-Za-z -]{5,}\s*',source):
+            common+='当前行是缩写释义。左侧缩写与等号原样保留，右侧英文释义翻译成目标语言。'
     if dst in ('ja-JP','zh-Hant-TW'):
         common+='译文不得沿用中文简化字。品牌和专名可以采用目标语言通用字形或读音，需要保留原字时，把原拼写放在目标语言译名后的括号内。'
     from .parameter_notation import INSTRUCTION
@@ -410,72 +506,84 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
     if not terminology:review_system=review_system.replace('完整性、术语','完整性').replace('术语、','')+'这里只核对原文语义、漏译与事实，不评判词库标准及术语规范。'
     if combined_document:
         review_system+='完整性复核以语义和事实为准。等值的文字数词与阿拉伯数字、语义合适的近义词及词形活用不得据此拒绝，具体术语规范随后单独检查。'
+    clauses=document_clauses(source) if document_request else []
+    if clauses:
+        review_system+='逐条在译文中找到每句原文的语义对应。合句可以，但列表项、条件、例外、动作和细节必须逐项保留。发现缺项就给出补齐的完整译文。'
     if humanize:review_system+='复核自然表达时，事实完整优先；不要求机械删除原文的修辞。'
     error='';script_repair=None
+    def validate_candidate(target):
+        validate(source,target,src,dst,allow_identical=bool(quality and quality.review_identical_formula(source,target)))
+
     for attempt in range(2):
         check_cancel(cancel)
         if activity:activity('正在翻译并润色自然表达' if humanize else '正在请求翻译')
         try:
             request=payload
-            if document_request and len(source.strip())<=64 and re.search(r'额外：(?!无)[^。]+',error):
+            if document_request and ('改变了网址' in error or '未显示所选目标语言' in error
+                    or len(source.strip())<=64 and re.search(r'额外：(?!无)[^。]+',error)):
                 request={**payload,'相邻原文（仅供理解）':''}
             retry_system=system
             if script_repair is not None:
                 request={**payload,'相邻原文（仅供理解）':'','上次译文（只修正仍未翻译的词）':script_repair}
                 retry_system+='只在上次译文基础上修正仍然是原语言的文字。地名或项目名称中的一般名词也要翻译；原字拼写不是保留简体通用名词的理由。'
                 if dst=='ja-JP':retry_system+='例如“电影”“公园”分别使用日语的「映画」「公園」。'
+                if dst=='ko':retry_system+='译文正文、标题和普通术语只使用韩文，不保留其中的汉字。'
+                if '未翻译的英文句子' in error:
+                    retry_system+='原稿夹杂的英文正文与引文题名也译成目标语言，保留引用编号、日期、类型标记和链接。'
+            if document_request and '数字或日期' in error:
+                retry_system+='保持明确的数量、次数、序数和日期范围。原文明确用文字表达的数量也须在译文中表达，优先用阿拉伯数字；日期精度与范围边界不能变化。使用原年号或等值公元日期之一，不重复列出两个纪年。'
+            if document_request and '改变了网址' in error:
+                retry_system+='只保留当前待译原文中出现的网址。不要把相邻内容或自行查到的地址附在译文中，现有链接由程序单独继承。'
             value=client.chat_json(json.dumps(request,ensure_ascii=False)+('\n上次检查：'+error if error else ''),system=retry_system,max_tokens=6000)
             target=separate_link_punctuation(source,value.get('translation')) if isinstance(value,dict) else None
-            try:validate(source,target,src,dst,allow_identical=bool(quality and quality.review_identical_formula(source,target)))
+            try:validate_candidate(target)
             except SourceScriptResidue:
                 if document_request:script_repair=target
                 raise
             check_cancel(cancel)
             if activity:activity('正在对照原文复核完整性、术语及目标语言' if terminology else '正在对照原文复核完整性与事实')
-            def review(candidate):
+            def review(candidate, *, original=None, prior=None):
+                compare=original is not None
                 extra=quality.payload(source,candidate) if quality else {}
-                previous='';prior=None
-                can_think=getattr(client,'supports_thinking_mode',False) is True
-                for verification in range(3):
-                    # Ordinary independent rechecks use the same model without
-                    # spending a full reasoning round on an actionable answer.
-                    last_verification=verification>=1 and (verification==2 or prior is None or not can_think)
+                original_candidates=quality.candidates(source,original) if quality and compare else []
+                instructions=quality.instructions(source,candidate if extra else original) if extra or original_candidates else ''
+                previous=''
+                for verification in range(2):
+                    check_cancel(cancel)
+                    thinking=compare and verification>0 and getattr(client,'supports_thinking_mode',False) is True
                     checked=client.chat_json(json.dumps({'原文':source,'译文':candidate,'相邻原文（仅供理解）':request['相邻原文（仅供理解）'],**({'相关术语':terms} if terminology else {}),**extra,
                         **({'原文上下标':source_scripts} if source_scripts else {}),
+                        **({'需逐句核对的原文':clauses} if clauses else {}),
+                        **({'修正前译文':original,'初稿待核对未变原文片段':original_candidates} if compare else {}),
                         **({'待独立裁定的复核意见':prior} if prior else {}),
                         **({'上次完整性检查':previous} if previous else {})},ensure_ascii=False),
-                        system=review_system+(quality.instructions() if extra else '')+
-                        ('独立判断前一复核意见。先核实它所称遗漏的信息是否确实写在当前原文中。要求补写原文未出现的单位、续句或对象，或要求套用与当前词义不符的术语，不构成漏译。明确适用的术语仍可检查。若有可证实的漏译、事实变化、错误语种或适用术语误译，给出完整修正；若意见不成立且译文完整，返回ok=true。' if prior else ''),
-                        max_tokens=6000,**({'thinking':True} if verification==2 else {}))
+                        system=review_system+instructions+
+                        ('独立判断前一复核意见。先核实它所称遗漏的信息是否确实写在当前原文中。要求补写原文未出现的单位、续句或对象，或要求套用与当前词义不符的术语，不构成漏译。明确适用的术语仍可检查。若有可证实的漏译、事实变化、错误语种或适用术语误译，给出完整修正；若意见不成立且译文完整，返回ok=true。' if prior else '')+
+                        ('对照当前修正稿和修正前译文。若初稿已经完整准确，修正只是用词偏好或会引入错误，返回ok=true、keep_original=true和空issues。'
+                         '否则审查当前修正稿，认可则按通常格式返回。目标语言逐项判断使用你认可的那份译文的对应候选清单。' if compare else ''),
+                        max_tokens=6000,**({'thinking':True} if thinking else {}))
                     if (not isinstance(checked,dict) or type(checked.get('ok')) is not bool
                             or not isinstance(checked.get('issues'),list)
                             or any(not isinstance(issue,str) for issue in checked['issues'])):
-                        previous='复核结果字段不完整。请复核同一译文并返回完整 JSON：ok 必须为布尔值，issues 必须为数组；没有问题也必须包含 "issues":[]，并保留所要求的逐项语言判断。不能仅返回译文或语言判断数组。'
-                        if last_verification:raise ValueError('模型未返回完整的译文复核结果；当前译文尚未通过复核。')
+                        previous='模型未返回完整的译文复核结果。请复核同一译文并返回 ok 和 issues，保留所要求的语言判断。'
                         continue
-                    if quality:
-                        from .multilingual_quality import IncompleteLanguageReview
-                        try:quality.validate_review(source,candidate,checked)
-                        except IncompleteLanguageReview as exc:
-                            previous=str(exc)
-                            if last_verification:raise
-                            continue
-                    if (combined_document or not terminology) and verification==0 and checked['ok'] is False:
-                        prior=checked
-                        continue
-                    if (isinstance(checked,dict) and checked.get('ok') is False and
-                            (not isinstance(checked.get('corrected_translation'),str) or
-                             not checked['corrected_translation'].strip() or checked['corrected_translation'].strip()==candidate.strip())):
-                        previous='若存在确定错误，必须给出不同且已完整解决问题的修正译文；若只是术语词形差异、文风偏好或待确认疑问，应按语义完整的实际结论返回ok=true。'
-                        if last_verification:raise ValueError('独立复核未给出可执行的修正：'+'；'.join(map(str,checked.get('issues',[]))))
-                        continue
-                    return checked
-            checked=review(target)
-            if isinstance(checked,dict) and checked.get('ok') is False and isinstance(checked.get('corrected_translation'),str):
-                revised=separate_link_punctuation(source,checked['corrected_translation']);validate(source,revised,src,dst,
-                    allow_identical=bool(quality and quality.review_identical_formula(source,revised)));check_cancel(cancel)
-                checked=review(revised);target=revised
-            if not isinstance(checked,dict) or type(checked.get('ok')) is not bool or not isinstance(checked.get('issues'),list):raise ValueError('模型未完成多语言译文复核。')
+                    try:
+                        if checked['ok']:
+                            approved=original if compare and checked.get('keep_original') is True else candidate
+                            if quality:quality.validate_review(source,approved,checked)
+                            return checked,None,approved
+                        revised=separate_link_punctuation(source,checked.get('corrected_translation'))
+                        if not isinstance(revised,str) or revised.strip()==candidate.strip():
+                            raise ValueError('复核未给出可执行的修正：'+'；'.join(checked['issues']))
+                        validate_candidate(revised)
+                        return checked,revised,candidate
+                    except ValueError as exc:
+                        previous=str(exc)
+                        if not checked['ok']:prior=checked
+                raise ValueError(previous)
+            checked,revised,target=review(target)
+            if revised is not None:
+                checked,_,target=review(revised,**({'original':target,'prior':checked} if document_request else {}))
             if not checked['ok'] or checked['issues']:raise ValueError('；'.join(map(str,checked['issues'])) or '译文未通过完整性复核。')
             check_cancel(cancel);return target.strip()
         except (ValueError,LLMResponseInvalid,LLMTruncated) as exc:error=str(exc)

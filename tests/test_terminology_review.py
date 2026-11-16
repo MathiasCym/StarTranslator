@@ -54,6 +54,15 @@ class TerminologyTests(unittest.TestCase):
         rows=terms.requirements('The refresh rate is 60 Hz.','レートは60 Hzです。',Glossary([]),TABLE,'zh-CN','ja-JP')
         self.assertEqual(len(rows),1);self.assertEqual(rows[0]['source'],'Refresh rate')
 
+    def test_standard_english_plural_preserves_term_coverage(self):
+        reference={'entries':[{'terms':{'ko':'관리자','en-US':'administrator'}}]}
+        self.assertFalse(terms.requirements('안전관리자','Safety administrators',Glossary([]),reference,'ko','en-US'))
+        rows=terms.requirements('안전관리자','Safety operators',Glossary([]),reference,'ko','en-US')
+        self.assertEqual(len(rows),1)
+        answer={'reviewed':True,'decisions':[{'id':'0','status':'replace','original':'operators',
+                'replacement':'administrators','reason':'Use the standard term in the plural.'}]}
+        self.assertEqual(terms.decisions(answer,rows,'Safety operators',target_language='en-US')[0]['replacement'],'administrators')
+
     def test_separate_review_resolves_explicit_original_pair_for_semantic_check(self):
         from backend.multilingual_documents import check_segments
         from backend.references import ReferenceIndex
@@ -75,6 +84,26 @@ class TerminologyTests(unittest.TestCase):
         self.assertEqual(stats['unreviewed'],1);self.assertEqual(stats['completed_files'],[])
         self.assertTrue(any('漏掉' in warning for warning in stats['warnings']))
 
+    def test_incomplete_batch_splits_into_verified_term_decisions(self):
+        reference={'entries':[
+            {'terms':{'zh-CN':'设备','ko':'장비'}},
+            {'terms':{'zh-CN':'速度','ko':'속도'}},
+        ]}
+        class Omitted(TermModel):
+            def chat_json(self,prompt,system='',**options):
+                rows=json.loads(prompt)['术语待核对']
+                self.requests.append(len(rows))
+                return {'reviewed':True,'decisions':[
+                    {'id':row['id'],'status':'not_applicable','reason':'This is an illustrative label.'}
+                    for row in rows[:1]
+                ]}
+        model=Omitted()
+        with patch('backend.terminology_review.catalog.effective',return_value=reference):
+            findings,stats=self.audit(model,source='检查设备速度。',current='장치를 점검하세요.',dst='ko')
+        self.assertFalse(findings)
+        self.assertEqual(model.requests,[2,2,1,1])
+        self.assertEqual(stats['terminology_status'],'complete')
+
     def test_valid_standard_and_confirmed_alias_need_no_additional_model_call(self):
         model=TermModel();findings,stats=self.audit(model,current='リフレッシュレートは 60 Hz です。')
         self.assertFalse(findings);self.assertEqual(model.term_calls,0)
@@ -87,6 +116,23 @@ class TerminologyTests(unittest.TestCase):
         model=TermModel(decisions=answer)
         findings,stats=self.audit(model,source='The gross margin is 12%.',current='毛利率为 12%。',glossary=g,src='en-US',dst='zh-CN')
         self.assertFalse(findings);self.assertEqual(stats['model_status'],'complete');self.assertEqual(model.term_calls,1)
+
+    def test_wrong_sense_suggestion_gets_independent_term_adjudication(self):
+        class Disputed(TermModel):
+            def chat_json(self,prompt,system='',**options):
+                self.term_calls+=1
+                data=json.loads(prompt)
+                if '待独立裁定的术语判断' in data:
+                    return {'reviewed':True,'decisions':[{'id':'0','status':'not_applicable','reason':'Coverage is not overwriting.'}]}
+                return {'reviewed':True,'decisions':[{'id':'0','status':'replace','original':'커버리지',
+                    'replacement':'포괄 범위','reason':'This is coverage.'}]}
+        reference={'entries':[{'terms':{'zh-CN':'覆盖','en-US':'overwrite','ko':'덮어쓰기'}}]}
+        model=Disputed()
+        with patch('backend.terminology_review.catalog.effective',return_value=reference):
+            findings,stats=self.audit(model,source='覆盖范围',current='커버리지 범위',dst='ko')
+        self.assertFalse(findings)
+        self.assertEqual(model.term_calls,3)
+        self.assertEqual(stats['terminology_status'],'complete')
 
     def test_numeric_change_in_term_suggestion_is_rejected_and_not_cached(self):
         answer={'reviewed':True,'decisions':[{'id':'0','status':'replace','original':'レートは 60 Hz',
@@ -107,6 +153,17 @@ class TerminologyTests(unittest.TestCase):
         rows=terms.requirements('刷新率、刷新率','リフレッシュレート、レート',Glossary([]),TABLE,'zh-CN','ja-JP')
         self.assertEqual(len(rows),1);self.assertEqual(rows[0]['source_occurrences'],2)
         self.assertEqual(rows[0]['standard_or_alias_occurrences'],1)
+
+    def test_short_term_inside_confirmed_compound_is_not_a_separate_requirement(self):
+        glossary=Glossary([])
+        reference={'entries':[
+            {'terms':{'en-US':'Help','ko':'도움'}},
+            {'terms':{'en-US':'Help Center','ko':'지원 센터'}},
+        ]}
+        rows=terms.requirements('HELP CENTER','헬프 센터',glossary,reference,'en-US','ko')
+        self.assertEqual([row['source'] for row in rows],['Help Center'])
+        rows=terms.requirements('HELP CENTER offers help','헬프 센터에서 안내합니다',glossary,reference,'en-US','ko')
+        self.assertEqual({row['source']:row['source_occurrences'] for row in rows},{'Help':1,'Help Center':1})
 
     def test_personal_english_standard_supersedes_official_english_for_other_source_languages(self):
         g=Glossary([GlossaryEntry('刷新率','Refresh frequency',variants=['Display refresh frequency'],priority=1)])

@@ -237,7 +237,12 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     todo = [s for s in segments if s.editable and contains_chinese(s.text)]
     blocked = [s for s in segments if not s.editable]
     if not todo and not (Path(path).suffix.lower()=='.pdf' and getattr(document.document,'_star_pdf_images',[])):
-        raise ValueError('未发现可翻译的中文段落。图片或复杂结构中的文字暂不自动翻译。')
+        from .reverse_validation import english_clauses
+        if any(segment.editable and english_clauses(segment.text) for segment in segments):
+            raise ValueError('文档有可编辑的英文正文。当前源语言是简体中文，请把源语言改为英语，并选择目标语言。')
+        if any(segment.editable for segment in segments):
+            raise ValueError('未找到简体中文正文。请检查所选源语言。')
+        raise ValueError('未找到可编辑正文。若文字在图片中，请先提取成可编辑文字。')
     client = client or LLMClient()
     is_pptx = Path(path).suffix.lower() == '.pptx'
     original_layout = capture_layout(document,[s.locator for s in segments if s.editable]) if is_pptx else None

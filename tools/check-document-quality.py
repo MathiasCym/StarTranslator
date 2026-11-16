@@ -28,6 +28,7 @@ def main():
     parser.add_argument('--apply-suggestions',action='store_true',help=argparse.SUPPRESS)  # accepted by older QA commands
     parser.add_argument('--workers',type=int,choices=(1,3),default=3)
     parser.add_argument('--direction',default='zh-en',help='Document pair, e.g. zh-en or zh-CN>ja-JP')
+    parser.add_argument('--kind',choices=('translate','translate_review'),default='translate_review')
     args=parser.parse_args()
     if not args.allow_model and not (args.resume and args.forbid_requests):parser.error('--allow-model is required; this command uses the configured model')
     if args.forbid_requests and not args.resume:parser.error('--forbid-requests requires --resume')
@@ -67,17 +68,18 @@ def main():
     os.environ['NOVATERM_DATA_DIR']=str(profile)
     run_id=uuid.uuid4().hex
     source_paths=list(dict.fromkeys(str(Path(p).resolve()) for p in args.source))
-    data=dict(kind='translate_review',paths=source_paths,references=[],pairs={},
+    data=dict(kind=args.kind,paths=source_paths,references=[],pairs={},
         direction=args.direction,combined_output='final',output_dir=str(root/'output'),workers=args.workers,_client=client)
     if args.resume:
         saved_run=root/'latest-run.json'
         if not saved_run.exists():parser.error('This evidence predates explicit resume. Start a fresh QA run.')
         previous=history.resume_options(json.loads(saved_run.read_text('utf-8'))['job_id'])
-        if previous['paths']!=source_paths or previous.get('direction','zh-en')!=args.direction:
-            parser.error('Resume requires the same source paths and language pair')
+        if (previous['paths']!=source_paths or previous.get('direction','zh-en')!=args.direction
+                or previous['kind']!=args.kind):
+            parser.error('Resume requires the same operation, source paths and language pair')
         data={**previous,'_client':client}
     fingerprints={p:store.fingerprint(p) for p in source_paths}
-    job=dict(id=run_id,kind='translate_review',status='running',cancel=threading.Event())
+    job=dict(id=run_id,kind=args.kind,status='running',cancel=threading.Event())
     finished=threading.Event();started=time.monotonic()
     def watch():
         while not finished.wait(2):
@@ -92,10 +94,12 @@ def main():
             residuals=saved_residuals(output['path']) if args.direction=='zh-en' else []
             audit=output.get('output_audit')
             unchanged=store.fingerprint(output['source'])==fingerprints[output['source']]
-            passed=bool(output.get('auto_exported') and output['translation_complete'] and not residuals and unchanged and
+            exported=output.get('auto_exported') if args.kind=='translate_review' else not output.get('staged')
+            reviewed=args.kind=='translate' or stats.get('review_processing_status',stats.get('model_status'))=='complete'
+            passed=bool(exported and Path(output['path']).is_file() and output['translation_complete'] and not residuals and unchanged and
                 not output.get('unapplied_changes') and not output.get('untranslated') and (audit is None or audit['status']=='complete') and
                 (output.get('image_review') is None or output['image_review']['status']=='complete') and
-                stats.get('review_processing_status',stats.get('model_status'))=='complete')
+                reviewed)
             # A fresh evidence directory has no incoming checkpoint database.
             # A later stage may reuse text verified earlier in the same run.
             reused=output.get('resumed_segments',0)

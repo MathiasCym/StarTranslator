@@ -91,6 +91,144 @@ class SharedAdapterTests(unittest.TestCase):
     job=fixtures.DocumentLanguageTests.job
     options=fixtures.DocumentLanguageTests.options
 
+    def test_english_document_with_chinese_source_selection_suggests_english(self):
+        from backend.translation import translate_file
+        path=self.source('.docx','The controller supports a refresh rate of 60 Hz.','english-source')
+        with self.assertRaisesRegex(ValueError,'把源语言改为英语'):
+            translate_file(str(path),None,None,direction='zh-en')
+
+    def test_word_translation_recovers_a_fragment_before_either_export_path(self):
+        from backend.extract import extract
+        class Model(fixtures.Model):
+            def chat_json(self,prompt,system='',**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                if '待译原文' in payload and not system.startswith('补译一段'):
+                    return {'translation':payload['待译原文']}
+                return super().chat_json(prompt,system,**options)
+        for kind in ('translate','translate_review'):
+            with self.subTest(kind=kind):
+                source='。8月22日票价为41美元'
+                target='。8월 22일 요금은 41달러'
+                path=self.source('.docx',source,kind)
+                before=path.read_bytes()
+                model=Model(target)
+                job=self.job(self.options(path,'zh-CN','ko',kind),model)
+                self.assertEqual(job['status'],'complete',job['result'])
+                output=job['result']['outputs'][0]
+                self.assertFalse(output['staged'] and not output.get('auto_exported'))
+                self.assertEqual(output['untranslated'],0)
+                self.assertIn(target,[s.text for s in extract(output['path']) if s.editable])
+                self.assertTrue(any(system.startswith('补译一段') for _,system in model.requests))
+                self.assertEqual(path.read_bytes(),before)
+
+    def test_word_recovery_uses_the_independent_review_feedback(self):
+        from backend.multilingual_documents import recover_paragraph
+        from backend.llm.client import LLMResponseInvalid
+        class Recovery(fixtures.Model):
+            def __init__(self, first):
+                super().__init__('관람 구역을 확인하세요.')
+                self.first=first
+            def chat_json(self,prompt,system='',**options):
+                payload=json.loads(prompt)
+                if '待译原文' in payload:
+                    self.translations+=1
+                    if self.translations==1 and isinstance(self.first,Exception):
+                        raise self.first
+                    if self.translations==2:
+                        self.requests.append(payload['上次检查'])
+                    return {'translation':self.target}
+                if self.translations==1:
+                    return {'ok':False,'issues':[self.first]}
+                return {'ok':True,'issues':[]}
+        for issue in ('需要保留观看区域的含义。',LLMResponseInvalid('响应不是 JSON')):
+            model=Recovery(issue)
+            self.assertEqual(recover_paragraph(model,'检查观看区。','zh-CN','ko',threading.Event()),model.target)
+            self.assertEqual(model.requests,[str(issue)])
+
+    def test_automatic_review_cannot_reintroduce_source_clause_via_multiple_edits(self):
+        from backend.extract import extract
+        class Review(fixtures.Model):
+            def chat_json(self,prompt,system='',**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                if '本段待校对文字' in payload:
+                    return {'reviewed':True,'suggestions':[
+                        {'original':'표시 가능한','replacement':'there are','reason':'first part'},
+                        {'original':'항목을 확인하세요','replacement':'three available options','reason':'second part'},
+                    ]}
+                return super().chat_json(prompt,system,**options)
+        target='표시 가능한 항목을 확인하세요.'
+        path=self.source('.docx','请检查可以显示的项目。')
+        job=self.job(self.options(path,'zh-CN','ko','translate_review'),Review(target))
+        output=job['result']['outputs'][0]
+        self.assertEqual(output['untranslated'],0)
+        self.assertEqual(output['corrected'],0)
+        self.assertIn(target,[s.text for s in extract(output['path']) if s.editable])
+
+    def test_automatic_review_rejects_new_han_gloss_but_saves_other_korean_edits(self):
+        from backend.extract import extract
+        class Review(fixtures.Model):
+            def chat_json(self,prompt,system='',**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                if '本段待校对文字' in payload:
+                    return {'reviewed':True,'suggestions':[
+                        {'original':'투과음','replacement':'투과음(透声)','reason':'unwanted gloss'},
+                        {'original':'설명한다','replacement':'안내한다','reason':'natural wording'},
+                    ]}
+                return super().chat_json(prompt,system,**options)
+        source='介绍透声结构。'
+        target='투과음 구조를 설명한다.'
+        path=self.source('.docx',source)
+        job=self.job(self.options(path,'zh-CN','ko','translate_review'),Review(target))
+        output=job['result']['outputs'][0]
+        self.assertEqual(output['untranslated'],0)
+        self.assertEqual(output['corrected'],1)
+        self.assertIn('투과음 구조를 안내한다.',[s.text for s in extract(output['path']) if s.editable])
+
+    def test_invalid_proofreading_response_retries_without_retranslating(self):
+        from backend.llm.client import LLMResponseInvalid
+        class Review(fixtures.Model):
+            reviews=0
+            def chat_json(self,prompt,system='',**options):
+                if '本段待校对文字' in json.JSONDecoder().raw_decode(prompt)[0]:
+                    self.reviews+=1
+                    if self.reviews==1:raise LLMResponseInvalid('response lacks JSON')
+                return super().chat_json(prompt,system,**options)
+        path=self.source('.docx','检查观看区。')
+        model=Review('관람 구역을 확인하세요.')
+        job=self.job(self.options(path,'zh-CN','ko'),model)
+        self.assertEqual(job['status'],'complete',job['result'])
+        self.assertEqual(model.reviews,2)
+        self.assertEqual(model.translations,1)
+
+    def test_saved_word_and_ppt_must_keep_each_source_position(self):
+        from backend.document_translation_core import verify_translation_delivery,IncompleteTranslation
+        from docx import Document
+        from pptx import Presentation
+        for suffix,open_document,clear in (
+            ('.docx',Document,lambda document:document.paragraphs[0].clear()),
+            ('.pptx',Presentation,lambda document:document.slides[0].shapes[0].text_frame.clear()),
+        ):
+            source=self.source(suffix,'检查观看区。',suffix)
+            document=open_document(source)
+            clear(document)
+            saved=self.root/('missing'+suffix);document.save(saved)
+            for direction in ('zh-en','zh-CN>ja-JP','zh-CN>zh-Hant-TW','ja-JP>ko'):
+                with self.subTest(format=suffix,direction=direction),self.assertRaisesRegex(IncompleteTranslation,'missing editable locations'):
+                    verify_translation_delivery(saved,direction,source=source)
+
+    def test_saved_japanese_and_korean_reject_leftover_foreign_script_in_mixed_paragraphs(self):
+        from backend.document_translation_core import verify_translation_delivery,IncompleteTranslation
+        examples=(
+            ('ja-JP>ko','非常用照明を点検してください。','비상 조명을 확인하세요. 非常用照明を点検してください。'),
+            ('ko>ja-JP','비상 조명을 확인하세요.','非常灯を点検してください。 비상 조명을 확인하세요.'),
+            ('ja-JP>zh-Hant-TW','非常用照明を点検してください。','檢查緊急照明。 てください。'),
+        )
+        for index,(direction,original,translated) in enumerate(examples):
+            source=self.source('.docx',original,f'target-source-{index}')
+            saved=self.source('.docx',translated,f'target-saved-{index}')
+            with self.subTest(direction=direction),self.assertRaisesRegex(IncompleteTranslation,'source script'):
+                verify_translation_delivery(saved,direction,source=source)
+
     def test_persistent_network_outage_has_one_common_interruption_summary(self):
         class Offline(fixtures.Model):
             def chat_json(self,*args,**kwargs):

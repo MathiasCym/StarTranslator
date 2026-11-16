@@ -301,24 +301,23 @@ class DocumentLanguageTests(unittest.TestCase):
   self.assertTrue(any('局部强调' in warning['reason'] for warning in output['layout_warnings']))
   self.assertIn(SAMPLES['ja-JP'],'\n'.join(s.text for s in extract(output['path'])))
 
- def test_ppt_retries_failed_style_mapping_without_discarding_verified_translation(self):
+ def test_ppt_keeps_verified_translation_when_style_mapping_is_unavailable(self):
   from pptx import Presentation
   from pptx.util import Inches
-  from backend.replacer.styled_text import StyleMappingError
+  class InterruptedStyle(Model):
+   def chat_json(self,prompt,system='',**options):
+    data=json.JSONDecoder().raw_decode(prompt)[0]
+    if '已复核的完整译文' in data:raise LLMUnavailable('fixture style mapping disconnect')
+    return super().chat_json(prompt,system,**options)
   for target in ('ja-JP','ko','zh-Hant-TW'):
    with self.subTest(target=target):
     deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
     paragraph=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(8),Inches(2)).text_frame.paragraphs[0]
-    paragraph.add_run().text='Do not';paragraph.add_run().text=SAMPLES['en-US'][6:]
-    path=self.root/(target+'-retry.pptx');deck.save(path);seen=[]
-    def mapped_retry(client,source,groups,reference,src,dst,cancel,context,mode,fixed,warnings,activity,quality,**kwargs):
-     seen.append(warnings is not None)
-     if warnings is None:raise StyleMappingError('style mapping unavailable')
-     warnings.append('局部强调未能可靠映射')
-     return [{'id':g['id'],'text':SAMPLES[target] if i==0 else ''} for i,g in enumerate(groups)]
-    with patch.object(documents,'mapped',side_effect=mapped_retry):
-     result=documents.translate_file(str(path),Glossary([]),None,str(self.root/'output'),client=Model(SAMPLES[target]),workers=1,direction='en-US>'+target)
-    self.assertEqual(seen,[False,True]);self.assertEqual(result['untranslated'],0)
+    emphasis=paragraph.add_run();emphasis.text='Do not';emphasis.font.bold=True
+    paragraph.add_run().text=SAMPLES['en-US'][6:]
+    path=self.root/(target+'-style.pptx');deck.save(path);model=InterruptedStyle(SAMPLES[target])
+    result=documents.translate_file(str(path),Glossary([]),None,str(self.root/'output'),client=model,workers=1,direction='en-US>'+target)
+    self.assertEqual(model.translations,1);self.assertEqual(result['untranslated'],0)
     self.assertTrue(result['style_warnings']);self.assertIn(SAMPLES[target],'\n'.join(s.text for s in extract(result['path'])))
 
  def test_multilingual_ppt_final_recovery_rechecks_only_unfinished_content(self):

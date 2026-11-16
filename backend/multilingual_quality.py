@@ -4,7 +4,7 @@ import re
 import unicodedata
 from functools import lru_cache
 from .checkpoints import digest
-from .text_integrity import HAN,prose
+from .text_integrity import HAN,prose,bibliographic_product_label,document_clauses
 
 
 from .review_format import script_positions
@@ -90,6 +90,7 @@ class LanguageReview:
 
     def candidates(self,source,target):
         if not isinstance(target,str):return []
+        if self.review_identical_reference(source,target):return [source.strip()]
         def readable(value):
             return re.sub(r'(`+).*?\1',lambda m:' '*len(m[0]),prose(value))
         original,translated=readable(source),readable(target)
@@ -125,9 +126,13 @@ class LanguageReview:
         return {'待核对未变原文片段':values,'片段目标语言':self.dst} if values else {}
 
     def review_identical_formula(self,source,target):
-        # Plain-text identity is normally a failure. An unchanged formula with
-        # already-correct Japanese labels still requires explicit model review.
+        # Identity normally fails. A shared label or formal reference still
+        # requires explicit review before reuse.
         if not isinstance(target,str):return False
+        if self.review_identical_reference(source,target):return True
+        if self.dst=='en-US' and self.src in ('zh-CN','zh-Hant-TW','ja-JP','ko'):
+            visible=prose(source)
+            return source.strip()==target.strip() and re.search('[A-Za-z]',visible) is not None and visible.isascii()
         if self.dst in ('zh-CN','zh-Hant-TW') and self.src!=self.dst:
             return (unicodedata.normalize('NFKC',prose(source)).casefold()==unicodedata.normalize('NFKC',prose(target)).casefold()
                 and bool(re.search('['+HAN+']',prose(target))))
@@ -135,7 +140,19 @@ class LanguageReview:
             and bool(re.search('[×÷=±]',source)) and not re.search('[。！？!?]',source)
             and bool(self.candidates(source,target)))
 
-    def instructions(self):
+    def review_identical_reference(self,source,target):
+        return (self.src!=self.dst and self.dst in ('zh-CN','zh-Hant-TW','ja-JP','ko')
+            and source.strip()==target.strip() and bibliographic_product_label(source))
+
+    def instructions(self,source,target):
+        if not self.review_identical_reference(source,target):return self.language_instructions()
+        return self.language_instructions()+(
+            '候选若为编号参考文献，只有题名确为应原样保留的正式产品名或技术标识时才认可原样保留。'
+            '普通标题、问句和描述文字必须译出。对符合条件的候选，按通常的逐项判断字段返回完整候选文本及具体理由。')
+
+    def language_instructions(self):
+        if self.dst=='en-US':
+            return '已经是正确英文的原行可以保留。确认拼写和语义；如果原行其实是另一种语言的正文，必须翻译。'
         if self.dst=='ko':
             return ('逐项核对韩语译文中保留的汉字片段。中文句子或未译术语必须译成自然韩语，不能因整段有少量韩文就通过；'
                 '有明确依据的专名、品牌或合法韩语汉字由你结合原文判断，不机械删除。发现错误时ok=false并返回完整corrected_translation。'
@@ -183,19 +200,30 @@ class LanguageReview:
             and isinstance(proof.get('approved'),list) and proof['approved']==values)
 
     def review_existing(self,client,source,target,cancel,terms):
+        return self.existing_review_error(client,source,target,cancel,terms) is None
+
+    def existing_review_error(self,client,source,target,cancel,terms):
         """Upgrade old ambiguous checkpoints without regenerating good text."""
         from .translation import check_cancel
         payload={'原文':source,'译文':target,**({'相关术语':terms} if terms is not None else {}),**self.payload(source,target)}
+        clauses=document_clauses(source)
+        if clauses:payload['需逐句核对的原文']=clauses
         error=''
         for _ in range(2):
             check_cancel(cancel)
             answer=client.chat_json(json.dumps({**payload,'上次检查':error},ensure_ascii=False),
                 system=f'独立对照原文检查{self.dst}译文是否完整、事实正确且没有保留未译原语。'
-                '数字、否定、单位、条件、型号、网址及人名品牌不可改变。'+self.instructions()+
+                '逐句核对原稿的条件、例外、动作、列表项及其他事实是否有译文对应。允许语义完整的合句。'
+                '数字、否定、单位、条件、型号、网址及人名品牌不可改变。原文可能是被格式或引用分隔的句子片段，'
+                '片段不成句以及保持原文连接标点均不构成漏译，不得要求补写相邻文字。仅列可证实的错误。'+self.instructions(source,target)+
                 '只返回 {"ok":true,"issues":[],"unchanged_source_spans":[]} 或'
                 ' {"ok":false,"issues":["确定的问题"]}，不能改写当前译文。',max_tokens=3000)
-            if not isinstance(answer,dict) or answer.get('ok') is not True or answer.get('issues')!=[]:return False
+            if isinstance(answer,dict) and answer.get('ok') is False and isinstance(answer.get('issues'),list):
+                return '；'.join(issue for issue in answer['issues'] if isinstance(issue,str) and issue.strip()) or '独立复核未确认语义及目标语言。'
+            if not isinstance(answer,dict) or answer.get('ok') is not True or answer.get('issues')!=[]:
+                error='独立复核返回的字段不完整。'
+                continue
             try:self.validate_review(source,target,answer)
             except IncompleteLanguageReview as exc:error=str(exc)
-            else:return True
-        return False
+            else:return None
+        return error

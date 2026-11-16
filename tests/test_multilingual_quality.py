@@ -95,7 +95,9 @@ class QualityTests(unittest.TestCase):
                     return {'ok':False,'issues':['Meaning correct, but prefer literal wording.'],'corrected_translation':'送信カードの帯載'}
                 if inner.inconclusive and not options.get('thinking'):
                     return {'ok':False,'issues':['No actionable correction.'],'corrected_translation':data['译文']}
-                return certificate('发送卡带载','送信カードの駆動能力')
+                self.assertEqual(data['修正前译文'],'送信カードの駆動能力')
+                self.assertEqual(data['译文'],'送信カードの帯載')
+                return {**certificate('发送卡带载','送信カードの駆動能力'),'keep_original':True}
         model=ReviewModel()
         result=text_languages.translate_piece(model,'发送卡带载',None,'zh-CN','ja-JP',threading.Event(),
             context='LED表示のピクセル容量',quality=LanguageReview('zh-CN','ja-JP'),terminology=False)

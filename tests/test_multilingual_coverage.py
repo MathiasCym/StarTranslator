@@ -47,6 +47,45 @@ class CoverageTests(unittest.TestCase):
         validate('星辰电器推出新版','セイシン電器（星辰电器）が新版を発表','zh-CN','ja-JP')
         validate('使用率','使用率','zh-CN','ja-JP')
 
+    def test_word_fragments_keep_calendar_precision_and_explicit_counts(self):
+        for source,correct,incorrect in [
+            ('。8月22日票价为41美元','。8월 22일 요금은 41달러','。8월 21일 요금은 41달러'),
+            ('2026年8月21日至22日','2026년 8월 21일부터 22일까지','2026년 8월 21일부터 23일까지'),
+            ('2026年8月21日至22日','2026년 8월 21일~22일','2026년 8월 21일'),
+            ('2026年8月21日至22日','2026년 8월 21~22일','2026년 8월 21~23일'),
+            ('三层观看区','3층 관람 구역','2층 관람 구역'),
+            ('双人位','2인석','3인석'),
+            ('；单次到店','; 한 번 방문','; 두 번 방문'),
+            ('现场三维环境','현장 3차원 환경','현장 2차원 환경'),
+            ('两个球门后和两条蓝线处','두 골대 뒤와 두 블루라인 지점','세 골대 뒤와 두 블루라인 지점'),
+            ('复用同一套设备','동일한 장비를 재사용','동일한 장비 2세트를 재사용'),
+        ]:
+            with self.subTest(source=source,correct=correct):
+                validate(source,correct,'zh-CN','ko')
+                with self.assertRaisesRegex(ValueError,'数字或日期'):
+                    validate(source,incorrect,'zh-CN','ko')
+
+    def test_document_review_repairs_a_missing_clause_with_target_language_already_present(self):
+        source='关闭测试灯。保留紧急照明。'
+        incomplete='テスト照明を消してください。'
+        complete='テスト照明を消し、非常用照明は点灯させてください。'
+        class Model:
+            def __init__(self):
+                self.reviews=[]
+
+            def chat_json(self,prompt,system='',**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                if '待译原文' in payload:return {'translation':incomplete}
+                self.reviews.append(payload['译文'])
+                self.clauses=payload['需逐句核对的原文']
+                if payload['译文']==complete:return {'ok':True,'issues':[]}
+                return {'ok':False,'issues':['未译出保留紧急照明。'],'corrected_translation':complete}
+        model=Model()
+        result=translate_piece(model,source,{},'zh-CN','ja-JP',threading.Event(),terminology=False)
+        self.assertEqual(result,complete)
+        self.assertEqual(model.clauses,['关闭测试灯。','保留紧急照明。'])
+        self.assertEqual(model.reviews,[incomplete,complete])
+
     def test_traditional_rejects_copied_simplified_text_but_keeps_shared_characters(self):
         source='控制器连接后启动显示屏。'
         with self.assertRaisesRegex(ValueError,'中文简化字'):
@@ -119,8 +158,110 @@ class CoverageTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate(source,'2021년 제15차 5개년 계획','zh-CN','ko')
         validate('中影完成制版','중국영화(中影)가 마스터링을 완료했다','zh-CN','ko')
-        with self.assertRaisesRegex(ValueError,'未译汉字'):
-            validate('中影完成制版','中影가 마스터링을 완료했다','zh-CN','ko')
+        with self.assertRaisesRegex(ValueError,'未译汉字（场馆）'):
+            validate('中影的新场馆开放','중국영화(中影)의 새 场馆이 문을 열었다','zh-CN','ko')
+        for before,after in [
+            ('투과음 구조를 설명한다','투과음(透声) 구조를 설명한다'),
+            ('투과음 구조를 설명한다','透声 구조를 설명한다'),
+            ('로프(洛普)의 자료','로프(洛普)의 장비(设备) 자료'),
+        ]:
+            with self.subTest(after=after),self.assertRaisesRegex(ValueError,'未译汉字'):
+                validate(before,after,'ko','ko')
+        validate('로프(洛普)의 자료','로프(洛普)의 공개 자료','ko','ko')
+
+    def test_cross_language_validation_rejects_short_remaining_words(self):
+        for source,target,src,dst in (
+            ('照明を消す。','조명을 끄세요. テスト','ja-JP','ko'),
+            ('비상 조명을 확인하세요.','非常灯を点検してください。 비상','ko','ja-JP'),
+            ('照明を消す。','關閉照明。 テスト','ja-JP','zh-Hant-TW'),
+        ):
+            with self.subTest(target=dst),self.assertRaisesRegex(ValueError,'其他语种文字（(?:テスト|비상)）'):
+                validate(source,target,src,dst)
+
+    def test_japanese_date_ranges_keep_both_endpoints_in_other_languages(self):
+        source='2026年8月21日から22日まで'
+        for dst,target,wrong in (
+            ('ko','2026년 8월 21일부터 22일까지','2026년 8월 21일부터 23일까지'),
+            ('zh-Hant-TW','2026年8月21日至22日','2026年8月21日'),
+            ('en-US','August 21 to 22, 2026','August 21 to 23, 2026'),
+        ):
+            with self.subTest(target=dst):
+                validate(source,target,'ja-JP',dst)
+                with self.assertRaisesRegex(ValueError,'数字或日期'):
+                    validate(source,wrong,'ja-JP',dst)
+        validate('8月21日から22日まで','8월 21일부터 22일까지','ja-JP','ko')
+
+    def test_technical_counts_and_calendar_eras_allow_equivalent_language(self):
+        cases=(
+            ('ja-JP','en-US','二次利用の条件','Conditions for reuse','Conditions for 2 reuse cases'),
+            ('ja-JP','en-US','全4編の資料','The four volumes','The five volumes'),
+            ('ja-JP','en-US','3種類を選択する','Choose three formats.','Choose two formats.'),
+            ('ja-JP','en-US','一つ以上のデータを公開する','Publish at least one dataset.','Publish at least two datasets.'),
+            ('ja-JP','en-US','1つでも公開してください。','Please publish even one.','Please publish even two.'),
+            ('ja-JP','en-US','令和3年6月15日改定','Revised on June 15, 2021','Revised on June 15, 2022'),
+            ('zh-Hant-TW','en-US','民國96年5月18日發行','Issued on May 18, 2007','Issued on May 18, 2008'),
+            ('zh-Hant-TW','en-US','行政院96年5月18日發行','Issued by the Executive Yuan on May 18, 2007','Issued by the Executive Yuan on May 18, 2008'),
+            ('zh-Hant-TW','en-US','行政院96年5月18日發行','Issued on May 18, 2007 (ROC year 96)','Issued on May 18, 2007 (ROC year 97)'),
+            ('zh-Hant-TW','en-US','98年政府機關演練評審辦法規定','The 2009 government agency exercise review rules state','The 1998 government agency exercise review rules state'),
+            ('ja-JP','en-US','平成29年5月30日改定','Revised on May 30, Heisei 29 [2017]','Revised on May 30, Heisei 29 [2018]'),
+            ('zh-Hant-TW','en-US','電子郵件跟蹤(一、二)','Email tracking (1 and 2)','Email tracking (1 and 3)'),
+            ('en-US','ja-JP','Two transmissions overlap by one bit.','2回の送信が1ビット重なる。','3回の送信が1ビット重なる。'),
+            ('en-US','ja-JP','1 transition per bit, but twice as much bandwidth','1ビットあたり1回遷移するが、帯域幅は2倍必要。','1ビットあたり1回遷移するが、帯域幅は3倍必要。'),
+            ('en-US','zh-Hant-TW','1 transition per bit, but twice as much bandwidth','每 bit 1 次轉換，但頻寬加倍','每 bit 1 次轉換，但頻寬為三倍'),
+            ('en-US','zh-Hant-TW','Transmit over one pair of wires.','用一對導線傳送。','用兩對導線傳送。'),
+            ('en-US','ko','1 transition per bit','비트당 전이 1회','2 비트당 전이 1회'),
+            ('en-US','ja-JP','A single frame lasts one slot.','1フレームは1スロット続く。','1フレームは2スロット続く。'),
+            ('en-US','ja-JP','Transmit over one pair of wires.','1対の導線で送信する。','2対の導線で送信する。'),
+            ('en-US','ja-JP','10 years after the 1st specification','最初の仕様から10年後','最初の仕様から11年後'),
+            ('en-US','ko','A long run of ones or zeros makes clock recovery difficult.','1이나 0이 길게 이어지면 클록 복구가 어렵다.','1이나 2가 길게 이어지면 클록 복구가 어렵다.'),
+        )
+        for src,dst,source,target,wrong in cases:
+            with self.subTest(source=source):
+                validate(source,target,src,dst)
+                with self.assertRaisesRegex(ValueError,'数字或日期'):
+                    validate(source,wrong,src,dst)
+
+    def test_indefinite_articles_and_commands_in_mixed_language_documents(self):
+        from backend.multilingual_documents import content_validate
+        from backend.text_integrity import command_literal
+
+        validate('A method that guarantees transitions','一種能保證轉換的方法','en-US','zh-Hant-TW')
+        validate('A signal from one transmitter reaches another.','來自一個發射器的訊號抵達另一個發射器。','en-US','zh-Hant-TW')
+        validate('一個使用者開啟一個登入頁面','A user opens a login page','zh-Hant-TW','en-US')
+        with self.assertRaisesRegex(ValueError,'数字或日期'):
+            validate('一個使用者開啟兩個登入頁面','A user opens a login page','zh-Hant-TW','en-US')
+        for command in ('# traceroute -i eth0','site:example.org password inurl:help'):
+            self.assertTrue(command_literal(command))
+            content_validate(command,command,'zh-Hant-TW','en-US')
+            with self.assertRaisesRegex(ValueError,'必须原样保留'):
+                content_validate(command,command+' extra','zh-Hant-TW','en-US')
+        self.assertFalse(command_literal('翻譯說明請參考 site:example.org'))
+
+    def test_translation_preserves_uri_and_allows_localized_brackets(self):
+        address='https://example.com/model(A)?v=2'
+        source=f'資料の出典（{address}）'
+        validate(source,f'Source ({address})','ja-JP','en-US')
+        with self.assertRaisesRegex(ValueError,'改变了网址'):
+            validate(source,f'Source ({address.replace("v=2","v=3")})','ja-JP','en-US')
+
+    def test_bibliographic_product_name_requires_its_own_review_proof(self):
+        source='[8] EXAMPLE TECHNOLOGY. CX Engine[EB/OL]. [2026-08-24].'
+        for dst in ('ko','ja-JP','zh-Hant-TW','zh-CN'):
+            with self.subTest(target=dst):
+                quality=LanguageReview('en-US',dst)
+                self.assertTrue(quality.review_identical_formula(source,source))
+                self.assertIsNone(quality.proof(source,source))
+                with self.assertRaises(ValueError):
+                    validate(source,source,'en-US',dst)
+                quality.validate_review(source,source,{'ok':True,'unchanged_source_spans':[
+                    {'text':source,'target_language':dst,'valid':True,'reason':'Official product name CX Engine.'}
+                ]})
+                self.assertIsNotNone(quality.proof(source,source))
+                validate(source,source,'en-US',dst,allow_identical=True)
+                prose='[23] EXAMPLE HELP CENTER. What ticket options are available?[EB/OL]. [2026-08-24].'
+                self.assertFalse(quality.review_identical_formula(prose,prose))
+                with self.assertRaises(ValueError):
+                    validate(prose,prose,'en-US',dst,allow_identical=True)
 
     def test_exact_scaled_quantities_grouping_counters_and_dimensions(self):
         validate('21.4万块，市场体量庞大','21만 4천 개, 시장 규모가 방대하다','zh-CN','ko')

@@ -129,10 +129,13 @@ class FormatTests(unittest.TestCase):
             self.assertEqual(LLMClient().connection_status()['state'],'connected')
             job={'id':'format-'+protocol,'status':'running','cancel':threading.Event()}
             with patch('backend.workflow.store.load_glossary',return_value=Glossary([])):
-                workflow.run(job,{'kind':'translate_review','paths':[str(source)]})
-            self.assertEqual(job['status'],'complete',job.get('error'));self.assertEqual(job['result']['report']['stats']['model_status'],'complete')
-            self.assertTrue(job['result']['report']['findings']);self.assertTrue(all(not f['applied'] for f in job['result']['report']['findings']))
-            self.assertEqual(Document(job['result']['outputs'][0]['path']).paragraphs[0].text,'The dot spacing is 2.5 mm.')
+                workflow.run(job,{'kind':'translate_review','paths':[str(source)],'combined_output':'final'})
+            self.assertEqual(job['status'],'complete',job.get('error'))
+            self.assertEqual(job['result']['stats']['model_status'],'complete')
+            output=job['result']['outputs'][0]
+            self.assertTrue(output['auto_exported'])
+            self.assertEqual(output['corrected'],1)
+            self.assertEqual(Document(output['path']).paragraphs[0].text,'The pixel pitch is 2.5 mm.')
         self.assertEqual(source.read_bytes(),original)
         self.assertEqual([route for route,_,_ in calls],['/v1/models','/v1/chat/completions','/v1/chat/completions','/v1/models','/v1/messages','/v1/messages'])
         for route,headers,body in calls:

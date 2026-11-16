@@ -67,9 +67,10 @@ def _calendar_numeric_tokens(text, *, bare_months=False):
     def add(match, year, month, day=None):
         add_dates(match,[(year,month,day)])
     # Shared month/year ranges represent two dates, not a date plus a quantity.
-    for m in re.finditer(r'(?<!\d)([1-9]\d{3})\s*年\s*(\d{1,2})\s*月\s*(?:至|到|[-–—~])\s*(\d{1,2})\s*月',text):
+    east_asian_range=r'(?:至|到|から|[-–—~〜])'
+    for m in re.finditer(r'(?<!\d)([1-9]\d{3})\s*年\s*(\d{1,2})\s*月\s*'+east_asian_range+r'\s*(\d{1,2})\s*月',text):
         add_dates(m,[(m[1],m[2],None),(m[1],m[3],None)])
-    for m in re.finditer(r'(?<!\d)([1-9]\d{3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]?\s*(?:至|到|[-–—~])\s*(\d{1,2})\s*[日号]',text):
+    for m in re.finditer(r'(?<!\d)([1-9]\d{3})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]?\s*'+east_asian_range+r'\s*(\d{1,2})\s*[日号]',text):
         add_dates(m,[(m[1],m[2],m[3]),(m[1],m[2],m[4])])
     for m in re.finditer(r'(?<![A-Za-z0-9_.])([1-9]\d{3})\s*年\s*(\d{1,2})\s*月(?:\s*(\d{1,2})\s*[日号])?',text):
         add(m,*m.groups())
@@ -81,7 +82,7 @@ def _calendar_numeric_tokens(text, *, bare_months=False):
     # Longer forms first, so a day is never silently reduced to month precision.
     for m in re.finditer(r'\b'+month+r'\s*(?:[-–—]|to|through|and)\s*'+month+r'\s*,?\s*([1-9]\d{3})\b',text,re.I):
         add_dates(m,[(m[3],names[m[1].casefold()],None),(m[3],names[m[2].casefold()],None)])
-    for m in re.finditer(r'\b'+month+r'\s+(\d{1,2})(?:st|nd|rd|th)?\s*[-–—]\s*(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*([1-9]\d{3})\b',text,re.I):
+    for m in re.finditer(r'\b'+month+r'\s+(\d{1,2})(?:st|nd|rd|th)?\s*(?:[-–—]|to|through)\s*(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*([1-9]\d{3})\b',text,re.I):
         add_dates(m,[(m[4],names[m[1].casefold()],m[2]),(m[4],names[m[1].casefold()],m[3])])
     for m in re.finditer(r'\b(\d{1,2})(?:st|nd|rd|th)?\s*[-–—]\s*(\d{1,2})(?:st|nd|rd|th)?\s+'+month+r'\s*,?\s*([1-9]\d{3})\b',text,re.I):
         add_dates(m,[(m[4],names[m[3].casefold()],m[1]),(m[4],names[m[3].casefold()],m[2])])
@@ -89,7 +90,11 @@ def _calendar_numeric_tokens(text, *, bare_months=False):
         add(m,m[3],names[m[2].casefold()],m[1])
     for m in re.finditer(r'\b'+month+r'[\s,]+(?:(\d{1,2})(?:st|nd|rd|th)?\s*,?\s*)?([1-9]\d{3})\b',text,re.I):
         add(m,m[3],names[m[1].casefold()],m[2])
+    for m in re.finditer(r'\b([1-9]\d{3})\s+'+month+r'\s+(\d{1,2})(?:st|nd|rd|th)?\b',text,re.I):
+        add(m,m[1],names[m[2].casefold()],m[3])
     # No year in the source means no invented year in the translation.
+    for m in re.finditer(r'(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]?\s*'+east_asian_range+r'\s*(\d{1,2})\s*[日号]',text):
+        add_dates(m,[(None,m[1],m[2]),(None,m[1],m[3])])
     for m in re.finditer(r'(?<!\d)(\d{1,2})\s*月\s*(\d{1,2})\s*[日号]',text):
         add(m,None,*m.groups())
     for m in re.finditer(r'\b'+month+r'\s+(\d{1,2})(?:st|nd|rd|th)?\b',text,re.I):
