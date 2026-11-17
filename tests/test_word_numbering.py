@@ -55,6 +55,23 @@ class WordNumberingTests(unittest.TestCase):
             result=translate_file(source,Glossary([]),None,client=Model(),workers=1)
             self.assertTrue(result['translation_complete']);self.assertEqual(saved_residuals(result['path']),[])
 
+    def test_korean_word_pipeline_converts_word_generated_chinese_numbering(self):
+        import test_document_languages as fixtures
+        from backend.multilingual_documents import translate_file
+        from backend.glossary.store import Glossary
+        with tempfile.TemporaryDirectory() as tmp,patch.dict(os.environ,{'NOVATERM_DATA_DIR':tmp}):
+            source=Path(tmp)/'source.docx'
+            document,paragraph=self.fixture()
+            paragraph.runs[0].text='检查观看区。'
+            document.save(source)
+            result=translate_file(source,Glossary([]),None,client=fixtures.Model('관람 구역을 확인하세요.'),
+                workers=1,direction='zh-CN>ko')
+            self.assertTrue(result['translation_complete'])
+            _,levels=used_levels(Document(result['path']))
+            self.assertEqual(levels[0].find(qn('w:numFmt')).get(qn('w:val')),'decimal')
+            self.assertEqual(levels[0].find(qn('w:start')).get(qn('w:val')),'3')
+            self.assertEqual(levels[0].find(qn('w:lvlText')).get(qn('w:val')),'%1. ')
+
     def test_inherited_numbering_and_unused_styles_are_not_confused(self):
         doc,p=self.fixture();style=doc.styles.add_style('Numbered meeting',1)
         props=p._p.get_or_add_pPr();number=props.find(qn('w:numPr'));props.remove(number)

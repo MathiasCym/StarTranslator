@@ -44,18 +44,17 @@ def snapshot(job):
 
 
 def output_needs_processing(output):
-    return bool(output.get('untranslated') or output.get('review_error') or
+    return bool(output.get('draft_pending') or output.get('untranslated') or output.get('review_error') or
         any(item.get('retryable') or item.get('kind') in ('untranslated', 'chinese', 'structure', 'text')
             for item in (output.get('output_audit') or {}).get('issues', [])) or
         any(item.get('service_unavailable') for item in output.get('review_items', [])))
 
 
-def publish_translation_copy(output, directory, cancel):
+def publish_translation_copy(output, directory, cancel, *, incomplete=False):
     draft = Path(output['path'])
+    suffix=document_languages.SUFFIXES[document_languages.pair(output.get('direction','zh-en'))[1]]
     with OUTPUT_LOCK:
-        destination = output_path(output['source'], directory,
-            document_languages.SUFFIXES[document_languages.pair(output.get('direction','zh-en'))[1]],
-            extension=draft.suffix)
+        destination = output_path(output['source'], directory, suffix+('_Draft' if incomplete else ''), extension=draft.suffix)
         fd, temporary = tempfile.mkstemp(prefix='.star-delivery-', suffix=draft.suffix, dir=destination.parent)
         os.close(fd)
         try:
@@ -295,9 +294,16 @@ def _run(job,data):
                         if review_complete and not job['cancel'].is_set():
                             job['result']['completed_paths'].append(path)
                     else:
-                        verify_translation_delivery(result['path'],data.get('direction','zh-en'),
-                            untranslated=result.get('untranslated',0),audit=result.get('output_audit'),source=path)
-                        result.update(path=publish_translation_copy(result,result['target_dir'],job['cancel']),staged=False)
+                        direction=data.get('direction','zh-en')
+                        try:
+                            verify_translation_delivery(result['path'],direction,
+                                untranslated=result.get('untranslated',0),audit=result.get('output_audit'),source=path)
+                        except IncompleteTranslation:
+                            if not result.get('translated'):raise
+                            verify_translation_delivery(result['path'],direction,source=path,allow_incomplete=True)
+                            result.update(draft=True,draft_pending=True,translation_complete=False,status='needs_review')
+                        result.update(path=publish_translation_copy(result,result['target_dir'],job['cancel'],
+                            incomplete=result.get('draft_pending',False)),staged=False)
                         if result.get('comparison_id'):
                             from . import comparison
                             try: comparison.update(result['comparison_id'],result['path'])
@@ -403,7 +409,7 @@ def _run(job,data):
                 job['result'].pop('report',None);job.pop('partial_findings',None)
                 if outcome=='complete':
                     job['message']='高精度翻译完成，最终文件已保存'
-                elif outcome=='partial' and any(o.get('auto_exported') for o in job['result']['outputs']):
+                elif outcome=='partial' and any(o.get('auto_exported') or o.get('draft_pending') for o in job['result']['outputs']):
                     job['message']='可用译文已保存，仍有内容待处理'
             else:publish_combined_report(job, reviews, outcome)
         from .document_translation_core import interruption_summary
@@ -677,7 +683,8 @@ def automatic_export(job,review,data,progress):
                   use_llm=True,_quality_client=data.get('_client'),_cancel=job['cancel'])
     option=report.get('output_options',{}).get(path)
     if option is not None:
-        option.update(verify_delivery=True,origin_fingerprint=output.get('source_fingerprint'))
+        option.update(verify_delivery=True,origin_fingerprint=output.get('source_fingerprint'),
+                      can_save_draft=bool(output.get('translated')))
     edits=[]
     report['skipped_edits']=[]
     for index,finding in enumerate(report['findings']):
@@ -694,7 +701,8 @@ def automatic_export(job,review,data,progress):
         saved=apply_report({'report_id':job['id'],'path':path,'edits':edits,'save_unchanged':True},client=data.get('_client'),internal_report=report,
             progress=lambda phase,n=0,t=0,message='':progress(n,t,f'正在完成：{Path(output["source"]).name}',phase,detail=message))
         initial_copy=None
-        if output.get('output_mode')=='both':
+        pending_draft=saved.get('draft_pending',False)
+        if output.get('output_mode')=='both' and not pending_draft:
             try:
                 verify_translation_delivery(path,output.get('direction','zh-en'),
                     untranslated=output.get('untranslated',0),audit=output.get('output_audit'),source=output.get('source'))
@@ -706,7 +714,8 @@ def automatic_export(job,review,data,progress):
                 output.setdefault('warnings',[]).append({'reason':'已保存最终文件，未能另存初稿。','text':''})
         output.update(path=saved['output'],comparison_id=saved.get('comparison_id') or output.get('comparison_id'),
             translation_path=initial_copy,
-            corrected=saved['applied_count'],auto_exported=True,review_exported=True,staged=False,draft=False,
+            corrected=saved['applied_count'],auto_exported=not pending_draft,review_exported=True,staged=False,
+            draft=pending_draft,draft_pending=pending_draft,
             format_review_deferred=False,layout_warnings=saved.get('layout_warnings',[]),
             layout_adjustments=[*output.get('layout_adjustments',[]),*saved.get('layout_adjustments',[])],
             layout_checked=saved.get('layout_checked',False),unapplied_changes=saved.get('failed',[]))
@@ -726,7 +735,7 @@ def automatic_export(job,review,data,progress):
                 output['review_status']='complete'
         if saved.get('output_audit') is not None:output['output_audit']=saved['output_audit']
         output['untranslated']=saved['untranslated']
-        output['translation_complete']=not saved['untranslated'] and not any(
+        output['translation_complete']=not pending_draft and not saved['untranslated'] and not any(
             item.get('image') or item.get('service_unavailable') for item in output.get('review_items',[]))
         if saved.get('format_review'):
             output['format_review']=saved['format_review']
@@ -738,7 +747,7 @@ def automatic_export(job,review,data,progress):
             'source_text':f.found_text,'translation':f.context} for f in remaining)
         output['needs_review']=len(output['review_items'])+saved.get('needs_review',0)+(1 if review['stats']['model_status']!='complete' else 0)
         output['consistency_hits']=0
-        output['status']='needs_review' if output['needs_review'] or saved['failed'] else 'complete'
+        output['status']='needs_review' if pending_draft or output['needs_review'] or saved['failed'] else 'complete'
         if saved['failed']:
             output['warnings'].append({'reason':f'{len(saved["failed"])} 项修改未通过安全检查，已保留原文和可用文件。','text':''})
     except (Cancelled, IncompleteTranslation):raise
@@ -839,6 +848,7 @@ def _apply_report(data, report, progress=None, client=None):
         return finding.terminology_standard or finding.method=='rule' and finding.kind=='term'
     final_residuals=[]
     output_audit=None
+    pending_draft=False
     origin=option.get('source') or path
     pdf_source=origin if Path(origin).suffix.lower()=='.pdf' and not reverse else None
     validate_phase='preflight_output' if automatic and pdf_source else 'validate'
@@ -1031,8 +1041,17 @@ def _apply_report(data, report, progress=None, client=None):
                 output_audit=audit(temporary,pdf_expected,source=pdf_source,client=pdf_client,
                     progress=lambda message,n,t:notify(audit_phase,n,t,message))
             if option.get('verify_delivery'):
-                verify_translation_delivery(temporary,direction,untranslated=sum(item['editable'] or item['source'] in ('numbering','package_text')
-                    for item in final_residuals),audit=output_audit,source=origin)
+                try:
+                    verify_translation_delivery(temporary,direction,untranslated=sum(
+                        item['editable'] or item['source'] in ('numbering','package_text') for item in final_residuals),
+                        audit=output_audit,source=origin)
+                except IncompleteTranslation:
+                    if not option.get('can_save_draft') and not reverse_repaired:raise
+                    verify_translation_delivery(temporary,direction,source=origin,allow_incomplete=True)
+                    pending_draft=True
+                    out=output_path(origin,option.get('target_dir'),document_languages.SUFFIXES[target_language]+'_Draft',
+                        extension=Path(temporary).suffix)
+                    existing_hash=None
             def guard_output():
                 if option.get('origin_fingerprint') and store.fingerprint(origin)!=option['origin_fingerprint']:
                     raise ValueError('原稿在处理期间发生变化，请重新开始。')
@@ -1046,7 +1065,10 @@ def _apply_report(data, report, progress=None, client=None):
                     raise ValueError('输出位置已有新文件，请重试。')
             from .atomic_file import replace_checked
             notify('publish',message='正在保存已校验的文件')
-            replace_checked(temporary,out,guard_output)
+            if pending_draft:
+                publish_new_file(temporary,out,guard_output)
+            else:
+                replace_checked(temporary,out,guard_output)
         finally:
             if os.path.exists(temporary): os.unlink(temporary)
         output = str(out)
@@ -1153,6 +1175,6 @@ def _apply_report(data, report, progress=None, client=None):
     pending_images=sum(f.file_path==path and f.source=='image' and not f.applied for f in report['findings'])
     if pending_images:
         content_warnings.append(f'原 PDF 仍有图片文字或读取问题未解决，请查看{detail}中的图片位置。有效文件已保存。')
-    return {'output':output,'report_path':path,'comparison_id':option.get('comparison_id'),'applied_count':len(done),'failed':failed,'overwritten':overwrite,'finding_updates':updates,'content_warnings':content_warnings,
+    return {'output':output,'report_path':path,'comparison_id':option.get('comparison_id'),'applied_count':len(done),'failed':failed,'overwritten':overwrite,'finding_updates':updates,'content_warnings':content_warnings,'draft_pending':pending_draft,
             'remaining_chinese':final_residuals,'untranslated':pending_count if reverse else len(final_residuals),'output_audit':output_audit,
             'format_review':visual_audit,'layout_warnings':layout_warnings,'layout_adjustments':layout_adjustments,'layout_checked':is_pptx and not layout_warnings,'needs_review':len(layout_warnings)+len(final_residuals)+pending_images+len((output_audit or {}).get('issues',[]))}

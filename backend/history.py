@@ -66,7 +66,7 @@ def finish(job, data):
                            'needs_review': sum(item.get('needs_review', 0) for item in outputs),
                            'replaced': sum(item.get('corrected', 0) for item in outputs) + sum(item.get('replaced', 0) for item in row.get('exports', []))})
         if 'can_resume' in job: row['can_resume'] = job['can_resume']
-        saved = [{key:item[key] for key in ('path','source','comparison_id','auto_exported','draft','needs_review') if key in item}
+        saved = [{key:item[key] for key in ('path','source','comparison_id','auto_exported','draft','draft_pending','needs_review') if key in item}
                  for item in outputs if not item.get('staged')]
         if result.get('automatic_combined'):
             saved.extend({'path':item['translation_path'],'source':item['source'],'draft':True}
@@ -107,7 +107,9 @@ def unique_outputs(outputs):
     import ntpath
     by_path = {}
     for item in outputs:
-        if item.get('path'): by_path[ntpath.normcase(ntpath.normpath(item['path']))] = item
+        if item.get('path'):
+            key=ntpath.normcase(ntpath.normpath(item['path']))
+            by_path[key]={**by_path.get(key,{}),**item}
     return list(by_path.values())
 
 

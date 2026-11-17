@@ -128,7 +128,7 @@ class DocumentLanguageTests(unittest.TestCase):
   self.assertEqual(job['status'],'partial',job)
   self.assertEqual(job['result']['outputs'],[]);self.assertTrue(job['result']['delivery_deferred'])
   self.assertFalse(list((self.root/'output').glob('*.docx')))
-  self.assertTrue(job['can_resume']);self.assertEqual(model.translations,10)
+  self.assertTrue(job['can_resume']);self.assertEqual(model.translations,14)
   self.assertNotIn('report',job['result'])
 
  def test_new_language_resume_is_explicit_and_restores_original_language(self):

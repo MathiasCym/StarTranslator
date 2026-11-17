@@ -570,6 +570,7 @@ function showTranslation(result, cancelled) {
   $('workspace').hidden = true; $('reviewCompletePanel').hidden = true; $('reportModal').hidden = true; $('translationPanel').hidden = false
   const pending = result.outputs.some(r => r.needs_review)
   const combined = result.outputs.some(r => r.auto_reviewed)
+  const savedPendingDraft = result.outputs.some(r => r.draft_pending)
   const resumable = state.job?.can_resume === true
   const untranslated = result.outputs.reduce((n, output) => n + (output.untranslated || 0), 0)
   $('translationFace').src = cancelled || !result.outputs.length ? 'assets/sad.png' : 'assets/happy.png'
@@ -586,13 +587,17 @@ function showTranslation(result, cancelled) {
     $('translationTitle').textContent = result.outputs.length ? '部分文件已保存' : '任务进度已保存'
     $('translationNotice').textContent = '尚未生成可交付文件的文档可以继续处理。'
   }
-  $('translationFiles').innerHTML = result.outputs.map((r, i) => `<li><div class="file-copy"><div>${esc(basename(r.path))}${r.draft || r.staged ? ' · 初稿' : ''}</div><div class="fpath">翻译 ${r.translated} 段${r.untranslated ? `；${r.untranslated} 处${StarDocumentLanguages.names[StarDocumentLanguages.pair(r.direction)[0]]}未完成翻译` : ''}<br>${esc(r.path)}</div>${r.review_items?.length ? `<details${r.untranslated ? ' open' : ''}><summary>查看待核对内容（${r.review_items.length} 处）</summary>${r.review_items.map(w => `<p class="hint">${w.slide ? '第 ' + w.slide + ' 页 · ' : ''}${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}</details>` : ''}${r.warnings.length ? `<details><summary>查看处理提示</summary>${r.warnings.map(w => `<p class="hint">${w.slide ? '第' + w.slide + '页：' : ''}${esc(w.reason)} ${esc(w.text)}</p>`).join('')}</details>` : ''}${r.consistency_hits ? `<p class="hint">发现 ${r.consistency_hits} 项全文用语统一建议，继续校对可在报告中确认。</p>` : ''}${layoutWarningMarkup(r.layout_warnings)}</div><div class="row-actions">${r.comparison_id ? `<button class="btn ghost sm comparison-button" data-comparison="${r.comparison_id}">${PageComparison.buttonContent}</button>` : ''}<button class="btn ghost sm" data-open="${i}">打开译文</button><button class="btn ghost sm" data-folder="${i}">所在位置</button></div></li>`).join('')
+  if (savedPendingDraft && !cancelled) {
+    $('translationTitle').textContent = '已保存待补译稿'
+    $('translationNotice').textContent = untranslated ? `还有 ${untranslated} 处待补译。可打开当前译稿或继续补译。` : '可打开当前译稿或继续补译。'
+  }
+  $('translationFiles').innerHTML = result.outputs.map((r, i) => `<li><div class="file-copy"><div>${esc(basename(r.path))}${r.draft_pending ? ' · 待补译稿' : r.draft || r.staged ? ' · 初稿' : ''}</div><div class="fpath">翻译 ${r.translated} 段${r.untranslated ? `；${r.untranslated} 处${StarDocumentLanguages.names[StarDocumentLanguages.pair(r.direction)[0]]}未完成翻译` : ''}<br>${esc(r.path)}</div>${r.review_items?.length ? `<details${r.untranslated ? ' open' : ''}><summary>查看待核对内容（${r.review_items.length} 处）</summary>${r.review_items.map(w => `<p class="hint">${w.slide ? '第 ' + w.slide + ' 页 · ' : ''}${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}</details>` : ''}${r.warnings.length ? `<details><summary>查看处理提示</summary>${r.warnings.map(w => `<p class="hint">${w.slide ? '第' + w.slide + '页：' : ''}${esc(w.reason)} ${esc(w.text)}</p>`).join('')}</details>` : ''}${r.consistency_hits ? `<p class="hint">发现 ${r.consistency_hits} 项全文用语统一建议，继续校对可在报告中确认。</p>` : ''}${layoutWarningMarkup(r.layout_warnings)}</div><div class="row-actions">${r.comparison_id ? `<button class="btn ghost sm comparison-button" data-comparison="${r.comparison_id}">${PageComparison.buttonContent}</button>` : ''}<button class="btn ghost sm" data-open="${i}">打开译文</button><button class="btn ghost sm" data-folder="${i}">所在位置</button></div></li>`).join('')
   $('translationFiles').querySelectorAll('[data-open]').forEach(b => { b.onclick = () => openResult('openFile', result.outputs[Number(b.dataset.open)].path) })
   $('translationFiles').querySelectorAll('[data-folder]').forEach(b => { b.onclick = () => openResult('openFolder', result.outputs[Number(b.dataset.folder)].path) })
   $('translationErrors').textContent = result.errors.map(e => `${e.path ? basename(e.path) + '：' : ''}${e.error || '未提供错误说明'}`).join('\n')
   $('translationExportLog').hidden = !result.errors.length
   $('translationResume').hidden = !resumable
-  $('translationResume').textContent = result.delivery_deferred ? '继续任务' : !cancelled && result.automatic_combined && result.outputs.length && result.outputs.every(o=>o.auto_exported) ?
+  $('translationResume').textContent = savedPendingDraft ? '继续补译' : result.delivery_deferred ? '继续任务' : !cancelled && result.automatic_combined && result.outputs.length && result.outputs.every(o=>o.auto_exported) ?
     (untranslated ? '继续补译' : '继续检查') : '从断点继续'
   $('translationErrors').hidden = !result.errors.length
   $('reviewTranslation').disabled = !result.outputs.length

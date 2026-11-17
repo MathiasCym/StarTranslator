@@ -305,6 +305,13 @@ def indefinite_classifiers(text):
     return re.findall(r'(?<![\d第每只僅仅])1\s*[个個種种項项](?!\s*(?:位元|比特|以上|以下|以內|以内))',text)
 
 
+def negative_numbers(text):
+    # The spaced hyphen in “15 - 30 pF” separates range endpoints.
+    # A minus after an opening bracket, operator, or comma still has sign.
+    text=re.sub(r'(?<=\d)[ \t]+-(?=[ \t]+\d)',' –',text)
+    return Counter(-Decimal(match) for match in re.findall(r'(?<![A-Za-z0-9_.])[-−]\s*(\d+(?:\.\d+)?)',text))
+
+
 def validate(source, target, src, dst, *, allow_identical=False):
     if not isinstance(target,str) or not target.strip():raise ValueError('模型未返回有效译文。')
     validate_identifiers(source,target)
@@ -393,8 +400,7 @@ def validate(source, target, src, dst, *, allow_identical=False):
             extra=', '.join(map(str,(target_numbers-source_numbers).elements()))
             raise ValueError(f'译文改变、增加或遗漏了原文数字或日期（缺少：{missing or "无"}；额外：{extra or "无"}）。')
         a,b=article_a,article_b
-    negative=lambda text:Counter(Decimal(re.sub(r'\s','',value).replace('−','-')) for value in re.findall(r'(?<![\w.])[-−]\s*\d+(?:\.\d+)?',text))
-    if negative(a)!=negative(b):raise ValueError('译文改变了数值正负号。')
+    if negative_numbers(a)!=negative_numbers(b):raise ValueError('译文改变了数值正负号。')
     aliases={
         'nit':r'nits?|尼特|니트|ニト|ニット',
         'fps':r'frames?\s*/\s*s|帧/秒|幀/秒',
@@ -421,7 +427,7 @@ def validate(source, target, src, dst, *, allow_identical=False):
             if not isinstance(value,Decimal) or start and re.match(r'[a-z0-9_.]',text[start-1]):continue
             unit_name=None;unit_end=end
             for unit,variants in aliases.items():
-                counter=r'(?:[个個]\s*)?' if unit in ('pixel','bit') else ''
+                counter=r'(?:(?:[个個](?:の)?|개(?:의)?)\s*)?' if unit in ('pixel','bit') else ''
                 match=re.match(r'[-\s]*'+counter+r'(?:'+unit+'|'+variants+r')(?![a-z])',text[end:])
                 if match:unit_name=unit;unit_end=end+match.end();break
             quantities.append([value,start,end,unit_name,unit_end])

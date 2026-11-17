@@ -237,6 +237,22 @@ class CoverageTests(unittest.TestCase):
                 content_validate(command,command+' extra','zh-Hant-TW','en-US')
         self.assertFalse(command_literal('翻譯說明請參考 site:example.org'))
 
+    def test_numeric_ranges_and_pixel_classifiers_across_document_languages(self):
+        source='当比例超过30%时，电容可达15-30pF，扩散半径约为3-5个像素间距。'
+        cases=(
+            ('ko','비율이 30%를 넘으면 커패시턴스는 15 - 30 pF에 이르며, 확산 반경은 약 3~5개의 픽셀 피치입니다.'),
+            ('ja-JP','比率が30%を超えると、静電容量は15 - 30 pFに達し、拡散半径は約3～5個のピクセルピッチになる。'),
+            ('zh-Hant-TW','當比例超過30%時，電容可達15 - 30 pF，擴散半徑約為3～5個畫素間距。'),
+            ('en-US','Above 30%, capacitance can reach 15 - 30 pF and the spread radius is about 3–5 pixel pitches.'),
+        )
+        for target_language,target in cases:
+            with self.subTest(language=target_language):
+                validate(source,target,'zh-CN',target_language)
+                with self.assertRaisesRegex(ValueError,'正负号'):
+                    validate(source,target.replace('15 - 30','−15 to 30'),'zh-CN',target_language)
+        with self.assertRaisesRegex(ValueError,'数值单位'):
+            validate(source,cases[0][1].replace('픽셀 피치','밀리미터'),'zh-CN','ko')
+
     def test_translation_preserves_uri_and_allows_localized_brackets(self):
         address='https://example.com/model(A)?v=2'
         source=f'資料の出典（{address}）'

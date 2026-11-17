@@ -105,6 +105,33 @@ def recover_paragraph(client, source, src, dst, cancel, *, context='', quality=N
             return target
         except (ValueError,LLMResponseInvalid,LLMTruncated) as error:
             previous=str(error)
+    # Isolate clauses after full-paragraph retries fail. Office style mapping
+    # still receives one verified paragraph and preserves its original runs.
+    readable=text.prose(source)
+    boundaries=r'(?<=[。！？!?；;])[ \t]*(?=\w)|(?<=[a-z]\.)[ \t]+(?=[A-Z가-힣])|[\r\n\v]+'
+    ranges=[(match.start(),match.end()) for match in re.finditer(boundaries,readable)]
+    if not ranges:
+        raise ValueError(previous)
+    ranges=ranges[::(len(ranges)+11)//12]
+    parts=[]
+    start=0
+    for end,next_start in [*ranges,(len(source),len(source))]:
+        piece=source[start:end]
+        if piece.strip() and any(char.isalpha() for char in text.prose(piece)):
+            target=text.translate_piece(client,piece,{},src,dst,cancel,context=source,quality=quality,
+                terminology=False,humanize=text.natural_expression(piece))
+            separator=source[end:next_start]
+            if not separator and next_start<len(source) and dst in ('en-US','ko'):
+                separator=' '
+            parts.append(target+separator)
+        else:
+            parts.append(piece+source[end:next_start])
+        start=next_start
+    target=''.join(parts)
+    content_validate(source,target,src,dst,allow_identical=quality.review_identical_formula(source,target))
+    issue=quality.existing_review_error(client,source,target,cancel,None)
+    if not issue:return target
+    previous=issue
     raise ValueError(previous)
 
 
@@ -375,7 +402,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
         notify('repair','正在自动补译尚未完成的内容',index,len(recoverable))
         reason='；'.join(dict.fromkeys(failed_by_location[m.locator]['reason'] for m in members if m.locator in failed_by_location))
         _,runs,style_warnings,error=compute(item,repair_error=reason,
-            targeted=Path(path).suffix.lower() in {'.doc','.docx'})
+            targeted=True)
         if error is not None:
             if (src,dst)!=('zh-CN','zh-Hant-TW') or mode!='faithful':continue
             from .multilingual_quality import faithful_traditional_conversion
@@ -410,6 +437,9 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
     if Path(path).suffix.lower()=='.pdf':
         from .multilingual_pdf_images import review_images
         image_review=review_images(document,path,client,glossary,segments,src,dst,cancel,notify)
+    if dst in ('en-US','ko') and hasattr(document,'_star_word_text_parts'):
+        from .extract.word_numbering import english_numbering
+        english_numbering(document)
     from .multilingual_typography import apply as apply_typography,font_for
     issues+=apply_typography(document,paragraphs,set(changed),dst)
     adjustments,layout=fit_document(document,changed,original) if is_ppt else ([],[])

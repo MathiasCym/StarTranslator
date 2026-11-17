@@ -12,8 +12,8 @@ class IncompleteTranslation(Exception):
     """The resumable work is retained internally, without publishing a file."""
 
 
-def verify_translation_delivery(path, direction, *, untranslated=0, audit=None, source=None):
-    """Only a reread, complete translation may leave the private staging area."""
+def verify_translation_delivery(path, direction, *, untranslated=0, audit=None, source=None, allow_incomplete=False):
+    """Reread the saved artifact. Only explicitly labelled drafts may contain untranslated text."""
     from . import document_languages
     from .text_integrity import CHINESE, prose, korean_han_fragments, foreign_script_fragments, command_literal
     from .text_languages import INLINE_CODE
@@ -24,7 +24,7 @@ def verify_translation_delivery(path, direction, *, untranslated=0, audit=None, 
     import unicodedata
 
     blocking = {'untranslated', 'chinese', 'text', 'image'}
-    if untranslated or any(issue.get('kind') in blocking for issue in (audit or {}).get('issues', [])):
+    if not allow_incomplete and (untranslated or any(issue.get('kind') in blocking for issue in (audit or {}).get('issues', []))):
         counts=Counter(issue['kind'] for issue in (audit or {}).get('issues',[]) if issue.get('kind') in blocking)
         raise IncompleteTranslation(f'unresolved={untranslated}, audit={dict(counts)}')
     source_language, target = document_languages.pair(direction)
@@ -39,7 +39,7 @@ def verify_translation_delivery(path, direction, *, untranslated=0, audit=None, 
         missing=set(originals)-locations
         if missing:
             raise IncompleteTranslation(f'{len(missing)} missing editable locations in saved output; first: {min(missing)}')
-    if direction == 'zh-en':
+    if direction == 'zh-en' and not allow_incomplete:
         from .translation_audit import saved_residuals
         if any(item['editable'] or item['source'] in ('numbering', 'package_text') for item in saved_residuals(path)):
             raise IncompleteTranslation('visible Chinese in saved English output')
@@ -50,6 +50,8 @@ def verify_translation_delivery(path, direction, *, untranslated=0, audit=None, 
         if command_literal(source_text):
             if segment.text.strip() != source_text.strip():
                 raise IncompleteTranslation(f'altered command in saved output at {segment.locator}')
+            continue
+        if allow_incomplete:
             continue
         visible = unicodedata.normalize('NFKC', INLINE_CODE.sub(' ', prose(segment.text)))
         original = unicodedata.normalize('NFKC', INLINE_CODE.sub(' ', prose(source_text)))

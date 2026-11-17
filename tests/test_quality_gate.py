@@ -476,7 +476,7 @@ class QualityGateTests(unittest.TestCase):
         self.assertGreater(job['result']['stats']['judged'],0)
         self.assertEqual(source.read_bytes(),original)
 
-    def test_one_unfixable_numeric_paragraph_retains_progress_without_publishing(self):
+    def test_one_unfixable_numeric_paragraph_saves_other_work_as_a_draft(self):
         source=self.root/'partial-source.docx';doc=Document()
         doc.add_paragraph('分辨率为3840×2160。');doc.add_paragraph('亮度500尼特。');doc.save(source)
         original=source.read_bytes()
@@ -496,10 +496,13 @@ class QualityGateTests(unittest.TestCase):
         self.assertEqual(stats['judged'],1);self.assertEqual(stats['unreviewed'],1)
         # One normal review plus two bounded review-stage recovery requests.
         self.assertGreaterEqual(client.reviews,3);self.assertLessEqual(client.translations,5)
-        self.assertEqual(job['result']['outputs'],[]);self.assertTrue(job['result']['delivery_deferred'])
-        self.assertFalse(list((self.root/'output').glob('*.docx')))
+        output,=job['result']['outputs']
+        self.assertTrue(output['draft_pending']);self.assertFalse(output['auto_exported'])
+        self.assertTrue(output['path'].endswith('_English_Draft.docx'))
+        self.assertEqual([p.text for p in Document(output['path']).paragraphs],
+                         ['分辨率为3840×2160。','Brightness 500 nits.'])
         self.assertNotIn('report',job['result']);self.assertEqual(source.read_bytes(),original)
-        self.assertFalse(history.record(job['id'])['outputs'])
+        self.assertTrue(history.record(job['id'])['outputs'][0]['draft_pending'])
 
     def test_total_model_outage_still_saves_a_marked_document(self):
         from backend.llm.client import LLMUnavailable

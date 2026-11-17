@@ -145,6 +145,73 @@ class SharedAdapterTests(unittest.TestCase):
             self.assertEqual(recover_paragraph(model,'检查观看区。','zh-CN','ko',threading.Event()),model.target)
             self.assertEqual(model.requests,[str(issue)])
 
+    def test_multilingual_recovery_retries_failed_long_paragraph_by_sentence(self):
+        from backend.multilingual_documents import recover_paragraph
+        first='请确认观看区域。'
+        second='刷新率为60 Hz。'
+        first_target='관람 구역을 확인하세요.'
+        second_target='주사율은 60 Hz입니다.'
+        class SplitModel(fixtures.Model):
+            def chat_json(self,prompt,system='',**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                if '待译原文' in payload:
+                    piece=payload['待译原文']
+                    self.requests.append(piece)
+                    return {'translation':{first:first_target,second:second_target}.get(piece,piece)}
+                return {'ok':True,'issues':[]}
+        model=SplitModel('')
+        source=first+second
+        translated=recover_paragraph(model,source,'zh-CN','ko',threading.Event())
+        self.assertEqual(translated,first_target+' '+second_target)
+        self.assertEqual(model.requests,[source,source,first,second])
+
+    def test_untranslated_slide_does_not_block_other_slides_from_export(self):
+        from backend.extract import extract
+        from pptx import Presentation
+        from pptx.util import Inches
+        class Partial(fixtures.Model):
+            def chat_json(self,prompt,system='',**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                if '待译原文' in payload and '亮度' in payload['待译原文']:
+                    return {'translation':'밝기는 400 nits입니다.'}
+                if payload.get('本段待校对文字')=='관람 구역을 확인하세요.':
+                    return {'reviewed':True,'suggestions':[{'original':'확인하세요',
+                        'replacement':'확인하십시오','reason':'同一文档使用一致的敬语。'}]}
+                return super().chat_json(prompt,system,**options)
+        class Complete(Partial):
+            def chat_json(self,prompt,system='',**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                if '亮度' in payload.get('待译原文',''):
+                    return {'translation':'밝기는 500 nits입니다.'}
+                return super().chat_json(prompt,system,**options)
+        path=self.root/'partial.pptx'
+        deck=Presentation()
+        for value in ('检查观看区。','亮度为500尼特。'):
+            slide=deck.slides.add_slide(deck.slide_layouts[6])
+            slide.shapes.add_textbox(Inches(1),Inches(1),Inches(7),Inches(1)).text=value
+        deck.save(path)
+        before=path.read_bytes()
+        target='관람 구역을 확인하세요.'
+        for kind in ('translate','translate_review'):
+            with self.subTest(kind=kind):
+                job=self.job(self.options(path,'zh-CN','ko',kind),Partial(target))
+                self.assertEqual(job['status'],'partial',job.get('result'))
+                self.assertTrue(job['can_resume'])
+                output,=job['result']['outputs']
+                self.assertTrue(output['draft_pending']);self.assertEqual(output['untranslated'],1)
+                self.assertFalse(output.get('auto_exported'))
+                expected='관람 구역을 확인하십시오.' if kind=='translate_review' else target
+                self.assertEqual([s.text for s in extract(output['path']) if s.editable],[expected,'亮度为500尼特。'])
+                draft=Path(output['path']);saved_bytes=draft.read_bytes()
+                resumed=self.job({'resume_from':job['id']},Complete(target))
+                self.assertEqual(resumed['status'],'complete',resumed.get('result'))
+                final,=resumed['result']['outputs']
+                self.assertEqual(final['resumed_segments'],1)
+                self.assertEqual(final['untranslated'],0);self.assertFalse(final.get('draft_pending'))
+                self.assertEqual([s.text for s in extract(final['path']) if s.editable],[expected,'밝기는 500 nits입니다.'])
+                self.assertEqual(draft.read_bytes(),saved_bytes)
+                self.assertEqual(path.read_bytes(),before)
+
     def test_automatic_review_cannot_reintroduce_source_clause_via_multiple_edits(self):
         from backend.extract import extract
         class Review(fixtures.Model):
@@ -213,8 +280,9 @@ class SharedAdapterTests(unittest.TestCase):
             clear(document)
             saved=self.root/('missing'+suffix);document.save(saved)
             for direction in ('zh-en','zh-CN>ja-JP','zh-CN>zh-Hant-TW','ja-JP>ko'):
-                with self.subTest(format=suffix,direction=direction),self.assertRaisesRegex(IncompleteTranslation,'missing editable locations'):
-                    verify_translation_delivery(saved,direction,source=source)
+                for allow_incomplete in (False,True):
+                    with self.subTest(format=suffix,direction=direction,draft=allow_incomplete),self.assertRaisesRegex(IncompleteTranslation,'missing editable locations'):
+                        verify_translation_delivery(saved,direction,source=source,allow_incomplete=allow_incomplete)
 
     def test_saved_japanese_and_korean_reject_leftover_foreign_script_in_mixed_paragraphs(self):
         from backend.document_translation_core import verify_translation_delivery,IncompleteTranslation
