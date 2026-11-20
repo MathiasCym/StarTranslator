@@ -128,7 +128,10 @@ class DocumentLanguageTests(unittest.TestCase):
   self.assertEqual(job['status'],'partial',job)
   self.assertEqual(job['result']['outputs'],[]);self.assertTrue(job['result']['delivery_deferred'])
   self.assertFalse(list((self.root/'output').glob('*.docx')))
-  self.assertTrue(job['can_resume']);self.assertEqual(model.translations,14)
+  self.assertTrue(job['can_resume'])
+  attempts = [json.JSONDecoder().raw_decode(prompt)[0].get('待译原文') for prompt,_ in model.requests]
+  self.assertEqual(attempts.count(SAMPLES['en-US']),4)
+  self.assertTrue(any(piece and piece!=SAMPLES['en-US'] for piece in attempts))
   self.assertNotIn('report',job['result'])
 
  def test_new_language_resume_is_explicit_and_restores_original_language(self):
@@ -148,7 +151,9 @@ class DocumentLanguageTests(unittest.TestCase):
   for dst,target in SAMPLES.items():
    if dst=='en-US':continue
    documents.content_validate(SAMPLES['en-US'],target,'en-US',dst)
-   for bad in (target.replace('60','61'),target.replace('Hz','mm'),target.replace('A8','A9'),target.replace('/中文','/changed')):
+   for different_quantity in (target.replace('60','61'),target.replace('Hz','mm')):
+    documents.content_validate(SAMPLES['en-US'],different_quantity,'en-US',dst)  # Model reviews factual differences.
+   for bad in (target.replace('A8','A9'),target.replace('/中文','/changed')):
     with self.assertRaises(ValueError):documents.content_validate(SAMPLES['en-US'],bad,'en-US',dst)
   with self.assertRaises(ValueError):documents.content_validate(SAMPLES['ko'],SAMPLES['ja-JP'],'ko','en-US')
 
@@ -326,12 +331,12 @@ class DocumentLanguageTests(unittest.TestCase):
     path=self.source('.pptx',SAMPLES['en-US'],target+'-recovery');attempts=[]
     def recover(client,source,groups,reference,src,dst,cancel,context,mode,fixed,warnings,activity,quality,**kwargs):
      attempts.append(source)
-     if len(attempts)<3:raise ValueError('temporary translation failure')
+     if len(attempts)==1:raise ValueError('temporary translation failure')
      return [{'id':g['id'],'text':SAMPLES[target] if i==0 else ''} for i,g in enumerate(groups)]
     with patch.object(documents,'mapped',side_effect=recover):
      # Empty candidate proof for this English source/target pairing is valid.
      result=documents.translate_file(str(path),Glossary([]),None,str(self.root/'output'),client=Model(SAMPLES[target]),workers=1,direction='en-US>'+target)
-    self.assertEqual(len(attempts),3);self.assertEqual(result['untranslated'],0)
+    self.assertEqual(len(attempts),2);self.assertEqual(result['untranslated'],0)
     self.assertTrue(result['translation_complete']);self.assertIn(SAMPLES[target],'\n'.join(s.text for s in extract(result['path'])))
 
  def test_multilingual_recovery_preserves_source_when_all_attempts_fail(self):
@@ -340,7 +345,8 @@ class DocumentLanguageTests(unittest.TestCase):
     path=self.source('.pptx',SAMPLES['en-US'],target+'-persistent');before=path.read_bytes()
     with patch.object(documents,'mapped',side_effect=ValueError('persistent failure')) as translate:
      result=documents.translate_file(str(path),Glossary([]),None,str(self.root/'output'),client=Model(SAMPLES[target]),workers=1,direction='en-US>'+target)
-    self.assertEqual(translate.call_count,3);self.assertEqual(result['untranslated'],1)
+    self.assertEqual(sum(call.args[1]==SAMPLES['en-US'] for call in translate.call_args_list),2)
+    self.assertEqual(result['untranslated'],1)
     self.assertFalse(result['translation_complete']);self.assertTrue(result['review_items'])
     self.assertIn(SAMPLES['en-US'],'\n'.join(s.text for s in extract(result['path'])))
     self.assertEqual(path.read_bytes(),before)
@@ -353,10 +359,9 @@ class DocumentLanguageTests(unittest.TestCase):
     path=self.source('.pptx',source,src+'-'+target+'-review-repair');before=path.read_bytes()
     model=Model(translation)
     with patch.object(documents,'mapped',side_effect=ValueError('translation temporarily failed')):
-     with patch('backend.text_languages.translate_piece',return_value=translation) as recovery:
-      job=self.job(self.options(path,src,target),model)
+     job=self.job(self.options(path,src,target),model)
     output=job['result']['outputs'][0]
-    self.assertEqual(recovery.call_count,1);self.assertTrue(output['auto_exported'],output)
+    self.assertTrue(output['auto_exported'],output)
     self.assertEqual(output['untranslated'],0);self.assertTrue(output['translation_complete'])
     self.assertIn(translation,'\n'.join(s.text for s in extract(output['path'])))
     self.assertEqual(path.read_bytes(),before)
@@ -374,16 +379,20 @@ class DocumentLanguageTests(unittest.TestCase):
  def test_review_retranslation_covers_all_maintained_targets_and_rejects_wrong_numbers(self):
   from backend.models import Finding,Segment
   source=SAMPLES['zh-CN']
+  class WrongNumberModel(Model):
+   def chat_json(self,prompt,system='',**options):
+    if '译文' in json.JSONDecoder().raw_decode(prompt)[0]:
+     return {'ok':False,'issues':['The translation changes 60 Hz to 99 Hz.'],'severity':'critical'}
+    return super().chat_json(prompt,system,**options)
+
   for target in ('en-US','ja-JP','ko','zh-Hant-TW'):
    with self.subTest(target=target):
     segment=Segment(id='one',file='a.pptx',file_path='a.pptx',text=source,locator='slide1/shape1/p0')
     finding=Finding(segment_id='one',file='a.pptx',file_path='a.pptx',slide=1,para=1,source='translation',found_text=source)
     review={'output':{'direction':languages.direction('zh-CN',target),'review_items':[{'locator':segment.locator,'source_text':source,'translation':source}]},'local':{'segments':[segment],'findings':[finding]}}
-    with patch('backend.text_languages.translate_piece',return_value='incorrect 99 Hz'):
-     workflow.repair_pending_in_review(review,Model('incorrect 99 Hz'),threading.Event())
+    workflow.repair_pending_in_review(review,WrongNumberModel(SAMPLES[target].replace('60 Hz','99 Hz')),threading.Event())
     self.assertEqual(finding.suggested,'')
-    with patch('backend.text_languages.translate_piece',return_value=SAMPLES[target]):
-     workflow.repair_pending_in_review(review,Model(SAMPLES[target]),threading.Event())
+    workflow.repair_pending_in_review(review,Model(SAMPLES[target]),threading.Event())
     self.assertEqual(finding.suggested,SAMPLES[target])
 
  def test_style_review_uses_actual_original_format_not_invented_id_colors(self):

@@ -81,3 +81,7 @@
   .picker-body #pickerSelectedNames { height: 36px; font-size: 14px; }
   .picker-body .picker-footer .btn { line-height: 20px; padding-block: 6px; }
 }
+.picker-body { color-scheme: dark; }
+:root[data-surface=picker] .picker-body { color-scheme: light; }
+:root:not([data-surface]) .picker-places { display: contents; }
+:root:not([data-surface]) .picker-places h3 { display: none; }

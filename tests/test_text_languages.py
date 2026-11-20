@@ -67,6 +67,26 @@ class LanguageTests(unittest.TestCase):
   self.assertEqual({row['code']:row['count'] for row in metadata['languages']}['ko'],1870)
   self.assertEqual(Path('glossary/multilingual.json').read_bytes(),original)
 
+ def test_short_paragraph_batching_for_all_sixteen_target_languages(self):
+  for dst,target in SAMPLES.items():
+   src='zh-CN' if dst=='en-US' else 'en-US'
+   client=Client([{'translation':'\n'.join([target]*3)},OK])
+   with self.subTest(target=dst):
+    job=self.run_job('\r\n\r\n'.join([SAMPLES[src]]*3),src,dst,client)
+    self.assertTrue(job['result']['complete'],job)
+    self.assertEqual(job['result']['translation'],'\r\n\r\n'.join([target]*3))
+    self.assertEqual(len(client.calls),2)
+
+ def test_exact_terms_observe_local_multilingual_confirmation_and_missing_cells(self):
+  ref={'entries':[{'terms':{'en-US':'brightness','ko':'휘도','ja-JP':'輝度'},
+                   'maintenance':{'ko':{'priority':1}}}]}
+  self.assertEqual(text.confirmed_translation('brightness',self.g,ref,'en-US','ko','en-US>ko'),'휘도')
+  self.assertIsNone(text.confirmed_translation('brightness',self.g,ref,'en-US','fr-FR','en-US>fr-FR'))
+  ref['entries'][0]['maintenance']['ko']['priority']=2
+  self.assertIsNone(text.confirmed_translation('brightness',self.g,ref,'en-US','ko','en-US>ko'))
+  ref['entries'][0]['maintenance']['ko']={'priority':1,'note':'适用于本语境'}
+  self.assertIsNone(text.confirmed_translation('brightness',self.g,ref,'en-US','ko','en-US>ko'))
+
  def test_official_terms_only_use_a_real_source_target_pair(self):
   ref={'entries':[{'terms':{'zh-CN':'电流降亮','en-US':'current dimming','fr-FR':'variation de luminosité par courant'}},
                   {'terms':{'zh-CN':'缺译项','en-US':'missing entry'}}]}
@@ -82,7 +102,8 @@ class LanguageTests(unittest.TestCase):
    self.assertIn('Humanizer',client.calls[0][1]['system']);self.assertTrue(job['humanize'])
   client=Client([{'translation':'pas de pixel'},OK]);job=self.run_job('pixel pitch','en-US','fr-FR',client)
   self.assertTrue(job['result']['complete']);self.assertFalse(job['humanize'])
-  self.assertNotIn('Humanizer',client.calls[0][1]['system'])
+  if client.calls:self.assertNotIn('Humanizer',client.calls[0][1]['system'])
+  else:self.assertEqual(job['result']['blocks'][0]['method'],'glossary')
 
  def test_code_blocks_and_inline_code_are_preserved_and_wrong_code_is_repaired(self):
   source='说明\n```python\nprint("中文")\n```\n结束'
@@ -117,7 +138,14 @@ class LanguageTests(unittest.TestCase):
   with self.assertRaises(ValueError):languages.validate('See https://example.com/a','Voir https://example.com/b','en-US','fr-FR')
 
  def test_partial_retry_is_bound_to_languages(self):
-  client=Client([{'translation':'Bonjour'},OK,LLMUnavailable('disconnect')])
+  class Initial:
+   def chat_json(self,prompt,**options):
+    payload=json.loads(prompt)
+    if '待译原文' not in payload:return OK
+    if '\n' in payload['待译原文']:raise ValueError('Fixture requests separate paragraphs')
+    if payload['待译原文']=='World':raise LLMUnavailable('disconnect')
+    return {'translation':'Bonjour'}
+  client=Initial()
   job=self.run_job('Hello\nWorld','en-US','fr-FR',client,humanize=True)
   self.assertEqual(job['status'],'failed');self.assertEqual(job['done'],1)
   with self.assertRaises(ValueError):self.run_job('Hello\nWorld','en-US','pt',Client([]),retry_of=job['id'])

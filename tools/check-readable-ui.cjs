@@ -1,8 +1,8 @@
 // Run with Node; the worker uses a hidden offscreen Electron window and isolated data.
-const runtime=require('electron'),theme=process.argv.includes('--theme=light')?'light':'dark'
+const runtime=require('electron')
 if(typeof runtime==='string') {
  const path=require('node:path'),fs=require('node:fs'),{spawnSync}=require('node:child_process')
- const file=path.resolve(__dirname,'../dist/qa/'+(theme==='light'?'readability-light':'readability')+'/readable-result.json')
+ const file=path.resolve(__dirname,'../dist/qa/readability/readable-result.json')
  fs.rmSync(file,{force:true})
  const task=spawnSync(runtime,[__filename,...process.argv.slice(2)],{cwd:path.resolve(__dirname,'..'),windowsHide:true,timeout:150000,encoding:'utf8'})
  if(task.error)console.error(task.error.message)
@@ -11,7 +11,7 @@ if(typeof runtime==='string') {
  process.exit(task.status??1)
 }
 const {app,BrowserWindow,ipcMain}=require('electron'),fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict')
-const root=path.resolve(__dirname,'..'),qaDir=path.join(root,'dist','qa',theme==='light'?'readability-light':'readability'),wait=ms=>new Promise(r=>setTimeout(r,ms)),result={passed:false,checks:[],screenshots:[],companyDocumentsSent:false}
+const root=path.resolve(__dirname,'..'),qaDir=path.join(root,'dist','qa','readability'),wait=ms=>new Promise(r=>setTimeout(r,ms)),result={passed:false,checks:[],screenshots:[],companyDocumentsSent:false}
 const textLanguages=JSON.parse(fs.readFileSync(path.join(root,'glossary/multilingual.json'))).languages
 fs.mkdirSync(qaDir,{recursive:true})
 app.setPath('userData',path.join(qaDir,'readable-ui-profile'));BrowserWindow.prototype.show=function(){}
@@ -90,16 +90,16 @@ server.listen(0,'127.0.0.1',async()=>{
   // zoom after the fixture's constructor. Pin the fixture to its measured
   // display; the separate presentation check measures the real app window.
   desktop.webContents.setZoomFactor(zoom)
-  const run=code=>desktop.webContents.executeJavaScript(code),snap=async(name)=>{if(theme==='light'){const issues=await run('('+require('./theme-paint-audit.cjs').toString()+')()');assert.equal(issues.length,0,JSON.stringify({name,issues}));}desktop.webContents.invalidate();await wait(350);const target=path.join(qaDir,`${name}.png`);assert(frame,'offscreen frame missing');fs.writeFileSync(target,frame.toPNG());result.screenshots.push(target)}
-  await run('StarAppearance.set('+JSON.stringify(theme)+')');result.theme=theme
+  const run=code=>desktop.webContents.executeJavaScript(code),snap=async(name)=>{desktop.webContents.invalidate();await wait(350);const target=path.join(qaDir,`${name}.png`);assert(frame,'offscreen frame missing');fs.writeFileSync(target,frame.toPNG());result.screenshots.push(target)}
+  assert.equal(await run("Boolean(document.querySelector('[data-theme-toggle]'))"),false)
   const layout=()=>run(`(()=>{const main=document.querySelector('body>main'),aside=document.querySelector('.task-options'),r=$('runBtn').getBoundingClientRect(),top=document.querySelector('.topbar').getBoundingClientRect(),list=$('filelist'),row=list.querySelector('li');return {width:innerWidth,height:innerHeight,mainScroll:main.scrollHeight-main.clientHeight,asideScroll:aside.scrollHeight-aside.clientHeight,run:{top:r.top,bottom:r.bottom},horizontal:document.documentElement.scrollWidth-innerWidth,topbar:top.height,topbarScroll:document.querySelector('.topbar').scrollWidth-innerWidth,bodyFont:parseFloat(getComputedStyle(document.body).fontSize),buttonFont:parseFloat(getComputedStyle($('runBtn')).fontSize),fileRows:row?list.clientHeight/row.getBoundingClientRect().height:0}})()`)
-  await run("Object.defineProperty(document,'hidden',{get:()=>false});document.hasFocus=()=>true;$('modelModal').hidden=false")
+  await run("Object.defineProperty(document,'hidden',{get:()=>false});document.hasFocus=()=>true;setWorkArea('models')")
   await wait(2300);assert.equal(await run("$('updateNoticeDialog').open"),false)
-  await run("$('modelModal').hidden=true");await wait(200)
+  await run("setWorkArea('documents')");await wait(200)
   assert.equal(await run("$('updateNoticeDialog').open"),true)
   assert.equal(await run("!!$('updateNoticeHighlights').querySelector('img')"),false)
   await snap('update-notice');await run("$('ignoreUpdateVersion').checked=true;$('laterUpdateNotice').click()");await wait(150)
-  assert.deepEqual(ignored,['2.0.7']);assert.equal(notices,1);assert.equal(await run("$('updateNoticeDialog').open"),false);result.checks.push('daily notice deferred behind modal; plain text; version opt-out')
+  assert.deepEqual(ignored,['2.0.7']);assert.equal(notices,1);assert.equal(await run("$('updateNoticeDialog').open"),false);result.checks.push('daily notice deferred on model settings; plain text; version opt-out')
   const directionState=()=>run("({mode:state.mode,value:$('documentDirection').value,label:$('documentDirectionLabel').textContent,options:[...$('documentDirection').options].map(o=>o.textContent)})")
   const documentNames=['简体中文','英语','繁体中文','日语','韩语']
   assert.deepEqual(await directionState(),{mode:'check',value:'zh-en',label:'校对语言',options:documentNames})
@@ -135,15 +135,14 @@ server.listen(0,'127.0.0.1',async()=>{
    if(w===1280){
     const flow=await run("(()=>{const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches,a=document.getAnimations().find(a=>a.animationName.endsWith('sheen'));return {reduced,name:getComputedStyle($('dropzone'),'::before').animationName,state:a?.playState,duration:a?.effect.getTiming().duration}})()")
     // Headless Windows runners may request reduced motion or pause rendering.
-    if(flow.reduced)assert.equal(flow.name,'none')
-    else assert(flow.name===(theme==='light'?'light-desktop-sheen':'sheen')&&flow.state==='running'&&flow.duration===6000,JSON.stringify(flow))
+    assert.equal(flow.name,'none')
     assert.equal(await run("$('dropzone').querySelector('img').naturalWidth>0"),true)
-    assert.equal(await run("getComputedStyle($('dropzone').querySelector('img')).width"),'144px')
+    assert(await run("$('dropzone').querySelector('img').getBoundingClientRect().width >= 200"))
     await run("$('dropzone').dispatchEvent(new Event('dragover',{cancelable:true}))")
     assert.equal(await run("$('dropzone').classList.contains('over')"),true)
     await run("$('dropzone').dispatchEvent(new Event('dragleave'))")
     assert.equal(await run("$('dropzone').classList.contains('over')"),false)
-    result.checks.push('original 144px portrait, moving six-second sheen and drag highlight preserved')
+    result.checks.push('static hero artwork and drag highlight')
     await snap('home-empty-208')
    }
    await run("state.files=Array.from({length:12},(_,i)=>'C:/qa/多文件布局测试文档'+(i+1)+'.pptx');state.references=['C:/qa/参考材料.docx'];renderFiles();$('referencesPanel').open=true")
@@ -160,15 +159,21 @@ server.listen(0,'127.0.0.1',async()=>{
   await setViewport(1024,700);await run("$('openModel').click()");await wait(300)
   const model=await run("(()=>{const e=document.querySelector('.model-editor'),r=$('modelUse').getBoundingClientRect();return {scroll:e.scrollHeight-e.clientHeight,footer:r.bottom,height:innerHeight}})()")
   result.checks.push({model});assert(model.footer<=model.height,JSON.stringify(model));assert(model.scroll<3,JSON.stringify(model))
-  await snap('models-compact-208');await run("$('modelClose').click()");await wait(150)
+  assert.deepEqual(await run("({page:$('workbench').dataset.page,parent:$('modelPage').parentElement.id,current:$('openModel').getAttribute('aria-current')})"),{page:'models',parent:'workbench',current:'page'})
+  await run("window.modelFormBefore=$('modelProfileName').value;$('modelProfileName').value='Unsaved preview edits';$('openHistory').click()")
+  assert.equal(await run('profileDirty()'),true)
+  await run("$('openModel').click()")
+  assert.equal(await run("$('modelProfileName').value"),'Unsaved preview edits')
+  await run("$('modelProfileName').value=window.modelFormBefore")
+  await snap('models-compact-208');await run("$('openWorkspace').click()");await wait(150)
   await run("$('openModel').click()");await wait(200)
   await run("profileState.profiles=Array.from({length:25},(_,i)=>({id:'qa-'+i,name:'配置 '+i,model:'ui-only',has_key:true}));renderProfiles();updateProfileControls()")
   const manyProfiles=await run("(()=>{const b=$('profileNew').getBoundingClientRect(),list=$('profileList');return {count:list.children.length,disabled:$('profileNew').disabled,label:$('profileLimit').textContent,buttonBottom:b.bottom,height:innerHeight,scroll:list.scrollHeight-list.clientHeight}})()")
   result.checks.push({manyProfiles});assert.equal(manyProfiles.count,25);assert.equal(manyProfiles.disabled,false);assert.equal(manyProfiles.label,'已保存 25 个');assert(manyProfiles.buttonBottom<=manyProfiles.height&&manyProfiles.scroll>0,JSON.stringify(manyProfiles))
-  await run("$('modelClose').click()")
+  await run("$('openWorkspace').click()")
   await setViewport(1280,820)
   await run("$('openLexicon').click()");await wait(500)
-  const lexicon=await run("(()=>{const list=$('termRows'),row=list.querySelector('.term-card'),close=$('closeLexicon').getBoundingClientRect();return {visibleRows:list.clientHeight/row.getBoundingClientRect().height,font:parseFloat(getComputedStyle(row).fontSize),right:close.right,bottom:close.bottom}})()")
+  const lexicon=await run("(()=>{const list=$('termRows'),row=list.querySelector('.term-card'),close=$('saveLexicon').getBoundingClientRect();return {visibleRows:list.clientHeight/row.getBoundingClientRect().height,font:parseFloat(getComputedStyle(row).fontSize),right:close.right,bottom:close.bottom}})()")
   result.checks.push({lexicon});assert(lexicon.visibleRows>=10,JSON.stringify(lexicon));assert(lexicon.right<=1280&&lexicon.bottom<=820,JSON.stringify(lexicon))
   await snap('glossary-208')
   const catalogFingerprint=await run("callApi('GET','/api/lexicon').then(r=>r.fingerprint)")
@@ -231,15 +236,49 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("document.activeElement.id"),'openMultilingual')
   assert.equal(await run("callApi('GET','/api/lexicon').then(r=>r.fingerprint)"),catalogFingerprint)
   const migrationTable=await run("callApi('GET','/api/glossary/table')"),migrationLibrary=await run("callApi('GET','/api/lexicon')")
+  const setTermNote = value => run(`$('termNote').value=${JSON.stringify(value)};$('termNote').dispatchEvent(new Event('input'))`)
+  const persistedNote = () => run("callApi('GET','/api/glossary/table').then(table=>table.rows[0][table.columns.indexOf('note')])")
+  await run("$('openWorkspace').click();busy(true);$('workspace').hidden=true")
+  assert.equal(await run("$('openLexicon').disabled"),false)
+  await run("$('openLexicon').onclick()")
+  const initialNote = await persistedNote()
+  await setTermNote('Confirmed during active processing')
+  await run("$('saveLexicon').onclick()")
+  assert.equal(await run("$('lexiconDirtyBadge').textContent"),'已记录')
+  assert.equal(await persistedNote(),initialNote)
+  assert.equal(await run("$('termNote').disabled"),false)
+  await snap('glossary-save-deferred')
+  await setTermNote('A newer unconfirmed change')
+  await run("$('openWorkspace').click();busy(false);showWorkspace()")
+  for(let i=0;i<60&&!await run("$('lexiconStatus').textContent.includes('已保存上次确认的修改')");i++)await wait(100)
+  assert.equal(await persistedNote(),'Confirmed during active processing')
+  await run("$('openLexicon').onclick()")
+  assert.equal(await run("$('termNote').value"),'A newer unconfirmed change')
+  assert.equal(await run("$('lexiconDirtyBadge').textContent"),'未保存')
+  await setTermNote(initialNote)
+  await run("$('saveLexicon').onclick()")
+  assert.equal(await persistedNote(),initialNote)
+  result.checks.push('Glossary can be edited during processing; only confirmed edits are written automatically after the task')
   await run("window._personCategoryFixture='示例姓名'+Date.now();$('addTerm').click();$('termZh').value=window._personCategoryFixture;$('termZh').dispatchEvent(new Event('input'));$('termEn').value='Example Name';$('termEn').dispatchEvent(new Event('input'));$('termCategory').value='person';$('termCategory').dispatchEvent(new Event('input'));$('termSearch').value=window._personCategoryFixture;$('termCategoryFilter').value='person';$('termCategoryFilter').dispatchEvent(new Event('change'))")
   assert.equal(await run("$('termRows').querySelectorAll('.term-card').length"),1)
   assert.equal(await run("$('termRows').textContent.includes('人名')"),true)
   await run("$('saveLexicon').click()")
   for(let i=0;i<60&&!await run("$('lexiconStatus').textContent.startsWith('已保存 ')");i++)await wait(100)
   assert.equal(await run("$('lexiconStatus').textContent.startsWith('已保存 ')"),true)
-  await run("$('closeLexicon').click()");await wait(100)
-  await run("$('openLexicon').click()");await wait(500)
-  assert.equal(await run("$('lexiconModal').hidden"),false)
+  await run("$('openWorkspace').click()");await wait(100)
+  await run("$('openLexicon').onclick()")
+  assert.equal(await run("$('lexiconPage').hidden"),false)
+  const route = await run("({page:$('workbench').dataset.page, native:$('lexiconPage').parentElement.id, modal:!!$('lexiconPage').closest('.modal'), active:$('openLexicon').getAttribute('aria-current')})")
+  assert.deepEqual(route,{page:'lexicon',native:'workbench',modal:false,active:'page'})
+  await run("$('termSearch').value='pitch';$('termSearch').dispatchEvent(new Event('input'));$('openHistory').click()")
+  assert.equal(await run("$('historyWorkspace').parentElement.id"),'workbench')
+  assert.equal(await run("$('workbench').dataset.page"),'history')
+  assert.equal(await run("getComputedStyle($('workspace')).display"),'none')
+  await run("$('openLexicon').onclick()")
+  assert.equal(await run("$('termSearch').value"),'pitch')
+  await run("$('termSearch').value='';$('termSearch').dispatchEvent(new Event('input'))")
+  result.checks.push('Sidebar workbench routes are native main-page sections and preserve glossary search')
+
   await run("$('termSearch').value=window._personCategoryFixture;$('termCategoryFilter').value='person';$('termCategoryFilter').dispatchEvent(new Event('change'))")
   assert.equal(await run("$('termCategory').value"),'person')
   await run("$('lexiconGridView').click()")
@@ -250,7 +289,7 @@ server.listen(0,'127.0.0.1',async()=>{
   await run("$('lexiconListView').click()");await setViewport(1024,700);await wait(150)
   const categoryDetail=await run("(()=>{const a=$('termCategory').getBoundingClientRect(),d=$('deleteTerm').getBoundingClientRect(),p=document.querySelector('.term-detail').getBoundingClientRect();return {left:a.left,right:d.right,panelLeft:p.left,panelRight:p.right,bottom:d.bottom,height:innerHeight}})()")
   assert(categoryDetail.panelRight>0&&categoryDetail.left>=categoryDetail.panelLeft&&categoryDetail.right<=categoryDetail.panelRight&&categoryDetail.bottom<=categoryDetail.height,JSON.stringify(categoryDetail))
-  await snap('glossary-person-detail-compact');await run("$('closeLexicon').click()");await wait(150)
+  await snap('glossary-person-detail-compact');await run("$('openWorkspace').click()");await wait(150)
   await run(`loadReport({report_id:'layout-fixture',kind:'check',files:[{path:'C:/qa/sample.pptx',name:'sample.pptx'}],stats:{model_status:'complete',segments:10,judged:10,rule_hits:0,llm_hits:10},findings:Array.from({length:10},(_,i)=>({file:'sample.pptx',file_path:'C:/qa/sample.pptx',slide:i+1,method:'llm',editable:true,found_text:'Second half strategy',suggested:'H2 strategy',reason:'统一全文用语',context:'Example context'}))});openReport()`)
   for(const [w,h] of [[1280,820],[942,655]]){
    await setViewport(w,h);await wait(100)
@@ -335,6 +374,27 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.deepEqual(await run("[$('translationTitle').textContent,$('translationResume').hidden,$('translationFiles').textContent.includes('草稿'),$('translationFiles').textContent.includes('查看版式提示')]"),['高精度翻译完成',true,false,true])
   await run(`state.job.can_resume=true;showTranslation({automatic_combined:true,errors:[],outputs:[${JSON.stringify({...savedOutput,untranslated:1})}]},false)`)
   assert.deepEqual(await run("[$('translationTitle').textContent,$('translationResume').hidden,$('translationResume').textContent]"),['高精度翻译已保存',false,'继续补译'])
+  const draft = {...savedOutput,draft_pending:true,untranslated:1,partially_translated:1,review_items:[{
+   reason:'示例核对项',source_text:'原文',translation:'暫定稿',para:2,
+   unresolved_fragments:[{source_text:'②未解决的一句',reason:'该句未通过原文复核'}]
+  }]}
+  await run(`showTranslation({automatic_combined:true,errors:[],outputs:[${JSON.stringify(draft)}]},false)`)
+  assert.equal(await run("getComputedStyle($('translationPanel')).backgroundColor"),'rgba(0, 0, 0, 0)')
+  assert.equal(await run("document.querySelector('#translationFiles .output-notes').open"),false)
+  await run("document.querySelector('#translationFiles .output-notes summary').click()")
+  assert((await run("document.querySelector('#translationFiles .output-fragments').textContent")).includes('②未解决的一句'))
+  assert.deepEqual(await run("[...$('translationPanel').querySelectorAll('button')].filter(b=>b.textContent==='返回文档').map(b=>b.id)"),['finishTranslation'])
+  for(const [w,h] of [[942,655],[1280,820]]){
+   await setViewport(w,h)
+   const spacing=await run("({notice:$('translationFiles').getBoundingClientRect().top-$('translationNotice').getBoundingClientRect().bottom,actions:$('translationResume').getBoundingClientRect().top-$('translationFiles').getBoundingClientRect().bottom})")
+   assert(spacing.notice>=10&&spacing.actions>=10,JSON.stringify(spacing))
+  }
+  await snap('pending-draft-spacing')
+  await run("setMode('check');loadReport({report_id:'output-layout',kind:'check',files:[{path:'C:/qa/source.docx'}],findings:[],errors:[],stats:{segments:9,judged:9,model_status:'complete'}});showCheckCompletion()")
+  assert.equal(await run("getComputedStyle($('reviewCompletePanel')).backgroundColor"),'rgba(0, 0, 0, 0)')
+  assert(await run("document.querySelector('#reviewCompletePanel .output-footer').getBoundingClientRect().bottom<=innerHeight"))
+  await snap('review-output-workbench')
+  await run("setMode('translate');state.job={can_resume:true}")
   await run("showTranslation({automatic_combined:true,delivery_deferred:true,errors:[],outputs:[]},false)")
   assert.deepEqual(await run("[$('translationTitle').textContent,$('translationResume').textContent,$('translationFiles').children.length]"),['任务进度已保存','继续任务',0])
   await run('showWorkspace()')
@@ -355,7 +415,7 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("[...$('historyRows').querySelectorAll('button')].some(b=>b.textContent==='继续未完成任务')"),true)
   await snap('history-resume-207')
   await run("[...$('historyRows').querySelectorAll('button')].find(b=>b.textContent==='继续未完成任务').click()");await wait(200)
-  assert.deepEqual(resumedRequest,resumeOptions);assert.equal(await run("$('historyModal').hidden"),true);assert.equal(await run('state.job.id'),'restored-fixture')
+  assert.deepEqual(resumedRequest,resumeOptions);assert.equal(await run("$('historyWorkspace').hidden"),true);assert.equal(await run('state.job.id'),'restored-fixture')
   // Exact user route: leave the result, keep the same file, then use the home
   // start buttons. A previous explicitly resumed job must not make these
   // ordinary starts carry a hidden recovery marker or query history again.
@@ -512,7 +572,7 @@ server.listen(0,'127.0.0.1',async()=>{
   sharedJobs=[{id:'shared-resume-fixture',kind:'translate',status:'interrupted',message:'任务已中断',downloads:[],can_resume:true,percent:50}]
   const shared=new BrowserWindow({show:false,width:900,height:850,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true}});await shared.loadURL(`http://127.0.0.1:${port}/`)
   const sr=code=>shared.webContents.executeJavaScript(code)
-  await sr('StarAppearance.set('+JSON.stringify(theme)+')')
+  assert.equal(await sr("Boolean(document.querySelector('[data-theme-toggle]'))"),false)
   await wait(200);assert.equal(await sr("[...$('jobs').querySelectorAll('button')].some(b=>b.textContent==='继续未完成任务')"),true)
   await sr("[...$('jobs').querySelectorAll('button')].find(b=>b.textContent==='继续未完成任务').click()");await wait(200)
   assert.equal(sharedResumes,1);assert.equal(await sr('selected'),'shared-restored-fixture')
@@ -596,8 +656,8 @@ server.listen(0,'127.0.0.1',async()=>{
   result.checks.push('Shared report comparison follows selected document and latest saved output after refresh')
   let bundledUpdate={added:1880,updated:9,removed:60,merged:1,backups:['C:/qa/lexicon.json.before-bundled.bak'],conflicts:[{zh:migrationLibrary.entries[0].zh,existing:['Personal wording'],incoming:'Bundled wording',reason:'已保留本机译法。'}]}
   ipcMain.removeHandler('api');ipcMain.handle('api',(_event,{path:apiPath})=>apiPath==='/api/lexicon'?{...migrationLibrary,bundled_update:bundledUpdate}:apiPath==='/api/glossary/table'?migrationTable:{})
-  await run("$('reportModal').hidden=true;$('openLexicon').click()");await wait(250)
-  assert((await run("$('lexiconStatus').textContent")).includes('新增 1880 条'))
+  await run("$('reportModal').hidden=true;$('openLexicon').onclick()")
+  assert((await run("$('lexiconStatus').textContent")).includes('新增 1880 条'),await run("$('lexiconStatus').textContent"))
   assert((await run("$('lexiconStatus').textContent")).includes('合并 1 条相同标准'))
   assert.equal(await run("$('lexiconImportReport').hidden"),false)
   await run("$('lexiconImportReport').open=true")
@@ -617,11 +677,12 @@ server.listen(0,'127.0.0.1',async()=>{
   bundledUpdate=null;await run("$('reloadLexicon').click()");await wait(200)
   assert.equal(await run("$('lexiconStatus').textContent"),'已重新读取最新词库。')
   assert.equal(await run("$('lexiconImportReport').hidden"),true)
-  await run("$('closeLexicon').click()")
+  await run("$('openWorkspace').click()")
   result.checks.push('automatic glossary migration displays additions, retained conflicts, backup and recoverable errors; current-term link and reload work without footer overlap')
   // Exercise the real editor mounted by the application, including a long
   // result, target direction and close/reopen while a background task runs.
   const textRequests=[]
+  let textReviewFinished=false
   const documentStateBeforeText=await run("JSON.stringify({files:state.files,references:state.references,pairs:state.pairs,report:state.report,selected:[...state.selected],edits:state.edits})")
   ipcMain.removeHandler('api');ipcMain.handle('api',(_event,{method,path:apiPath,body})=>{
     if(apiPath==='/api/text/languages')return {languages:textLanguages}
@@ -629,7 +690,8 @@ server.listen(0,'127.0.0.1',async()=>{
       textRequests.push(body)
       return {id:'text-fixture',kind:'text',status:'running',done:0,total:1,message:'正在对照原文复核',percent:0}
     }
-    if(apiPath==='/api/jobs/text-fixture')return {id:'text-fixture',kind:'text',status:'complete',done:1,total:1,message:'文本翻译完成',result:{translation:'点间距为 2.5 mm。',complete:true,blocks:[]}}
+    if(apiPath==='/api/jobs/text-fixture')return {id:'text-fixture',kind:'text',status:textReviewFinished?'complete':'running',done:textReviewFinished?1:0,total:1,
+      message:textReviewFinished?'文本翻译完成':'正在对照原文复核',result:{translation:'点间距为 2.5 mm。',complete:textReviewFinished,blocks:[]}}
     return {}
   })
   await run("$('openTextTranslation').click()")
@@ -647,8 +709,12 @@ server.listen(0,'127.0.0.1',async()=>{
   await run("(()=>{const d=document.querySelector('.text-translator');d.querySelector('[data-source-language]').value='en-US';d.querySelector('[data-target-language]').value='zh-CN';d.querySelector('[data-source]').value='The pixel pitch is 2.5 mm.';d.querySelector('[data-source]').dispatchEvent(new Event('input'));d.querySelector('[data-start]').click()})()")
   await wait(100)
   assert.equal(textRequests[0].source_language,'en-US');assert.equal(textRequests[0].target_language,'zh-CN');assert.equal(textRequests[0].kind,'text');assert.equal('humanize' in textRequests[0],false)
-  await run("document.querySelector('.text-translator [data-close]').click();$('openTextTranslation').click()")
-  await wait(900)
+  await run("$('openWorkspace').click();$('openTextTranslation').click()")
+  for(let n=0;n<40&&!await run("document.querySelector('.text-translator [data-target]').value==='点间距为 2.5 mm。'");n++)await wait(50)
+  assert.equal(await run("document.querySelector('.text-translator [data-copy]').disabled"),true)
+  assert((await run("document.querySelector('.text-translator [data-status]').textContent")).includes('复核'))
+  textReviewFinished=true
+  for(let n=0;n<40&&await run("document.querySelector('.text-translator [data-copy]').disabled");n++)await wait(50)
   assert.equal(await run("document.querySelector('.text-translator [data-target]').value"),'点间距为 2.5 mm。')
   assert.equal(await run("document.querySelector('.text-translator [data-copy]').disabled"),false)
   await run("document.querySelector('.text-translator [data-swap]').click()")
@@ -656,8 +722,8 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("document.querySelector('.text-translator [data-target-language]').value"),'en-US')
   assert.equal(await run("document.querySelector('.text-translator [data-source]').value"),'点间距为 2.5 mm。')
   await snap('text-translator')
-  await run("document.querySelector('.text-translator [data-close]').click()")
-  assert.equal(await run('document.activeElement.id'),'openTextTranslation')
+  await run("$('openWorkspace').click()")
+  assert.equal(await run("document.activeElement.id === (state.mode === 'check' ? 'modeCheck' : 'modeTranslate')"),true)
   assert.equal(await run("JSON.stringify({files:state.files,references:state.references,pairs:state.pairs,report:state.report,selected:[...state.selected],edits:state.edits})"),documentStateBeforeText)
   await run("$('openTextTranslation').click()");await wait(50)
   await run("$(state.mode==='check'?'modeCheck':'modeTranslate').click()");await wait(50)
@@ -669,10 +735,10 @@ server.listen(0,'127.0.0.1',async()=>{
   result.checks.push('free text editor: actual desktop entry, 942/1280/1600px layouts, English-Chinese request, verified output, copy enabled, swap direction and reopen during processing')
   for(const w of [360,480,900,1280]){
    shared.setContentSize(w,850);await sr('scrollTo(0,0)');await wait(100)
-   const entry=await sr("(()=>{const b=$('openTextTranslation'),r=b.getBoundingClientRect();return {inTaskCard:!!b.closest('.prepare'),primary:b.classList.contains('primary'),type:b.type,name:b.textContent.trim(),visible:r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&b.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)),horizontal:document.documentElement.scrollWidth-innerWidth}})()")
-   assert(entry.inTaskCard&&entry.primary&&entry.type==='button'&&entry.visible&&entry.horizontal<2,JSON.stringify({width:w,...entry}));assert.equal(entry.name,'文本翻译')
+   const entry=await sr("(()=>{const b=$('openTextTranslation'),r=b.getBoundingClientRect();return {inNavigation:!!b.closest('.shared-rail nav'),type:b.type,name:b.textContent.trim(),visible:r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight&&b.contains(document.elementFromPoint(r.left+r.width/2,r.top+r.height/2)),horizontal:document.documentElement.scrollWidth-innerWidth}})()")
+   assert(entry.inNavigation&&entry.type==='button'&&entry.visible&&entry.horizontal<2,JSON.stringify({width:w,...entry}));assert.equal(entry.name,'文本翻译')
   }
-  result.checks.push('shared text entry is prominent in the new-task card and visible without scrolling at 360/480/900/1280px')
+  result.checks.push('shared text entry is in the main navigation and visible without scrolling at 360/480/900/1280px')
   await sr("$('openTextTranslation').click()")
   for(let n=0;n<50&&!await sr("document.querySelector('.text-translator [data-source-language]').options.length===16");n++)await wait(50)
   assert.equal(await sr("document.querySelector('.text-translator').tagName"),'SECTION')
@@ -681,22 +747,46 @@ server.listen(0,'127.0.0.1',async()=>{
     const r=await sr("(()=>{const d=document.querySelector('.text-translator'),r=d.getBoundingClientRect();return {left:r.left,right:r.right,bottom:r.bottom,width:innerWidth,height:innerHeight,overflow:d.scrollHeight-d.clientHeight}})()")
     assert(r.left>=0&&r.right<=r.width&&r.bottom<=r.height&&r.overflow<2,JSON.stringify(r))
   }
-  await sr("document.querySelector('.text-translator [data-close]').click()")
+  await sr("$('sharedWork').click()")
   result.checks.push('shared free text editor at 480/900px: responsive stacked/pair layout with visible controls')
   desktop.webContents.debugger.attach('1.3')
   await desktop.webContents.debugger.sendCommand('Emulation.setEmulatedMedia',{features:[{name:'prefers-reduced-motion',value:'reduce'}]})
   assert.equal(await run("getComputedStyle($('dropzone'),'::before').animationName"),'none')
   desktop.webContents.debugger.detach()
   result.checks.push('system reduced-motion preference preserved')
-  if(theme==='light'){
+  const teamComment = await run(`(async () => {
+    const originalApi=callApi, originalDirty=lexiconEditor.isDirty
+    let pending=false, action='pull'
+    callApi=async (_method,path) => {
+      if(path==='/api/team/settings') return {has_token:true}
+      if(path==='/api/team/preview') return {action,changes:[],conflicts:[],pending_upload:pending,count:0}
+      throw Error('Unexpected team API request')
+    }
+    lexiconEditor.isDirty=()=>false
+    try {
+      await $('openTeamSync').onclick()
+      const idle=$('teamMessageLabel').hidden && !$('teamStatus').textContent
+      await $('teamPull').onclick()
+      const pull=$('teamMessageLabel').hidden
+      action='push'; await $('teamPush').onclick()
+      const clean=$('teamMessageLabel').hidden
+      pending=true; await $('teamPush').onclick()
+      const modified=!$('teamMessageLabel').hidden
+      await $('closeTeamSync').onclick()
+      return {idle,pull,clean,modified,closed:$('teamMessageLabel').hidden}
+    } finally { callApi=originalApi; lexiconEditor.isDirty=originalDirty }
+  })()`)
+  assert.deepEqual(teamComment,{idle:true,pull:true,clean:true,modified:true,closed:true})
+  result.checks.push("Team sync maintenance comment appears only for a pending push")
+  {
    await setViewport(1280,820)
    const inventory=await run("[...document.querySelectorAll('body>.modal,body>dialog')].map(e=>e.id)")
    for(const id of inventory){
     await run("(()=>{document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.querySelectorAll('body>.modal').forEach(d=>d.hidden=true);const d=document.getElementById("+JSON.stringify(id)+");d.hidden=false;if(d.tagName==='DIALOG')d.showModal()})()")
-    await snap('theme-'+id)
+    await snap('window-'+id)
    }
    await run("document.querySelectorAll('dialog[open]').forEach(d=>d.close());document.querySelectorAll('body>.modal').forEach(d=>d.hidden=true)")
-   result.checks.push({lightWindowInventory:inventory})
+   result.checks.push({windowInventory:inventory})
   }
   result.passed=true
  }catch(error){result.error=error.stack}

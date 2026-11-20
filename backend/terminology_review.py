@@ -232,12 +232,22 @@ def augment(segments,glossary,findings,stats,*,source_language=None,target_langu
                           if attempt==2 else ''),max_tokens=6000,**({'thinking':True} if attempt==2 and getattr(client,'supports_thinking_mode',False) is True else {}))
                 accepted=decisions(answer,rows,segment.text,whole_paragraph=whole,target_language=dst)
                 for suggestion in accepted:
-                    from .multilingual_documents import content_validate
                     revised=segment.text.replace(suggestion['original'],suggestion['replacement'],1)
                     if dst=='en-US':
-                        from .writing_policy import validate_translation
-                        validate_translation(segment.text,revised)
-                    else:content_validate(segment.text,revised,dst,dst)
+                        from .translation_policy import validate_for_file
+                        validate_for_file(segment.file_path,segment.text,revised,client=client,
+                                          check_cancel=lambda:check_cancel(cancel))
+                    else:
+                        from .multilingual_documents import content_validate
+                        from .text_languages import _validate_text_quantities
+                        from .translation_policy import review_unmatched_quantities
+                        content_validate(segment.text,revised,dst,dst)
+                        try:
+                            _validate_text_quantities(segment.text,revised,dst,dst)
+                        except ValueError:
+                            check_cancel(cancel)
+                            review_unmatched_quantities(client,segment.text,revised)
+                            check_cancel(cancel)
                 if checkpoint:
                     if cached:checkpoint.used();reused=True
                     else:checkpoint.put(key,answer)

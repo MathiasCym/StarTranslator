@@ -1,13 +1,27 @@
 const specialMode = process.argv.some(arg => ['--star-render-pages', '--star-setup', '--star-uninstall'].includes(arg))
+const previewBuild = require('./package.json').starPreview === true
+let previewHasLock = true
+if (previewBuild && !specialMode) {
+  const { app } = require('electron')
+  const path = require('node:path')
+  const fs = require('node:fs')
+  const batch = path.dirname(path.dirname(process.execPath))
+  const channel = path.dirname(batch)
+  const profile = path.join(path.basename(channel) === 'ui-preview' ? channel : batch, 'preview-profile')
+  fs.mkdirSync(profile, { recursive: true })
+  app.setPath('userData', profile)
+  app.setPath('sessionData', profile)
+  previewHasLock = app.requestSingleInstanceLock()
+}
 const dataDirectory = require('./lib/user-data-path').configure(require('electron').app, { move: !specialMode })
 const runtimeLog = require('./lib/runtime-log').createLogger(() =>
   require('path').join(require('electron').app.getPath('userData'), 'logs', 'runtime.log'))
 require('./lib/runtime-log').installDiagnosticConsole(runtimeLog)
 if (dataDirectory.warning) runtimeLog.error(dataDirectory.warning)
 
-if (!process.argv.includes('--star-render-pages')) require('./lib/appearance').install()
-
-if (process.argv.includes('--star-render-pages')) {
+if (!previewHasLock) {
+  require('electron').app.quit()
+} else if (process.argv.includes('--star-render-pages')) {
   require('./lib/page-renderer').run().catch(() => { require('electron').app.exit(1) })
 } else if (process.argv.includes('--star-setup') || process.argv.includes('--star-uninstall')) {
   require('./lib/setup-host').startSetup().catch(error => { runtimeLog.error(error); process.exitCode = 1 })
@@ -137,6 +151,7 @@ function stopBackend() {
 // 后端可能启动慢，前端通过 IPC 拿到端口再发请求
 ipcMain.handle('backend-port', () => backendPort)
 ipcMain.handle('app-version', () => app.getVersion())
+ipcMain.handle('preview-build', () => previewBuild)
 let githubUpdater,quitAfterDownload=false
 function updater(){
   if(!githubUpdater)githubUpdater=new (require('./lib/github-updates').GitHubUpdates)({
@@ -151,7 +166,7 @@ function updateSender(event){if(!mainWindow||event.sender.id!==mainWindow.webCon
 let updateNotifications
 ipcMain.handle('startup-update-notice',event=>{
   updateSender(event)
-  if(!app.isPackaged)return null
+  if(!app.isPackaged || previewBuild)return null
   updateNotifications ||= new (require('./lib/update-notifications').UpdateNotifications)({
     currentVersion:app.getVersion(),userData:app.getPath('userData'),check:()=>updater().findUpdate()
   })
@@ -164,11 +179,12 @@ ipcMain.handle('ignore-update-notice',(event,version)=>{
 })
 ipcMain.handle('update-state',event=>{updateSender(event);return updater().snapshot()})
 ipcMain.handle('check-updates',event=>{updateSender(event);return updater().check()})
-ipcMain.handle('download-update',event=>{updateSender(event);return updater().download()})
+ipcMain.handle('download-update',event=>{updateSender(event);if(previewBuild)throw Error('本地测试版停用更新下载。');return updater().download()})
 ipcMain.handle('cancel-update',event=>{updateSender(event);return updater().cancel()})
 ipcMain.handle('open-maintenance-authorization',event=>{updateSender(event);return shell.openExternal('https://github.com/settings/tokens')})
 ipcMain.handle('install-update',async event=>{
   updateSender(event)
+  if(previewBuild)throw Error('本地测试版停用在线安装更新。')
   if(!app.isPackaged)throw Error('请在安装后的星译官中使用在线安装更新。')
   if(maintenanceBusy||apiWrites)throw Error('正在保存或校验，请完成后再安装更新。')
   if(BrowserWindow.getAllWindows().some(window=>window!==mainWindow))throw Error('请先关闭共享工作台和文件选择窗口，再安装更新。')
@@ -316,15 +332,13 @@ ipcMain.handle('open-shared-service', async (event, address) => {
   const window = new BrowserWindow({ ...size, show:false,
     x:display.workArea.x+Math.round((display.workArea.width-size.width)/2),y:display.workArea.y+Math.round((display.workArea.height-size.height)/2),
     title:'星译官 · 共享工作台', icon:path.join(__dirname,'renderer','assets','app-icon.png'),
-    parent:mainWindow, backgroundColor:require('./lib/appearance').background(), autoHideMenuBar:true,
+    parent:mainWindow, backgroundColor:'#edf3fc', autoHideMenuBar:true,
     webPreferences:{zoomFactor:require('./lib/window-size').referenceZoom(display.scaleFactor,display.workArea),nodeIntegration:false,contextIsolation:true,sandbox:true,partition:'persist:star-lan-'+new URL(target).host} })
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}))
   require('./lib/window-size').installDisplaySizing(window,screen,display)
   window.webContents.on('will-navigate',(evt,url)=>{if(new URL(url).origin!==new URL(target).origin)evt.preventDefault()})
-  window.once('ready-to-show',()=>window.show())
-  require('./lib/appearance').shared(window)
-  const themedTarget=new URL(target);themedTarget.searchParams.set('star-theme',require('./lib/appearance').get())
-  try { await window.loadURL(themedTarget.href) } catch(error) { window.destroy(); throw new Error('未能连接共享电脑，请确认地址和共享服务已开启。') }
+  window.once('ready-to-show', () => { if (!window.isDestroyed()) window.show() })
+  try { await window.loadURL(target) } catch(error) { if (!window.isDestroyed()) window.destroy(); throw new Error('未能连接共享电脑，请确认地址和共享服务已开启。') }
   return true
 })
 
@@ -456,7 +470,7 @@ function createWindow() {
     show: false,           // 等首帧画好再显示，避免白闪
     title: `星译官 v${app.getVersion()} — 中英技术文档翻译与审校工作台`,
     icon: iconPath(),
-    backgroundColor: require('./lib/appearance').background(),
+    backgroundColor: '#edf3fc',
     webPreferences: {
       zoomFactor: require('./lib/window-size').referenceZoom(display.scaleFactor,display.workArea),
       preload: path.join(__dirname, 'preload.js'),
@@ -478,9 +492,16 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'))
 }
 
+if (previewBuild) app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+})
+
 app.whenReady().then(async () => {
   // 让任务栏按 appId 归组并取用快捷方式图标（Windows）
-  if (process.platform === 'win32') app.setAppUserModelId('tech.novastar.novaterm')
+  if (process.platform === 'win32') app.setAppUserModelId(previewBuild ? 'tech.novastar.startranslator.preview' : 'tech.novastar.novaterm')
   pickCustom = installFilePicker(() => mainWindow, iconPath)
   createWindow()
   if (dataDirectory.warning) mainWindow.webContents.once('did-finish-load', () => {
@@ -489,7 +510,7 @@ app.whenReady().then(async () => {
   try {
     await startBackend()
     modelMonitor.start()
-    if (app.isPackaged) {
+    if (app.isPackaged && !previewBuild) {
       const cleanUpdates = async () => {
         let installedCheck
         const verifyInstalled = () => installedCheck ||= (async () => {

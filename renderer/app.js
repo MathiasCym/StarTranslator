@@ -22,8 +22,7 @@ function textSurface(open) {
     document.body.classList.remove('text-view')
     if (previous) { document.body.classList.toggle('results-view',previous.results); $('reportModal').hidden = !previous.reportOpen }
   }
-  document.querySelector('.workspace-heading h2').textContent = open ? '文本工作台' : '文档工作台'
-  $('workspaceHint').textContent = open ? '选择语言，直接输入或粘贴文本' : state.mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
+  $('workspaceHint').textContent = open ? '' : state.mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
   for (const [id,active] of [['modeCheck',!open && state.mode === 'check'],['modeTranslate',!open && state.mode === 'translate'],['openTextTranslation',open]]) {
     $(id).classList.toggle('active',active); $(id).setAttribute('aria-pressed',String(active))
   }
@@ -64,14 +63,61 @@ function updateModelStatus(value) {
 }
 window.api.onModelStatus(updateModelStatus)
 window.api.modelStatus().then(updateModelStatus).catch(error => toast(error.message, true))
-window.api.appVersion().then(version => { currentVersion = version; $('appVersion').textContent = 'v' + version; document.title = `星译官 v${version}` })
+Promise.all([window.api.appVersion(), window.api.previewBuild?.().catch(() => false)]).then(([version, preview]) => {
+  currentVersion = version
+  $('appVersion').textContent = preview ? '本地测试' : 'v' + version
+  document.title = preview ? '星译官 · 本地测试版' : '星译官 v' + version
+})
 window.api.onBackendError(message => showTaskFailure(new Error('本地服务启动失败：' + message)))
 window.api.onDataDirectoryWarning?.(message => AppDialogs.ask({ title: '本机数据已保留', message, accept: '知道了', cancel: '稍后处理' }))
 window.api.onMaximizeChange(value => document.body.classList.toggle('maximized', !!value))
 action('winMin', () => window.api.minimize())
 action('winMax', () => window.api.toggleMaximize())
 action('winClose', () => window.api.closeWindow())
-$('outputDir').value = state.outputDir
+function renderOutputLocation() {
+  const current = $('outputLocation').options.namedItem('selectedOutput')
+  current.hidden = !state.outputDir
+  current.textContent = basename(state.outputDir) || state.outputDir
+  $('outputLocation').value = state.outputDir ? 'current' : 'source'
+  $('outputLocation').title = state.outputDir || '原文件所在文件夹'
+  $('outputDir').value = state.outputDir
+}
+renderOutputLocation()
+const workAreas = {
+  documents: { button: 'openWorkspace', title: '文档工作台' },
+  history: { button: 'openHistory', title: '历史记录', panel: 'historyWorkspace', focus: 'historySearch' },
+  lexicon: { button: 'openLexicon', title: '术语库', panel: 'lexiconPage', focus: 'termSearch' },
+  models: { button: 'openModel', title: '模型设置', panel: 'modelPage' }
+}
+function setWorkArea(page) {
+  const workbench = $('workbench')
+  if (workbench.dataset.page === page) return
+  workbench.dataset.page = page
+  workbench.scrollTop = 0
+  const area = workAreas[page]
+  $('workAreaTitle').textContent = area.title
+  for (const [key, item] of Object.entries(workAreas)) {
+    if (item.panel) $(item.panel).hidden = key !== page
+    if (key === page) $(item.button).setAttribute('aria-current', 'page')
+    else $(item.button).removeAttribute('aria-current')
+  }
+  $(area.focus || area.button).focus({ preventScroll: true })
+}
+action('openWorkspace', () => {
+  const inDocuments = $('workbench').dataset.page === 'documents'
+  setWorkArea('documents')
+  if (inDocuments && textViewSnapshot) leaveTextSurface()
+  const currentTab = textViewSnapshot ? $('openTextTranslation') : state.mode === 'check' ? $('modeCheck') : $('modeTranslate')
+  currentTab.focus({ preventScroll: true })
+})
+action('openHistory', () => {
+  setWorkArea('history')
+  return historyEditor.refresh()
+})
+action('openLexicon', () => {
+  setWorkArea('lexicon')
+  return lexiconEditor.open()
+})
 
 function setMode(mode) {
   if (state.busy || state.exportBusy) return
@@ -82,7 +128,7 @@ function setMode(mode) {
   $('workspaceHint').textContent = mode === 'check' ? '校准术语，打磨表达' : '专业译法，贯穿全文'
   const [sourceLanguage,targetLanguage] = StarDocumentLanguages.pair(state.direction)
   const languageName = StarDocumentLanguages.names[mode === 'check' ? targetLanguage : sourceLanguage]
-  $('dropTitle').textContent = '添加'+languageName+(mode === 'check' ? '译文' : '原稿')
+  $('dropTitle').textContent = mode === 'check' ? '添加' + (targetLanguage === 'en-US' ? '英文' : languageName) + '译文' : '添加原稿'
   StarDocumentLanguages.configure($('documentDirection'),'check',state.direction)
   StarDocumentLanguages.configurePair($('documentSource'),$('documentTarget'),state.direction)
   $('documentCheckLanguage').hidden = mode !== 'check'
@@ -150,7 +196,7 @@ action('modeCheck', () => requestMode('check'))
 action('modeTranslate', () => requestMode('translate'))
 action('backBtn', async () => { if (await confirmResultNavigation('关闭报告后返回任务概览，报告、勾选状态和替换文本编辑都会保留，可再次打开报告继续处理。', '返回任务概览')) { $('reportModal').hidden = true; renderCheckCompletion() } })
 action('viewReport', openReport); action('reviewCompleteBack', returnToWorkspace)
-action('translationBack', returnToWorkspace); action('finishTranslation', returnToWorkspace)
+action('finishTranslation', returnToWorkspace)
 action('failureBack', showWorkspace)
 action('failureHistory', () => $('openHistory').click())
 for (const id of ['failureExportLog', 'completionExportLog', 'translationExportLog']) action(id, async () => {
@@ -215,7 +261,19 @@ action('addMore', async () => addFiles(await window.api.pickFiles()))
 action('clearFiles', () => { state.files = []; renderFiles() })
 action('addReference', async () => addFiles(await window.api.pickReferences(), true))
 action('clearReferences', () => { state.references = []; state.pairs = {}; renderFiles() })
-action('pickOutput', async () => { const path = await window.api.pickDirectory(state.outputDir); if (path) { state.outputDir = path; $('outputDir').value = path; localStorage.setItem('nova.exportDir', path) } })
+async function chooseOutputLocation() {
+  const select = $('outputLocation')
+  try {
+    if (select.value === 'source') state.outputDir = ''
+    else if (select.value === 'custom') {
+      const selected = await window.api.pickDirectory(state.outputDir)
+      if (selected) state.outputDir = selected
+    }
+    localStorage.setItem('nova.exportDir', state.outputDir)
+  } catch (error) { toast(error.message, true) }
+  finally { renderOutputLocation() }
+}
+$('outputLocation').onchange = chooseOutputLocation
 const dropzone = $('dropzone')
 for (const name of ['dragenter', 'dragover']) dropzone.addEventListener(name, event => { event.preventDefault(); dropzone.classList.add('over') })
 for (const name of ['dragleave', 'drop']) dropzone.addEventListener(name, event => { event.preventDefault(); dropzone.classList.remove('over') })
@@ -227,8 +285,9 @@ function busy(value) {
   state.busy = value
   $('translationOptions').disabled = value
   $('jobProgressTrack').classList.toggle('active', value)
-  for (const id of ['modeCheck', 'modeTranslate', 'openTextTranslation', 'documentDirection', 'documentSource', 'documentTarget', 'openLexicon', 'openModel', 'runCombined']) $(id).disabled = value || (id === 'runCombined' && !state.files.length)
+  for (const id of ['modeCheck', 'modeTranslate', 'openTextTranslation', 'documentDirection', 'documentSource', 'documentTarget', 'openModel', 'runCombined']) $(id).disabled = value || (id === 'runCombined' && !state.files.length)
   $('jobPanel').hidden = !value; $('runBtn').disabled = value || !state.files.length
+  lexiconEditor.documentActivityChanged()
 }
 async function runTask(combined = false, restored = null) {
   if (state.busy || state.choosingOutput || (!restored && !state.files.length)) return
@@ -359,7 +418,7 @@ function reportRows() {
 }
 function showCheckCompletion() {
   $('taskFailurePanel').hidden = true
-  document.body.classList.remove('results-view')
+  document.body.classList.add('results-view')
   $('workspace').hidden = true; $('translationPanel').hidden = true; $('reportModal').hidden = true
   $('reviewCompletePanel').hidden = false
   renderCheckCompletion()
@@ -501,6 +560,7 @@ action('selectRules', () => { reportRows().forEach(({f, index}) => { if (['rule'
 async function exportReport(overwrite = false, saveCurrent = false) {
   if (state.exportBusy || (!state.selected.size && !saveCurrent)) return
   state.exportBusy = true; updateSelection(); $('backBtn').disabled = true
+  lexiconEditor.documentActivityChanged()
   $('exportProgressBox').hidden = false
   const groups = new Map(), results = []
   try {
@@ -529,7 +589,10 @@ async function exportReport(overwrite = false, saveCurrent = false) {
       catch (error) { results.push({ text: `${basename(path)}：${error.message}` }) }
     }
     state.exportRecords.push(...results); $('reportOutput').value = ''; $('completionOutput').value = ''; $('reportStatus').value = 'pending'; renderReport()
-  } finally { state.exportBusy = false; $('exportProgressBox').hidden = true; $('backBtn').disabled = false; updateSelection() }
+  } finally {
+    state.exportBusy = false; $('exportProgressBox').hidden = true; $('backBtn').disabled = false; updateSelection()
+    lexiconEditor.documentActivityChanged()
+  }
 }
 action('applyBtn', () => exportReport(false))
 action('overwriteBtn', () => exportReport(true))
@@ -543,7 +606,7 @@ function renderReportOutputs() {
   const output = outputs[Number($('reportOutput').value)]
   const source = state.report?.files?.[0]?.path || state.report?.findings?.[0]?.file_path || ''
   const path = output?.staged ? output.targetDir : output?.path || state.outputDir || source
-  $('reportOutputPath').textContent = output?.staged ? '译文已暂存，确认后保存至：' + output.targetDir : output?.path || '应用修改后，输出文件会出现在这里。'
+  $('reportOutputPath').textContent = output?.staged ? '译文已暂存，确认后保存至：' + output.targetDir : output?.path || '尚未保存'
   $('reportOutputPath').title = output?.path || ''
   $('reportOpenFolder').disabled = !path; $('reportOpenFile').disabled = !output
   $('reportOpenFile').textContent = output?.staged ? '预览暂存译文' : '打开文件'
@@ -589,12 +652,19 @@ function showTranslation(result, cancelled) {
   }
   if (savedPendingDraft && !cancelled) {
     $('translationTitle').textContent = '已保存待补译稿'
-    $('translationNotice').textContent = untranslated ? `还有 ${untranslated} 处待补译。可打开当前译稿或继续补译。` : '可打开当前译稿或继续补译。'
+    $('translationNotice').textContent = untranslated ? `已保留可用译文，另有 ${untranslated} 处待补译。` : '可打开当前译稿查看待核对内容。'
   }
-  $('translationFiles').innerHTML = result.outputs.map((r, i) => `<li><div class="file-copy"><div>${esc(basename(r.path))}${r.draft_pending ? ' · 待补译稿' : r.draft || r.staged ? ' · 初稿' : ''}</div><div class="fpath">翻译 ${r.translated} 段${r.untranslated ? `；${r.untranslated} 处${StarDocumentLanguages.names[StarDocumentLanguages.pair(r.direction)[0]]}未完成翻译` : ''}<br>${esc(r.path)}</div>${r.review_items?.length ? `<details${r.untranslated ? ' open' : ''}><summary>查看待核对内容（${r.review_items.length} 处）</summary>${r.review_items.map(w => `<p class="hint">${w.slide ? '第 ' + w.slide + ' 页 · ' : ''}${esc(w.reason)}<br>原稿：${esc(w.source_text)}<br>当前内容：${esc(w.translation)}</p>`).join('')}</details>` : ''}${r.warnings.length ? `<details><summary>查看处理提示</summary>${r.warnings.map(w => `<p class="hint">${w.slide ? '第' + w.slide + '页：' : ''}${esc(w.reason)} ${esc(w.text)}</p>`).join('')}</details>` : ''}${r.consistency_hits ? `<p class="hint">发现 ${r.consistency_hits} 项全文用语统一建议，继续校对可在报告中确认。</p>` : ''}${layoutWarningMarkup(r.layout_warnings)}</div><div class="row-actions">${r.comparison_id ? `<button class="btn ghost sm comparison-button" data-comparison="${r.comparison_id}">${PageComparison.buttonContent}</button>` : ''}<button class="btn ghost sm" data-open="${i}">打开译文</button><button class="btn ghost sm" data-folder="${i}">所在位置</button></div></li>`).join('')
-  $('translationFiles').querySelectorAll('[data-open]').forEach(b => { b.onclick = () => openResult('openFile', result.outputs[Number(b.dataset.open)].path) })
-  $('translationFiles').querySelectorAll('[data-folder]').forEach(b => { b.onclick = () => openResult('openFolder', result.outputs[Number(b.dataset.folder)].path) })
-  $('translationErrors').textContent = result.errors.map(e => `${e.path ? basename(e.path) + '：' : ''}${e.error || '未提供错误说明'}`).join('\n')
+  $('translationFiles').innerHTML = result.outputs.map(translationFileCard).join('')
+  $('translationFiles').querySelectorAll('[data-open]').forEach(button => {
+    button.onclick = () => openResult('openFile', result.outputs[Number(button.dataset.open)].path)
+  })
+  $('translationFiles').querySelectorAll('[data-folder]').forEach(button => {
+    button.onclick = () => openResult('openFolder', result.outputs[Number(button.dataset.folder)].path)
+  })
+  $('translationErrorSummary').textContent = `查看 ${result.errors.length} 项处理错误`
+  $('translationErrors').open = !result.outputs.length
+  $('translationErrorList').innerHTML = result.errors.map(error =>
+    `<li>${esc(error.path ? basename(error.path) + ' · ' : '')}${esc(error.error || '未提供错误说明')}</li>`).join('')
   $('translationExportLog').hidden = !result.errors.length
   $('translationResume').hidden = !resumable
   $('translationResume').textContent = savedPendingDraft ? '继续补译' : result.delivery_deferred ? '继续任务' : !cancelled && result.automatic_combined && result.outputs.length && result.outputs.every(o=>o.auto_exported) ?
@@ -602,35 +672,53 @@ function showTranslation(result, cancelled) {
   $('translationErrors').hidden = !result.errors.length
   $('reviewTranslation').disabled = !result.outputs.length
   $('reviewTranslation').textContent = combined ? '再次校对' : '继续校对译文'
-  $('reviewTranslation').hidden=!!result.automatic_combined
-  $('finishTranslation').textContent = result.outputs.length ? '暂不校对' : '返回文档'
-  if (combined) $('finishTranslation').textContent = '返回文档'
-  $('translationOutput').innerHTML = result.outputs.map((r,i) => `<option value="${i}">${esc(basename(r.path))}</option>`).join('')
-  $('translationOutput').hidden = result.outputs.length < 2
-  $('translationOutput').value = '0'; renderTranslationOutput()
+  $('reviewTranslation').hidden = !!result.automatic_combined || savedPendingDraft || resumable || !result.outputs.length
 }
-function renderTranslationOutput() {
-  const output = state.outputs[Number($('translationOutput').value)]
-  $('translationOutputPath').textContent = output?.path || '尚无输出文件'
-  $('translationOutputPath').title = output?.path || ''
-  $('translationOpenFolder').disabled = $('translationOpenFile').disabled = !output
-  $('translationOpenFolder').onclick = () => output && openResult('openFolder', output.path)
-  $('translationOpenFile').onclick = () => output && openResult('openFile', output.path)
+function translationFileCard(file, index) {
+  const pending = file.untranslated || 0
+  const partial = file.partially_translated || 0
+  const label = pending || file.draft_pending ? '待补译稿' : file.draft || file.staged ? '初稿' : ''
+  const reviewItems = file.review_items || []
+  const notes = file.warnings || []
+  const status = [Number.isInteger(file.translated) && file.translated > 0 && `已译 ${file.translated} 段`,
+    partial && `${partial} 段已保留部分译文`, pending && `${pending} 处待补译`].filter(Boolean)
+  const issues = reviewItems.length ? `<details class="output-notes"><summary>查看待核对内容（${reviewItems.length} 处）</summary>
+    <ul>${reviewItems.map(translationIssue).join('')}</ul></details>` : ''
+  const warnings = notes.length ? `<details class="output-notes"><summary>查看处理提示（${notes.length} 项）</summary>
+    <ul>${notes.map(note => `<li>${note.slide ? '第 ' + note.slide + ' 页 · ' : ''}${esc(note.reason)} ${esc(note.text)}</li>`).join('')}</ul></details>` : ''
+  const comparison = file.comparison_id ? `<button class="btn ghost sm comparison-button" data-comparison="${file.comparison_id}">${PageComparison.buttonContent}</button>` : ''
+  return `<li class="output-file">
+    <div class="output-file-header"><div class="output-file-identity">
+      <div class="output-file-title"><strong title="${esc(file.path)}">${esc(basename(file.path))}</strong>${label ? `<span class="output-file-badge${pending ? ' pending' : ''}">${label}</span>` : ''}</div>
+      ${status.length ? `<p class="hint">${status.join(' · ')}</p>` : ''}
+    </div>
+    <div class="row-actions"><button class="btn primary sm" data-open="${index}">打开译文</button>${comparison}<button class="btn ghost sm" data-folder="${index}">所在位置</button></div></div>
+    ${issues}${warnings}${file.layout_warnings?.length ? `<div class="output-notes">${layoutWarningMarkup(file.layout_warnings)}</div>` : ''}
+  </li>`
 }
-$('translationOutput').onchange = renderTranslationOutput
+function translationIssue(issue) {
+  const position = [issue.slide && `第 ${issue.slide} 页`, issue.para && `第 ${issue.para} 段`].filter(Boolean).join(' · ')
+  const fragments = issue.unresolved_fragments || []
+  return `<li>
+    ${position ? `<strong class="output-location">${esc(position)}</strong>` : ''}
+    ${fragments.length ? `<ol class="output-fragments">${fragments.map((piece,index) =>
+      `<li value="${Number.isInteger(piece.fragment) ? piece.fragment : index+1}"><span class="output-fragment">${esc(piece.source_text)}</span><p class="hint">${esc(piece.reason || issue.reason)}</p></li>`).join('')}</ol>` :
+      `<p>${esc(issue.reason)}</p>${issue.source_text ? `<p class="output-fragment">${esc(issue.source_text)}</p>` : ''}`}
+  </li>`
+}
 action('reviewTranslation', async () => {
   const outputs = state.outputs.slice(); setMode('check'); state.files = outputs.map(r => r.path)
   for (const r of outputs) { if (!state.references.includes(r.source)) state.references.push(r.source); state.pairs[r.path] = r.source }
   $('useLlm').checked = true; renderFiles(); await runTask()
 })
 
-const lexiconEditor = installLexicon({ $, action, callApi, esc, basename })
+const lexiconEditor = installLexicon({ $, action, callApi, esc, basename, toast, documentBusy: () => state.busy || state.exportBusy })
 const refreshGlossary = lexiconEditor.refreshGlossary
 async function resumeHistoryTask(row) {
   if (state.busy || state.exportBusy) { toast('请先等待当前任务结束'); return }
   if (!await confirmResultNavigation('将从本机断点继续处理这项任务，已保存的输出文件保留。','继续任务')) return
   const data = await callApi('GET','/api/history/'+encodeURIComponent(row.id)+'/resume')
-  $('historyModal').hidden = true
+  setWorkArea('documents')
   state.direction = data.direction || 'zh-en'
   setMode(data.kind === 'check' ? 'check' : 'translate')
   await runTask(false,data)
@@ -681,7 +769,6 @@ async function openAbout() {
   }
 }
 action('openAbout', openAbout)
-action('aboutOpen', openAbout)
 action('closeAbout', () => { $('aboutModal').hidden = true })
 action('contactAuthor', () => {
   const details = $('authorContactDetails')
@@ -773,7 +860,7 @@ function updateProtocolFields() {
 }
 $('modelFormat').onchange = updateProtocolFields
 function profileFormValue() { return JSON.stringify([modelProvider, ...profileFields.map(id => $(id).value)]) }
-function profileDirty() { return !$('modelModal').hidden && profileBaseline && profileBaseline !== profileFormValue() }
+function profileDirty() { return Boolean(profileBaseline && profileBaseline !== profileFormValue()) }
 async function profileGuard(accept = '放弃修改') {
   if (profileBusy) return false
   return !profileDirty() || await AppDialogs.ask({ title: '放弃未保存的修改？',
@@ -782,12 +869,8 @@ async function profileGuard(accept = '放弃修改') {
 function updateProfileControls() {
   $('modelSave').disabled = profileBusy
   $('modelUse').disabled = profileBusy || !profileState.editing
-  $('modelClose').disabled = profileBusy
   $('profileNew').disabled = profileBusy
   $('profileList').querySelectorAll('button').forEach(b => { b.disabled = profileBusy })
-  $('profileList').querySelectorAll('[data-profile]').forEach(card => {
-    card.setAttribute('aria-disabled', String(profileBusy)); card.tabIndex = profileBusy ? -1 : 0
-  })
   profileFields.forEach(id => { $(id).disabled = profileBusy })
 }
 function captureProfileForm() { profileBaseline = profileFormValue(); updateProfileControls() }
@@ -803,22 +886,22 @@ function renderProfiles() {
   $('profileEncryption').textContent = profileState.encryption === 'dpapi' ? '密钥由本机系统加密保存，不随软件分发。' : '当前系统不支持加密，密钥以明文保存在本机。'
   $('profileList').innerHTML = profileState.profiles.map(p => {
     const active = p.id === profileState.active
-    return `<div class="profile-row${active ? ' active' : ''}${p.id === profileState.editing ? ' editing' : ''}" data-profile="${esc(p.id)}" role="button" tabindex="0" aria-pressed="${p.id === profileState.editing}">
-      <div class="profile-copy"><div class="profile-name">${esc(p.name)}</div>
-      <div class="profile-badges">${active ? '<span class="tag high">使用中</span>' : ''}${p.pending ? '<span class="tag medium">修改待使用</span>' : ''}</div>
-      <div class="hint">${esc(p.model || '未填模型')} · ${p.has_key ? '已存密钥' : '未设密钥'}</div></div>
-      <div class="row-actions">
-        <button class="btn ghost sm danger" data-delete="${esc(p.id)}">删除</button>
-      </div></div>`
-  }).join('') || '<p class="hint">暂无配置。在右侧填写后点击“保存配置”，再选择是否使用。</p>'
+    const selected = p.id === profileState.editing
+    return `<div class="profile-row${active ? ' active' : ''}${selected ? ' editing' : ''}">
+      <button type="button" class="profile-copy" data-profile="${esc(p.id)}" aria-pressed="${selected}">
+        <span class="profile-name">${esc(p.name)}</span>
+        <span class="hint">${esc(p.model || '未填模型')} · ${p.has_key ? '已存密钥' : '未设密钥'}</span>
+        <span class="profile-badges">${active ? '<span class="tag high">使用中</span>' : ''}${p.pending ? '<span class="tag medium">修改待使用</span>' : ''}</span>
+      </button>
+      <button type="button" class="btn ghost sm danger" data-delete="${esc(p.id)}" aria-label="删除 ${esc(p.name)}">删除</button>
+    </div>`
+  }).join('') || '<p class="hint">暂无配置</p>'
   $('profileList').querySelectorAll('[data-profile]').forEach(card => {
-    const select = async () => {
-      if (card.dataset.profile !== profileState.editing && await profileGuard()) loadProfileForEdit(card.dataset.profile)
-    }
-    card.onclick = event => { if (!event.target.closest('button')) select() }
-    card.onkeydown = event => {
-      if (event.target === card && (event.key === 'Enter' || event.key === ' ')) {
-        event.preventDefault(); select()
+    card.onclick = async () => {
+      const id = card.dataset.profile
+      if (id !== profileState.editing && await profileGuard()) {
+        loadProfileForEdit(id)
+        $('profileList').querySelector('[aria-pressed="true"]')?.focus({ preventScroll: true })
       }
     }
   })
@@ -855,15 +938,21 @@ function resetProfileForm() {
   $('modelFormat').value = 'openai'; $('modelAuth').value = 'auto'; updateProtocolFields()
   $('modelKey').placeholder = '填写此配置的接口密钥，可留空'
   $('modelMessage').textContent = '新建配置：保存后不会自动切换当前连接。'
-  captureProfileForm(); renderProfiles(); $('modelProfileName').focus()
+  captureProfileForm(); renderProfiles()
+  if (!$('modelPage').hidden) $('modelProfileName').focus({ preventScroll: true })
 }
 action('profileNew', async () => { if (await profileGuard()) resetProfileForm() })
 action('openModel', async () => {
-  const [settings, profiles] = await Promise.all([callApi('GET', '/api/model/settings'), callApi('GET', '/api/model/profiles')])
-  profileState = { ...profileState, ...profiles, editing: '' }
-  $('modelModal').hidden = false
-  if (profiles.profiles.some(p => p.id === profiles.active)) loadProfileForEdit(profiles.active)
-  else resetProfileForm()
+  setWorkArea('models')
+  if (profileDirty() || profileBusy) return
+  await profileRequest(async () => {
+    const profiles = await callApi('GET', '/api/model/profiles')
+    const preferred = [profileState.editing, profiles.active, profiles.profiles[0]?.id]
+      .find(id => profiles.profiles.some(p => p.id === id))
+    profileState = { ...profileState, ...profiles }
+    if (preferred) loadProfileForEdit(preferred)
+    else resetProfileForm()
+  })
 })
 $('modelPreset').onchange = () => {
   const preset = $('modelPreset').value
@@ -873,7 +962,6 @@ $('modelPreset').onchange = () => {
   $('modelKey').value = ''
   $('modelFormat').value = 'openai'; $('modelAuth').value = 'auto'; updateProtocolFields()
 }
-action('modelClose', async () => { if (await profileGuard('放弃并关闭')) { $('modelModal').hidden = true; profileBaseline = '' } })
 action('modelSave', () => profileRequest(async () => {
   const body = { id: profileState.editing || undefined, name: $('modelProfileName').value,
     provider: modelProvider, base_url: $('modelUrl').value, model: $('modelName').value,
@@ -887,14 +975,13 @@ action('modelSave', () => profileRequest(async () => {
 }))
 async function activateProfile(id) {
   if (profileBusy) return
-  if (profileDirty()) { $('modelMessage').textContent = '请先保存修改，或关闭并放弃修改后再选择使用。'; toast('请先保存修改，再使用配置。', true); return }
+  if (profileDirty()) { $('modelMessage').textContent = '请先保存修改，再使用配置。'; return }
   await profileRequest(async () => {
     const result = await callApi('POST', `/api/model/profiles/${id}/activate`, {})
     profileState = { ...profileState, ...result }
     loadProfileForEdit(id)
     $('modelMessage').textContent = '已使用“' + (profileState.profiles.find(p => p.id === id)?.name || '') + '”，右上角状态灯会自动检测连接。'
     toast('已切换模型连接。')
-    $('modelModal').hidden = true; profileBaseline = ''
   })
 }
 action('modelUse', () => { if (profileState.editing) return activateProfile(profileState.editing) })
@@ -914,10 +1001,11 @@ async function confirmExit(reload = false) {
   if(window.Community?.busy){toast('正在同步团队词库，请完成后再关闭。');return false}
   if (integrityBusy) { toast('正在校验或修复，请完成后再关闭。'); return false }
   if (profileBusy || lexiconEditor.state.busy) { toast('正在保存或读取，请稍候再关闭。'); return false }
-  if (!reload && (await callApi('GET','/api/maintenance/status').catch(()=>({busy:state.busy||state.exportBusy}))).busy) {
-    return AppDialogs.ask({title:'还有任务正在处理',message:'退出星译官会中止本机和共享工作台中的任务。已保存的文件保留，尚未完成的内容需要重新处理。',accept:'中止任务并退出',cancel:'继续处理'})
-  }
   const parts = [profileDirty() && '模型配置', lexiconEditor.isDirty() && '术语库',window.Community?.authorizationDirty&&'维护授权'].filter(Boolean)
+  if (!reload && (await callApi('GET','/api/maintenance/status').catch(()=>({busy:state.busy||state.exportBusy}))).busy) {
+    const unsaved = parts.length ? parts.join('和') + '还有修改未保存，退出后将丢失。' : ''
+    return AppDialogs.ask({title:'还有任务正在处理',message:'退出星译官会中止本机和共享工作台中的任务。已保存的文件保留，尚未完成的内容需要重新处理。'+unsaved,accept:'中止任务并退出',cancel:'继续处理'})
+  }
   if (!parts.length) return true
   const teamWasOpen=$('teamDialog').open
   if(teamWasOpen)$('teamDialog').close()

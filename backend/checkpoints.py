@@ -82,6 +82,32 @@ SHIPPED_248={
     'pdf-output':'a3ff06d9033c358800e7552f2847c38789de8459f83535217a7b3e227677b36c',
 }
 
+SHIPPED_249={
+    'translation':'21a4e881765916947f07bb85382faedebf51aed914b2b6e538e83f507b92c3bc',
+    'translation-multi':'efcc10f80024767ca0275547710ba9c3a50025367f01420de997fafde169ef2d',
+    'review-multi':'8ae27a1646957ce1215649762de0970c8fc506a8e38141f5e56f2126240b8714',
+    'terminology-review':'2a1eb37ad5af5419bf1ef142ecadef33b9a07e3bd20a036f5b9529476f8ab0b4',
+    'translation-zh':'dd85de35202be5e88f461773c8c640ad4c91bca7633039532f64acca6042c0de',
+    'review-zh':'ef7b0f94ab9c9b532c3a3aa15e426f08129398cc2efbea530c6f5d988f16c0bf',
+    'review':'3c9e60ea9a25bd2e7a9f84d81cf72a8b5ee8601066dfcc2f8a1c5939006726a0',
+    'pdf-image':'9daf6313517e5001efb04d8ceb7a1325b5294cf3e9bd9ab91091b98c6de9c99f',
+    'pdf-output':'d32550ae9fa3ac21d74284a9ebd2463be6e0d87d16542a846adf8d7acb9a9faa',
+}
+
+# Verified local preview before quantity review changed. Exact-session resume
+# still requires the current language and style checks for each cached entry.
+PREVIEW_BEFORE_QUANTITY_REVIEW={
+    'translation':'5d905a9a3c261bcedb8925463ec153ec355ee42807803d75389d4c926131ea26',
+    'translation-multi':'39686e6860225e7dfe76f1b384d1bdc0c2ccc58ce2d911cfe1fe4e520fb866b1',
+    'review-multi':'7199211cbdbd444fe60e4c2ff6f471820f0d4d2074bf54f43a5469a9262c6663',
+    'translation-zh':'a17cd642e130b13e43fefd2f7369872562ce642b302524fc8e5bd97d06e79449',
+    'review-zh':'f07d2ade2fb0ffd634363db3f2e9c8063683b6050e00b12088b7c0542457effc',
+    'terminology-review':'11e4559c934c8bcbcb2fcc78a76df8a3e9642f8d8faaeda1e86c668e70ddcb49',
+    'review':'7a03854c16e719cc9a5adb41e8ce23330aca8f77fb1e255c2f07ec7b029e7093',
+    'pdf-image':'5a71ad9b4fc731824d2c68561efe552c25b992bac228b340b2bc4b2512ee1759',
+    'pdf-output':'d1849260f9f4786579ee8b0d79361ee9a7cfece8e476e2ef0f548ca237e0902e',
+}
+
 
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
@@ -137,7 +163,7 @@ class Checkpoint:
                     db.execute('INSERT OR REPLACE INTO checkpoint_scopes VALUES (?,?)',(self.scope,str(identity.get('source',''))))
                 rows = db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?', (self.scope,stage)).fetchall()
                 if identity.get('task_session') is not None:
-                    for shipped in (SHIPPED_248, SHIPPED_247, SHIPPED_246, SHIPPED_245, SHIPPED_244, SHIPPED_241):
+                    for shipped in (PREVIEW_BEFORE_QUANTITY_REVIEW, SHIPPED_249, SHIPPED_248, SHIPPED_247, SHIPPED_246, SHIPPED_245, SHIPPED_244, SHIPPED_241):
                         if stage not in shipped:
                             continue
                         legacy=digest({'policy':shipped[stage],'input':identity})

@@ -137,7 +137,13 @@ class TerminologyTests(unittest.TestCase):
     def test_numeric_change_in_term_suggestion_is_rejected_and_not_cached(self):
         answer={'reviewed':True,'decisions':[{'id':'0','status':'replace','original':'レートは 60 Hz',
             'replacement':'リフレッシュレートは 61 Hz','reason':'Use the standard.'}]}
-        model=TermModel(decisions=answer);findings,stats=self.audit(model)
+        class ChangedValue(TermModel):
+            def chat_json(self,prompt,system='',**options):
+                if system.startswith('只核对当前段落'):
+                    return {'severity':'critical','source_evidence':'60 Hz',
+                            'target_evidence':'61 Hz','reason':'建议改变刷新率。'}
+                return super().chat_json(prompt,system,**options)
+        model=ChangedValue(decisions=answer);findings,stats=self.audit(model)
         self.assertFalse(findings);self.assertEqual(model.term_calls,2);self.assertEqual(stats['model_status'],'partial')
 
     def test_missing_catalog_preserves_existing_results_and_reports_incomplete_check(self):

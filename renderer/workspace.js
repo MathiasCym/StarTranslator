@@ -1,12 +1,9 @@
 // Keep keyboard navigation inside the current dialog and return to its opener.
 ;(() => {
   const dialogs = [...document.querySelectorAll('.modal[id]')]
-  const page = [...document.querySelectorAll('body > header, body > main')]
+  const page = [...document.querySelectorAll('body > header, body > main, body > .navigation-rail')]
   const settings = {
-    lexiconModal: { initial: 'termSearch', close: 'closeLexicon', opener: 'openLexicon' },
-    modelModal: { initial: 'modelProfileName', close: 'modelClose', opener: 'openModel' },
     aboutModal: { initial: 'closeAbout', close: 'closeAbout', opener: 'openAbout' },
-    historyModal: { initial: 'historyPreset', close: 'closeHistory', opener: 'openHistory' },
     reportModal: { initial: 'reportStatus', close: 'backBtn', opener: 'viewReport' },
     confirmationModal: { initial: 'confirmationCancel', close: 'confirmationCancel' },
     combinedOutputModal: { initial: 'combinedOutputStart', close: 'combinedOutputCancel' }
@@ -63,12 +60,6 @@
         event.preventDefault(); first.focus()
       }
     }
-  })
-  // The brand image opens About; give it the same keyboard behavior as a button.
-  const brand = document.getElementById('aboutOpen')
-  brand.setAttribute('role', 'button'); brand.setAttribute('aria-label', '关于星译官'); brand.tabIndex = 0
-  brand.addEventListener('keydown', event => {
-    if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); brand.click() }
   })
   sync()
 })()

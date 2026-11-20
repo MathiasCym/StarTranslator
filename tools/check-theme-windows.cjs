@@ -4,34 +4,54 @@ const root=path.resolve(__dirname,'..'),qa=path.join(root,'dist/qa/appearance-wi
 if(typeof runtime==='string'){
  const task=require('node:child_process').spawnSync(runtime,[__filename],{cwd:root,windowsHide:true,encoding:'utf8',timeout:90000});if(task.stdout)process.stdout.write(task.stdout);if(task.status!==0)console.error(task.stderr);process.exit(task.status??1)
 }
-const {app,BrowserWindow,ipcMain}=runtime,wait=ms=>new Promise(r=>setTimeout(r,ms)),audit=require('./theme-paint-audit.cjs')
+const {app,BrowserWindow,ipcMain}=runtime,wait=ms=>new Promise(r=>setTimeout(r,ms))
 fs.mkdirSync(qa,{recursive:true});app.setPath('userData',fs.mkdtempSync(path.join(qa,'profile-')))
 let mode='open',uninstall=false,service
 const timeout=setTimeout(()=>app.exit(2),80000)
 app.whenReady().then(async()=>{
  try{
- require('../lib/appearance').install()
  ipcMain.handle('picker-options',()=>({title:'主题测试 · 选择文件',mode,multiple:true,name:'output.docx',directory:'C:/qa',extensions:['docx','pptx','pdf'],locations:[{name:'测试目录',path:'C:/qa'}]}))
  ipcMain.handle('picker-list',()=>({directory:'C:/qa',parent:'C:/',files:[{name:'参考材料',path:'C:/qa/folder',directory:true},{name:'sample.pptx',path:'C:/qa/sample.pptx',size:10000,type:'PPTX',modified:Date.now(),directory:false},{name:'sample.docx',path:'C:/qa/sample.docx',size:20000,type:'DOCX',modified:Date.now(),directory:false}]}))
- ipcMain.handle('setup-info',()=>({version:'2.4.2',directory:'C:/Program Files/StarTranslator',scope:'current',uninstall,upgrade:false}))
+ ipcMain.handle('setup-info',()=>({version:require('../package.json').version,directory:'C:/Program Files/StarTranslator',scope:'current',uninstall,upgrade:false}))
  let writes=0;for(const route of ['picker-confirm','setup-start','setup-launch'])ipcMain.handle(route,()=>{writes++;throw Error('No installation or file writes are permitted in visual QA')})
  const window=new BrowserWindow({show:false,width:1250,height:850,webPreferences:{preload:path.join(root,'picker-preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,offscreen:true}})
  window.webContents.setBackgroundThrottling(false)
  const run=code=>window.webContents.executeJavaScript(code)
- async function shot(win,name){win.webContents.setBackgroundThrottling(false);await win.webContents.capturePage();await wait(250);if(/^(install|uninstall)/.test(name)){assert.equal(await win.webContents.executeJavaScript("!!document.querySelector('[data-theme-toggle]')"),false);assert((await win.webContents.executeJavaScript("getComputedStyle(document.querySelector('.setup-shell')).backgroundImage")).includes('rgb(11, 25, 42)'));const file=path.join(qa,name+'.png');fs.writeFileSync(file,(await win.webContents.capturePage()).toPNG());result.screenshots.push(file);return;}assert.equal(await win.webContents.executeJavaScript('document.documentElement.dataset.theme'),'light');const issues=await win.webContents.executeJavaScript('('+audit.toString()+')()');if(issues.length){const diagnosis=await win.webContents.executeJavaScript("JSON.stringify({html:document.documentElement.outerHTML.slice(0,250),fg:getComputedStyle(document.documentElement).getPropertyValue('--fg'),sheets:[...document.styleSheets].map(s=>({href:s.href,count:s.cssRules.length})),rules:[...document.styleSheets].flatMap(s=>[...s.cssRules]).filter(r=>r.selectorText&&document.querySelector('#pickerClose')?.matches(r.selectorText)).map(r=>r.cssText)},null,2)");fs.writeFileSync(path.join(qa,'paint-failure.json'),diagnosis);fs.writeFileSync(path.join(qa,'paint-failure.png'),(await win.webContents.capturePage()).toPNG())}assert.equal(issues.length,0,JSON.stringify({name,issues}));const file=path.join(qa,name+'.png');fs.writeFileSync(file,(await win.webContents.capturePage()).toPNG());result.screenshots.push(file)}
+ async function shot(win, name) {
+  win.webContents.setBackgroundThrottling(false)
+  await win.webContents.capturePage()
+  await wait(220)
+  const inspect = code => win.webContents.executeJavaScript(code)
+  assert.equal(await inspect("!!document.querySelector('[data-theme-toggle]')"), false)
+  if (/^(install|uninstall)/.test(name)) {
+    assert.equal(await inspect("getComputedStyle(document.documentElement).colorScheme"), 'dark')
+    assert.match(await inspect("getComputedStyle(document.querySelector('#setupAction')).backgroundImage"), /linear-gradient/)
+  } else if (name==='setup-picker') {
+    assert.equal(await inspect("getComputedStyle(document.body).colorScheme"), 'dark')
+  } else {
+    assert.equal(await inspect("getComputedStyle(document.documentElement).colorScheme"), 'light')
+    assert.equal(await inspect('document.documentElement.scrollWidth <= innerWidth'), true)
+  }
+  const file = path.join(qa,name+'.png')
+  fs.writeFileSync(file,(await win.webContents.capturePage()).toPNG())
+  result.screenshots.push(file)
+ }
  for(mode of ['open','save','directory']){
-  await window.loadFile(path.join(root,'renderer/file-picker.html'));await wait(100);await run("StarAppearance.set('light')");await shot(window,'picker-'+mode)
+  await window.loadFile(path.join(root,'renderer/file-picker.html'));await wait(100);await shot(window,'picker-'+mode)
   await run("document.querySelector('#pickerList [role=option]')?.click();document.getElementById('pickerNew').click();document.getElementById('pickerSearch').focus()");await shot(window,'picker-'+mode+'-selected')
  }
- await window.reload();await wait(100);assert.equal(await run('StarAppearance.get()'),'light');await run("StarAppearance.set('dark')");assert.equal(await run('StarAppearance.get()'),'dark');await run("StarAppearance.set('light')");result.checks.push('Actual picker preload: open/save/directory, selection/new folder/focus, reload persistence and both directions of theme switch')
+ await window.reload(); await wait(100); await shot(window,'picker-reloaded')
+ mode='directory';await window.loadFile(path.join(root,'renderer/file-picker.html'),{query:{setup:'1'}});await wait(100);await shot(window,'setup-picker')
+ result.checks.push('Open, save and directory picker with selection, search focus and new folder controls')
  const setup=new BrowserWindow({show:false,width:980,height:660,useContentSize:true,webPreferences:{preload:path.join(root,'setup-preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,offscreen:true}})
  for(uninstall of [false,true]){
   await setup.loadFile(path.join(root,'renderer/setup.html'));await wait(100);await shot(setup,uninstall?'uninstall':'install')
-  for(const state of [{phase:'checking',message:'正在检查环境'},{phase:'files',message:'正在写入程序文件'},{phase:'verifying',percent:60,checked:60,total:100},{phase:'complete',message:'已完成',directory:'C:/qa/StarTranslator'},{phase:'error',message:'演示提示：请重新选择可写目录'}]){
+  const phases=[{phase:'checking'},{phase:'files'},{phase:'registering'},...(uninstall?[]:[{phase:'verifying',percent:60,checked:60,total:100}]),{phase:'complete',directory:'C:/qa/StarTranslator'},{phase:'error',message:uninstall?'星译官仍在运行，请关闭后重试。':'此文件夹不可写，请选择另一个安装位置。'}]
+  for(const state of phases){
    setup.webContents.send('setup-status',state);await shot(setup,(uninstall?'uninstall-':'install-')+state.phase)
   }
  }
- result.checks.push('Actual setup preload: install/uninstall, options/progress/verifying/complete/error, always original dark palette despite saved light preference; no installer started')
+ result.checks.push('Actual setup preload: install/uninstall, options/progress/verifying/complete/error, fixed dark surroundings; no installer started')
  const jobs=[{id:'demo',kind:'translate_review',status:'complete',message:'校对完成',percent:100,downloads:[],result:{outputs:[],report:{files:[],stats:{model_status:'complete'},findings:[]}}}]
  service=http.createServer((req,res)=>{
   const name=new URL(req.url,'http://localhost').pathname
@@ -44,7 +64,7 @@ app.whenReady().then(async()=>{
  })
  await new Promise(resolve=>service.listen(0,'127.0.0.1',resolve))
  const shared=new BrowserWindow({show:false,width:1280,height:900,webPreferences:{nodeIntegration:false,contextIsolation:true,sandbox:true,offscreen:true}}),sr=code=>shared.webContents.executeJavaScript(code)
- await shared.loadURL('http://127.0.0.1:'+service.address().port+'/?star-theme=light');await wait(200);await shot(shared,'shared-home')
+ await shared.loadURL('http://127.0.0.1:'+service.address().port+'/');await wait(200);await shot(shared,'shared-home')
  await sr("(()=>{const d=new DataTransfer();d.items.add(new File(['fixture'],'sample.pptx'));document.getElementById('files').files=d.files;document.getElementById('files').dispatchEvent(new Event('change'));document.querySelector('.translation-choice input').focus()})()");await shot(shared,'shared-selected')
  const directionChecks=await sr(`(async()=>{
   const names=StarDocumentLanguages.names,codes=Object.keys(names),requests=[],original=window.XMLHttpRequest;
@@ -74,12 +94,11 @@ app.whenReady().then(async()=>{
  await shared.reload();await wait(150);assert.equal(await sr("$('documentSource').value"),'ko');assert.equal(await sr("$('documentTarget').value"),'ja-JP')
  await sr("(()=>{const d=new DataTransfer();d.items.add(new File(['fixture'],'sample.pptx'));$('files').files=d.files;$('files').dispatchEvent(new Event('change'))})()")
  result.checks.push(directionChecks)
- await sr("StarAppearance.set('dark')");await sr("StarAppearance.set('light')");assert.equal(await sr("document.getElementById('files').files[0].name"),'sample.pptx')
- await sr("document.getElementById('openTextTranslation').click()");await wait(100);await shot(shared,'shared-text');await sr("document.querySelector('.text-translator [data-source]').value='保留编辑中的内容。';StarAppearance.set('dark');StarAppearance.set('light')");assert.equal(await sr("document.querySelector('.text-translator [data-source]').value"),'保留编辑中的内容。');await sr("document.querySelector('.text-translator [data-close]').click()")
+ await sr("document.getElementById('openTextTranslation').click()");await wait(100);await shot(shared,'shared-text');await sr("document.querySelector('.text-translator [data-source]').value='保留编辑中的内容。'");assert.equal(await sr("document.querySelector('.text-translator [data-source]').value"),'保留编辑中的内容。');await sr("document.getElementById('sharedWork').click()")
  const dialogs=await sr("[...document.querySelectorAll('dialog')].map(e=>e.id)")
  for(const id of dialogs){await sr("(()=>{document.querySelectorAll('dialog[open]').forEach(d=>d.close());const d=document.getElementById("+JSON.stringify(id)+");d.hidden=false;d.showModal()})()");await shot(shared,'shared-'+id)}
- await sr("document.querySelectorAll('dialog[open]').forEach(d=>d.close())");await shared.reload();await wait(100);assert.equal(await sr('StarAppearance.get()'),'light')
- result.checks.push({sharedDialogs:dialogs,selectionAndTextRetained:true,reloadTheme:true})
+ await sr("document.querySelectorAll('dialog[open]').forEach(d=>d.close())");await shared.reload();await wait(100);await shot(shared,'shared-reloaded')
+ result.checks.push({sharedDialogs:dialogs,selectionAndTextRetained:true,reloadLayout:true})
  assert.equal(writes,0);result.passed=true
  }catch(error){result.error=error.stack}
  finally{fs.writeFileSync(path.join(qa,'result.json'),JSON.stringify(result,null,2));clearTimeout(timeout);if(service){service.closeAllConnections();service.close()}console.log(result.passed?'Additional appearance windows passed':result.error);app.exit(result.passed?0:1)}

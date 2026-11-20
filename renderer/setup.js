@@ -54,6 +54,9 @@ window.setup.onStatus(setStatus)
   if (setupInfo.upgrade) { byId('scopeCurrent').disabled = byId('scopeAll').disabled = true; byId('setupPathHint').textContent = '发现已安装的星译官。更新将保留模型配置与本机词库。' }
   if (setupInfo.uninstall) {
     document.title = '星译官 · 卸载'; byId('setupStep').textContent = '准备卸载'; byId('setupTitle').textContent = '暂时说声再见'; byId('setupDescription').textContent = '移除程序，保留你的文档和个人词库。'; byId('setupPath').readOnly = true; byId('setupBrowse').hidden = true; document.querySelector('.scope').hidden = true; byId('setupAction').innerHTML = '确认卸载<span aria-hidden="true">↗</span>'
+    document.querySelector('label[for=setupPath]').textContent = '程序所在位置'
+    byId('setupPathHint').hidden = true
+    byId('setupMeter').setAttribute('aria-label', '卸载进度')
     byId('phaseChecking').textContent = '确认卸载环境'; byId('phaseFiles').textContent = '移除程序文件'; byId('phaseRegistering').textContent = '清理快捷方式与设置'
     byId('phaseVerifying').hidden = true
   }

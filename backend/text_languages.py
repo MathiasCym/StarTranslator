@@ -10,7 +10,8 @@ from .glossary import catalog
 from .llm.client import LLMResponseInvalid, LLMTruncated
 from .text_integrity import (CHINESE, HAN, prose, validate_identifiers, IDENTIFIERS,
                             korean_han_fragments, bibliographic_product_label, document_clauses, foreign_script_fragments)
-from .writing_policy import _translation_numeric_values, _written_quantity_digits, numeric_values
+from .writing_policy import (_translation_numeric_values, _written_quantity_digits, quantity_normalized,
+    negative_numbers, numeric_values, percentage_values)
 from .translation import check_cancel
 
 
@@ -194,7 +195,7 @@ def written_counts(text, *, articles=False):
     korean['스무']=20
     counts='(?:'+'|'.join(sorted(map(re.escape,korean),key=len,reverse=True))+')'
     boundary=r'(?=$|[\s.,!?;:，。！？·/()（）]|(?:의|는|은|를|을|가|이|로|에|와|과|부터|까지|입니다)(?=\s|$|[.,!?]))'
-    counters=r'(?:개|대|장|번|회|명|쌍|세트|비트|프레임|슬롯|스테이션|노드|픽셀|밀리미터|센티미터|미터|헤르츠)'+boundary
+    counters=r'(?:개|가지|대|장|번|회|명|쌍|세트|비트|프레임|슬롯|스테이션|노드|픽셀|밀리미터|센티미터|미터|헤르츠)'+boundary
     counted_nouns=r'(?:(?:입력|출력|네트워크)\s*)?(?:포트|컨트롤러|캐비닛|장치|골대|블루라인)'+boundary
     text=re.sub(r'(?<![\w-])'+counts+r'(?=\s*(?:'+counters+'))',lambda m:str(korean[m[0]]),text)
     text=re.sub(r'(?<!\w)단일(?=\s+(?:프레임|스테이션|슬롯)'+boundary+r')','1',text)
@@ -229,8 +230,8 @@ def era_years(value):
         r'(\s*[\[(](\d{4})[\])])?',english_era,value)
 
 
-def facts(text, language, *, calendar=False):
-    text=normalized(prose(text))
+def facts(text, language, *, calendar=False, parse_written=True):
+    text=quantity_normalized(prose(text)).casefold()
     text=INLINE_CODE.sub(' ',text)
     text=''.join(str(unicodedata.decimal(c)) if c.isdecimal() else c for c in text)
     text=text.replace('\u066b','.').replace('\u066c','').replace('\u066a','%')
@@ -261,7 +262,7 @@ def facts(text, language, *, calendar=False):
         # Preserve written ranks, including an elliptical "the first one".
         text=re.sub(r'\bthe\s+(first|second|third)(?=\s+one\b)',
             lambda m:('the 1st','the 2nd','the 3rd')[('first','second','third').index(m[1])],text)
-    text=written_counts(text)
+    if parse_written:text=written_counts(text)
     text=re.sub(r'\bper\s+bit\b','per 1 bit',text)
     text=re.sub(r'(?:([0-9]+)\s*)?(?:ビット(?=\s*(?:あたり|当たり|ごと))|비트(?=\s*당))',
         lambda m:m[0] if m[1] else '1'+m[0],text)
@@ -305,36 +306,10 @@ def indefinite_classifiers(text):
     return re.findall(r'(?<![\d第每只僅仅])1\s*[个個種种項项](?!\s*(?:位元|比特|以上|以下|以內|以内))',text)
 
 
-def negative_numbers(text):
-    # The spaced hyphen in “15 - 30 pF” separates range endpoints.
-    # A minus after an opening bracket, operator, or comma still has sign.
-    text=re.sub(r'(?<=\d)[ \t]+-(?=[ \t]+\d)',' –',text)
-    return Counter(-Decimal(match) for match in re.findall(r'(?<![A-Za-z0-9_.])[-−]\s*(\d+(?:\.\d+)?)',text))
-
-
-def validate(source, target, src, dst, *, allow_identical=False):
-    if not isinstance(target,str) or not target.strip():raise ValueError('模型未返回有效译文。')
-    validate_identifiers(source,target)
-    if Counter(m[0] for m in INLINE_CODE.finditer(source)) != Counter(m[0] for m in INLINE_CODE.finditer(target)):
-        raise ValueError('译文改变了行内代码，代码必须原样保留。')
+def _validate_text_quantities(source, target, src, dst):
     calendar={src,dst} <= {'zh-CN','zh-Hant-TW','en-US','ja-JP','ko'}
     numbers=_translation_numeric_values if calendar else numeric_values
     a,b=facts(source,src,calendar=calendar),facts(target,dst,calendar=calendar)
-    visible=INLINE_CODE.sub(' ',prose(target))
-    residue=foreign_script_fragments(visible,dst)
-    if residue:
-        raise SourceScriptResidue(f'{LANGUAGES[dst]}译文仍含未翻译的其他语种文字（{"、".join(residue[:8])}）。请替换这些原词，保留已译内容。')
-    if dst in ('ja-JP','zh-Hant-TW') and src!=dst and CHINESE.search(prose(source)):
-        from .multilingual_quality import copied_simplified_glyphs
-        visible=INLINE_CODE.sub(' ',unicodedata.normalize('NFKC',prose(target)))
-        original=unicodedata.normalize('NFKC',prose(source))
-        copied=copied_simplified_glyphs(original,visible,dst)
-        if copied:
-            raise SourceScriptResidue(f'{LANGUAGES[dst]}译文仍含原文的中文简化字（{"、".join(sorted(copied))}）。请改用目标语言词形，专名可在译名后括注原拼写。')
-    if dst=='ko':
-        residue=korean_han_fragments(INLINE_CODE.sub(' ',prose(source)),visible)
-        if residue:
-            raise SourceScriptResidue(f'韩语译文仍含未译汉字（{"、".join(residue[:8])}）。请替换这些原词，保留已译内容。专名原字可放在韩文译名后的括号中。')
     if numbers(a)!=numbers(b):
         article_a,article_b=written_counts(a,articles=True),written_counts(b,articles=True)
         if src=='en-US':article_a=_written_quantity_digits(b,article_a)
@@ -395,12 +370,14 @@ def validate(source, target, src, dst, *, allow_identical=False):
             implied=re.findall(r'(?<![\w-])(?:a|an|another)\b',article_b)
             if set(missing)=={Decimal(1)} and missing[Decimal(1)]<=min(len(implied),len(indefinite_classifiers(article_a))):
                 target_numbers[Decimal(1)]+=missing[Decimal(1)]
-        if source_numbers!=target_numbers:
-            missing=', '.join(map(str,(source_numbers-target_numbers).elements()))
-            extra=', '.join(map(str,(target_numbers-source_numbers).elements()))
-            raise ValueError(f'译文改变、增加或遗漏了原文数字或日期（缺少：{missing or "无"}；额外：{extra or "无"}）。')
+        missing,extra=source_numbers-target_numbers,target_numbers-source_numbers
+        if missing or extra:
+            missing_text=', '.join(map(str,missing.elements()))
+            extra_text=', '.join(map(str,extra.elements()))
+            raise ValueError(f'译文改变、增加或遗漏了原文数字或日期（缺少：{missing_text or "无"}；额外：{extra_text or "无"}）。')
         a,b=article_a,article_b
-    if negative_numbers(a)!=negative_numbers(b):raise ValueError('译文改变了数值正负号。')
+    if negative_numbers(a)!=negative_numbers(b):
+        raise ValueError('译文改变了数值正负号。')
     aliases={
         'nit':r'nits?|尼特|니트|ニト|ニット',
         'fps':r'frames?\s*/\s*s|帧/秒|幀/秒',
@@ -433,15 +410,43 @@ def validate(source, target, src, dst, *, allow_identical=False):
             quantities.append([value,start,end,unit_name,unit_end])
         # In written dimensions 500×500 mm shares the trailing length unit.
         # Never infer pixel/count units from arbitrary multiplication.
-        for left,right in zip(quantities,quantities[1:]):
-            if re.fullmatch(r'\s*[×x*]\s*',text[left[4]:right[1]]):
+        for left,right in reversed(list(zip(quantities,quantities[1:]))):
+            if re.fullmatch(r'\s*(?:[×x*~–—-]|by|to|至|到|から|부터|에서)\s*',text[left[4]:right[1]]):
                 if left[3] is None and right[3] in ('mm','cm','m'):left[3]=right[3]
                 if right[3] is None and left[3] in ('mm','cm','m'):right[3]=left[3]
         return Counter((value,unit) for value,_,_,unit,_ in quantities if unit is not None)
-    if units(a)!=units(b):raise ValueError('译文改变、遗漏或增加了数值单位。')
-    percent=lambda text:Counter(re.findall(r'\d+(?:\.\d+)?\s*[%％]',text.replace(' ','')))
-    if percent(a)!=percent(b):raise ValueError('译文改变或遗漏了百分比。')
-    codes=re.findall(r'(?<![A-Za-z0-9])(?:[A-Za-z]+\d[A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|4K|8K|16K|3D|2D|LED|LCD|OLED|HDMI|USB|CPU|GPU|API|SDK)(?![A-Za-z0-9])',prose(source))
+    units_a=units(a)
+    units_b=units(b)
+    if units_a!=units_b:raise ValueError('译文改变、遗漏或增加了数值单位。')
+    if percentage_values(a)!=percentage_values(b):
+        raise ValueError('译文改变或遗漏了百分比。')
+
+
+def validate(source, target, src, dst, *, allow_identical=False, document=False):
+    if not isinstance(target,str) or not target.strip():raise ValueError('模型未返回有效译文。')
+    validate_identifiers(source,target)
+    if Counter(m[0] for m in INLINE_CODE.finditer(source)) != Counter(m[0] for m in INLINE_CODE.finditer(target)):
+        raise ValueError('译文改变了行内代码，代码必须原样保留。')
+    visible=INLINE_CODE.sub(' ',prose(target))
+    residue=foreign_script_fragments(visible,dst)
+    if residue:
+        raise SourceScriptResidue(f'{LANGUAGES[dst]}译文仍含未翻译的其他语种文字（{"、".join(residue[:8])}）。请替换这些原词，保留已译内容。')
+    if dst in ('ja-JP','zh-Hant-TW') and src!=dst and CHINESE.search(prose(source)):
+        from .multilingual_quality import copied_simplified_glyphs
+        visible=INLINE_CODE.sub(' ',unicodedata.normalize('NFKC',prose(target)))
+        original=unicodedata.normalize('NFKC',prose(source))
+        copied=copied_simplified_glyphs(original,visible,dst)
+        if copied:
+            raise SourceScriptResidue(f'{LANGUAGES[dst]}译文仍含原文的中文简化字（{"、".join(sorted(copied))}）。请改用目标语言词形，专名可在译名后括注原拼写。')
+    if dst=='ko':
+        residue=korean_han_fragments(INLINE_CODE.sub(' ',prose(source)),visible)
+        if residue:
+            raise SourceScriptResidue(f'韩语译文仍含未译汉字（{"、".join(residue[:8])}）。请替换这些原词，保留已译内容。专名原字可放在韩文译名后的括号中。')
+    if not document:
+        _validate_text_quantities(source, target, src, dst)
+    code_forms=r'[A-Za-z]+\d[A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|4K|8K|16K|3D|2D'
+    if not document:code_forms+=r'|LED|LCD|OLED|HDMI|USB|CPU|GPU|API|SDK'
+    codes=re.findall(r'(?<![A-Za-z0-9])(?:'+code_forms+r')(?![A-Za-z0-9])',prose(source))
     if src=='de-DE':
         # German joins a model and ordinary domain noun with a hyphen. The
         # model remains immutable; the noun can be translated. Never strip
@@ -470,7 +475,7 @@ def validate(source, target, src, dst, *, allow_identical=False):
         raise ValueError('译文仍与原文相同，未完成所选语言的翻译。')
 
 
-def translate_piece(client, source, reference, src, dst, cancel, *, context='', humanize=False, activity=None, mode='faithful',quality=None,source_scripts=None,terminology=True):
+def translate_piece(client, source, reference, src, dst, cancel, *, context='', humanize=False, activity=None, mode='faithful',quality=None,source_scripts=None,terminology=True,on_candidate=None,preserve_lines=False):
     from . import document_translation_policy as policy
     combined_document=policy.automatic()
     document_request=combined_document or not terminology
@@ -498,6 +503,7 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
     from .parameter_notation import INSTRUCTION
     common+=INSTRUCTION
     system=f'将{LANGUAGES[src]}完整翻译为{LANGUAGES[dst]}。'+common+'只返回 {"translation":"完整译文"}。'
+    if preserve_lines:system+='输入每行是一个完整待译片段，逐行翻译并用一个换行隔开各行，不合并行、不增加空行。'
     if mode=='compact':system+='本次用于演示文稿文案压缩：在完整保留全部事实、限定、否定、数字、型号和专名的前提下，优先简洁自然的表达，删除多余措辞；不得概括掉信息。'
     if humanize:system+='\n'+humanizer_rules()
     else:system+='原文为单词或短词组时，只输出对应词语或词组，不扩写成解释、宣传语或完整长句。'
@@ -509,6 +515,7 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
         'ok=false时必须给出解决这些确定错误的完整corrected_translation，不能仅让用户确认术语，也不能一边认为某译法正确一边将同一译法判错。'
         '若复核结论为语义完整且事实与链接不变，必须返回ok=true与空issues。'
         '只返回 {"ok":true,"issues":[]} 或 {"ok":false,"issues":["具体问题"],"corrected_translation":"完整修正稿"}。')
+    if document_request:review_system+=policy.REVIEW_SEVERITY
     if not terminology:review_system=review_system.replace('完整性、术语','完整性').replace('术语、','')+'这里只核对原文语义、漏译与事实，不评判词库标准及术语规范。'
     if combined_document:
         review_system+='完整性复核以语义和事实为准。等值的文字数词与阿拉伯数字、语义合适的近义词及词形活用不得据此拒绝，具体术语规范随后单独检查。'
@@ -516,17 +523,17 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
     if clauses:
         review_system+='逐条在译文中找到每句原文的语义对应。合句可以，但列表项、条件、例外、动作和细节必须逐项保留。发现缺项就给出补齐的完整译文。'
     if humanize:review_system+='复核自然表达时，事实完整优先；不要求机械删除原文的修辞。'
-    error='';script_repair=None
+    error='';script_repair=None;previous_candidate=None
     def validate_candidate(target):
-        validate(source,target,src,dst,allow_identical=bool(quality and quality.review_identical_formula(source,target)))
+        validate(source,target,src,dst,allow_identical=bool(quality and quality.review_identical_formula(source,target)),document=document_request)
 
     for attempt in range(2):
+        target=None
         check_cancel(cancel)
         if activity:activity('正在翻译并润色自然表达' if humanize else '正在请求翻译')
         try:
             request=payload
-            if document_request and ('改变了网址' in error or '未显示所选目标语言' in error
-                    or len(source.strip())<=64 and re.search(r'额外：(?!无)[^。]+',error)):
+            if document_request and ('改变了网址' in error or '未显示所选目标语言' in error):
                 request={**payload,'相邻原文（仅供理解）':''}
             retry_system=system
             if script_repair is not None:
@@ -536,8 +543,9 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
                 if dst=='ko':retry_system+='译文正文、标题和普通术语只使用韩文，不保留其中的汉字。'
                 if '未翻译的英文句子' in error:
                     retry_system+='原稿夹杂的英文正文与引文题名也译成目标语言，保留引用编号、日期、类型标记和链接。'
-            if document_request and '数字或日期' in error:
-                retry_system+='保持明确的数量、次数、序数和日期范围。原文明确用文字表达的数量也须在译文中表达，优先用阿拉伯数字；日期精度与范围边界不能变化。使用原年号或等值公元日期之一，不重复列出两个纪年。'
+            elif previous_candidate:
+                request={**request,'上次译文（以此为底稿）':previous_candidate}
+                retry_system+='对照本段原文，只修正上次检查中能证实的错误，保留其余已译文字。'
             if document_request and '改变了网址' in error:
                 retry_system+='只保留当前待译原文中出现的网址。不要把相邻内容或自行查到的地址附在译文中，现有链接由程序单独继承。'
             value=client.chat_json(json.dumps(request,ensure_ascii=False)+('\n上次检查：'+error if error else ''),system=retry_system,max_tokens=6000)
@@ -547,7 +555,12 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
                 if document_request:script_repair=target
                 raise
             check_cancel(cancel)
+            if on_candidate:on_candidate(target.strip())
             if activity:activity('正在对照原文复核完整性、术语及目标语言' if terminology else '正在对照原文复核完整性与事实')
+            review_context=request['相邻原文（仅供理解）']
+            if document_request and len(source.strip())<=64:
+                new_literals=numeric_values(prose(target))-numeric_values(prose(source))
+                if new_literals & numeric_values(prose(review_context)):review_context=''
             def review(candidate, *, original=None, prior=None):
                 compare=original is not None
                 extra=quality.payload(source,candidate) if quality else {}
@@ -557,7 +570,7 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
                 for verification in range(2):
                     check_cancel(cancel)
                     thinking=compare and verification>0 and getattr(client,'supports_thinking_mode',False) is True
-                    checked=client.chat_json(json.dumps({'原文':source,'译文':candidate,'相邻原文（仅供理解）':request['相邻原文（仅供理解）'],**({'相关术语':terms} if terminology else {}),**extra,
+                    checked=client.chat_json(json.dumps({'原文':source,'译文':candidate,'相邻原文（仅供理解）':review_context,**({'相关术语':terms} if terminology else {}),**extra,
                         **({'原文上下标':source_scripts} if source_scripts else {}),
                         **({'需逐句核对的原文':clauses} if clauses else {}),
                         **({'修正前译文':original,'初稿待核对未变原文片段':original_candidates} if compare else {}),
@@ -568,6 +581,7 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
                         ('对照当前修正稿和修正前译文。若初稿已经完整准确，修正只是用词偏好或会引入错误，返回ok=true、keep_original=true和空issues。'
                          '否则审查当前修正稿，认可则按通常格式返回。目标语言逐项判断使用你认可的那份译文的对应候选清单。' if compare else ''),
                         max_tokens=6000,**({'thinking':True} if thinking else {}))
+                    if document_request:checked=policy.keep_minor_review(checked)
                     if (not isinstance(checked,dict) or type(checked.get('ok')) is not bool
                             or not isinstance(checked.get('issues'),list)
                             or any(not isinstance(issue,str) for issue in checked['issues'])):
@@ -592,5 +606,8 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
                 checked,_,target=review(revised,**({'original':target,'prior':checked} if document_request else {}))
             if not checked['ok'] or checked['issues']:raise ValueError('；'.join(map(str,checked['issues'])) or '译文未通过完整性复核。')
             check_cancel(cancel);return target.strip()
-        except (ValueError,LLMResponseInvalid,LLMTruncated) as exc:error=str(exc)
+        except (ValueError,LLMResponseInvalid,LLMTruncated) as exc:
+            error=str(exc)
+            if document_request and isinstance(target,str):
+                previous_candidate=target
     raise ValueError(error)

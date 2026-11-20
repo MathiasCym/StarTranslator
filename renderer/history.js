@@ -24,6 +24,7 @@ function installHistory({ $, action, callApi, esc, basename, openResult, resumeT
     $('historyDates').hidden = $('historyPreset').value !== 'custom'
     if (!$('historyDates').hidden) { query.set('start', $('historyStart').value); query.set('end', $('historyEnd').value) }
     $('historyStatus').textContent = '正在读取记录…'
+    $('historyRows').setAttribute('aria-busy', 'true')
     try {
       const result = await callApi('GET', '/api/history?' + query)
       if (token !== generation) return
@@ -36,8 +37,8 @@ function installHistory({ $, action, callApi, esc, basename, openResult, resumeT
           const line=document.createElement('div');line.className='actions'
           const button=document.createElement('button');button.className='btn primary sm';button.textContent='继续未完成任务'
           button.onclick=async()=>{button.disabled=true;try{await resumeTask(row)}catch(error){$('historyStatus').textContent=error.message}finally{button.disabled=false}}
-          const hint=document.createElement('span');hint.className='hint';hint.textContent='复用本机已完成段落；材料或设置变化时自动重新处理。'
-          line.append(button,hint);entry.append(line)
+          button.title='复用本机已完成段落；材料或设置变化时自动重新处理。'
+          line.append(button);entry.append(line)
         }
         for (const draft of records[index].drafts || []) {
           const line=document.createElement('div'); line.className='history-files'
@@ -60,10 +61,10 @@ function installHistory({ $, action, callApi, esc, basename, openResult, resumeT
       if (token !== generation) return
       $('historyStatus').textContent = error.message; $('historyRows').innerHTML = ''
       $('historyPrev').disabled = $('historyNext').disabled = true
+    } finally {
+      if (token === generation) $('historyRows').setAttribute('aria-busy', 'false')
     }
   }
-  action('openHistory', () => { $('historyModal').hidden = false; return load(true) })
-  action('closeHistory', () => { $('historyModal').hidden = true; generation++ })
   action('refreshHistory', () => load())
   for (const id of ['historyPreset', 'historyKind']) $(id).onchange = () => load(true)
   $('historySearch').oninput = () => { clearTimeout(debounce); debounce = setTimeout(() => load(true), 250) }

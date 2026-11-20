@@ -80,10 +80,9 @@ body > main { padding:16px 20px 20px; }
 .results-grid { grid-template-columns:minmax(0,1fr) 280px; }
 .result-destination .btn { font-size:14px; white-space:nowrap; min-height:40px; }
 .modal-card { max-width:calc(100vw - 32px); max-height:calc(100dvh - 32px); }
-.model-card { width:min(1120px,calc(100vw - 40px)); height:min(760px,calc(100dvh - 40px)); }
-.lexicon-card { width:min(1240px,calc(100vw - 40px)); padding:18px; gap:10px; }
-.lexicon-card .term-form textarea, .lexicon-card table.grid textarea,
-.term-card-zh, .term-card-en, .lexicon-card input, .lexicon-card select { font-size:16px; }
+.lexicon-page { width:min(1240px,calc(100vw - 40px)); padding:18px; gap:10px; }
+.lexicon-page .term-form textarea, .lexicon-page table.grid textarea,
+.term-card-zh, .term-card-en, .lexicon-page input, .lexicon-page select { font-size:16px; }
 .history-filters select, .history-dates label, .completion-destination .fpath,
 .lexicon-title p, .lexicon-views button, .lexicon-share-actions .btn { font-size:14px; }
 .shared-dialog, .community-dialog { font-size:16px; }
@@ -93,31 +92,24 @@ body > main { padding:16px 20px 20px; }
 .shared-dialog.update-notice label.check { flex-direction:row; align-items:center; margin:6px 0; }
 .lexicon-source-kind, .lexicon-eyebrow, .lexicon-save-state,
 .lexicon-management-body .hint, .lexicon-management summary span,
-.lexicon-card #lexiconStatus, .lexicon-card #termCount, #suggestVariants,
-.field-help, .lexicon-card .term-form textarea::placeholder { font-size:14px; }
-.lexicon-card .term-card { grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); gap:10px; min-height:36px; padding:5px 8px; margin:0; border-radius:6px; box-shadow:none; align-items:center; }
+.lexicon-page #lexiconStatus, .lexicon-page #termCount, #suggestVariants,
+.field-help, .lexicon-page .term-form textarea::placeholder { font-size:14px; }
+.lexicon-page .term-card { grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr); gap:10px; min-height:36px; padding:5px 8px; margin:0; border-radius:6px; box-shadow:none; align-items:center; }
 .lexicon-title h3 { font-size:23px; }
 .lexicon-title .mascot { width:44px; height:44px; }
-.lexicon-card .term-form { padding:14px; gap:12px; }
-.lexicon-card .term-form label { font-size:16px; }
+.lexicon-page .term-form { padding:14px; gap:12px; }
+.lexicon-page .term-form label { font-size:16px; }
 .term-detail-head { padding:12px 14px; }
 .term-detail-head h4 { font-size:18px; }
 .lexicon-toolbar input, .lexicon-views button, .lexicon-share-actions .btn, .lexicon-share-actions select { min-height:36px; }
-.lexicon-card .term-card.active { box-shadow:inset 3px 0 var(--cyan); }
+.lexicon-page .term-card.active { box-shadow:inset 3px 0 var(--cyan); }
 .term-card-zh, .term-card-en { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .term-card-en { grid-column:2; }
 .term-card-tags { display:none; }
-.model-card { padding:18px; gap:10px; }
-.model-card .form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:4px 16px; }
-.model-card .form-grid .form-label { margin:4px 0; font-size:16px; line-height:1.4; }
-.model-card .form-grid :is(input,select) { padding:8px 10px; line-height:1.4; }
 .profile-row { padding:8px 10px; gap:5px; box-shadow:none; }
 /* Leave room inside scrolling panes for focus rings on edge controls. */
 .model-editor { padding:8px; scroll-padding:8px; }
-.model-card .profile-list { padding:6px; scroll-padding:6px; }
 .community-body { margin-inline:-8px; padding:8px 12px 12px; scroll-padding:8px; }
-:is(.model-card, .shared-dialog) :is(input,select,textarea,button):focus,
-.model-card .profile-row:focus-within { position:relative; z-index:1; }
 .profile-copy .hint, #profileEncryption { font-size:14px; }
 .translation-help-button { width:32px; height:32px; font-size:16px; }
 .translation-help.help-dialog { width:min(600px,calc(100vw - 32px)); padding:18px; font-size:16px; }

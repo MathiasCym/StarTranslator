@@ -15,16 +15,16 @@
     teamConfig=value;$('teamLastSync').textContent=value.last_sync?'上次同步：'+new Date(value.last_sync).toLocaleString():'尚未同步'
     $('teamReadSource').textContent=value.read_sources?.length>1?'读取来源：'+value.read_sources.join(' → ')+'。提交修改使用 GitHub。':'读取与提交来源：GitHub。'
     $('teamTokenState').textContent=value.has_token?'已保存维护授权。':'未配置维护授权，仍可获取团队词库。'
-    $('teamClearToken').hidden=!value.has_token;$('teamMessageLabel').hidden=!value.has_token;teamButtons()
+    $('teamClearToken').hidden=!value.has_token;teamButtons()
   }
   async function teamOperation(operation,message){
     if(teamBusy)return;teamBusy=true;teamButtons();teamStatus(message)
     try{await operation()}catch(error){teamStatus(error.message,true)}finally{teamBusy=false;teamButtons()}
   }
-  function resetPreview(){plan=null;$('teamPreview').hidden=$('teamApply').hidden=true;$('teamConflicts').replaceChildren()}
+  function resetPreview(){plan=null;$('teamPreview').hidden=$('teamApply').hidden=$('teamMessageLabel').hidden=true;$('teamConflicts').replaceChildren()}
   action('openTeamSync',async()=>{
     if(lexiconEditor.isDirty()||lexiconEditor.state.busy){toast('请先保存当前术语库编辑，再进行团队同步。',true);return}
-    resetPreview();$('teamHistoryRows').hidden=true;renderConfig(await callApi('GET','/api/team/settings'));teamStatus('本机词库保持不变，先获取差异，再确认同步。');$('teamDialog').showModal()
+    resetPreview();$('teamHistoryRows').hidden=true;renderConfig(await callApi('GET','/api/team/settings'));teamStatus('');$('teamDialog').showModal()
   })
   async function closeTeam(){
     if(teamBusy)return
@@ -43,6 +43,7 @@
     if(lexiconEditor.isDirty())throw Error('请先保存当前词库编辑。')
     plan=await callApi('POST','/api/team/preview',{action:kind,fingerprint:lexiconEditor.state.fingerprint})
     $('teamPreview').hidden=$('teamApply').hidden=false
+    $('teamMessageLabel').hidden=!(kind==='push'&&plan.pending_upload&&teamConfig?.has_token)
     const counts={added:0,changed:0,deleted:0};plan.changes.forEach(change=>counts[change.kind]++)
     $('teamSummary').textContent=`新增 ${counts.added} 条 · 修改 ${counts.changed} 条 · 删除 ${counts.deleted} 条 · 合并后 ${plan.count} 条`
     $('teamChanges').innerHTML=plan.changes.map(change=>`<span>${esc(change.zh)} · ${esc({added:'新增',changed:'修改',deleted:'删除'}[change.kind])}</span>`).join('')

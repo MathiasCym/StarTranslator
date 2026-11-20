@@ -5,6 +5,7 @@ import os
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -149,12 +150,19 @@ class TextTranslationTests(unittest.TestCase):
 
     def test_separators_and_newlines_unchanged(self):
         source = '  第一段。 \r\n\r\n\t第二段。\n'
-        client = Client([{'translation': 'First paragraph.'}, OK, {'translation': 'Second paragraph.'}, OK])
+        client = Client([{'translation': 'First paragraph.\nSecond paragraph.'}, OK])
         job = self.run_job(source, 'zh-en', client)
         self.assertEqual(job['result']['translation'], '  First paragraph. \r\n\r\n\tSecond paragraph.\n')
 
     def test_disconnect_retry_reuses_only_verified_blocks(self):
-        job = self.run_job('第一段\n第二段', 'zh-en', Client([{'translation': 'First paragraph'}, OK, LLMUnavailable('disconnected')]))
+        class Initial:
+            def chat_json(self,prompt,**options):
+                payload=json.loads(prompt)
+                if '待译原文' not in payload:return OK
+                if '\n' in payload['待译原文']:raise ValueError('Fixture requests separate paragraphs')
+                if payload['待译原文']=='第二段':raise LLMUnavailable('disconnected')
+                return {'translation':'First paragraph'}
+        job = self.run_job('第一段\n第二段','zh-en',Initial())
         self.assertEqual(job['status'], 'failed'); self.assertEqual(job['done'], 1)
         self.assertIn('First paragraph', job['result']['translation'])
         client = Client([{'translation': 'Second paragraph'}, OK])
@@ -175,6 +183,120 @@ class TextTranslationTests(unittest.TestCase):
         self.assertEqual({v['中文'] for v in context}, {'点间距', '像素间距', '陈一鸣'})
         self.assertEqual(next(v for v in context if v['中文'] == '陈一鸣')['分类'], 'person')
         self.assertFalse(text.glossary_context('micropixel pitchfork', self.g, 'en-zh'))
+
+    def test_confirmed_complete_term_uses_current_glossary_without_model(self):
+        for source,target,direction in [('点间距','pixel pitch','zh-en'),('pixel spacing','点间距','en-zh')]:
+            client=Client([])
+            job=self.run_job('  '+source+'  ',direction,client)
+            self.assertTrue(job['result']['complete']);self.assertEqual(client.calls,[])
+            self.assertEqual(job['result']['translation'],'  '+target+'  ')
+            self.assertEqual(job['result']['blocks'][0]['method'],'glossary')
+        self.g.entries[0].en='updated pitch'
+        self.assertEqual(self.run_job('点间距','zh-en',Client([]))['result']['translation'],'updated pitch')
+
+    def test_ambiguous_unconfirmed_and_qualified_terms_still_use_model(self):
+        from backend.glossary.loader import Glossary
+        cases=[('pixel pitch',self.g,'en-zh'),
+               ('控制',Glossary([GlossaryEntry('控制','control',priority=2)]),'zh-en'),
+               ('控制',Glossary([GlossaryEntry('控制','control',priority=1,note='Check the engineering context.')]),'zh-en')]
+        for source,glossary,direction in cases:
+            with self.subTest(source=source),patch.object(text.store,'load_glossary',return_value=glossary):
+                target='点间距' if direction=='en-zh' else 'control'
+                model=Client([{'translation':target},OK])
+                self.assertTrue(self.run_job(source,direction,model)['result']['complete'])
+                self.assertEqual(len(model.calls),2)
+
+    def test_parallel_blocks_keep_source_order_context_and_independent_review(self):
+        entered=threading.Barrier(3);requests=[];lock=threading.Lock()
+        values={'亮度说明。'*180:'Brightness information.','刷新说明。'*180:'Refresh information.','控制说明。'*180:'Control information.'}
+        class Model:
+            def chat_json(self,prompt,**options):
+                payload=json.loads(prompt)
+                with lock:requests.append(payload)
+                if '待译原文' in payload:
+                    entered.wait(3)
+                    return {'translation':values[payload['待译原文']]}
+                return OK
+        source='  '+'\r\n\r\n'.join(values)
+        result=self.run_job(source,'zh-en',Model())
+        self.assertTrue(result['result']['complete'],result)
+        self.assertEqual(result['result']['translation'],'  '+'\r\n\r\n'.join(values.values()))
+        self.assertEqual(len(requests),6)
+        originals=[p for p in requests if '待译原文' in p]
+        self.assertEqual(len(originals),3)
+        self.assertTrue(all(p['相邻原文（仅供理解）'].strip() for p in originals))
+
+    def test_short_paragraphs_share_translation_and_review_without_losing_separators(self):
+        source='  亮度说明。\r\n\r\n刷新说明。\n\t控制说明。'
+        target='Brightness information.\nRefresh information.\nControl information.'
+        model=Client([{'translation':target},OK])
+        job=self.run_job(source,'zh-en',model)
+        self.assertTrue(job['result']['complete'],job)
+        self.assertEqual(len(model.calls),2)
+        self.assertEqual(job['result']['translation'],'  Brightness information.\r\n\r\nRefresh information.\n\tControl information.')
+        self.assertEqual(json.loads(model.calls[0][0])['待译原文'],'亮度说明。\n刷新说明。\n控制说明。')
+
+    def test_a_merged_model_answer_retries_individual_parts_without_losing_content(self):
+        source='亮度说明。\n刷新说明。\n控制说明。'
+        values={'亮度说明。':'Brightness information.','刷新说明。':'Refresh information.','控制说明。':'Control information.'}
+        calls=[]
+        class Model:
+            def chat_json(self,prompt,**options):
+                payload=json.loads(prompt);calls.append(payload)
+                if '待译原文' in payload:return {'translation':values.get(payload['待译原文'],'Combined information.')}
+                return OK
+        result=self.run_job(source,'zh-en',Model())
+        self.assertTrue(result['result']['complete'],result)
+        self.assertEqual(result['result']['translation'],'\n'.join(values.values()))
+        self.assertEqual(len(calls),8)
+
+    def test_candidate_appears_during_review_and_rejection_removes_it(self):
+        reviewing=threading.Event();finish=threading.Event()
+        class Model:
+            def chat_json(self,prompt,**options):
+                if '待译原文' in json.loads(prompt):return {'translation':'Brightness information.'}
+                reviewing.set();finish.wait(4)
+                return OK
+        with patch.object(text,'LLMClient',return_value=Model()):
+            job=workflow.start({'kind':'text','text':'亮度说明。'})
+        try:
+            self.assertTrue(reviewing.wait(3))
+            with workflow.LOCK:snapshot=workflow.snapshot(workflow.JOBS[job['id']])
+            self.assertEqual(snapshot['status'],'running');self.assertFalse(snapshot['result']['complete'])
+            self.assertEqual(snapshot['result']['translation'],'Brightness information.')
+            self.assertEqual(snapshot['result']['blocks'][0]['status'],'reviewing')
+        finally:
+            finish.set();final=asyncio.run(task_queue.wait(job['id'],.005))
+        self.assertTrue(final['result']['complete'])
+        bad=self.run_job('亮度说明。','zh-en',Client([{'translation':'Brightness information.'},{'ok':False,'issues':['遗漏原意']},
+                                                            {'translation':'Brightness information.'},{'ok':False,'issues':['遗漏原意']}]))
+        self.assertFalse(bad['result']['complete']);self.assertNotIn('Brightness information.',bad['result']['translation'])
+
+    def test_cancellation_keeps_later_verified_block_and_resume_only_translates_failed(self):
+        source='亮度说明。'*180+'\n'+'刷新说明。'*180
+        class Model:
+            def chat_json(self,prompt,**options):
+                payload=json.loads(prompt)
+                if payload.get('待译原文')=='亮度说明。'*180:
+                    self.cancel.wait(4)
+                    raise LLMUnavailable('cancelled')
+                if '待译原文' in payload:return {'translation':'Refresh information.'}
+                return OK
+        with patch.object(text,'LLMClient',return_value=Model()):
+            job=workflow.start({'kind':'text','text':source})
+        deadline=time.monotonic()+3
+        while time.monotonic()<deadline:
+            with workflow.LOCK:done=workflow.JOBS[job['id']].get('done',0)
+            if done==1:break
+            time.sleep(.01)
+        workflow.cancel(job['id'])
+        stopped=asyncio.run(task_queue.wait(job['id'],.005))
+        self.assertEqual(stopped['status'],'cancelled');self.assertEqual(stopped['done'],1)
+        self.assertIn('Refresh information.',stopped['result']['translation'])
+        model=Client([{'translation':'Brightness information.'},OK])
+        final=self.run_job(source,'zh-en',model,retry_of=job['id'])
+        self.assertTrue(final['result']['complete']);self.assertEqual(len(model.calls),2)
+        self.assertEqual(final['result']['translation'],'Brightness information.\nRefresh information.')
 
     def test_cancel_and_maintenance_share_normal_pool(self):
         event = threading.Event()

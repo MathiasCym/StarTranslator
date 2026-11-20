@@ -92,7 +92,7 @@ def lan_configure():
 def maintenance_lock():
     from . import task_queue
     with workflow.LOCK:
-        if task_queue.ACTIVE_EXPORTS or any(j['status'] in ('queued','running') for j in workflow.JOBS.values()):
+        if _active_work():
             return jsonify(error='后台仍有任务运行，请完成后再校验。'),409
         task_queue.MAINTENANCE = True
     return jsonify(ok=True)
@@ -127,10 +127,27 @@ def start_job():
 
 @api.get('/api/maintenance/status')
 def maintenance_status():
-    from . import task_queue
     with workflow.LOCK:
-        busy = bool(task_queue.ACTIVE_EXPORTS) or any(job['status'] in ('running','queued') for job in workflow.JOBS.values())
-    return jsonify(busy=busy)
+        return jsonify(busy=_active_work())
+
+
+def _active_work():
+    """Check with workflow.LOCK held, shared by the desktop and LAN task routes."""
+    from . import task_queue
+    return bool(task_queue.ACTIVE_EXPORTS) or any(
+        job['status'] in ('running', 'queued') for job in workflow.JOBS.values()
+    )
+
+
+def _save_glossary(data, save):
+    if not data.get('defer_if_busy'):
+        return save()
+    # Keep task admission and the final save decision ordered. The editor retains
+    # the confirmed changes and retries after existing jobs or exports finish.
+    with workflow.LOCK:
+        if _active_work():
+            return {'deferred': True}
+        return save()
 
 
 @api.get('/api/jobs/<job_id>')
@@ -209,7 +226,9 @@ def language_glossary():
     if request.method=='GET':return jsonify(language_pairs.table(request.args.get('language','')))
     data=request.get_json(force=True) or {}
     try:
-        return jsonify(language_pairs.save(data.get('language'),data.get('rows'),data.get('columns'),data.get('fingerprint')))
+        return jsonify(_save_glossary(data, lambda: language_pairs.save(
+            data.get('language'), data.get('rows'), data.get('columns'), data.get('fingerprint')
+        )))
     except store.FileChanged as error:
         return jsonify(error=str(error),conflict=True),409
 
@@ -309,11 +328,13 @@ def glossary_table_write():
     columns = data.get('columns') or None
     fingerprint = data.get('fingerprint') or None
     try:
-        result = store.edit_table(resolved, rows, columns, fingerprint)
+        result = _save_glossary(data, lambda: store.edit_table(resolved, rows, columns, fingerprint))
     except store.FileChanged as e:
         return jsonify(error=str(e), conflict=True), 409
     except FileNotFoundError:
         return jsonify(error='文件不存在（可能尚未同步下来）。'), 404
+    if result.get('deferred'):
+        return jsonify(result)
     return jsonify(ok=True, path=resolved, **result)
 
 

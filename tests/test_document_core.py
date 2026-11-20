@@ -91,6 +91,40 @@ class SharedAdapterTests(unittest.TestCase):
     job=fixtures.DocumentLanguageTests.job
     options=fixtures.DocumentLanguageTests.options
 
+    def test_model_approved_indefinite_counts_survive_both_document_modes(self):
+        from backend import document_languages, workflow
+        from backend.extract import extract
+        self.stubs.enter_context(patch('backend.pdf_quality.audit',return_value={'status':'complete','issues':[]}))
+
+        class Model(fixtures.Model):
+            def chat_json(self,prompt,system='',**options):
+                payload=json.JSONDecoder().raw_decode(prompt)[0]
+                if '原文' in payload and '译文' in payload:
+                    return {'ok':False,'issues':['建议显式加入一个量词。'],'severity':'minor',
+                            'corrected_translation':self.target+' 1'}
+                return super().chat_json(prompt,system,**options)
+
+        source='团队正在寻找一套创新方案，并探索一种新型场馆。'
+        targets={'ko':'팀은 혁신적인 방안을 찾고 새로운 형태의 시설을 모색하고 있다.',
+                 'ja-JP':'チームは革新的な方策を探し、新形式の施設を模索している。'}
+        for suffix in ('.docx','.pdf','.pptx'):
+            for dst,target in targets.items():
+                for kind in ('translate','translate_review'):
+                    with self.subTest(suffix=suffix,target=dst,kind=kind):
+                        identity=f'{suffix[1:]}-{dst}-{kind}'
+                        path=self.source(suffix,source,identity)
+                        before=path.read_bytes()
+                        model=Model(target)
+                        job={'id':identity,'status':'running','cancel':threading.Event()}
+                        options=document_languages.normalize(self.options(path,'zh-CN',dst,kind))
+                        workflow.run(job,{**options,'_client':model})
+                        self.assertEqual(job['status'],'complete',job.get('error') or job.get('result'))
+                        output,=job['result']['outputs']
+                        self.assertEqual(output['untranslated'],0)
+                        self.assertEqual([s.text for s in extract(output['path']) if s.editable],[target])
+                        self.assertEqual(model.translations,1)
+                        self.assertEqual(path.read_bytes(),before)
+
     def test_english_document_with_chinese_source_selection_suggests_english(self):
         from backend.translation import translate_file
         path=self.source('.docx','The controller supports a refresh rate of 60 Hz.','english-source')
@@ -136,7 +170,7 @@ class SharedAdapterTests(unittest.TestCase):
                         raise self.first
                     if self.translations==2:
                         self.requests.append(payload['上次检查'])
-                    return {'translation':self.target}
+                    return {'translation':self.target if self.translations>1 else '작동 상태를 확인하세요.'}
                 if self.translations==1:
                     return {'ok':False,'issues':[self.first]}
                 return {'ok':True,'issues':[]}
@@ -146,7 +180,7 @@ class SharedAdapterTests(unittest.TestCase):
             self.assertEqual(model.requests,[str(issue)])
 
     def test_multilingual_recovery_retries_failed_long_paragraph_by_sentence(self):
-        from backend.multilingual_documents import recover_paragraph
+        from backend.extract import extract
         first='请确认观看区域。'
         second='刷新率为60 Hz。'
         first_target='관람 구역을 확인하세요.'
@@ -161,9 +195,14 @@ class SharedAdapterTests(unittest.TestCase):
                 return {'ok':True,'issues':[]}
         model=SplitModel('')
         source=first+second
-        translated=recover_paragraph(model,source,'zh-CN','ko',threading.Event())
-        self.assertEqual(translated,first_target+' '+second_target)
-        self.assertEqual(model.requests,[source,source,first,second])
+        path=self.source('.docx',source)
+        job=self.job(self.options(path,'zh-CN','ko','translate'),model)
+        output,=job['result']['outputs']
+        self.assertTrue(output['translation_complete'])
+        self.assertEqual(extract(output['path'])[0].text,first_target+' '+second_target)
+        self.assertGreaterEqual(model.requests.count(source),2)
+        self.assertIn(first,model.requests)
+        self.assertIn(second,model.requests)
 
     def test_untranslated_slide_does_not_block_other_slides_from_export(self):
         from backend.extract import extract
@@ -174,6 +213,8 @@ class SharedAdapterTests(unittest.TestCase):
                 payload=json.JSONDecoder().raw_decode(prompt)[0]
                 if '待译原文' in payload and '亮度' in payload['待译原文']:
                     return {'translation':'밝기는 400 nits입니다.'}
+                if '400 nits' in payload.get('译文',''):
+                    return {'ok':False,'severity':'critical','issues':['亮度从 500 尼特改成了 400 尼特。']}
                 if payload.get('本段待校对文字')=='관람 구역을 확인하세요.':
                     return {'reviewed':True,'suggestions':[{'original':'확인하세요',
                         'replacement':'확인하십시오','reason':'同一文档使用一致的敬语。'}]}

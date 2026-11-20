@@ -177,5 +177,5 @@ def recover_chinese(client, source, groups, glossary, check_cancel):
         target=''.join(parts)+patch_prose(source[offset:],offset)
         result={**result,'translation':target}
     if contains_chinese(target): raise ValueError('PDF 局部补译仍有未译中文。')
-    validate_for_file('source.pdf', source, target)
+    validate_for_file('source.pdf',source,target,client=client,check_cancel=check_cancel)
     return result, response_runs(result, target, groups)

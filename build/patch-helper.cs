@@ -21,14 +21,17 @@ class PatchHelper {
  public class Plan {public int schema,parentPid;public string from,to,id,root,folder,baseManifest,userData;public bool restart,elevated,showProgress,registerRecovery;public Manifest @base,target;public Entry[] changed;public string[] removed;}
  static JavaScriptSerializer json=new JavaScriptSerializer(){MaxJsonLength=16*1024*1024};
  static Plan plan;static string folder,root,transaction,runName,planFile,planHash;
- static List<Entry> all;static Form form;static Label label;static ProgressBar bar;
+ static List<Entry> all;static UpdateProgressWindow form;
  static bool mutating,closed,success,canRestart,conflict;static FileStream locked;
  static string Sha(string p){using(var s=File.OpenRead(p))using(var h=SHA256.Create())return BitConverter.ToString(h.ComputeHash(s)).Replace("-","").ToLowerInvariant();}
  static void Write(string name,object value){File.WriteAllText(Path.Combine(folder,name),value is string?(string)value:json.Serialize(value),new UTF8Encoding(false));}
  static bool Cancelled(){return File.Exists(Path.Combine(folder,"cancel"));}
  static void Progress(string phase,int done,int total,string message){
   Write("progress.json",new{phase,done,total,message});
-  if(form!=null){label.Text=message;bar.Value=Math.Min(100,Math.Max(0,(int)(100.0*done/Math.Max(1,total))));Application.DoEvents();}
+  if(form!=null){
+   form.Report(phase=="complete"&&!plan.restart?"已校验更新文件。":message,OverallProgress(phase,done,total));
+   Application.DoEvents();
+  }
   if(Cancelled())throw new IOException("更新准备已取消，原程序保持不变。");
  }
  static string Safe(string relative){
@@ -51,11 +54,26 @@ class PatchHelper {
   if(cmd.Length>260)throw new IOException("更新恢复路径过长，请使用小更新入口或完整安装包。");
   using(var k=Registry.CurrentUser.CreateSubKey(@"Software\Microsoft\Windows\CurrentVersion\RunOnce"))k.SetValue(runName,cmd,RegistryValueKind.String);
  }
+ static int OverallProgress(string phase,int done,int total){
+  double fraction=Math.Max(0,Math.Min(1,(double)done/Math.Max(1,total)));
+  switch(phase){
+   case "verify": return (int)(30*fraction);
+   case "prepare": return 30;
+   case "recovery": return 40;
+   case "closing": return 45;
+   case "apply": return 50+(int)(30*fraction);
+   case "check": return 80+(int)(19*fraction);
+   case "complete": return 100;
+   default: return 0;
+  }
+ }
  static void OpenProgress(){if(!plan.showProgress)return;try{
-  form=new Form(){Text="星译官 · 更新",Width=520,Height=185,StartPosition=FormStartPosition.CenterScreen,FormBorderStyle=FormBorderStyle.FixedDialog,ControlBox=false,BackColor=Color.FromArgb(12,29,46),ForeColor=Color.FromArgb(220,237,250),Font=new Font("Microsoft YaHei UI",10)};
-  try{form.Icon=Icon.ExtractAssociatedIcon(Path.Combine(root,"星译官.exe"));}catch{}
-  label=new Label(){Left=24,Top=24,Width=460,Height=48};bar=new ProgressBar(){Left=24,Top=88,Width=460,Height=16};form.Controls.Add(label);form.Controls.Add(bar);AppearancePaint.Apply(form,bar,plan.userData);form.Show();Application.DoEvents();
- }catch{form=null;}}
+  Icon icon=null;
+  try{icon=Icon.ExtractAssociatedIcon(Path.Combine(root,"星译官.exe"));}catch{}
+  form=new UpdateProgressWindow(icon,"v"+plan.from+" → v"+plan.to,plan.restart);
+  form.Report("正在准备小包更新",0);
+  form.Show();
+ }catch{if(form!=null)form.Dispose();form=null;}}
  static void Restore(){
   for(int i=all.Count-1;i>=0;i--){var e=all[i];string dest=Safe(e.path),backup=Path.Combine(transaction,"old-"+i);
    if(File.Exists(backup)){if(File.Exists(dest))File.Delete(dest);Directory.CreateDirectory(Path.GetDirectoryName(dest));File.Move(backup,dest);}

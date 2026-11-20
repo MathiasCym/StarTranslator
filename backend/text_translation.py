@@ -14,7 +14,7 @@ from .glossary import store
 from .llm.client import LLMClient, LLMUnavailable, LLMResponseInvalid, LLMTruncated
 from .text_integrity import contains_chinese, prose, validate_identifiers, IDENTIFIERS
 from .translation import check_cancel, Cancelled
-from .writing_policy import validate_translation, quantity_units
+from .writing_policy import quantity_units, validate_translation
 
 MAX_TEXT = 20000
 DIRECTIONS = {'zh-en': ('中文', '英文'), 'en-zh': ('英文', '简体中文')}
@@ -67,13 +67,41 @@ def glossary_context(text, glossary, direction):
     return sorted(matches, key=lambda item: not item['已确认'])[:60]
 
 
-def validate(source, target, direction):
+def confirmed_translation(source, glossary, reference, src, dst, direction):
+    """Use only a whole, unambiguous, confirmed term without usage qualifications."""
+    from .text_languages import INLINE_CODE, natural_expression, normalized
+    if natural_expression(source) or INLINE_CODE.search(source):return None
+    key=normalized(source.strip())
+    matches=[]
+    if direction in DIRECTIONS:
+        for entry in glossary.entries:
+            forms=[entry.zh] if direction=='zh-en' else [entry.en,*entry.variants]
+            if any(normalized(form.strip())==key for form in forms if form):
+                target=entry.en if direction=='zh-en' else entry.zh
+                matches.append((target,entry.priority==1 and not entry.note))
+    else:
+        for row in reference.get('entries',[]):
+            terms=row.get('terms',{});source_info=row.get('maintenance',{}).get(src,{})
+            forms=[terms.get(src),*source_info.get('variants',[])]
+            if not any(normalized(form.strip())==key for form in forms if form):continue
+            target=terms.get(dst);target_info=row.get('maintenance',{}).get(dst,{})
+            confirmed=not target_info or target_info.get('priority')==1
+            matches.append((target,bool(target and confirmed and not target_info.get('note') and not row.get('guidance'))))
+    targets={target.strip() for target,confirmed in matches if target}
+    if len(targets)!=1 or not all(confirmed for _,confirmed in matches):return None
+    target=targets.pop()
+    try:validate_identifiers(source,target)
+    except ValueError:return None
+    return target
+
+
+def validate(source, target, direction, *, document=False):
     if not isinstance(target, str) or not target.strip():
         raise ValueError('模型未返回有效译文。')
     validate_identifiers(source, target)
     if direction == 'zh-en':
         if contains_chinese(target): raise ValueError('译文仍有未翻译的中文正文。')
-        validate_translation(source, target)
+        validate_translation(source, target, document=document)
     else:
         from .reverse_validation import fact_view, english_clauses
         words = re.findall(r'[A-Za-z]{2,}', prose(source))
@@ -82,27 +110,32 @@ def validate(source, target, direction):
             raise ValueError('译文仍保留完整英文正文，未完成英译中。')
         if english_clauses(target):
             raise ValueError('中文译文中仍有未翻译的英文语句，请完整翻译正文，保留人名、品牌、型号和地址。')
-        # Calendar/quantity equivalences already validated by the mature
-        # Chinese-English policy work in reverse as well. Never run the
-        # English-only residual repair against intended Chinese output.
-        # 位 is also a people counter. Normalize only technical bit-depth
-        # evidence for reverse checks; keep shared Chinese-English policy intact.
-        def bit_facts(text,reference):
-            expected={value for value,unit in quantity_units(reference) if unit=='bit'}
-            def replace(match):
-                following=text[match.end():match.end()+16]
-                technical=re.search(r'灰[阶度]|位深|色深|精度|编码|通道|色彩|输入|输出',text[max(0,match.start()-12):match.end()+16])
-                people=re.match(r'\s*(?:专家|客户|同事|员工|人员|嘉宾|先生|女士|工程师|代表|用户)',following)
-                return match[1]+' bit' if not people and (technical or Decimal(match[1]) in expected) else match[0]
-            return re.sub(r'(\d+(?:\.\d+)?)\s*(?:位(?!数)|比特)',replace,text)
-        fact_source=numeric_fact_spacing(fact_view(bit_facts(source,target)));fact_target=fact_view(bit_facts(target,source))
-        validate_translation(fact_target, fact_source)
-        if quantity_units(fact_source) - quantity_units(fact_target):
-            raise ValueError('译文未完整保留数值对应的物理单位。')
+        fact_source = numeric_fact_spacing(source)
+        if not document:
+            # Calendar/quantity equivalences already validated by the mature
+            # Chinese-English policy work in reverse as well. Never run the
+            # English-only residual repair against intended Chinese output.
+            # 位 is also a people counter. Normalize only technical bit-depth
+            # evidence for reverse checks; keep shared Chinese-English policy intact.
+            def bit_facts(text,reference):
+                expected={value for value,unit in quantity_units(reference) if unit=='bit'}
+                def replace(match):
+                    following=text[match.end():match.end()+16]
+                    technical=re.search(r'灰[阶度]|位深|色深|精度|编码|通道|色彩|输入|输出',text[max(0,match.start()-12):match.end()+16])
+                    people=re.match(r'\s*(?:专家|客户|同事|员工|人员|嘉宾|先生|女士|工程师|代表|用户)',following)
+                    return match[1]+' bit' if not people and (technical or Decimal(match[1]) in expected) else match[0]
+                return re.sub(r'(\d+(?:\.\d+)?)\s*(?:位(?!数)|比特)',replace,text)
+            fact_source=numeric_fact_spacing(fact_view(bit_facts(source,target)));fact_target=fact_view(bit_facts(target,source))
+            validate_translation(fact_target, fact_source)
+            missing_units=quantity_units(fact_source)-quantity_units(fact_target)
+            if missing_units:
+                raise ValueError('译文未完整保留数值对应的物理单位。')
         # Preserve technical IDs in the English source, not ordinary uppercase
         # headings (MEETING AGENDA) or calendar labels (H2/Q3).
         codes = re.findall(r'(?<![A-Za-z0-9])(?:[A-Za-z]+\d[A-Za-z0-9._-]*|\d+[A-Z][A-Za-z0-9._-]*|LED|LCD|OLED|CPU|GPU|HDMI|USB|API|SDK|FPGA|PCB)(?![A-Za-z0-9])', prose(fact_source))
         for code, count in Counter(code.rstrip('.') for code in codes).items():
+            if document and not any(char.isdigit() for char in code):continue
+            if document and code[0].isdigit() and code not in {'4K', '8K', '16K', '2D', '3D'}:continue
             if re.fullmatch(r'(?:H[12]|Q[1-4])', code, re.I): continue
             if re.fullmatch(r'\d+(?:Hz|fps|nits?|mm|cm|bits?|pixels?)', code, re.I): continue
             pattern = r'(?<![A-Za-z0-9])' + re.escape(code) + r'(?![A-Za-z0-9])'
@@ -110,7 +143,9 @@ def validate(source, target, direction):
                 raise ValueError('译文未保留原文中的型号或缩写 ' + code + '。')
 
 
-def translate_piece(client, source, glossary, direction, cancel, context='', activity=None, groups=None, return_result=False, mode='faithful',fixed_order=False,person_terms=None,humanize=False,code_tokens=None):
+def translate_piece(client, source, glossary, direction, cancel, context='', activity=None, groups=None, return_result=False, mode='faithful',fixed_order=False,person_terms=None,humanize=False,code_tokens=None,on_candidate=None,preserve_lines=False):
+    from .document_translation_policy import REVIEW_SEVERITY, keep_minor_review
+    document=groups is not None
     src, dst = DIRECTIONS[direction]
     terminology=not getattr(glossary,'document_translation',False)
     system = (f'你是严谨的技术翻译，将{src}文本完整翻译为自然、专业的{dst}。'
@@ -137,6 +172,7 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
     if IDENTIFIERS.search(source):
         payload['必须逐字保留的地址'] = IDENTIFIERS.findall(source)
         system += '网址、邮箱或路径之后若新增英文句末标点，请用空格隔开，不要使标点成为地址的一部分。'
+    if preserve_lines:system+='输入每行是一个完整待译片段，逐行翻译并用一个换行隔开各行，不合并行、不增加空行。'
     if groups:
         payload['原文样式片段'] = [{'id': g['id'], 'text': g['text']} for g in groups]
         system += '同时返回 runs:[{"id":原片段id,"text":"对应译文"}]，拼接后等于translation。按语义映射颜色、加粗及字号，保留人工换行。'
@@ -152,23 +188,29 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
     candidate = None
     last_error = ''
     def check_text(target):
-        validate(source,target,direction)
+        validate(source,target,direction,document=document)
         if code_tokens is not None:
             from .text_languages import INLINE_CODE
             if Counter(code_tokens) != Counter(m[0] for m in INLINE_CODE.finditer(target)):
                 raise ValueError('译文改变了行内代码，代码必须原样保留。')
+        if direction=='en-zh':
+            from .reverse_entities import validate_names
+            validate_names(source,target,person_terms)
     for attempt in range(2):
         check_cancel(cancel)
         if activity: activity('正在请求翻译' if not attempt else '正在修正未通过检查的译文')
         try:
-            value = client.chat_json(prompt + ('\n上次检查：' + last_error if last_error else ''),
-                                     system=system, max_tokens=6000)
+            request = prompt
+            retry_system = system
+            if document and isinstance(candidate,str) and candidate.strip():
+                request = json.dumps({**payload, '上次译文（以此为底稿）':candidate}, ensure_ascii=False)
+                retry_system += '对照本段原文，只修正上次检查中能证实的错误，保留其余已译内容。'
+            value = client.chat_json(request + ('\n上次检查：' + last_error if last_error else ''),
+                                     system=retry_system, max_tokens=6000)
             candidate = value.get('translation') if isinstance(value, dict) else None
             check_text(candidate)
-            if direction=='en-zh':
-                from .reverse_entities import validate_names
-                validate_names(source,candidate,person_terms)
             check_cancel(cancel)
+            if on_candidate:on_candidate(candidate.strip())
             if activity: activity('正在对照原文复核完整性与译法')
             review_system=(f'复核{src}到{dst}的翻译。核对遗漏、重复、否定条件、术语、数字、型号、链接及未译正文。'
                     '逐项核对专业修饰词与限定条件，表格标题同样需要完整含义；不要将数值、自动、数字等限定词的遗漏误当成文风差异。'
@@ -179,18 +221,26 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
                     '只返回 {"ok":true,"issues":[]} 或 {"ok":false,"issues":["具体问题"],"corrected_translation":"完整修正稿"}。若存在确定问题，请同时给出已完整解决这些问题的整段译文，不增加原文没有的信息。不要输出其他内容。')
             if not terminology:
                 review_system=review_system.replace('术语、','')+'本阶段不使用术语表，不评判词库标准；仍严格核对原文含义、专业限定、事实和漏译。'
-            def review_candidate(target):
-                return client.chat_json(json.dumps({'原文':source,'译文':target,
+            if document:review_system+=REVIEW_SEVERITY
+            def review_candidate(target, prior=None):
+                answer=client.chat_json(json.dumps({'原文':source,'译文':target,
+                    **({'待独立裁定的复核意见':prior} if prior else {}),
                     **({'相关术语':payload['相关术语（仅作参考）']} if terminology else {}),**({'全文人名统一写法':person_terms} if person_terms else {})},ensure_ascii=False),
-                    system=review_system,max_tokens=6000)
+                    system=review_system+('先核实该意见是否有原文依据，当前译文完整时直接通过。' if prior else ''),max_tokens=6000)
+                return keep_minor_review(answer) if document else answer
             review = review_candidate(candidate)
             if isinstance(review,dict) and review.get('ok') is False and isinstance(review.get('corrected_translation'),str):
                 revised=review['corrected_translation'].strip()
-                check_text(revised)
-                if direction=='en-zh':validate_names(source,revised,person_terms)
-                second=review_candidate(revised)
-                if isinstance(second,dict) and second.get('ok') is True and second.get('issues')==[]:
-                    candidate=revised;value={**value,'translation':candidate};review=second
+                try:check_text(revised)
+                except ValueError:
+                    if not document:raise
+                    review=review_candidate(candidate,prior=review)
+                else:
+                    second=review_candidate(revised)
+                    if isinstance(second,dict) and second.get('ok') is True and second.get('issues')==[]:
+                        candidate=revised;value={**value,'translation':candidate};review=second
+                    elif document:
+                        review=review_candidate(candidate,prior=review)
             if not isinstance(review, dict) or type(review.get('ok')) is not bool or not isinstance(review.get('issues'), list):
                 raise ValueError('模型未完成原文与译文的完整性复核。')
             if not review['ok'] or review['issues']:
@@ -248,12 +298,13 @@ def run(job, client):
         with workflow.LOCK: job.update(values)
     blocks = job['_blocks']
     def publish():
-        done = sum(b['status'] == 'complete' and bool(b['source'].strip()) and not b.get('protected') for b in blocks)
-        result = {'translation': ''.join(b.get('prefix', '') + (b.get('translation', '') if b['status'] == 'complete'
-            else '【此段未完成】') + b.get('suffix', '') for b in blocks),
-            'blocks': [{k: v for k, v in b.items()} for b in blocks],
-            'complete': all(b['status'] == 'complete' for b in blocks)}
-        update(done=done, percent=100 * done / max(1, job['total']), result=result)
+        with workflow.LOCK:
+            done = sum(b['status'] == 'complete' and bool(b['source'].strip()) and not b.get('protected') for b in blocks)
+            result = {'translation': ''.join(b.get('prefix', '') + (b.get('translation', '') if b['status'] in ('complete','reviewing')
+                else '【此段未完成】') + b.get('suffix', '') for b in blocks),
+                'blocks': [{k: v for k, v in b.items()} for b in blocks],
+                'complete': all(b['status'] == 'complete' for b in blocks)}
+            job.update(done=done, percent=100 * done / max(1, job['total']), result=result)
     try:
         check_cancel(job['cancel'])
         update(status='running', message='正在读取当前术语库')
@@ -263,31 +314,104 @@ def run(job, client):
         if job['direction'] not in DIRECTIONS:
             try:reference=text_languages.catalog.effective()
             except ValueError:update(warning='官方多语言词库暂不可读取，本次继续模型翻译，未引用缺失词条。')
+        pending=[]
+        readable=[i for i,b in enumerate(blocks) if b['source'].strip() and not b.get('protected')]
+        positions={index:position for position,index in enumerate(readable)}
+        for index,block in enumerate(blocks):
+            if block['status']=='complete':continue
+            check_cancel(job['cancel'])
+            target=confirmed_translation(block['source'],glossary,reference,
+                job['source_language'],job['target_language'],job['direction']) if len(readable)==1 else None
+            if target is None:
+                pending.append(index)
+            else:
+                with workflow.LOCK:
+                    block.update(translation=target,status='complete',method='glossary');block.pop('error',None)
+        publish()
         if job['direction']=='en-zh' and '_person_terms' not in job:
             from types import SimpleNamespace
             from .reverse_entities import identify
-            job['_person_terms']=identify([SimpleNamespace(text=job['_source'],editable=True)],glossary,client,job['cancel'])
-        for index, block in enumerate(blocks):
-            if block['status'] == 'complete': continue
+            job['_person_terms']=identify([SimpleNamespace(text=blocks[index]['source'],editable=True)
+                for index in pending],glossary,client,job['cancel'])
+        from .document_parallel import Activity, ordered_groups
+        from .translation_activity import RequestActivity
+        tracker=Activity(len(pending),lambda message,n,t:update(message=message))
+        failures=[]
+        batches=[]
+        for index in pending:
+            if (batches and len(batches[-1])<6 and
+                    not any(block.get('protected') or block['status']=='complete' and block['source'].strip()
+                        for block in blocks[batches[-1][-1]+1:index]) and
+                    sum(len(blocks[i]['source'])+1 for i in [*batches[-1],index])<=1500):
+                batches[-1].append(index)
+            else:batches.append([index])
+        def translate(indices):
+            identity=indices[0]
+            source='\n'.join(blocks[index]['source'] for index in indices)
+            def activity(message):
+                if message=='等待模型响应' and any(blocks[index]['status']=='reviewing' for index in indices):
+                    message='正在复核译文，等待模型响应'
+                tracker.update(identity,message)
+            request_client=RequestActivity(client,activity)
+            def split(target):
+                values=target.splitlines() if len(indices)>1 else [target]
+                if len(values)!=len(indices) or any(not value.strip() for value in values):return None
+                if len(indices)>1:
+                    for index,value in zip(indices,values):
+                        try:
+                            if job['direction'] in DIRECTIONS:validate(blocks[index]['source'],value,job['direction'])
+                            else:text_languages.validate(blocks[index]['source'],value,job['source_language'],job['target_language'])
+                        except ValueError:return None
+                return values
+            def preview(target):
+                values=split(target)
+                if values is None:return
+                with workflow.LOCK:
+                    for index,value in zip(indices,values):blocks[index].update(translation=value,status='reviewing')
+                publish()
             check_cancel(job['cancel'])
-            context = ''.join(b['source'] for b in blocks[max(0, index-2):index])[-500:]
-            context += '\n' + ''.join(b['source'] for b in blocks[index+1:index+3])[:500]
+            first,last=positions[indices[0]],positions[indices[-1]]
+            context='\n'.join(blocks[i]['source'] for i in readable[max(0,first-2):first])[-500:]
+            context+='\n'+'\n'.join(blocks[i]['source'] for i in readable[last+1:last+3])[:500]
             try:
                 if job['direction'] in DIRECTIONS:
-                    target = translate_piece(client, block['source'], glossary, job['direction'], job['cancel'],
-                        context, activity=lambda message: update(message=message),person_terms=job.get('_person_terms'),humanize=text_languages.natural_expression(block['source']),
-                        code_tokens=[m[0] for m in text_languages.INLINE_CODE.finditer(block['source'])])
+                    target = translate_piece(request_client,source,glossary,job['direction'],job['cancel'],
+                        context,activity=activity,person_terms=job.get('_person_terms'),humanize=text_languages.natural_expression(source),
+                        code_tokens=[m[0] for m in text_languages.INLINE_CODE.finditer(source)],on_candidate=preview,preserve_lines=len(indices)>1)
                 else:
-                    target = text_languages.translate_piece(client,block['source'],reference,job['source_language'],job['target_language'],
-                        job['cancel'],context=context,humanize=text_languages.natural_expression(block['source']),activity=lambda message:update(message=message))
+                    target = text_languages.translate_piece(request_client,source,reference,job['source_language'],job['target_language'],
+                        job['cancel'],context=context,humanize=text_languages.natural_expression(source),activity=activity,
+                        on_candidate=preview,preserve_lines=len(indices)>1)
                 check_cancel(job['cancel'])
-                block.update(translation=target, status='complete'); block.pop('error', None)
+                values=split(target)
+                if values is None:
+                    for index in indices:translate([index])
+                    return
+                with workflow.LOCK:
+                    for index,value in zip(indices,values):
+                        blocks[index].update(translation=value,status='complete');blocks[index].pop('error',None)
             except ValueError as error:
-                block.update(status='failed', error=str(error))
-            publish()
+                if len(indices)>1:
+                    for index in indices:translate([index])
+                else:
+                    with workflow.LOCK:blocks[identity].update(status='failed',error=str(error))
+            except Cancelled:raise
+            except Exception as error:
+                if job['cancel'].is_set():raise Cancelled('任务已取消') from error
+                with workflow.LOCK:
+                    for index in indices:blocks[index].update(status='failed',error=str(error))
+                    failures.append(str(error))
+            finally:
+                publish();tracker.finish(identity,0)
+        for _ in ordered_groups(batches,translate,3,job['cancel']):pass
+        check_cancel(job['cancel'])
         publish()
-        update(status='complete', message='文本翻译完成' if job['result']['complete'] else '部分文本未通过检查，已保留完成部分，可重试未完成段落')
+        update(status='failed' if failures else 'complete',error='；'.join(dict.fromkeys(failures)),
+               message='文本翻译完成' if job['result']['complete'] else '部分文本尚未完成，可重试未完成段落')
     except Cancelled:
+        with workflow.LOCK:
+            for block in blocks:
+                if block['status']=='reviewing':block.update(status='pending');block.pop('translation',None)
         publish(); update(status='cancelled', message='已取消，完成的译文已保留')
     except Exception as error:
         publish()

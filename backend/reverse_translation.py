@@ -70,7 +70,7 @@ def needs_translation(text):
 def validate_revision(source, target):
     from .parameter_notation import validate as validate_parameter
     validate_parameter(source,target)
-    validate(source, target, 'en-zh')
+    validate(source, target, 'en-zh', document=True)
 
 
 def inline_runs(result, target, groups):
@@ -150,7 +150,7 @@ def mapped(client, source, groups, glossary, cancel, context, mode, fixed_order=
                         # Fixed markup order can require a different Chinese
                         # word order. Accept only an independently checked,
                         # fact-identical rewrite; ordinary Office stays fixed.
-                        validate(source,revised,'en-zh')
+                        validate(source,revised,'en-zh',document=True)
                         from .reverse_entities import validate_names
                         validate_names(source,revised,person_terms)
                         review=client.chat_json(json.dumps({'原文':source,'已核对中文':value['translation'],'标签约束调整中文':revised},ensure_ascii=False),
@@ -324,8 +324,15 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 'translation':by_locator[m.locator].text,'reason':str(error),'retained_source':True,
                 'service_unavailable':isinstance(error,LLMUnavailable)} for m in members)
         tracker.finish(segment.id,len(members))
-    from .document_translation_core import ensure_coverage
+    from .document_translation_core import ensure_coverage, salvage_untranslated_clauses
     pending=ensure_coverage([m for _,members in todo for m in members],changed,pending,by_locator)
+    partially_translated = 0
+    for locator,source,target,partial,warnings in salvage_untranslated_clauses(pending,by_locator,'en-US','zh-CN',client,cancel,mode=mode,notify=notify):
+        changed.append(locator)
+        partially_translated += int(partial)
+        if not partial:
+            alignment.append({'locator':locator,'source':source,'translation':target})
+        issues.extend({'locator':locator,'reason':warning} for warning in warnings)
     if store.fingerprint(path) != before: raise ValueError('原稿在翻译期间被修改，请重新加载。')
     translated_count=len(alignment)  # Layout repair may append additional changed locators.
     adjustments, layout = fit_document(document, changed, original) if is_ppt else ([], [])
@@ -365,6 +372,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     from .comparison import safe_create
     return {'path': str(destination), 'source': os.path.abspath(path), 'source_fingerprint': before, 'direction': 'en-zh',
         'translated': translated_count, 'total': total, 'untranslated': len(pending), 'translation_complete': not pending,
+        'partially_translated': partially_translated,
         'resumed_segments': checkpoint.resumed if checkpoint else 0, 'checkpoint_available': checkpoint.available if checkpoint else False,
         'translation_mode': mode, 'review_items': pending, 'warnings': warnings, 'output_audit': audit,
         'source_alignment': alignment,
@@ -435,6 +443,9 @@ def check_segments(segments, glossary, use_llm=True, *, client=None, cancel=None
                             item={**item,'original':original,'replacement':replacement}
                             revised=segment.text.replace(item['original'],item['replacement'],1)
                             content_validate(segment.text,revised,'en-zh')
+                            if not payload.get('对应英文原文'):
+                                from .document_translation_policy import preserve_values_without_source
+                                preserve_values_without_source(segment.text,revised)
                             from .reverse_entities import validate_names
                             validate_names(segment.text,revised,person_terms)
                             accepted.append(item)

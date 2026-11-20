@@ -22,9 +22,19 @@ UNITS = {'nits':'nit', '尼特':'nit', 'millimeter':'mm', 'millimeters':'mm', '�
     'screens':'screen', '块':'screen', 'panels':'screen', 'panel':'screen'}
 
 
+# Enclosed list numbers are compatibility digits. Keep token boundaries when
+# normalizing ②1.4 V, including after a Chinese colon or a Japanese list label.
+_LIST_MARKERS = re.compile(r'[⓪-⓾①-⑳㉑-㉟㊱-㊿❶-❿➀-➓]')
+
+
+def quantity_normalized(text):
+    separated = _LIST_MARKERS.sub(lambda marker: ' ' + marker[0] + ' ', text)
+    return unicodedata.normalize('NFKC', separated)
+
+
 def numeric_tokens(text):
     """Compare actual values, including Chinese/English quantity scales."""
-    text = unicodedata.normalize('NFKC', text)
+    text = quantity_normalized(text)
     result = []
     for match in NUMBER.finditer(text):
         raw = match.group().replace(',', '')
@@ -143,6 +153,24 @@ def _calendar_numeric_tokens(text, *, bare_months=False):
 
 def _translation_numeric_values(text):
     return Counter(value for value,_,_ in _calendar_numeric_tokens(text)[1])
+
+
+_PERCENT_BEFORE=re.compile(r'百分之\s*$')
+_PERCENT_AFTER=re.compile(r'\s*(?:%|percent\b|パーセント|퍼센트|프로\b)',re.I)
+
+
+def percentage_values(text):
+    text,tokens=numeric_tokens(text)
+    return Counter(value for value,start,end in tokens if isinstance(value,Decimal) and
+        (_PERCENT_AFTER.match(text,end) or _PERCENT_BEFORE.search(text[max(0,start-12):start])))
+
+
+def negative_numbers(text):
+    text=quantity_normalized(text).casefold()
+    text=re.sub(r'(?<=\d)[ \t]+-(?=[ \t]+\d)',' –',text)
+    text,tokens=numeric_tokens(text)
+    minus=re.compile(r'(?<![A-Za-z0-9_.])(?:[-−]|minus\b|negative\b|負|负|マイナス|마이너스)\s*$',re.I)
+    return Counter(-value for value,start,_ in tokens if isinstance(value,Decimal) and minus.search(text[max(0,start-16):start]))
 
 
 def _written_quantity_digits(source, translation):
@@ -304,7 +332,8 @@ def instructions():
     return (Path(__file__).parent / 'skills/translation-rules.md').read_text(encoding='utf-8')
 
 
-def validate_translation(source, translation, *, allow_reflow=False):
+def validate_translation(source, translation, *, allow_reflow=False, document=False):
+    """Validate comparable facts and return any unmatched document quantities for review."""
     from .text_integrity import validate_identifiers
     validate_identifiers(source, translation)
     if '```' in translation and '```' not in source:
@@ -312,23 +341,33 @@ def validate_translation(source, translation, *, allow_reflow=False):
     # Preserve factual tokens; Chinese units may be translated, values may not change.
     expected = _translation_numeric_values(source)
     actual = Counter(value for value, _, _ in translation_numeric_tokens(source, translation)[1])
-    if expected != actual:
+    missing,extra=expected-actual,actual-expected
+    if (missing or extra) and not document:
         def describe(values):
             def label(value):
                 if isinstance(value,str) and value.startswith('ambiguous-date:'):return value.replace('ambiguous-date:','月日顺序待确认的日期 ')
                 return value.replace('date:','日期 ') if isinstance(value,str) and value.startswith('date:') else str(value)
             return '、'.join(label(value)+(f'（{count}处）' if count>1 else '') for value,count in values.items()) or '无'
         raise ValueError('生成的英文与中文原稿存在数值差异，需要核对。'
-            +' 原稿需保留：'+describe(expected-actual)+'；译文多出：'+describe(actual-expected)+'。')
+            +' 原稿需保留：'+describe(missing)+'；译文多出：'+describe(extra)+'。')
     missing_units = quantity_units(source) - quantity_units(_written_quantity_digits(source,translation))
-    if missing_units:
+    if missing_units and not document:
         required = '、'.join(f'{value} {unit}' for value, unit in missing_units)
         raise ValueError('译文未保留与原数值对应的单位，需要修正：'+required+'。')
+    quantity_difference = missing or extra or missing_units
+    if document:
+        quantity_difference = (quantity_difference or negative_numbers(source) != negative_numbers(translation)
+                               or percentage_values(source) != percentage_values(translation))
     tokens = re.findall(r'(?<![A-Za-z0-9])(?:[A-Z]{2,}[A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|'
         r'[A-Za-z]+[0-9][A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|[0-9]+[A-Z][A-Za-z0-9]*)(?![A-Za-z0-9])', source)
     for token in tokens:
+        if document and not any(char.isdigit() for char in token):
+            continue
+        if document and token[0].isdigit() and token not in {'4K', '8K', '16K', '2D', '3D'}:
+            continue  # 24V or the tail of 1.4V is a quantity, not a verified model code.
         quantity = re.fullmatch(r'(\d+)(Hz|HZ|hz|FPS|fps|nits?|mm|cm|bits?|pixels?)',token,re.I)
         if quantity:
+            if document:continue  # Values and units were checked above.
             # A space between a value and its unit is standard English formatting.
             value,unit = quantity.groups()
             separator=r'[-\s]*' if unit.lower()=='bit' else r'\s*'
@@ -356,3 +395,4 @@ def validate_translation(source, translation, *, allow_reflow=False):
             pattern=r'(?<![A-Za-z0-9])'+re.escape(token)+r'(?:s|[’\']s)?(?![A-Za-z0-9])'
         if len(re.findall(pattern, translation, re.I)) < len(re.findall(pattern, source, re.I)):
             raise ValueError(f'译文未保留原文中的型号或缩写 {token}，请重新生成。')
+    return bool(document and quantity_difference)

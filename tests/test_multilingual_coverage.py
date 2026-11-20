@@ -9,6 +9,29 @@ from backend.multilingual_quality import LanguageReview,IncompleteLanguageReview
 from backend.translation_retry import repaired_pages
 
 class CoverageTests(unittest.TestCase):
+    def test_document_validation_preserves_identifiers_and_leaves_quantity_judgment_to_review(self):
+        from backend.multilingual_documents import content_validate
+        from backend.translation_policy import validate_for_file
+
+        source='A8 控制器的容差为30.00%，工作温度可达−20 °C。'
+        target='A8 컨트롤러의 허용 오차는 30 퍼센트이며, 작동 온도는 마이너스 20 °C까지입니다.'
+        content_validate(source,target,'zh-CN','ko')
+        for changed in (target.replace('30 퍼센트','30'),target.replace('마이너스 ',''),
+                        target.replace('30 퍼센트','31 퍼센트')):
+            with self.subTest(changed=changed):
+                content_validate(source,changed,'zh-CN','ko')
+                with self.assertRaises(ValueError):validate(source,changed,'zh-CN','ko')
+        with self.assertRaisesRegex(ValueError,'A8'):
+            content_validate(source,target.replace('A8','B8'),'zh-CN','ko')
+        for suffix in ('.docx','.pdf','.pptx'):
+            with self.subTest(suffix=suffix):
+                validate_for_file('source'+suffix,'LED亮度误差为30.00%。',
+                                  'Light-emitting diode brightness has an error of 30 percent.')
+        content_validate('GPU负责显示计算。','그래픽 처리 장치가 디스플레이 연산을 담당합니다.','zh-CN','ko')
+        # Grammar need not produce comparable digit tokens on both sides.
+        content_validate('至少预留3个座位。','좌석을 적어도 세 자리 남겨 주세요.','zh-CN','ko')
+        content_validate('工作负荷约为50%。','부하는 절반 정도입니다.','zh-CN','ko')
+
     def test_localized_calendar_and_plan_counts_preserve_values(self):
         for dst,calendar,plan in [
             ('ja-JP','2025年5月9日','2021年の第14次五カ年計画'),
@@ -111,6 +134,8 @@ class CoverageTests(unittest.TestCase):
                 self.calls.append(payload)
                 if '待译原文' in payload:
                     return {'translation':'階調技術 60 Hz' if len(self.calls)==1 else '階調技術'}
+                if payload.get('译文')=='階調技術 60 Hz':
+                    return {'ok':False,'issues':['原文没有频率参数'],'severity':'critical','corrected_translation':'階調技術'}
                 return {'ok':True,'issues':[]}
         model=Model()
         result=translate_piece(model,'灰阶技术',None,'zh-CN','ja-JP',threading.Event(),
@@ -403,14 +428,17 @@ class CoverageTests(unittest.TestCase):
                 payload=json.JSONDecoder().raw_decode(prompt)[0]
                 self.calls.append(payload)
                 if '待译原文' in payload:return {'translation':target}
-                if '待独立裁定的复核意见' in payload and self.accept:return {'ok':True,'issues':[]}
+                if '待独立裁定的复核意见' in payload:
+                    if self.accept:return {'ok':True,'issues':[],'keep_original':True}
+                    return {'ok':False,'severity':'critical','issues':['增加了数值单位']}
                 return {'ok':False,'issues':['要求补写像素单位'],
                         'corrected_translation':target.replace('360만','360만 화소')}
         with policy.combined_processing(True),patch.object(policy,'reference',return_value={}):
             accepted=Model(True)
             self.assertEqual(translate_piece(accepted,source,None,'zh-CN','ko',threading.Event()),target)
             self.assertEqual(len(accepted.calls),3)
-            self.assertEqual(accepted.calls[-1]['译文'],target)
+            self.assertEqual(accepted.calls[-1]['修正前译文'],target)
+            self.assertEqual(accepted.calls[-1]['译文'],target.replace('360만','360만 화소'))
             self.assertIn('待独立裁定的复核意见',accepted.calls[-1])
             with self.assertRaisesRegex(ValueError,'增加了数值单位'):
                 translate_piece(Model(False),source,None,'zh-CN','ko',threading.Event())

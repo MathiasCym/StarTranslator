@@ -24,7 +24,7 @@
 .text-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin:0; }
 .text-actions [data-copy] { margin-right:auto; }
 body.text-view > main { display:flex; flex-direction:column; overflow:hidden; }
-body.text-view > main > :not(.workspace-heading):not(.workspace-tabs):not(#textWorkspace) { display:none !important; }
+body.text-view > main[data-page=documents] > :not(.workspace-heading):not(.workspace-tabs):not(#textWorkspace) { display:none !important; }
 body.shared-text-view > main { display:flex; flex-direction:column; height:calc(100dvh - 90px); min-height:560px; }
 body.shared-text-view .columns, body.shared-text-view #detail, body.shared-text-view main > footer { display:none !important; }
 body.shared-text-view .heading { flex:none; margin-bottom:12px; }

@@ -26,12 +26,12 @@ from backend.glossary import store
 class AsyncLanTests(unittest.TestCase):
     def test_shared_theme_assets_are_public_static_files_without_desktop_api(self):
         client=lan_service.create_app(True).test_client()
-        for route,name in [('/appearance.js','appearance.js'),('/appearance-light.css','appearance-light.css')]:
+        for route,name in [('/studio.css','studio.css'),('/studio-shared.css','studio-shared.css'),('/assets/welcome.png','../assets/welcome.png')]:
             response=client.get(route)
             self.assertEqual(response.status_code,200)
             self.assertEqual(response.data,(lan_service.ROOT/name).read_bytes());response.close()
         self.assertEqual(client.get('/appearance.json').status_code,404)
-        self.assertEqual(client.post('/appearance.js',json={'theme':'light'}).status_code,400)  # CSRF rejects writes before routing.
+        self.assertEqual(client.post('/studio.css',json={'theme':'light'}).status_code,400)  # CSRF rejects writes before routing.
         self.assertEqual(client.get('/api/glossary/language?language=ja-JP').status_code,404)
 
     def setUp(self):

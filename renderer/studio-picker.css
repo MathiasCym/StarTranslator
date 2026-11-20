@@ -1,0 +1,29 @@
+:root[data-surface=picker] .picker-body { border-color: var(--line); }
+.picker-head { background: var(--rail); color: #f8faff; margin-bottom: 14px; padding-block: 12px; }
+.picker-head h2 { margin: 0; }
+.picker-head img { height: 38px; width: 38px; }
+:root[data-surface=picker] #pickerClose { background: transparent; color: #fff; border-color: #ffffff4d; }
+:root[data-surface=picker] #pickerClose:hover { background: #243e72; color: #fff; }
+.picker-content { background: var(--card); }
+#pickerLocations { background: var(--bg2); border-right: 1px solid var(--line); }
+:root[data-surface=picker] #pickerLocations .btn { background: transparent; border-color: transparent; }
+:root[data-surface=picker] #pickerLocations .btn:hover { background: var(--tint); border-color: var(--line); }
+:root[data-surface=picker] .picker-entry.selected { background: var(--tint); border-color: #8ca7d9; }
+.picker-files { overflow: hidden; }
+.picker-footer { background: var(--card); }
+#pickerMessage { min-height: 20px; max-height: 40px; height: auto; margin-bottom: 8px; }
+#pickerMessage:empty { display: none; }
+#pickerMessage.error { color: var(--red); }
+.picker-places { min-height: 0; display: grid; grid-template-rows: auto minmax(0,1fr); background: var(--bg2); border-right: 1px solid var(--line); }
+.picker-places h3 { padding: 15px 14px 5px; color: var(--fg2); font-size: 14px; }
+.picker-places #pickerLocations { border: 0; padding-top: 4px; }
+.picker-toolbar { padding-bottom: 12px; }
+.picker-feedback { display: grid; gap: 3px; min-width: 0; }
+.picker-feedback #pickerMessage { margin: 0; }
+.picker-footer .picker-bottom { align-items: end; gap: 12px; }
+.picker-footer #pickerNameRow { margin-bottom: 9px; }
+.picker-places h3 { position: relative; }
+.picker-places h3::after {
+  content: ''; display: block; width: 22px; height: 2px; margin-top: 6px;
+  background: var(--gold); border-radius: 2px;
+}

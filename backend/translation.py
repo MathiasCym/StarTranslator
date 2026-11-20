@@ -8,8 +8,8 @@ from .llm.client import LLMClient, LLMUnavailable, LLMResponseInvalid, LLMTrunca
 from .matcher.judge import _build_glossary_text
 from .matcher.retriever import select_relevant_terms
 from .glossary.store import fingerprint
-from .writing_policy import instructions, repair_numeric_translation
-from .translation_policy import validate_for_file
+from .writing_policy import instructions
+from .translation_policy import ConfirmedQuantityError, validate_for_file
 from .document_input import validate_document_input
 from .replacer.styled_text import style_groups, slice_groups, response_runs, write_styled, anchored_runs, best_effort_runs, StyleMappingError
 from .replacer.pptx_package import save_office
@@ -143,11 +143,10 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
                 candidate = {**result, 'translation': text.strip()}
             if not isinstance(text, str) or not text.strip() or text.strip() == piece.strip() or contains_chinese(text):
                 raise ValueError('模型未返回完整英文正文。')
-            text = repair_numeric_translation(piece, text.strip())
-            if page_context is not None:
-                text = page_context.repair_quantity(segment, piece, text)
+            text = text.strip()
             result = {**result, 'translation': text}
-            validate_for_file(segment.file_path or segment.file if segment is not None else None,piece,text)
+            validate_for_file(segment.file_path or segment.file if segment is not None else None,piece,text,
+                client=client,check_cancel=lambda:check_cancel(cancel))
             if segment is not None and Path(segment.file_path or segment.file).suffix.lower()=='.pptx':
                 from .pptx_content import validate_labels
                 try: validate_labels(getattr(segment,'text',piece),piece,text)
@@ -156,6 +155,8 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
                     raise
             break
         except (ValueError, LLMResponseInvalid, LLMTruncated) as error:
+            rejected_quantity = candidate if isinstance(error, ConfirmedQuantityError) else None
+            if rejected_quantity: candidate = None
             partial=getattr(error,'partial_result',None)
             if partial and partial['translation'].strip()!=piece.strip() and re.search(r'[A-Za-z]',partial['translation']):candidate=partial
             if attempt:
@@ -175,8 +176,8 @@ def mapped_translation(client, prompt, piece, groups, cancel, glossary=None, pag
                         return recovered_runs, False
                 raise TranslationNeedsReview(str(error), candidate) from error
             prompt += '\n【重新生成要求】\n' + str(error)
-            if candidate:
-                prompt += '\n【已生成英文，仅修正有差异的位置】\n' + candidate['translation']
+            if candidate or rejected_quantity:
+                prompt += '\n【已生成英文，仅修正有差异的位置】\n' + (candidate or rejected_quantity)['translation']
             prompt += '\n就地修正数值、单位、型号或未译文字，其余正确内容保持不变。允许将万、亿换算为英文数量。返回完整 JSON 英文正文及样式片段。'
         except LLMUnavailable as error:
             partial=getattr(error,'partial_result',None)
@@ -218,8 +219,8 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     if direction != 'zh-en': raise ValueError('翻译方向不正确。')
     def notify(phase,message,done=0,total=0):
         if activity:activity(phase,message,done,total)
-    def validate(source,target):
-        validate_for_file(path,source,target)
+    def validate(source,target,review_client=None):
+        validate_for_file(path,source,target,client=review_client,check_cancel=lambda:check_cancel(cancel))
         if Path(path).suffix.lower()=='.pptx':
             from .pptx_content import validate_labels
             validate_labels(source,source,target)
@@ -321,16 +322,17 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
             from .translation_activity import RequestActivity
             request_client=RequestActivity(client,lambda state,s=seg:processing(s,state))
             whole=cached_whole.get(seg.locator)
+            rejected_whole = False
             if isinstance(whole,dict) and not whole.get('needs_style'):
                 try:
                     text=whole['translation']
                     if contains_chinese(text):raise ValueError('Incomplete checkpoint')
-                    validate(seg.text,text)
+                    validate(seg.text,text,request_client)
                     if is_pptx and not whole.get('coherence_checked'):
                         from .pptx_content import cross_line_repetitions
                         if cross_line_repetitions(seg.text,text):raise ValueError('段内重复需要复核')
                     runs=response_runs(whole,text,slice_groups(groups,0,len(seg.text),visual_keys=True))
-                except (ValueError,KeyError,TypeError):pass
+                except (ValueError,KeyError,TypeError):rejected_whole = True
                 else:
                     checkpoint.used();page_context.remember(seg,seg.text,text)
                     results.append((index,seg,groups,runs,True,False,[],[]))
@@ -368,13 +370,13 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                     else:
                         def translate_piece():
                             key = translation_key(seg,piece,piece_groups)
-                            cached = checkpoint.get(key) if checkpoint else None
+                            cached = checkpoint.get(key) if checkpoint and not (rejected_whole and piece == seg.text) else None
                             initial = None
                             if isinstance(cached,dict):
                                 try:
                                     text = cached['translation']
                                     if contains_chinese(text): raise ValueError('Incomplete checkpoint')
-                                    validate(piece,text)
+                                    validate(piece,text,request_client)
                                     if is_pptx:
                                         from .pptx_content import validate_labels
                                         validate_labels(seg.text,piece,text)
@@ -506,7 +508,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     check_cancel(cancel)
     # Repair content before proofreading, for every supported format. Never
     # label a partially translated document as ready for English proofreading.
-    from .document_translation_core import ensure_coverage,repair_plan,may_recover_transport
+    from .document_translation_core import ensure_coverage,repair_plan,may_recover_transport,salvage_untranslated_clauses
     review_items=ensure_coverage(todo,changed,review_items,by_locator)
     if review_items:
         repair_failures=0
@@ -548,6 +550,13 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
                 for item in review_items:
                     if item['locator']==seg.locator:item['reason']=str(error)
         for item in review_items:item['translation']=by_locator[item['locator']].text
+    partially_translated = 0
+    for locator,_,_,partial,warnings in salvage_untranslated_clauses(review_items,by_locator,'zh-CN','en-US',client,cancel,mode=translation_mode,notify=notify):
+        if locator not in changed:
+            changed.append(locator)
+            translated += int(not partial)
+        partially_translated += int(partial)
+        style_warnings.extend({'locator':locator,'reason':warning} for warning in warnings)
     # Even a complete model outage must retain a usable document. Unresolved
     # paragraphs stay visibly marked in the report; never invent their English.
     # Original English parameter cells also need consistent typography; they are
@@ -657,6 +666,7 @@ def translate_file(path, glossary, references, output_dir=None, client=None, pro
     # Glossary normalization and advisory consistency belong to proofreading.
     consistency_items=[]
     return {'path':str(destination),'source':os.path.abspath(path),'source_fingerprint':before,'translated':translated,
+        'partially_translated':partially_translated,
             'translation_complete':not remaining and not review_items,
             'resumed_segments':checkpoint.resumed if checkpoint else 0,
             'checkpoint_available':checkpoint.available if checkpoint else False,

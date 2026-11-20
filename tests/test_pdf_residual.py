@@ -32,7 +32,8 @@ class Model:
 class PdfResidualTests(unittest.TestCase):
     def test_reflow_identifier_policy_does_not_leak_into_word_or_powerpoint(self):
         from backend.translation_policy import validate_for_file
-        source,target='LEDDome和300TBDellPowerScale','LED Dome and Dell PowerScale with 300 TB'
+        validate_for_file('source.PDF','LEDDome和300TBDellPowerScale','LED Dome and Dell PowerScale with 300 TB')
+        source,target='使用VX1000控制器','Uses the VX 1000 controller'
         validate_for_file('source.PDF',source,target)
         for filename in ['source.docx','source.pptx','source.xlsx','source.txt',None]:
             with self.subTest(filename=filename),self.assertRaises(ValueError):

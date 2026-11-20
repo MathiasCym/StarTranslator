@@ -150,6 +150,9 @@ class PdfReflowTests(unittest.TestCase):
         class Model:
             def chat_json(self,prompt,**kw):
                 if '【只需补译的中文】' in prompt:return {'translations':[{'source':'型号','translation':'Model 2000'}]}
+                if prompt.startswith('{'):
+                    return {'severity':'critical','source_evidence':'型号VX1000','target_evidence':'Model 2000',
+                            'reason':'原文的型号前没有另一个数字 2000。'}
                 return {'translation':'Model VX2000.'}
         result=translate_file(source,Glossary([]),None,client=Model())
         self.assertFalse(result['translation_complete']);self.assertGreater(result['untranslated'],0)

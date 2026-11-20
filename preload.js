@@ -1,6 +1,7 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron')
 
 contextBridge.exposeInMainWorld('api', {
+  previewBuild: () => ipcRenderer.invoke('preview-build'),
   appVersion: () => ipcRenderer.invoke('app-version'),
   updateState: () => ipcRenderer.invoke('update-state'),
   startupUpdateNotice: () => ipcRenderer.invoke('startup-update-notice'),
@@ -42,10 +43,4 @@ contextBridge.exposeInMainWorld('api', {
   onBackendReady: (cb) => ipcRenderer.on('backend-ready', (_e, port) => cb(port)),
   onBackendError: (cb) => ipcRenderer.on('backend-error', (_e, msg) => cb(msg)),
   onDataDirectoryWarning: cb => ipcRenderer.on('data-directory-warning', (_e, msg) => cb(msg)),
-})
-
-contextBridge.exposeInMainWorld('appearance', {
-  initial: ipcRenderer.sendSync('appearance-theme'),
-  set: value => ipcRenderer.invoke('set-appearance-theme', value),
-  onChange: callback => ipcRenderer.on('appearance-theme-changed', (_event, value) => callback(value)),
 })

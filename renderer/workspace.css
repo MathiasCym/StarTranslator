@@ -5,8 +5,9 @@
 body.results-view > main { display: flex; flex-direction: column; overflow: hidden; }
 body.results-view .workspace-heading { margin-bottom: 12px; flex: none; }
 body.results-view .workspace-tabs { margin-bottom: 16px; flex: none; }
-body.results-view #translationPanel { display: flex; flex-direction: column; flex: 1; min-height: 0; padding: 20px; }
-.review-complete { padding: 28px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); box-shadow: var(--reflection); }
+body.results-view :is(#translationPanel, #reviewCompletePanel) {
+  display: grid; grid-template-rows: auto minmax(0,1fr) auto; flex: 1; min-height: 0; gap: 14px;
+}
 .completion-heading { display: flex; align-items: center; gap: 20px; margin-bottom: 24px; }
 .completion-heading img { width: 70px; height: 70px; object-fit: contain; }
 .completion-heading h3 { font-size: 27px; margin-bottom: 6px; }
@@ -18,11 +19,12 @@ body.results-view #translationPanel { display: flex; flex-direction: column; fle
 .completion-review-step .btn { flex:none; white-space:nowrap; max-width:100%; }
 .completion-review-step.has-suggestions { border-color:#258fbe; background:linear-gradient(110deg,#12324a,#112333); }
 @media(max-width:760px) { .completion-review-step { flex-wrap:wrap; } }
-.completion-files { font-size: 15px; color: var(--fg2); margin: 16px 0 24px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.completion-footer { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-top: 22px; border-top: 1px solid var(--line); }
-.completion-destination { min-width: 0; max-width: 52%; }
+.completion-files { font-size: 15px; color: var(--fg2); margin: 9px 0 0; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.completion-destination { min-width: 0; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card); padding: 14px 16px; }
+.completion-destination h4 { margin: 0 0 5px; }
 .completion-destination select { max-width: 100%; margin-bottom: 8px; }
-.completion-destination .fpath { font-size: 13px; color: var(--fg2); margin-bottom: 12px; overflow-wrap: anywhere; max-height: 3.1em; overflow: hidden; }
+.completion-destination .fpath { font-size: 13px; color: var(--fg2); margin: 0; overflow-wrap: anywhere; max-height: 3.1em; overflow: hidden; }
+#completionIssue { margin-top: 12px; }
 #reportPanel.report-card { width: min(1600px, calc(100vw - 40px)); height: calc(100vh - 40px); max-height: calc(100vh - 40px); display: flex; flex-direction: column; overflow: hidden; padding: 24px; }
 .report-card > .panel-head { margin-bottom: 18px; }
 .results-grid { display: grid; grid-template-columns: minmax(0,1fr) 290px; gap: 20px; flex: 1; min-height: 0; }
@@ -62,10 +64,37 @@ body.results-view #translationPanel { display: flex; flex-direction: column; fle
 .result-side .report-actions { margin-top: auto; padding: 14px 0 0; border: none; border-radius: 0; background: none; box-shadow: none; flex: none; display: flex; flex-direction: column; flex-wrap: nowrap; align-items: stretch; gap: 10px; }
 .result-side .actions, .result-next { display: flex; flex-direction: column; gap: 10px; }
 .result-next { margin-top: auto; }
-#translationFiles { display: flex; flex-direction: column; gap: 14px; }
-#translationFiles > li { display: block; padding: 18px; }
-#translationFiles .row-actions { margin-top: 14px; }
-.history-card { width: min(1060px, calc(100vw - 48px)); height: min(820px, calc(100vh - 48px)); max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; }
+.output-heading {
+  display: flex; align-items: center; gap: 12px; padding: 2px 0 12px; border-bottom: 1px solid var(--line);
+}
+.output-heading h3 { margin: 0; font-size: clamp(20px, 2.3vw, 28px); }
+.output-heading p { margin: 4px 0 0; color: var(--fg2); font-size: 14px; }
+.output-scroll { padding: 2px 6px 6px 2px; }
+#translationFiles { display: grid; gap: 12px; padding: 0; margin: 0; list-style: none; }
+#translationFiles > .output-file { display: block; padding: 14px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); }
+.output-file-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px 16px; }
+.output-file-identity { flex: 1 1 280px; min-width: 0; }
+.output-file-title { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; overflow-wrap: anywhere; }
+.output-file-identity .hint { margin: 4px 0 0; }
+.output-file-badge { color: var(--accent2); background: var(--tint); border-radius: 6px; padding: 2px 7px; font-size: 12px; }
+.output-file-badge.pending { color: var(--amber); background: #fbf1dc; }
+.output-file-header .row-actions { justify-content: flex-start; }
+.output-notes, .output-errors { margin-top: 12px; padding-top: 9px; border-top: 1px solid var(--line); }
+.output-notes summary, .output-errors summary { cursor: pointer; color: var(--accent2); }
+.output-file :is(.output-notes, .layout-warning) + details { margin-top: 8px; }
+.output-notes > ul, .output-errors > ul { display: grid; gap: 8px; padding: 0; margin: 8px 0 0; list-style: none; }
+.output-notes li, .output-errors li { display: block; overflow-wrap: anywhere; }
+.output-notes > ul > li, .output-errors > ul > li { padding: 8px 11px; border-radius: 7px; background: var(--bg); }
+.output-notes li p { margin: 3px 0; }
+.output-location { display: block; margin-bottom: 4px; }
+.output-fragment { white-space: pre-wrap; user-select: text; }
+.output-fragments { padding-inline-start: 18px; margin: 0; }
+.output-fragments li { display: list-item; }
+.output-footer {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap;
+  gap: 8px 16px; padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--card);
+}
+.output-footer > .row-actions { margin-inline-start: auto; }
 .history-filters { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 14px; }
 .history-filters input { flex: 1; min-width: 160px; }
 .history-filters select { font-size: 15px; }
@@ -182,7 +211,7 @@ body > main { padding: 28px 32px 32px; min-height: 0; scroll-padding: 24px; }
 .filelist .ico { width: 42px; height: 38px; font-size: 12px; }
 #filelist { max-height: 300px; }
 .filelist select { font-size: 15px; width: 190px; max-width: 30%; }
-.job-panel, #reportPanel, #translationPanel { padding: 24px; border: 1px solid var(--line); background: var(--card); border-radius: var(--radius); box-shadow: var(--reflection); backdrop-filter: blur(10px); }
+.job-panel, #reportPanel { padding: 24px; border: 1px solid var(--line); background: var(--card); border-radius: var(--radius); box-shadow: var(--reflection); backdrop-filter: blur(10px); }
 .summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
 .stat { background: var(--surface); padding: 18px 20px; min-width: 0; box-shadow: var(--reflection); }
 .stat .n { font-size: 30px; color: var(--fg); font-variant-numeric: tabular-nums; }
@@ -203,8 +232,6 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
 .modal { background: radial-gradient(900px 600px at 50% -10%, rgba(56,189,248,.10), transparent 60%), rgba(3,9,16,.66); backdrop-filter: blur(5px); }
 .modal-card { background: var(--card); border-color: #3d6281; box-shadow: 0 24px 70px rgba(0,0,0,.6), var(--reflection), 0 0 0 1px rgba(56,189,248,.08); border-radius: 18px; backdrop-filter: blur(16px); }
 .modal-card > .panel-head { border-bottom: 1px solid var(--line); padding-bottom: 16px; }
-.model-card { width: min(1120px, 95vw); height: min(770px, 92vh); padding: 26px; gap: 18px; }
-.model-card .panel-head h3 { font-size: 24px; }
 .model-body { grid-template-columns: minmax(270px, .8fr) minmax(0, 1.3fr); gap: 24px; }
 .profile-block { background: rgba(8,23,39,.44); padding: 16px; border-radius: 12px; }
 .profile-head { color: var(--fg); }
@@ -218,7 +245,7 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
 .model-footer { display: flex; align-items: center; gap: 16px; justify-content: space-between; padding-top: 16px; }
 #modelMessage { flex: 1; margin: 0; }
 .model-footer .actions { margin: 0; }
-.lexicon-card { width: min(1240px, 96vw); padding: 24px; gap: 14px; }
+.lexicon-page { width: min(1240px, 96vw); padding: 24px; gap: 14px; }
 .lexicon-title h3 { font-size: 26px; }
 .lexicon-title p { color: var(--fg2); font-size: 15px; }
 .lexicon-source { background: rgba(8,23,39,.44); padding: 10px 14px; }
@@ -235,13 +262,13 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
 .lexicon-section-head { color: #c3d8e8; font-size: 14px; }
 .term-detail-head { padding: 16px 18px; }
 .term-detail-head h4 { font-size: 20px; }
-.lexicon-card .term-form { padding: 18px; gap: 18px; }
-.lexicon-card .term-form textarea { font-size: 17px; background: rgba(8,23,39,.82); border-color: var(--line); }
-.lexicon-card .term-form textarea::placeholder, .field-help { font-size: 14px; color: var(--fg2); }
+.lexicon-page .term-form { padding: 18px; gap: 18px; }
+.lexicon-page .term-form textarea { font-size: 17px; background: rgba(8,23,39,.82); border-color: var(--line); }
+.lexicon-page .term-form textarea::placeholder, .field-help { font-size: 14px; color: var(--fg2); }
 .lexicon-toolbar input { min-height: 44px; }
 .lexicon-views button { min-height: 40px; font-size: 15px; }
 .lexicon-views button.active { background: linear-gradient(180deg, rgba(56,189,248,.22), rgba(31,111,235,.18)); color: var(--cyan); }
-.lexicon-card #lexiconStatus, .lexicon-card #termCount, #suggestVariants { font-size: 15px; }
+.lexicon-page #lexiconStatus, .lexicon-page #termCount, #suggestVariants { font-size: 15px; }
 .lexicon-share-actions { flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .lexicon-share-actions .btn, .lexicon-share-actions select { min-height: 44px; font-size: 15px; }
@@ -301,8 +328,8 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
   .dz-inner { gap: 20px; }
   .welcome-portrait { width: 112px; height: 112px; }
   .dz-copy p { max-width: 280px; }
-  .model-card, .lexicon-card { padding: 20px; }
-  .lexicon-card .lexicon-layout { grid-template-columns: minmax(260px, .8fr) minmax(0, 1.2fr); }
+  .lexicon-page { padding: 20px; }
+  .lexicon-page .lexicon-layout { grid-template-columns: minmax(260px, .8fr) minmax(0, 1.2fr); }
 }
 @media (max-width: 1050px) {
   .workspace-heading { margin-bottom: 18px; }
@@ -330,13 +357,12 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
   .workspace-heading { margin-bottom: 14px; }
   .workspace-heading h2 { font-size: 24px; }
   .workspace-tabs { margin-bottom: 18px; }
-  .lexicon-card { gap: 10px; padding: 18px; }
+  .lexicon-page { gap: 10px; padding: 18px; }
   .lexicon-title .mascot { width: 42px; height: 42px; }
   .lexicon-title h3 { font-size: 23px; }
   .lexicon-title p { display: none; }
   .lexicon-source { padding: 6px 12px; }
   .lexicon-footer { padding-top: 10px; }
-  .model-card { gap: 12px; padding: 20px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
@@ -356,19 +382,19 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
 @keyframes job-reflection { to { transform: translateX(100%); } }
 
 /* Compact controls leave more space for readable, editable terms. */
-.lexicon-card { padding: 16px 18px; gap: 8px; }
+.lexicon-page { padding: 16px 18px; gap: 8px; }
 .lexicon-heading, .lexicon-title, .lexicon-source, .lexicon-toolbar, .lexicon-pagination, .lexicon-footer { gap: 8px; }
 .lexicon-title .mascot { width: 42px; height: 42px; }
 .lexicon-title h3 { font-size: 23px; }
 .lexicon-title p { margin-top: 2px; font-size: 14px; }
-.lexicon-card .btn, .lexicon-share-actions select, .lexicon-views button { min-height: 34px; padding: 5px 9px; }
+.lexicon-page .btn, .lexicon-share-actions select, .lexicon-views button { min-height: 34px; padding: 5px 9px; }
 .lexicon-share-actions { gap: 6px; }
 .lexicon-source { padding: 4px 10px; }
 .lexicon-management { padding-bottom: 4px; }
 .lexicon-management summary { min-height: 30px; }
 .lexicon-toolbar > input { min-height: 36px; padding: 6px 10px; }
 .lexicon-views button { font-size: 15px; }
-.lexicon-card .lexicon-layout { gap: 12px; }
+.lexicon-page .lexicon-layout { gap: 12px; }
 .lexicon-section-head { padding: 8px 10px; }
 .term-rows { padding: 5px; }
 .term-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 8px; padding: 7px 9px; margin-bottom: 3px; }
@@ -381,18 +407,18 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
 .term-detail-actions { display:flex; align-items:center; flex-wrap:wrap; gap:6px; flex-shrink:0; }
 .term-detail-actions label { font-size:14px; color:var(--fg2); }
 .term-detail-actions select, #termCategoryFilter, #lexiconLanguage { min-height:34px; padding:5px 8px; width:auto; }
-.lexicon-card table.grid select { width:100%; min-width:100px; min-height:36px; }
-.lexicon-card .term-form { padding: 12px; gap: 10px; }
-.lexicon-card .term-form textarea { min-height: 50px; font-size: 16px; line-height: 1.45; padding: 6px 8px; }
-.lexicon-card .term-grid { gap: 8px; }
+.lexicon-page table.grid select { width:100%; min-width:100px; min-height:36px; }
+.lexicon-page .term-form { padding: 12px; gap: 10px; }
+.lexicon-page .term-form textarea { min-height: 50px; font-size: 16px; line-height: 1.45; padding: 6px 8px; }
+.lexicon-page .term-grid { gap: 8px; }
 .lexicon-grid-pane { gap: 6px; }
-.lexicon-card table.grid th { padding: 7px 8px; }
-.lexicon-card table.grid td { padding: 4px 5px; }
-.lexicon-card table.grid textarea { min-height: 36px; font-size: 16px; line-height: 1.4; padding: 5px 6px; }
-.lexicon-card .grid-actions .btn { display: inline-block; min-height: 32px; margin: 1px; padding: 4px 6px; }
-.lexicon-card .lexicon-footer { min-height: 42px; padding-top: 6px; }
+.lexicon-page table.grid th { padding: 7px 8px; }
+.lexicon-page table.grid td { padding: 4px 5px; }
+.lexicon-page table.grid textarea { min-height: 36px; font-size: 16px; line-height: 1.4; padding: 5px 6px; }
+.lexicon-page .grid-actions .btn { display: inline-block; min-height: 32px; margin: 1px; padding: 4px 6px; }
+.lexicon-page .lexicon-footer { min-height: 42px; padding-top: 6px; }
 @media (max-width: 760px) {
-  .lexicon-card { padding: 10px 12px; gap: 6px; }
+  .lexicon-page { padding: 10px 12px; gap: 6px; }
   .lexicon-heading { flex-wrap: nowrap; gap: 6px; }
   .lexicon-title .mascot { width: 34px; height: 34px; }
   .lexicon-title h3 { font-size: 20px; gap: 6px; }
@@ -405,7 +431,7 @@ table.report td { padding: 13px 14px; overflow-wrap: anywhere; }
   .term-detail-actions { max-width:175px; justify-content:flex-end; }
   .lexicon-toolbar > input { min-width: 120px; }
   .lexicon-views button { padding: 5px 7px; font-size: 14px; }
-  .lexicon-card .lexicon-layout { grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr); gap: 8px; }
+  .lexicon-page .lexicon-layout { grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr); gap: 8px; }
   .term-card-tags { flex-direction: column; gap: 1px; }
   .term-card-tags > span { font-size: 12px; }
 }

@@ -1,13 +1,19 @@
 'use strict'
 const $ = id => document.getElementById(id)
 const esc = x => String(x ?? '').replace(/[&<>"']/g,c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
-let csrf = '', jobs = [], selected = '', comparison = null, lastDetail = '', polling = false, comparisonBase = ''
+let csrf = '', jobs = [], selected = '', comparison = null, lastDetail = '', polling = false, comparisonBase = '', uploading = false
 const labels = {translate:'翻译',check:'校对',translate_review:'翻译并校对',queued:'排队中',running:'处理中',complete:'已完成',failed:'未完成',cancelled:'已取消',partial:'部分完成',interrupted:'已中断'}
-window.StarTextTranslation.mount({ button: $('openTextTranslation'), host:$('textWorkspace'), prefix: '/shared/text/jobs', languagesPath:'/shared/text/languages',
-  onOpen: () => { document.body.classList.add('shared-text-view'); document.querySelector('.heading h1').textContent='文本工作台'; return true },
-  onClose: () => { document.body.classList.remove('shared-text-view'); document.querySelector('.heading h1').textContent='文档工作台' },
+const textEditor = window.StarTextTranslation.mount({ button: $('openTextTranslation'), host:$('textWorkspace'), prefix: '/shared/text/jobs', languagesPath:'/shared/text/languages',
+  onOpen: () => { document.body.classList.add('shared-text-view'); $('sharedWork').removeAttribute('aria-current'); document.querySelector('.heading h1').textContent='文本工作台'; return true },
+  onClose: () => { document.body.classList.remove('shared-text-view'); $('sharedWork').setAttribute('aria-current','page'); document.querySelector('.heading h1').textContent='共享工作台' },
   request: (method, path, body) => api(path, { method, ...(body ? { body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } } : {}) }),
   ready: async () => { await sharedSessionReady; if (!csrf) throw Error('共享会话未就绪，请刷新页面重试。') }
+})
+$('sharedWork').addEventListener('click', () => {
+  if (!$('textWorkspace').hidden) textEditor.close()
+})
+document.querySelector('a[href="#sharedJobs"]').addEventListener('click', () => {
+  if (!$('textWorkspace').hidden) textEditor.close()
 })
 async function api(path, options = {}) {
   const response = await fetch(path,{...options,headers:{'X-Star-CSRF':csrf,...options.headers}})
@@ -46,20 +52,24 @@ $('swapDocumentLanguages').onclick=()=>{const [source,target]=StarDocumentLangua
 function mode() {
   const kind=document.querySelector('[name=kind]:checked').value,hasPresentation=[...$('files').files].some(file=>/\.pptx$/i.test(file.name))
   renderDocumentLanguages()
+  $('submit').textContent = kind === 'check' ? '开始校对' : kind === 'translate_review' ? '翻译并校对' : '开始翻译'
+  $('submit').disabled = uploading || !$('files').files.length
+  $('sharedLlmOption').hidden = kind !== 'check'
   $('speakerNotesOption').hidden=!hasPresentation
   if(!hasPresentation)$('includePptNotes').checked=false
   $('outputField').hidden=kind!=='translate_review'; $('translationOptions').hidden=kind==='check'||!hasPresentation
   if(!hasPresentation){document.querySelector('[name=translationMode][value=faithful]').checked=true;$('translationOptions').querySelector('.translation-help-button').setAttribute('aria-expanded','false');$('translationOptions').querySelector('.translation-help').hidden=true}
 }
 document.querySelectorAll('[name=kind]').forEach(el => el.onchange = mode); mode()
-for (const [id,label] of [['files','fileNames'],['references','referenceNames']]) $(id).onchange = () => { $(label).textContent = [...$(id).files].map(f=>f.name).join('、') || (id === 'files' ? '支持 Office、PDF、文本、电子书和字幕，每份不超过 150 MB。PDF 文字层输出为 Word。' : ''); mode() }
+for (const [id,label] of [['files','fileNames'],['references','referenceNames']]) $(id).onchange = () => { $(label).textContent = [...$(id).files].map(f=>f.name).join('、'); mode() }
 $('form').onsubmit = async event => {
-  event.preventDefault(); $('error').hidden = true
+  event.preventDefault(); if (uploading || !$('files').files.length) return
+  $('error').hidden = true
   const form = new FormData(), kind = document.querySelector('[name=kind]:checked').value
   for (const file of $('files').files) form.append('files',file)
   for (const file of $('references').files) form.append('references',file)
   form.append('options',JSON.stringify({kind,direction:kind==='check'?documentCheck:documentTranslation,translation_mode:document.querySelector('[name=translationMode]:checked').value,combined_output:$('outputMode').value,use_llm:$('useLlm').checked,include_ppt_notes:$('includePptNotes').checked,workers:$('parallelWork').checked?3:1}))
-  $('submit').disabled = true; $('uploadProgress').hidden = false; setProgress($('uploadProgress'),0,true)
+  uploading = true; $('submit').disabled = true; $('uploadProgress').hidden = false; setProgress($('uploadProgress'),0,true)
   try {
     const job = await new Promise((resolve,reject) => {
       const xhr = new XMLHttpRequest(); xhr.open('POST','/shared/jobs'); xhr.setRequestHeader('X-Star-CSRF',csrf)
@@ -68,8 +78,8 @@ $('form').onsubmit = async event => {
       xhr.onload = () => { try { const value=JSON.parse(xhr.responseText); if(xhr.status!==200) reject(Error(value.error)); else resolve(value) } catch(e) { reject(Error('上传未完成，请重试。')) } }
       xhr.send(form)
     })
-    selected = job.id; lastDetail = ''; $('files').value = ''; $('references').value = ''; $('fileNames').textContent = '文档已提交，可继续添加下一项任务。'; $('referenceNames').textContent = ''; $('uploadStatus').textContent = '上传完成，已加入任务队列。'; await refresh()
-  } catch(e) { showError(e) } finally { $('submit').disabled = false; $('uploadProgress').hidden = true }
+    selected = job.id; lastDetail = ''; $('files').value = ''; $('references').value = ''; $('fileNames').textContent = ''; $('referenceNames').textContent = ''; $('uploadStatus').textContent = '上传完成，已加入任务队列。'; await refresh()
+  } catch(e) { showError(e) } finally { uploading = false; $('uploadProgress').hidden = true; mode() }
 }
 async function refresh() {
   if(polling) return

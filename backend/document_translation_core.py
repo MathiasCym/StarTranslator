@@ -128,6 +128,104 @@ def ensure_coverage(expected,completed,pending,paragraphs):
     return result
 
 
+def salvage_untranslated_clauses(pending, paragraphs, src, dst, client, cancel, *, mode='faithful', notify=None):
+    """Write verified clauses and retain only unresolved clauses in source form."""
+    import re
+    from .llm.client import LLMUnavailable, LLMResponseInvalid, LLMTruncated
+    from .multilingual_documents import mapped, recover_paragraph
+    from .multilingual_quality import LanguageReview
+    from .replacer.styled_text import slice_groups, style_groups, write_styled
+    from .text_integrity import prose, validate_identifiers
+    from .text_languages import INLINE_CODE
+    from .translation import check_cancel
+
+    saved = []
+    remaining = list(pending)
+    for index,item in enumerate(remaining):
+        check_cancel(cancel)
+        paragraph = paragraphs.get(item['locator'])
+        source = item.get('source_text')
+        if not source or paragraph is None or paragraph.text.strip() != source.strip() or item.get('service_unavailable'):
+            continue
+        source = paragraph.text
+        visible = INLINE_CODE.sub(lambda m: ' ' * len(m[0]), prose(source))
+        boundaries = r'(?<=[。！？!?；;])|(?<=[a-z]\.)[ \t]+(?=[A-Z가-힣])|[\r\n\v]+|(?=[①-⑳㉑-㉟㊱-㊿])'
+        breaks = [m.start() for m in re.finditer(boundaries, visible) if 0 < m.start() < len(source)]
+        if not breaks:
+            breaks = [m.start() for m in re.finditer(r'(?<=，)|(?<=,)[ \t]+(?=[A-Za-z])', visible)
+                      if 0 < m.start() < len(source)]
+        breaks = breaks[::max(1, (len(breaks) + 10) // 11)]
+        if not breaks:
+            continue
+        groups = style_groups(paragraph)
+        if not groups:
+            continue
+        if notify:
+            notify('repair','正在逐句补译并保留可用译文',index,len(remaining))
+        offsets = [0, *breaks, len(source)]
+        runs, unresolved, style_warnings = [], [], []
+        translated = 0
+        verified_text_available = False
+        quality = LanguageReview(src, dst)
+        transport_failure = None
+        for number,(start,end) in enumerate(zip(offsets, offsets[1:]),1):
+            check_cancel(cancel)
+            fragment = source[start:end]
+            if not any(c.isalpha() for c in visible[start:end]):
+                runs.extend(slice_groups(groups, start, end))
+                continue
+            first = start + len(fragment) - len(fragment.lstrip())
+            last = start + len(fragment.rstrip())
+            piece = source[first:last]
+            runs.extend(slice_groups(groups, start, first))
+            piece_groups = slice_groups(groups, first, last, visual_keys=True)
+            try:
+                if transport_failure:
+                    raise transport_failure
+                target = recover_paragraph(client, piece, src, dst, cancel, context=source,
+                                           quality=quality, previous=item.get('reason',''))
+                verified_text_available |= target != piece
+                mapped_runs = mapped(client, piece, piece_groups, {}, src, dst, cancel, source, mode,
+                                     initial_target=target, quality=quality, style_warnings=style_warnings)
+                if (dst in ('en-US','ko') and runs and runs[-1]['text'].endswith(('.', '!', '?', ';'))
+                        and mapped_runs and not mapped_runs[0]['text'][:1].isspace()):
+                    mapped_runs[0] = {**mapped_runs[0], 'text':' '+mapped_runs[0]['text']}
+                runs.extend(mapped_runs)
+                translated += target != piece
+            except (ValueError, LLMUnavailable) as error:
+                if isinstance(error, LLMUnavailable) and not isinstance(error, (LLMResponseInvalid, LLMTruncated)):
+                    transport_failure = error
+                runs.extend(piece_groups)
+                unresolved.append({'source_text':piece, 'reason':str(error), 'fragment':number})
+            runs.extend(slice_groups(groups, last, end))
+        if not translated:
+            if unresolved and not verified_text_available:
+                item['unresolved_fragments'] = unresolved
+            continue
+        target = ''.join(run['text'] for run in runs)
+        try:
+            validate_identifiers(source, target)
+        except ValueError:
+            continue
+        from copy import deepcopy
+        saved_xml = deepcopy(paragraph._p)
+        try:
+            write_styled(paragraph, groups, runs)
+        except (ValueError, KeyError, AttributeError, TypeError):
+            node = paragraph._p
+            node.clear()
+            node.attrib.update(saved_xml.attrib)
+            node.tail = saved_xml.tail
+            node.extend(deepcopy(child) for child in saved_xml)
+            continue
+        if unresolved:
+            item.update(translation=paragraph.text, unresolved_fragments=unresolved, partial_translation=True)
+        else:
+            pending.remove(item)
+        saved.append((item['locator'], source, paragraph.text, bool(unresolved), style_warnings))
+    return saved
+
+
 def repaired_pages(items,compute,workers,cancel,page_key,on_retry=None,client=None):
     """Repair content once; exhausted transport only after proven recovery."""
     from .translation import check_cancel

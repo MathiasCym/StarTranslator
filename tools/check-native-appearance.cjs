@@ -6,23 +6,45 @@ const source=path.join(qa,'paint.cs'),exe=path.join(qa,'paint.exe')
 fs.writeFileSync(source,`using System;using System.IO;using System.Drawing;using System.Windows.Forms;
 class PaintQA {
  [STAThread] static void Main(string[] args){Application.EnableVisualStyles();
-  foreach(string mode in new[]{"dark","light"}){
-   string data=Path.Combine(args[0],mode);Directory.CreateDirectory(data);File.WriteAllText(Path.Combine(data,"appearance.json"),"{\\"theme\\":\\""+mode+"\\"}");
-   using(Form form=new Form()){form.Text="星译官 · 更新";form.Width=520;form.Height=185;form.BackColor=Color.FromArgb(12,29,46);form.ForeColor=Color.FromArgb(220,237,250);form.Font=new Font("Microsoft YaHei UI",10);
-    ProgressBar bar=new ProgressBar(){Left=24,Top=88,Width=460,Height=16,Value=65};Label label=new Label(){Left=24,Top=24,Width=460,Height=48,Text="正在应用已校验的小更新，完成后自动重启…"};form.Controls.Add(label);form.Controls.Add(bar);
-    AppearancePaint.Apply(form,bar,data);form.Show();Application.DoEvents();
-    if(mode=="light"&&(form.BackColor!=Color.White||label.ForeColor!=Color.Black))throw new Exception("Native light colors do not propagate");
-    if(mode=="dark"&&form.BackColor!=Color.FromArgb(12,29,46))throw new Exception("Dark default changed");
-    using(Bitmap bitmap=new Bitmap(form.Width,form.Height)){form.DrawToBitmap(bitmap,new Rectangle(Point.Empty,bitmap.Size));bitmap.Save(Path.Combine(args[0],mode+".png"));}
-    form.Close();
-   }
+  using(var form=new UpdateProgressWindow(null,"v2.4.9 → v2.5.0",true)){
+    form.Report("正在更新程序文件 7 / 9",73);
+    Capture(form,Path.Combine(args[0],"update.png"));
+    form.Report("正在重新打开星译官",100);
+    Capture(form,Path.Combine(args[0],"update-complete.png"));
   }
-  File.WriteAllText(Path.Combine(args[0],"appearance.json"),"invalid");if(AppearancePaint.Light(args[0]))throw new Exception("Corrupt preference must default dark");
+  using(var form=new UpdateProgressWindow(null,"",true)){
+    form.Report("正在校验并准备小包更新",null);
+    Capture(form,Path.Combine(args[0],"update-prepare.png"));
+  }
+ }
+ static void Capture(Form form,string target){
+   form.Opacity=0;
+   form.Show();
+   Application.DoEvents();
+   foreach(Control control in form.Controls)
+    if(control.Visible&&!form.ClientRectangle.Contains(control.Bounds))throw new Exception("Update control outside window: "+control.Text);
+   using(Bitmap bitmap=new Bitmap(form.ClientSize.Width,form.ClientSize.Height)){
+    // Keep the renderer off the desktop and trim the OS-owned title frame.
+    using(Bitmap window=new Bitmap(form.Width,form.Height)){
+     form.DrawToBitmap(window,new Rectangle(Point.Empty,window.Size));
+     using(Graphics g=Graphics.FromImage(bitmap)){
+      int x=(form.Width-form.ClientSize.Width)/2;
+      int y=form.Height-form.ClientSize.Height-x;
+      g.DrawImage(window,new Rectangle(Point.Empty,bitmap.Size),new Rectangle(x,y,bitmap.Width,bitmap.Height),GraphicsUnit.Pixel);
+     }
+    }
+    bool accentVisible=false;
+    for(int y=0;y<bitmap.Height&&!accentVisible;y++)
+     for(int x=0;x<bitmap.Width&&!accentVisible;x++)
+      accentVisible=bitmap.GetPixel(x,y).ToArgb()==Color.FromArgb(241,183,67).ToArgb();
+    if(!accentVisible)throw new Exception("The update window did not paint its controls");
+    bitmap.Save(target);
+   }
  }
 }`)
 const compiler=path.join(process.env.SystemRoot,'Microsoft.NET/Framework64/v4.0.30319/csc.exe')
 execFileSync(compiler,['/nologo','/target:winexe','/out:'+exe,'/reference:System.Web.Extensions.dll','/reference:System.Windows.Forms.dll','/reference:System.Drawing.dll',source,path.join(root,'build/appearance-native.cs')],{windowsHide:true})
 execFileSync(exe,[qa],{windowsHide:true,timeout:15000})
-for(const theme of ['dark','light'])assert(fs.statSync(path.join(qa,theme+'.png')).size>1000)
-fs.writeFileSync(path.join(qa,'result.json'),JSON.stringify({passed:true,productionPaint:true,installationModified:false,checks:['Dark unchanged','Light form, labels and progress','Corrupt preference defaults dark']},null,2))
+for(const name of ['update.png','update-complete.png','update-prepare.png']) assert(fs.statSync(path.join(qa,name)).size>1000)
+fs.writeFileSync(path.join(qa,'result.json'),JSON.stringify({passed:true,productionPaint:true,installationModified:false,checks:['Dark native update, completion and preparation views']},null,2))
 console.log('Native appearance checks passed')

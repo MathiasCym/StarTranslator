@@ -101,7 +101,11 @@ class QualityGateTests(unittest.TestCase):
         source=self.root/'source.docx';doc=Document();doc.add_paragraph('亮度500尼特');doc.add_paragraph('刷新率60Hz');doc.save(source)
         class Model:
             def __init__(self):self.responses=iter(['Brightness 500 nits','still Chinese','still Chinese','60 Hz'])
-            def chat_json(self,prompt,**kw):return {'translation':next(self.responses)}
+            def chat_json(self,prompt,**kw):
+                if prompt.startswith('{'):
+                    return {'severity':'critical','source_evidence':'60Hz','target_evidence':'still Chinese',
+                            'reason':'译文遗漏了原稿的刷新率。'}
+                return {'translation':next(self.responses)}
         result=translate_file(str(source),Glossary([]),None,client=Model(),workers=1)
         self.assertTrue(result['translation_complete']);self.assertEqual(result['untranslated'],0)
         self.assertEqual([p.text for p in Document(result['path']).paragraphs],['Brightness 500 nits','60 Hz'])
@@ -385,11 +389,14 @@ class QualityGateTests(unittest.TestCase):
         original=source.read_bytes()
         class Model:
             def __init__(self):self.prompts=[]
-            def chat_json(self,prompt,**kwargs):
+            def chat_json(self,prompt,system='',**kwargs):
                 self.prompts.append(prompt)
+                if system.startswith('只核对当前段落'):
+                    return {'severity':'critical','source_evidence':'500尼特',
+                            'target_evidence':'500 mm','reason':'亮度的物理单位从尼特变为毫米'}
                 return {'translation':'Brightness 500 mm' if len(self.prompts)==1 else 'Brightness 500 nits'}
         model=Model();result=translate_file(str(source),Glossary([]),None,client=model,workers=1)
-        self.assertEqual(len(model.prompts),2);self.assertIn('单位',model.prompts[1])
+        self.assertEqual(len(model.prompts),3);self.assertIn('单位',model.prompts[2])
         self.assertEqual(Document(result['path']).paragraphs[0].text,'Brightness 500 nits')
         self.assertTrue(result['translation_complete']);self.assertEqual(result['needs_review'],0)
         self.assertEqual(source.read_bytes(),original)
@@ -428,7 +435,12 @@ class QualityGateTests(unittest.TestCase):
             def __init__(self):
                 super().__init__(provider='compatible',base_url='http://127.0.0.1:1/v1',model='unit-checkpoint-fixture',api_key='',retries=0)
                 self.calls=0
-            def chat_json(self,*args,**kwargs):self.calls+=1;return {'translation':'Brightness 500 nits'}
+            def chat_json(self,*args,system='',**kwargs):
+                self.calls+=1
+                if system.startswith('只核对当前段落'):
+                    return {'severity':'critical','source_evidence':'500尼特',
+                            'target_evidence':'500 mm','reason':'旧译文改变了亮度单位'}
+                return {'translation':'Brightness 500 nits'}
         for index,text in enumerate(['Brightness 500 nits','Brightness 500 mm']):
             source=self.root/f'checkpoint-{index}.docx';doc=Document();doc.add_paragraph('亮度500尼特');doc.save(source)
             segment=extract(str(source))[0];_,paragraphs,_=open_office(source)
@@ -440,7 +452,7 @@ class QualityGateTests(unittest.TestCase):
                 checkpoint.put(translation_key(segment,segment.text,groups),{'translation':text,'runs':[{'id':groups[0]['id'],'text':text}],'needs_style':False})
             result=translate_file(str(source),glossary,None,client=model,workers=1)
             self.assertEqual(Document(result['path']).paragraphs[0].text,'Brightness 500 nits')
-            self.assertEqual(model.calls,index);self.assertEqual(result['resumed_segments'],1-index)
+            self.assertEqual(model.calls,2*index);self.assertEqual(result['resumed_segments'],1-index)
     def test_date_before_venue_line_completes_real_translation_review_handoff(self):
         source=self.root/'date-venue.docx';doc=Document();doc.add_paragraph('2025.05.09\n测试场馆');doc.save(source)
         class Model:
@@ -487,6 +499,9 @@ class QualityGateTests(unittest.TestCase):
                     self.translations+=1
                     piece=prompt.split('【待译原文】\n',1)[1].split('\n【',1)[0]
                     return {'translation':'1920 x 1080.' if '3840' in piece else 'Brightness 500 nits.'}
+                if kw.get('system','').startswith('只核对当前段落'):
+                    return {'severity':'critical','source_evidence':'3840×2160',
+                            'target_evidence':'1920 x 1080','reason':'分辨率改变'}
                 self.reviews+=1;return []
         client=Model();job=dict(id='quality-one-local-failure',kind='translate_review',status='running',cancel=threading.Event())
         with patch('backend.workflow.store.load_glossary',return_value=Glossary([])):

@@ -231,13 +231,18 @@ class BatchTests(unittest.TestCase):
         class Repair:
             supports_thinking_mode=True
             def __init__(self):self.calls=[]
-            def chat_json(self,prompt,**kwargs):
+            def chat_json(self,prompt,system='',**kwargs):
+                if system.startswith('只核对当前段落'):
+                    self.calls.append(kwargs)
+                    return {'severity':'critical','source_evidence':'3840×2160',
+                            'target_evidence':'1920 x 1080','reason':'分辨率改变'}
                 self.calls.append(kwargs)
                 return {'translation':'Resolution 1920 x 1080' if len(self.calls)==1 else 'Resolution 3840 x 2160'}
         client=Repair()
         result,_=mapped_translation(client,'fixture',group[0]['text'],group,None,segment=segment)
         self.assertEqual(''.join(r['text'] for r in result),'Resolution 3840 x 2160')
-        self.assertNotIn('thinking',client.calls[0]);self.assertTrue(client.calls[1]['thinking'])
+        self.assertTrue(all('thinking' not in call for call in client.calls[:2]))
+        self.assertTrue(client.calls[2]['thinking'])
         segment.file='fixture.docx';client=Repair()
         mapped_translation(client,'fixture',group[0]['text'],group,None,segment=segment)
         self.assertTrue(all('thinking' not in call for call in client.calls))
@@ -281,10 +286,13 @@ class BatchTests(unittest.TestCase):
         class Repair:
             supports_thinking_mode=True
             def __init__(self):self.calls=[]
-            def chat_json(self,prompt,**kwargs):
+            def chat_json(self,prompt,system='',**kwargs):
                 self.calls.append(kwargs)
+                if system.startswith('只核对当前段落'):
+                    return {'severity':'critical','source_evidence':'500尼特',
+                            'target_evidence':'600 nits','reason':'亮度改变'}
                 if len(self.calls)==1:return {'translation':'Brightness 600 nits'}
-                if len(self.calls)==2:return {'translation':'Brightness 500 nits'}
+                if len(self.calls)==3:return {'translation':'Brightness 500 nits'}
                 return {'runs':[{'id':0,'text':'Brightness '},{'id':1,'text':'500 nits'}]}
         client=Repair()
         runs,_=mapped_translation(client,'fixture',segment.text,groups,None,segment=segment)

@@ -5,10 +5,10 @@
     dialog.className = 'text-translator text-inline'
     dialog.hidden = true
     dialog.setAttribute('aria-labelledby', 'textTranslationTitle')
-    dialog.innerHTML = `<header class="text-heading"><div><h2 id="textTranslationTitle">文本翻译</h2><p>自然表达已内置，词语以术语准确为主；翻译后对照原文复核。</p></div><button type="button" data-close>返回文档</button></header>
-      <div class="text-toolbar"><label>源语言 <select data-source-language aria-label="文本源语言"></select></label><button type="button" data-swap aria-label="交换语言，已有完整译文时同时交换文本">⇄ 交换</button><label>目标语言 <select data-target-language aria-label="文本目标语言"></select></label><button type="button" data-clear>清空</button></div>
+    dialog.innerHTML = `<h2 id="textTranslationTitle" class="sr-only">文本翻译</h2>
+      <div class="text-toolbar"><label>源语言 <select data-source-language aria-label="文本源语言"></select></label><button type="button" data-swap aria-label="交换语言，已有完整译文时同时交换文本" title="交换语言">⇄</button><label>目标语言 <select data-target-language aria-label="文本目标语言"></select></label><button type="button" data-clear>清空</button></div>
       <div class="text-editors"><label><span class="text-editor-heading">原文 <span data-count>0 / 20,000 字符</span></span><textarea data-source maxlength="20000" placeholder="粘贴或输入需要翻译的文本…" spellcheck="false"></textarea></label><label><span class="text-editor-heading">译文</span><textarea data-target readonly placeholder="译文将在这里显示…" spellcheck="false"></textarea></label></div>
-      <div class="text-feedback"><progress max="100" hidden aria-label="文本翻译进度"></progress><p data-status role="status" aria-live="polite">保留段落、数字、型号及网址；每次最多 20,000 字符。</p><p data-error role="alert" hidden></p></div>
+      <div class="text-feedback"><progress max="100" hidden aria-label="文本翻译进度"></progress><p data-status role="status" aria-live="polite"></p><p data-error role="alert" hidden></p></div>
       <footer class="text-actions"><button type="button" data-copy disabled>复制译文</button><button type="button" data-retry hidden>重试未完成段落</button><button type="button" data-cancel hidden>取消翻译</button><button type="button" data-start class="primary">开始翻译</button></footer>`
     if (!host) document.querySelector('main').append(dialog)
     const find = selector => dialog.querySelector(selector)
@@ -87,15 +87,14 @@
           if (!Array.isArray(data.languages) || data.languages.length < 2) throw Error('支持的语言暂未读取，请返回后重新打开。')
           for (const select of [sourceLanguage,targetLanguage]) select.replaceChildren(...data.languages.map(language => new Option(language.name,language.code)))
           sourceLanguage.value = 'zh-CN'; targetLanguage.value = 'en-US'; languagesReady = true
-          message(data.warning || '保留段落、数字、型号及网址；每次最多 20,000 字符。',!!data.warning)
+          message(data.warning || '', !!data.warning)
           controls()
         }
       } catch (error) { message(error.message + ' 可再次点击“文本翻译”重试。',true) }
       finally { opening = false }
     }
-    function close() { dialog.hidden = true; button.setAttribute('aria-pressed','false'); onClose(); button.focus() }
+    function close() { dialog.hidden = true; button.setAttribute('aria-pressed','false'); onClose() }
     button.addEventListener('click', open)
-    find('[data-close]').onclick = close
     find('[data-start]').onclick = () => start(false)
     find('[data-retry]').onclick = () => start(true)
     find('[data-cancel]').onclick = async () => {
@@ -106,7 +105,7 @@
     for (const select of [sourceLanguage,targetLanguage]) select.onchange = () => { source.lang = sourceLanguage.value; target.lang = targetLanguage.value; controls() }
     find('[data-clear]').onclick = () => {
       source.value = target.value = ''; complete = false; active = null; source.dispatchEvent(new Event('input'))
-      message('保留段落、数字、型号及网址；每次最多 20,000 字符。'); source.focus()
+      message(''); source.focus()
     }
     find('[data-swap]').onclick = () => {
       const reuse = complete && matches(), previousLanguage = sourceLanguage.value

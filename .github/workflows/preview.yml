@@ -1,0 +1,46 @@
+name: Verify StarTranslator preview
+on:
+  workflow_dispatch:
+  push:
+    branches: [preview]
+  pull_request:
+    branches: [preview]
+permissions:
+  contents: read
+concurrency:
+  group: preview-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  windows:
+    if: github.ref == 'refs/heads/preview' || github.base_ref == 'preview'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: npm ci
+      - run: python tools/bootstrap-runtime.py
+      - name: Run backend regression checks
+        env:
+          PYTHONIOENCODING: utf-8
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: .\python-runtime\python.exe -B tools/run-regressions.py
+      - run: node --test tests/test_appearance.js tests/test_file_picker.js
+      - run: node tools/check-readable-ui.cjs
+      - run: node tools/check-window-presentation.cjs
+      - name: Build isolated Windows preview
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: npm run preview:win
+      - name: Preserve test build
+        uses: actions/upload-artifact@v4
+        with:
+          name: StarTranslator-Windows-Preview
+          path: dist/ui-preview/
+          retention-days: 14

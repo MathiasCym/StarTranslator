@@ -299,7 +299,7 @@ def _run(job,data):
                             verify_translation_delivery(result['path'],direction,
                                 untranslated=result.get('untranslated',0),audit=result.get('output_audit'),source=path)
                         except IncompleteTranslation:
-                            if not result.get('translated'):raise
+                            if not (result.get('translated') or result.get('partially_translated')):raise
                             verify_translation_delivery(result['path'],direction,source=path,allow_incomplete=True)
                             result.update(draft=True,draft_pending=True,translation_complete=False,status='needs_review')
                         result.update(path=publish_translation_copy(result,result['target_dir'],job['cancel'],
@@ -611,10 +611,13 @@ def publish_combined_report(job, reviews, outcome):
 
 
 def repair_pending_in_review(review,client,cancel,progress=None):
-    """Retry unfinished source passages during combined review, with full validation."""
+    """Recover only located passages that failed in the translation stage."""
     if client is None:return
     from . import document_languages, text_languages
     from .multilingual_quality import LanguageReview
+    from .multilingual_documents import content_validate, recover_paragraph
+    from .parameter_notation import is_field
+    from .translation import translation_chunks
     output=review['output'];direction=output.get('direction','zh-en')
     src,dst=document_languages.pair(direction)
     pending=output.get('review_items',[])
@@ -625,7 +628,8 @@ def repair_pending_in_review(review,client,cancel,progress=None):
         segment=segments.get(finding.segment_id)
         if not segment:continue
         matches=[item for item in pending if not item.get('image') and item.get('locator')==segment.locator
-                 and item.get('translation')==finding.found_text and not item.get('service_unavailable')]
+                 and item.get('translation')==finding.found_text and not item.get('service_unavailable')
+                 and not item.get('unresolved_fragments')]
         if len(matches)==1 and matches[0].get('source_text'):
             candidates.append((finding,matches[0]))
     original_context=None
@@ -648,31 +652,18 @@ def repair_pending_in_review(review,client,cancel,progress=None):
             original=original_segments.get(item['locator'])
             if original_context and original:
                 context+='\n'+ '\n'.join(s.text for s in original_context.neighbors(original))[:5000]
-            if item.get('reason'):context+='\n此前未完成的原因：'+item['reason'][:600]
-            from .translation import translation_chunks
-            from .parameter_notation import is_field
+            previous=item.get('reason','')[:600]
             translated=''.join(piece if is_field(piece) or not any(c.isalpha() for c in text_languages.prose(piece))
-                else text_languages.translate_piece(client,piece,None,src,dst,cancel,context=context,
-                    humanize=text_languages.natural_expression(piece),quality=quality)
+                else recover_paragraph(client,piece,src,dst,cancel,context=context,quality=quality,previous=previous)
                 for piece in translation_chunks(source_text,1500))
-            from .multilingual_documents import content_validate
             content_validate(source_text,translated,src,dst,
                 allow_identical=bool(quality.proof(source_text,translated) and quality.review_identical_formula(source_text,translated)))
             finding.suggested=translated
             finding.source='translation'
             finding._translation_source=source_text
         except Cancelled:raise
-        except ValueError:
-            try:
-                from .multilingual_documents import recover_paragraph
-                finding.suggested=recover_paragraph(client,source_text,src,dst,cancel,context=context)
-                finding.source='translation'
-                finding._translation_source=source_text
-            except Cancelled:raise
-            except Exception as error:
-                logging.getLogger(__name__).warning('Targeted translation recovery did not complete: %s',type(error).__name__)
         except Exception as error:
-            logging.getLogger(__name__).warning('Review-stage retranslation did not complete: %s',type(error).__name__)
+            logging.getLogger(__name__).warning('Targeted translation recovery did not complete: %s',type(error).__name__)
 
 
 def automatic_export(job,review,data,progress):
@@ -684,7 +675,7 @@ def automatic_export(job,review,data,progress):
     option=report.get('output_options',{}).get(path)
     if option is not None:
         option.update(verify_delivery=True,origin_fingerprint=output.get('source_fingerprint'),
-                      can_save_draft=bool(output.get('translated')))
+                      can_save_draft=bool(output.get('translated') or output.get('partially_translated')))
     edits=[]
     report['skipped_edits']=[]
     for index,finding in enumerate(report['findings']):

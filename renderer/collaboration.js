@@ -23,7 +23,8 @@ async function showLan() {
   $('lanToggle').disabled = !lanStatus
 }
 function renderLan(){
-  $('lanState').textContent=lanStatus.enabled?'共享服务已开启 · 同事可通过下面的地址使用':'共享服务已关闭'
+  $('lanState').textContent=lanStatus.enabled?'共享中':'未开启'
+  $('lanState').classList.toggle('live', lanStatus.enabled)
   $('lanToggle').textContent=lanStatus.enabled?'关闭共享服务':'开启共享服务'
   const addresses=lanStatus.addresses||[]
   const addressRow=address=>`<div class="shared-address"><input readonly value="${esc(address)}" aria-label="共享地址"><button class="btn ghost" data-shared="${esc(address)}">打开</button></div>`

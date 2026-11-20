@@ -19,10 +19,11 @@ on:
 permissions:
   contents: write
 concurrency:
-  group: startranslator-release
+  group: ${{ github.ref == 'refs/heads/main' && 'startranslator-release' || github.ref }}
   cancel-in-progress: true
 jobs:
   windows:
+    if: github.ref == 'refs/heads/main'
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
@@ -53,17 +54,11 @@ jobs:
           node tools/check-native-appearance.cjs
       - name: Desktop readability and dialog checks
         run: |
-          node tools/build-light-theme.cjs --check
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node tools/check-readable-ui.cjs --theme=light
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tools/check-readable-ui.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tools/check-user-data.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tools/check-theme-windows.cjs
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          node tools/check-comparison-ui.cjs . source-light
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           node tools/check-comparison-ui.cjs
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

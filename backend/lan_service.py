@@ -222,7 +222,7 @@ def create_app(testing=False):
 
     @app.get('/assets/<name>')
     def asset(name):
-        if name not in ('app-icon.png','normal.png','happy.png','sad.png'): return '',404
+        if name not in ('app-icon.png','normal.png','happy.png','sad.png','welcome.png'): return '',404
         return send_file(ROOT.parent / 'assets' / name)
 
     @app.get('/shared.js')
@@ -234,14 +234,11 @@ def create_app(testing=False):
     @app.get('/document-languages.js')
     def document_languages_script(): return send_file(ROOT / 'document-languages.js')
 
-    @app.get('/appearance.<extension>')
-    def appearance_asset(extension):
-        if extension not in ('js','css'): return '', 404
-        name='appearance.js' if extension=='js' else 'appearance-light.css'
-        return send_file(ROOT / name)
+    @app.get('/studio.css')
+    def studio_style(): return send_file(ROOT / 'studio.css')
 
-    @app.get('/appearance-light.css')
-    def appearance_light(): return send_file(ROOT / 'appearance-light.css')
+    @app.get('/studio-shared.css')
+    def studio_shared_style(): return send_file(ROOT / 'studio-shared.css')
 
     @app.get('/shared.css')
     def style(): return send_file(ROOT / 'shared.css')

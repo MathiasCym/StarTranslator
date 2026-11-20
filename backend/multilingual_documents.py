@@ -44,7 +44,7 @@ def content_validate(source,target,src,dst,*,allow_identical=False):
             raise ValueError('命令和搜索表达式必须原样保留。')
         return
     validate(source,target)
-    text.validate(source,target,src,dst,allow_identical=allow_identical)
+    text.validate(source,target,src,dst,allow_identical=allow_identical,document=True)
 
 
 def preserve_address_boundaries(source,target):
@@ -84,6 +84,7 @@ def recover_paragraph(client, source, src, dst, cancel, *, context='', quality=N
         if terms:payload['相关术语（仅作参考）']=terms
     korean='正文及普通术语只使用韩文；可用括号保留韩文专名的原拼写。' if dst=='ko' else ''
     target=None
+    rejected=None
     for attempt in range(2):
         check_cancel(cancel)
         try:
@@ -92,46 +93,22 @@ def recover_paragraph(client, source, src, dst, cancel, *, context='', quality=N
                 system='补译一段未写入文档的文字。只翻译待译原文，完整保留每个事实、日期、数量、单位、型号、品牌、链接、'
                        '否定、条件、标点和换行边界。文档格式、链接或引用可能将一句话拆为数段，允许片段不成句；'
                        '保留有连接作用的片段边界，分隔标点可以用目标语言的等价符号。'
-                       '日期可按目标语序表达。人数、座位数和设备数等计量含义必须保留。明确的数量、次数、序数优先写成阿拉伯数字，不添加原文没有的数值。'
+                       '日期可按目标语序表达。人数、座位数和设备数等计量含义必须保留。数词、量词和计数顺序按目标语习惯表达。'
                        '文档可能夹杂其他语种，始终把当前片段的可读正文译为目标语言。引文题名与发布机构的说明文字也翻译，'
                        '保留引用编号、日期、文献类型标记和链接。术语仅在语境相符时使用。'
                        '如果提供了上次译文，只修正能够从原文确认的问题。专名拼写、连接标点或同义译法的偏好不需要重新改写。'
                        '不得复制原语言正文，不添加上下文中的任何文字。'+korean+'只返回 {"translation":"完整译文"}。',
                 max_tokens=6000,**({'thinking':True} if attempt and getattr(client,'supports_thinking_mode',False) is True else {}))
             target=text.separate_link_punctuation(source,answer.get('translation')) if isinstance(answer,dict) else None
+            if target is not None and target == rejected:
+                break  # The model returned the same rejected correction.
             content_validate(source,target,src,dst,allow_identical=quality.review_identical_formula(source,target))
             issue=quality.existing_review_error(client,source,target,cancel,None)
             if issue:raise ValueError(issue)
             return target
         except (ValueError,LLMResponseInvalid,LLMTruncated) as error:
+            rejected=target
             previous=str(error)
-    # Isolate clauses after full-paragraph retries fail. Office style mapping
-    # still receives one verified paragraph and preserves its original runs.
-    readable=text.prose(source)
-    boundaries=r'(?<=[。！？!?；;])[ \t]*(?=\w)|(?<=[a-z]\.)[ \t]+(?=[A-Z가-힣])|[\r\n\v]+'
-    ranges=[(match.start(),match.end()) for match in re.finditer(boundaries,readable)]
-    if not ranges:
-        raise ValueError(previous)
-    ranges=ranges[::(len(ranges)+11)//12]
-    parts=[]
-    start=0
-    for end,next_start in [*ranges,(len(source),len(source))]:
-        piece=source[start:end]
-        if piece.strip() and any(char.isalpha() for char in text.prose(piece)):
-            target=text.translate_piece(client,piece,{},src,dst,cancel,context=source,quality=quality,
-                terminology=False,humanize=text.natural_expression(piece))
-            separator=source[end:next_start]
-            if not separator and next_start<len(source) and dst in ('en-US','ko'):
-                separator=' '
-            parts.append(target+separator)
-        else:
-            parts.append(piece+source[end:next_start])
-        start=next_start
-    target=''.join(parts)
-    content_validate(source,target,src,dst,allow_identical=quality.review_identical_formula(source,target))
-    issue=quality.existing_review_error(client,source,target,cancel,None)
-    if not issue:return target
-    previous=issue
     raise ValueError(previous)
 
 
@@ -269,7 +246,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
         fixed=len(members)>1
         groups=([{'id':i,'text':m.text,'key':('inline',i)} for i,m in enumerate(members)] if fixed else style_groups(by_locator[segment.locator]))
         prepared.append((segment,members,groups))
-    def compute(item,repair_error=None,*,targeted=False):
+    def compute(item,repair_error=None):
         from .multilingual_quality import LanguageReview
         from .parameter_notation import is_field
         from .text_integrity import command_literal
@@ -339,7 +316,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
                             proof=quality.proof(piece,value)
                             if checkpoint and proof is not None:
                                 checkpoint.put(piece_key,{'translation':value,'language_review':proof})
-                        if initial is None and targeted:
+                        if initial is None and repair_error is not None:
                             activity('正在定点补译未通过的 Word 片段')
                             initial=recover_paragraph(request_client,piece,src,dst,cancel,context=context,
                                 quality=quality,previous=repair_error)
@@ -358,9 +335,13 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
             return item,runs,style_warnings,None
         except Cancelled:raise
         except Exception as exc:return item,None,[],exc
-    from .document_translation_core import repaired_pages,ensure_coverage
+    from .document_translation_core import repaired_pages,ensure_coverage,salvage_untranslated_clauses
+    recovery_attempted=set()
+    def begin_recovery(item,error):
+        recovery_attempted.add(item[0].locator)
+        tracker.update(item[0].id,'正在定点补译未通过内容')
     for item,runs,style_warnings,error in repaired_pages(prepared,compute,workers,cancel,lambda item:item[0],
-            on_retry=lambda item,error:tracker.update(item[0].id,'准备定点补译未通过内容'),client=client):
+            on_retry=begin_recovery,client=client):
         check_cancel(cancel)
         segment,members,groups=item
         tracker.finish(segment.id,len(members))
@@ -399,11 +380,12 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
     for index,item in enumerate(recoverable):
         check_cancel(cancel)
         segment,members,groups=item
-        notify('repair','正在自动补译尚未完成的内容',index,len(recoverable))
-        reason='；'.join(dict.fromkeys(failed_by_location[m.locator]['reason'] for m in members if m.locator in failed_by_location))
-        _,runs,style_warnings,error=compute(item,repair_error=reason,
-            targeted=True)
-        if error is not None:
+        runs,style_warnings,error=None,[],None
+        if segment.locator not in recovery_attempted:
+            notify('repair','正在自动补译尚未完成的内容',index,len(recoverable))
+            reason='；'.join(dict.fromkeys(failed_by_location[m.locator]['reason'] for m in members if m.locator in failed_by_location))
+            _,runs,style_warnings,error=compute(item,repair_error=reason)
+        if error is not None or runs is None:
             if (src,dst)!=('zh-CN','zh-Hant-TW') or mode!='faithful':continue
             from .multilingual_quality import faithful_traditional_conversion
             source_text=''.join(g['text'] for g in groups)
@@ -432,6 +414,13 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
         for m in members:
             changed.append(m.locator);alignment.append({'locator':m.locator,'translation':by_locator[m.locator].text,'source':m.text})
         issues.extend({'locator':segment.locator,'slide':segment.slide,'reason':w} for w in style_warnings)
+    partially_translated = 0
+    for locator,source,target,partial,warnings in salvage_untranslated_clauses(pending,by_locator,src,dst,client,cancel,mode=mode,notify=notify):
+        changed.append(locator)
+        partially_translated += int(partial)
+        if not partial:
+            alignment.append({'locator':locator,'source':source,'translation':target})
+        issues.extend({'locator':locator,'reason':warning} for warning in warnings)
     if store.fingerprint(path)!=before:raise ValueError('原稿在处理期间被修改，已保留原稿。')
     image_review=None
     if Path(path).suffix.lower()=='.pdf':
@@ -476,6 +465,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
     from .comparison import safe_create
     return {'path':str(destination),'source':os.path.abspath(path),'source_fingerprint':before,'direction':direction,
         'source_language':src,'target_language':dst,'translated':len(alignment),'total':total,'untranslated':len(pending),
+        'partially_translated':partially_translated,
         'translation_complete':not pending and (image_review is None or image_review['status']=='complete'),'resumed_segments':checkpoint.resumed if checkpoint else 0,
         'checkpoint_available':checkpoint.available if checkpoint else False,'translation_mode':mode,'review_items':pending+(image_review or {}).get('issues',[]),
         'warnings':warnings,'output_audit':audit,'source_alignment':alignment,'needs_review':len(pending)+len((image_review or {}).get('issues',[])),
@@ -573,6 +563,9 @@ def check_segments(segments,glossary,use_llm=True,*,client=None,cancel=None,prog
                                 # still requires an actual repair.
                                 content_validate(segment.text,segment.text,dst,dst)
                                 continue
+                            if not source:
+                                from .document_translation_policy import preserve_values_without_source
+                                preserve_values_without_source(segment.text,revised)
                             accepted.append(item)
                         answer={**answer,'suggestions':accepted}
                         break

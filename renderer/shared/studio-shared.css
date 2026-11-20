@@ -1,0 +1,97 @@
+/* The shared site uses the same workbench in a regular browser. */
+:root[data-surface=shared] { --shared-rail: 190px; scroll-padding: 16px; }
+body { font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; }
+.shared-rail {
+  position: fixed; inset: 0 auto 0 0; width: var(--shared-rail);
+  display: flex; flex-direction: column; align-items: stretch; justify-content: start; gap: 24px;
+  padding: 24px 10px 14px; background: var(--rail); color: #f8faff; border: 0;
+}
+.rail-brand { display: flex; align-items: center; gap: 10px; padding-inline: 6px; font-size: 26px; }
+.brand-icon { border-radius: 10px; }
+.shared-rail nav { display: grid; gap: 8px; }
+.shared-rail :is(a, button) {
+  display: flex; min-height: 46px; align-items: center; gap: 9px; padding: 6px 8px; border-inline-start: 4px solid transparent;
+  color: inherit; background: transparent; border-radius: 8px; border-block-color: transparent; border-inline-end-color: transparent;
+  font-size: 15px; text-decoration: none; text-align: left; cursor: pointer;
+}
+.shared-rail :is(a, button):hover { background: var(--rail-hover); }
+.shared-rail :is(a[aria-current], button[aria-pressed=true]) { background: var(--accent2); border-inline-start-color: var(--gold); }
+.shared-rail :is(a, button):focus-visible { outline-color: var(--gold); }
+.shared-rail svg { width: 21px; height: 21px; flex: none; }
+.shared-rail > button { margin-top: auto; }
+body > main, body.shared-text-view > main {
+  width: auto; height: auto; margin: 0 0 0 var(--shared-rail); max-width: none; padding: clamp(16px, 2vw, 28px);
+}
+.heading { border-bottom: 1px solid var(--line); margin-bottom: 20px; }
+.heading h1 { margin: 0 0 14px; font-size: clamp(27px, 3vw, 38px); }
+.columns { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.card { border-color: var(--line); background: var(--card); box-shadow: var(--shadow); backdrop-filter: none; }
+.card.prepare { border: 0; background: none; padding: 0; box-shadow: none; }
+.prepare form { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(258px, 1fr); gap: 16px; }
+.prepare .modes { grid-column: 1 / -1; margin-top: 0; }
+.modes label { display: flex; gap: 8px; align-items: center; background: var(--card); }
+.modes label:has(input:checked) { background: var(--tint); border-color: var(--teal); color: var(--accent2); font-weight: 650; }
+.shared-inputs { display: grid; grid-template-rows: minmax(235px, 1fr) auto; gap: 14px; min-width: 0; }
+.shared-drop {
+  min-width: 0; display: grid; align-items: center; grid-template-columns: minmax(0,1fr) minmax(70px,.7fr); gap: 10px;
+  padding: clamp(15px, 2.4vw, 30px); background: radial-gradient(ellipse at 90% 50%, #dce9ff, #f7fbff 75%);
+  border: 1px solid #8ca8e8; border-radius: 14px;
+}
+.shared-drop > img { width: 100%; max-width: 280px; height: auto; grid-column: 2; grid-row: 1; }
+.shared-drop > label { grid-row: 1; grid-column: 1; min-width: 0; margin: 0; }
+.shared-drop strong { font-size: clamp(23px, 3vw, 36px); }
+.shared-drop label > span { color: var(--fg2); }
+.shared-drop input::file-selector-button, .shared-references input::file-selector-button { background: var(--accent2); color: #fff; }
+.shared-drop .hint:empty, .shared-references .hint:empty { display: none; }
+.shared-drop .hint, .shared-references .hint { overflow-wrap: anywhere; }
+.shared-references, .shared-task { padding: 16px; border: 1px solid var(--line); background: var(--card); border-radius: 14px; box-shadow: var(--shadow); }
+.shared-references summary { cursor: pointer; font-weight: 650; }
+.shared-references summary span { color: var(--fg2); font-weight: 400; margin-left: 6px; }
+.shared-references .field { margin: 12px 0 0; }
+.shared-task { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.shared-task h2 { padding-inline-start: 10px; border-inline-start: 4px solid var(--gold); line-height: 1.3; }
+.shared-task .field, .shared-task .check, .shared-task .document-language-pair { margin: 0; }
+.shared-task #submit { margin-top: auto; }
+#uploadStatus { margin: 0; }
+#uploadStatus:empty, .shared-task .shared-progress:not(:has(progress:not([hidden]))) { display: none; }
+:root[data-surface=shared] :is(main,dialog) button:not(.primary) {
+  color: var(--fg); background: var(--card); border-color: var(--line);
+}
+:root[data-surface=shared] :is(main,dialog) button:not(.primary):hover:not(:disabled) { background: var(--tint); border-color: var(--teal); }
+:root[data-surface=shared] .pc-toolbar button[aria-pressed=true] { background: var(--tint); color: var(--accent2); border-color: var(--teal); }
+:root[data-surface=shared] :is(.review-guide, .job, .suggestion) { background: var(--surface); border-color: var(--line); }
+:root[data-surface=shared] :is(th, .pc-pane-head, .pc-nav) { background: var(--bg2); color: var(--fg); border-color: var(--line); }
+:root[data-surface=shared] :is(.shared-report-toolbar,.shared-review-toolbar) { background: var(--card); border-color: var(--line); }
+:root[data-surface=shared] #sharedJobs { margin: 0; }
+:root[data-surface=shared] #detail { margin-top: 16px; }
+body.shared-text-view #textWorkspace { min-height: min(525px, 75dvh); }
+@media (max-width: 970px) {
+  :root[data-surface=shared] { --shared-rail: 160px; }
+  .shared-drop { grid-template-columns: 1fr; }
+  .shared-drop img { grid-column: 1; grid-row: auto; max-width: 128px; justify-self: center; }
+  .shared-drop label { grid-row: auto; }
+}
+@media (max-width: 780px) {
+  .shared-rail { position: relative; width: auto; flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; }
+  .shared-rail nav { display: flex; flex-wrap: wrap; gap: 4px; }
+  .shared-rail > button { margin: 0; }
+  .rail-brand { font-size: 22px; }
+  .brand-icon { width: 34px; height: 34px; }
+  body > main, body.shared-text-view > main { margin: 0; }
+}
+@media (max-width: 560px) {
+  .prepare form { grid-template-columns: minmax(0,1fr); }
+  .shared-drop { grid-template-columns: minmax(0, 1fr) minmax(62px, .4fr); }
+  .shared-drop img { grid-row: 1; grid-column: 2; }
+  .shared-drop label { grid-row: 1; grid-column: 1; }
+  .shared-rail :is(button,a) { font-size: 13px; }
+  .shared-rail svg { display: none; }
+}
+:root[data-surface=shared] .review-controls { background: var(--card); }
+:root[data-surface=shared] .result-download { background: var(--tint); color: var(--fg); border-color: var(--line); box-shadow: none; }
+:root[data-surface=shared] .result-download:hover { border-color: var(--accent); }
+:root[data-surface=shared] .result-download small { color: var(--fg2); }
+:root[data-surface=shared] .modes label:has(input:checked) { box-shadow: inset 0 -2px var(--gold); }
+:root[data-surface=shared] dialog .section-head { position: relative; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+
+:root[data-surface=shared] :is(dialog#comparison, dialog#contactDialog, dialog.cleanup-dialog, .translation-help.help-dialog) { background: var(--bg); }

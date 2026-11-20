@@ -36,7 +36,7 @@ async function connect(port, suffix) {
   for (let i = 0; i < 150; i++) {
     try {
       const pages = await (await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(1000) })).json()
-      const page = pages.find(p => p.type === 'page' && p.url.endsWith(suffix))
+      const page = pages.find(p => p.type === 'page' && new URL(p.url).pathname.endsWith(suffix))
       if (page) {
         const ws = new WebSocket(page.webSocketDebuggerUrl)
         await new Promise((resolve, reject) => { ws.addEventListener('open', resolve, { once: true }); ws.addEventListener('error', reject, { once: true }) })

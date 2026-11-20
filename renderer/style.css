@@ -420,8 +420,8 @@ progress::-webkit-progress-bar { background: var(--bg3); border-radius: 6px; }
 progress::-webkit-progress-value { background: linear-gradient(90deg, var(--accent), var(--cyan)); border-radius: 6px; box-shadow: 0 0 12px var(--glow); }
 .notice { padding: 12px 14px; background: var(--card); border-left: 3px solid var(--amber); border-radius: 0 10px 10px 0; font-size: 16px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; box-shadow: inset 0 1px 0 rgba(255,255,255,.04); }
 #reportPanel .tablewrap { max-height: 37vh; }
-.lexicon-card { width: min(960px, 96vw); max-height: 93vh; display: flex; flex-direction: column; gap: 10px; padding: 18px; }
-.lexicon-card h3 { margin: 0; }
+.lexicon-page { width: min(960px, 96vw); max-height: 93vh; display: flex; flex-direction: column; gap: 10px; padding: 18px; }
+.lexicon-page h3 { margin: 0; }
 .lexicon-layout { display: grid; grid-template-columns: minmax(280px,.9fr) minmax(350px,1.1fr); gap: 16px; min-height: 0; overflow: hidden; }
 .lexicon-list { display: flex; flex-direction: column; gap: 9px; min-height: 0; }
 .lexicon-list .tablewrap { flex: 1; max-height: none; min-height: 80px; }
@@ -435,8 +435,6 @@ progress::-webkit-progress-value { background: linear-gradient(90deg, var(--acce
 .wrap { flex-wrap: wrap; }
 .danger { color: #ff8b84; }
 .form-label { margin: 13px 0; }
-.model-card { width: min(940px, 95vw); max-height: 93vh; overflow: auto; display: flex; flex-direction: column; gap: 12px; }
-.model-card h3 { margin: 0; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 18px; }
 .form-grid .form-label { margin: 9px 0; }
 .form-grid .span-2 { grid-column: 1 / -1; }
@@ -507,8 +505,6 @@ table.grid textarea { min-width: 180px; white-space: pre-wrap; line-height: 1.5;
 .modal-card .panel-head h3 { display: flex; align-items: center; gap: 9px; margin: 0; }
 .modal-card > .panel-head, .modal-card > .actions { flex-shrink: 0; }
 .actions { flex-wrap: wrap; align-items: center; }
-.model-card { width: min(1060px, 96vw); height: min(750px, 93vh); max-height: 93vh; padding: 22px; overflow: hidden; gap: 14px; }
-.model-card > .hint { margin: 0; flex-shrink: 0; }
 .model-body { display: grid; grid-template-columns: minmax(270px, .85fr) minmax(0, 1.3fr); gap: 20px; min-height: 0; flex: 1; overflow: hidden; }
 .model-body .profile-block { margin: 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
 .profile-head { margin: 0; flex-shrink: 0; }
@@ -526,11 +522,11 @@ table.grid textarea { min-width: 180px; white-space: pre-wrap; line-height: 1.5;
 .form-grid input, .form-grid select { width: 100%; min-width: 0; }
 .model-footer { flex-shrink: 0; border-top: 1px solid var(--line); padding-top: 12px; }
 #modelMessage { margin: 0 0 8px; max-height: 3em; overflow: auto; overflow-wrap: anywhere; }
-.lexicon-card { height: min(850px, 93vh); }
+.lexicon-page { height: min(850px, 93vh); }
 .lexicon-layout { flex: 1; }
 #lexiconPath, #tablePath { max-height: 3em; overflow: auto; flex-shrink: 0; }
 #lexiconStatus, #tableStatus { flex: 1; min-width: 160px; max-width: none; max-height: 4.5em; overflow: auto; overflow-wrap: anywhere; }
-.lexicon-card > .panel-head:last-child, .table-card > .panel-head:last-child { flex-wrap: nowrap; }
+.lexicon-page > .panel-head:last-child, .table-card > .panel-head:last-child { flex-wrap: nowrap; }
 .lexicon-list .actions { flex-wrap: nowrap; gap: 6px; }
 #termCount { font-size: 14px; margin: 0; }
 .about-head > .btn { flex-shrink: 0; }
@@ -554,7 +550,7 @@ table.grid th:last-child { right: 0; z-index: 2; background: var(--bg3); }
 .profile-row[aria-disabled='true'] { cursor: wait; }
 
 /* Unified glossary: bounded content and independent scrolling keep actions visible. */
-.lexicon-card { --lexicon-columns: minmax(265px, .85fr) minmax(0, 1.3fr); --lexicon-column-gap: 18px; width: min(1200px, 96vw); height: min(900px, 94vh); max-height: 94vh; padding: 20px 22px; gap: 12px; overflow: hidden; border-color: #355575; }
+.lexicon-page { --lexicon-columns: minmax(265px, .85fr) minmax(0, 1.3fr); --lexicon-column-gap: 18px; width: min(1200px, 96vw); height: min(900px, 94vh); max-height: 94vh; padding: 20px 22px; gap: 12px; overflow: hidden; border-color: #355575; }
 .lexicon-heading, .lexicon-title, .lexicon-source, .lexicon-toolbar, .lexicon-pagination, .lexicon-footer { display: flex; align-items: center; gap: 12px; flex-shrink: 0; min-width: 0; }
 .lexicon-heading, .lexicon-pagination, .lexicon-footer { justify-content: space-between; }
 .lexicon-title .mascot { width: 58px; height: 58px; }
@@ -569,16 +565,16 @@ table.grid th:last-child { right: 0; z-index: 2; background: var(--bg3); }
 .lexicon-management summary span { color: var(--fg2); margin-left: 12px; font-size: 14px; }
 .lexicon-management-body { padding-top: 10px; display: flex; flex-direction: column; gap: 8px; max-height: 140px; overflow-y: auto; }
 .lexicon-management-body .hint { font-size: 14px; margin: 0; }
-.lexicon-card #lexiconPath { max-height: none; overflow-wrap: anywhere; }
+.lexicon-page #lexiconPath { max-height: none; overflow-wrap: anywhere; }
 .lexicon-toolbar > input { flex: 1; min-width: 140px; width: auto; font-size: 16px; padding: 10px 12px; }
 .lexicon-views { display: flex; padding: 3px; background: #0b1a2b; border: 1px solid var(--line); border-radius: 9px; flex-shrink: 0; }
 .lexicon-views button { font: inherit; font-size: 15px; padding: 7px 12px; border: 0; border-radius: 6px; color: var(--fg2); background: transparent; cursor: pointer; white-space: nowrap; }
 .lexicon-views button.active { background: #214165; color: var(--cyan); box-shadow: inset 0 0 0 1px #3d638a; }
 .lexicon-views button:disabled { opacity: .5; cursor: wait; }
 .lexicon-content { flex: 1; min-height: 0; overflow: hidden; display: flex; }
-.lexicon-card .lexicon-layout { width: 100%; flex: 1; grid-template-columns: var(--lexicon-columns); gap: var(--lexicon-column-gap); }
-.lexicon-card .lexicon-list, .term-detail { min-width: 0; min-height: 0; border: 1px solid var(--line); border-radius: 12px; background: rgba(8,19,32,.6); overflow: hidden; }
-.lexicon-card .lexicon-list { gap: 0; }
+.lexicon-page .lexicon-layout { width: 100%; flex: 1; grid-template-columns: var(--lexicon-columns); gap: var(--lexicon-column-gap); }
+.lexicon-page .lexicon-list, .term-detail { min-width: 0; min-height: 0; border: 1px solid var(--line); border-radius: 12px; background: rgba(8,19,32,.6); overflow: hidden; }
+.lexicon-page .lexicon-list { gap: 0; }
 .lexicon-section-head { padding: 13px 15px; display: flex; justify-content: space-between; gap: 10px; font-size: 14px; color: var(--fg2); background: rgba(23,44,68,.6); border-bottom: 1px solid var(--line); flex-shrink: 0; }
 .term-rows { min-height: 0; flex: 1; overflow-y: auto; padding: 8px; }
 .term-card { display: flex; flex-direction: column; gap: 5px; width: 100%; text-align: left; padding: 13px 14px; margin-bottom: 6px; font: inherit; border: 1px solid transparent; border-radius: 8px; background: transparent; color: var(--fg); cursor: pointer; overflow-wrap: anywhere; }
@@ -595,11 +591,11 @@ table.grid th:last-child { right: 0; z-index: 2; background: var(--bg3); }
 .term-detail-head > div { min-width: 0; }
 .lexicon-eyebrow { font-size: 12px; color: var(--cyan); }
 .term-detail-head h4 { font-size: 18px; font-weight: 600; margin-top: 3px; line-height: 1.5; overflow-wrap: anywhere; max-height: 3em; overflow-y: auto; }
-.lexicon-card .term-form { flex: 1; padding: 16px; gap: 14px; overflow-y: auto; min-width: 0; }
-.lexicon-card .term-form label { font-size: 16px; color: var(--fg); gap: 6px; min-width: 0; }
-.lexicon-card .term-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; }
-.lexicon-card .term-form textarea { width: 100%; min-width: 0; resize: vertical; min-height: 60px; padding: 9px 11px; font-size: 16px; line-height: 1.6; color: var(--fg); background: #0c1c2e; border-color: #2e4a66; white-space: pre-wrap; overflow-wrap: anywhere; }
-.lexicon-card .term-form textarea::placeholder { color: #708aa5; font-size: 14px; }
+.lexicon-page .term-form { flex: 1; padding: 16px; gap: 14px; overflow-y: auto; min-width: 0; }
+.lexicon-page .term-form label { font-size: 16px; color: var(--fg); gap: 6px; min-width: 0; }
+.lexicon-page .term-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); gap: 12px; }
+.lexicon-page .term-form textarea { width: 100%; min-width: 0; resize: vertical; min-height: 60px; padding: 9px 11px; font-size: 16px; line-height: 1.6; color: var(--fg); background: #0c1c2e; border-color: #2e4a66; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lexicon-page .term-form textarea::placeholder { color: #708aa5; font-size: 14px; }
 .field-help { color: var(--fg2); font-size: 13px; font-weight: 400; }
 .wrong-field textarea { border-left: 2px solid var(--amber); }
 #suggestVariants { align-self: flex-start; font-size: 14px; padding: 7px 12px; margin-top: -5px; }
@@ -609,13 +605,13 @@ table.grid th:last-child { right: 0; z-index: 2; background: var(--bg3); }
 .lexicon-pagination.grid-pagination { grid-template-columns: minmax(0, 1fr); }
 .lexicon-page-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .lexicon-page-controls .actions { margin-left: auto; flex-wrap: nowrap; }
-.lexicon-card #termCount { font-size: 14px; }
+.lexicon-page #termCount { font-size: 14px; }
 .lexicon-footer { padding-top: 12px; border-top: 1px solid var(--line); align-items: center; min-height: 61px; }
 .lexicon-feedback { flex: 1; min-width: 0; display: flex; align-items: flex-start; gap: 10px; }
 .lexicon-save-state { font-size: 13px; padding: 4px 8px; border-radius: 5px; background: rgba(63,185,80,.1); color: #83ce98; flex-shrink: 0; }
 .lexicon-save-state.dirty { color: #f1ca8e; background: rgba(210,153,34,.14); }
-.lexicon-card #lexiconStatus { font-size: 14px; line-height: 1.6; max-height: 4.8em; min-width: 0; margin: 0; overflow-y: auto; overflow-wrap: anywhere; color: var(--fg2); }
-.lexicon-card #lexiconStatus.error { color: #ffaaa4; }
+.lexicon-page #lexiconStatus { font-size: 14px; line-height: 1.6; max-height: 4.8em; min-width: 0; margin: 0; overflow-y: auto; overflow-wrap: anywhere; color: var(--fg2); }
+.lexicon-page #lexiconStatus.error { color: #ffaaa4; }
 .lexicon-grid-pane { display: flex; flex-direction: column; gap: 10px; width: 100%; min-height: 0; }
 .lexicon-grid-options { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
 .lexicon-grid-options .hint { font-size: 14px; }
@@ -624,25 +620,25 @@ table.grid th:last-child { right: 0; z-index: 2; background: var(--bg3); }
 #lexiconColumnOptions { position: absolute; right: 0; top: calc(100% + 5px); z-index: 5; min-width: 190px; max-height: 240px; overflow-y: auto; padding: 12px; background: #172c44; border: 1px solid #3d638a; border-radius: 9px; box-shadow: 0 8px 24px rgba(0,0,0,.4); display: flex; flex-direction: column; gap: 10px; }
 #lexiconColumnOptions label { display: flex; align-items: center; gap: 9px; cursor: pointer; }
 #lexiconColumnOptions input { width: 16px; height: 16px; accent-color: var(--accent); }
-.lexicon-card .gridwrap { border: 1px solid var(--line); border-radius: 10px; background: #0b1a2b; }
-.lexicon-card table.grid { table-layout: fixed; width: 100%; }
-.lexicon-card table.grid th { padding: 12px 10px; font-size: 15px; background: #172c44; z-index: 2; }
-.lexicon-card table.grid td { padding: 9px 8px; border-right: 1px solid rgba(35,64,92,.65); position: static; background: transparent; }
-.lexicon-card table.grid textarea { min-width: 0; width: 100%; min-height: 56px; font-size: 16px; line-height: 1.6; padding: 7px; resize: vertical; white-space: pre-wrap; overflow-wrap: anywhere; }
-.lexicon-card table.grid .grid-zh { position: sticky; left: 0; background: #102338; z-index: 1; }
-.lexicon-card table.grid th.grid-zh { z-index: 3; background: #172c44; }
-.lexicon-card table.grid .grid-actions { position: sticky; right: 0; width: 112px; background: #102338; z-index: 1; text-align: center; }
-.lexicon-card table.grid th.grid-actions { z-index: 3; background: #172c44; }
-.lexicon-card .grid-actions .btn { display: block; margin: 4px auto; padding: 5px 12px; font-size: 14px; }
+.lexicon-page .gridwrap { border: 1px solid var(--line); border-radius: 10px; background: #0b1a2b; }
+.lexicon-page table.grid { table-layout: fixed; width: 100%; }
+.lexicon-page table.grid th { padding: 12px 10px; font-size: 15px; background: #172c44; z-index: 2; }
+.lexicon-page table.grid td { padding: 9px 8px; border-right: 1px solid rgba(35,64,92,.65); position: static; background: transparent; }
+.lexicon-page table.grid textarea { min-width: 0; width: 100%; min-height: 56px; font-size: 16px; line-height: 1.6; padding: 7px; resize: vertical; white-space: pre-wrap; overflow-wrap: anywhere; }
+.lexicon-page table.grid .grid-zh { position: sticky; left: 0; background: #102338; z-index: 1; }
+.lexicon-page table.grid th.grid-zh { z-index: 3; background: #172c44; }
+.lexicon-page table.grid .grid-actions { position: sticky; right: 0; width: 112px; background: #102338; z-index: 1; text-align: center; }
+.lexicon-page table.grid th.grid-actions { z-index: 3; background: #172c44; }
+.lexicon-page .grid-actions .btn { display: block; margin: 4px auto; padding: 5px 12px; font-size: 14px; }
 @media (max-width: 1050px) {
-  .lexicon-card { padding: 16px 18px; gap: 10px; }
+  .lexicon-page { padding: 16px 18px; gap: 10px; }
   .lexicon-title .mascot { width: 48px; height: 48px; }
-  .lexicon-card { --lexicon-columns: minmax(260px, .8fr) minmax(0, 1.2fr); --lexicon-column-gap: 12px; }
-  .lexicon-card .term-grid { grid-template-columns: minmax(0, 1fr); }
+  .lexicon-page { --lexicon-columns: minmax(260px, .8fr) minmax(0, 1.2fr); --lexicon-column-gap: 12px; }
+  .lexicon-page .term-grid { grid-template-columns: minmax(0, 1fr); }
   .lexicon-footer { align-items: flex-start; }
 }
 @media (max-height: 730px) {
-  .lexicon-card { gap: 8px; padding-top: 14px; padding-bottom: 14px; }
+  .lexicon-page { gap: 8px; padding-top: 14px; padding-bottom: 14px; }
   .lexicon-title .mascot { width: 42px; height: 42px; }
   .lexicon-title h3 { font-size: 22px; }
   .lexicon-title p { margin-top: 2px; }

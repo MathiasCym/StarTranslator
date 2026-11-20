@@ -1,6 +1,6 @@
 {
   "name": "startranslator",
-  "version": "2.4.9",
+  "version": "2.5.0",
   "description": "星译官 —— 中英技术文档翻译与审校工作台",
   "author": {
     "name": "MathiasCym"
@@ -8,6 +8,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "preview:win": "node tools/build-ui-preview.cjs",
     "test": "python tests/test_matcher.py",
     "dist": "node tools/release.js",
     "release:patch": "node tools/release.js patch",

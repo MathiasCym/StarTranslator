@@ -386,6 +386,30 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual(result.status_code,409)
         self.assertTrue(result.json.get('conflict'))
 
+    def test_editor_save_waits_for_tasks_and_exports_in_both_glossary_routes(self):
+        from backend import task_queue
+
+        client = app.test_client()
+        routes = [
+            ('/api/glossary/table', '', 'backend.glossary.store.edit_table'),
+            ('/api/glossary/language', 'ja-JP', 'backend.glossary.language_pairs.save'),
+        ]
+        for route, language, writer in routes:
+            with self.subTest(language=language), patch(writer, return_value={'count': 1, 'fingerprint': 'after'}) as save:
+                body = {'path': str(self.root / 'terms.json'), 'language': language,
+                        'rows': [], 'columns': [], 'fingerprint': 'before', 'defer_if_busy': True}
+                for status in ('queued', 'running'):
+                    with patch.dict(workflow.JOBS, {'active-test-job': {'status': status}}, clear=True):
+                        self.assertTrue(client.get('/api/maintenance/status').json['busy'])
+                        self.assertEqual(client.post(route, json=body).json, {'deferred': True})
+                with patch.dict(workflow.JOBS, {}, clear=True), patch.object(task_queue, 'ACTIVE_EXPORTS', 1):
+                    self.assertEqual(client.post(route, json=body).json, {'deferred': True})
+                save.assert_not_called()
+                with patch.dict(workflow.JOBS, {'finished-test-job': {'status': 'cancelled'}}, clear=True):
+                    self.assertFalse(client.get('/api/maintenance/status').json['busy'])
+                    self.assertEqual(client.post(route, json=body).json['fingerprint'], 'after')
+                save.assert_called_once()
+
     def test_department_content_and_csv_column_detection(self):
         entries=store.seed_entries()
         self.assertTrue(any('专业术语.pptx' in e['source'] for e in entries))

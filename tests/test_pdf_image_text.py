@@ -27,7 +27,12 @@ class Model:
         self.final=final or {'reviewed':True,'remaining_chinese':[],'meaning_preserved':True,'other_content_preserved':True,'readable':True}
         self.text=text;self.images=[];self.prompts=[]
     def chat_images_json(self,prompt,images,**kw):self.images.append((prompt,images));return self.scan if len(images)==1 else self.final
-    def chat_json(self,prompt,**kw):self.prompts.append(prompt);return {'translation':self.text}
+    def chat_json(self,prompt,**kw):
+        self.prompts.append(prompt)
+        if prompt.startswith('{') and '2000' in self.text:
+            return {'severity':'critical','source_evidence':OCR['lines'][0]['text'],
+                    'target_evidence':'2000','reason':'原图文案没有该数字。'}
+        return {'translation':self.text}
 
 
 class PdfImageTextTests(unittest.TestCase):
@@ -133,7 +138,7 @@ class PdfImageTextTests(unittest.TestCase):
                 doc=self.document();before=self.blob(doc);model=Model(text=text)
                 result=self.review(doc,model)
                 self.assertEqual(result['status'],'partial');self.assertEqual(self.blob(doc),before)
-                self.assertEqual(len(model.prompts),2)
+                self.assertEqual(sum(not prompt.startswith('{') for prompt in model.prompts),2)
 
     def test_low_readability_is_a_failure_instead_of_forcing_tiny_text(self):
         doc=self.document();before=self.blob(doc);result=self.review(doc,Model(text='Long text '*400))

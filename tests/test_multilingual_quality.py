@@ -123,6 +123,82 @@ class QualityTests(unittest.TestCase):
             text_languages.validate('Use someone else’s output port.','1つの出力ポートを使用します。','zh-CN','ja-JP')
         self.assertEqual(text_languages.written_counts('一两台、两三台、one another、X-one output port'),'一两台、两三台、one another、X-one output port')
 
+    def test_document_repairs_numbered_voltage_only_when_model_confirms_a_change(self):
+        from backend.writing_policy import numeric_values
+
+        source = '优化建议：①检查布线；②使用可调节 1.4V 以下电压的芯片；③复核板卡。'
+        target = '改善案：①配線を点検する。②1.4V以下に調整できるチップを使用する。③基板を確認する。'
+        self.assertEqual(numeric_values(source), numeric_values(target))
+        from backend.text_translation import validate as validate_bilingual
+        validate_bilingual('②Use a chip rated at 1.4V.', '②使用额定电压为1.4伏的芯片。', 'en-zh', document=True)
+
+        class ReviewModel(LanguageModel):
+            targeted_recovery = False
+
+            def chat_json(inner, prompt, system='', **options):
+                data = json.JSONDecoder().raw_decode(prompt)[0]
+                if '待译原文' in data:
+                    if system.startswith('补译一段未写入文档的文字'):
+                        inner.targeted_recovery = True
+                        return {'translation': target}
+                    return {'translation': inner.target}
+                if data.get('译文') == wrong:
+                    return {'ok': False, 'issues': ['21.4V changes the source voltage of 1.4V.'],
+                            'severity': 'critical', 'corrected_translation': target}
+                return super().chat_json(prompt, system, **options)
+
+        wrong = target.replace('1.4V', '21.4V')
+        # Both candidates reach the semantic review. Its confirmed correction,
+        # rather than the parser's numeric evidence, controls the saved output.
+        for index,candidate in enumerate((target, wrong, source)):
+            with self.subTest(candidate=candidate):
+                path = self.source('.docx', source, f'numbered-{index}')
+                model = ReviewModel(candidate)
+                result = self.job(self.options(path, 'zh-CN', 'ja-JP', 'translate'), model)
+                self.assertEqual(result['status'], 'complete')
+                output = result['result']['outputs'][0]
+                self.assertTrue(output['translation_complete'], output['review_items'])
+                self.assertEqual([part.text for part in extract(output['path'])], [target])
+                self.assertEqual(model.targeted_recovery, candidate==source)
+
+    def test_one_unresolved_clause_saves_the_other_clauses_in_both_document_modes(self):
+        from docx import Document
+
+        first = '①检查电源。'
+        blocked = '②消影电压不得超过1.4V。'
+        last = '③确认布线。'
+        translated = {first:'①電源を確認してください。',last:'③配線を確認してください。'}
+
+        class PartialModel(LanguageModel):
+            def chat_json(inner,prompt,system='',**options):
+                data=json.JSONDecoder().raw_decode(prompt)[0]
+                if '待译原文' in data:
+                    clause=data['待译原文']
+                    return {'translation':translated.get(clause,clause)}
+                return super().chat_json(prompt,system,**options)
+
+        for kind in ('translate','translate_review'):
+            with self.subTest(kind=kind):
+                path=self.root/(kind+'.docx')
+                doc=Document()
+                paragraph=doc.add_paragraph()
+                paragraph.add_run(first).bold=True
+                paragraph.add_run(blocked)
+                paragraph.add_run(last)
+                doc.save(path)
+                original=path.read_bytes()
+                job=self.job(self.options(path,'zh-CN','ja-JP',kind),PartialModel(''))
+                self.assertEqual(job['status'],'partial')
+                output,=job['result']['outputs']
+                self.assertTrue(output['draft_pending'])
+                self.assertEqual(output['partially_translated'],1)
+                saved=Document(output['path']).paragraphs[0]
+                self.assertEqual(saved.text,translated[first]+blocked+translated[last])
+                self.assertTrue(saved.runs[0].bold)
+                issue,=output['review_items'][0]['unresolved_fragments']
+                self.assertEqual(issue['source_text'],blocked)
+                self.assertEqual(path.read_bytes(),original)
+
     def test_shared_kanji_are_candidates_not_automatic_chinese_and_addresses_are_opaque(self):
         q=LanguageReview('zh-CN','ja-JP');source='使用率、温度。https://example.com/中文 `控制系统`'
         target='使用率と温度。https://example.com/中文 `控制系统`'

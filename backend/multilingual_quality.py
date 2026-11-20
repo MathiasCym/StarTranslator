@@ -204,6 +204,7 @@ class LanguageReview:
 
     def existing_review_error(self,client,source,target,cancel,terms):
         """Upgrade old ambiguous checkpoints without regenerating good text."""
+        from .document_translation_policy import REVIEW_SEVERITY, keep_minor_review
         from .translation import check_cancel
         payload={'原文':source,'译文':target,**({'相关术语':terms} if terms is not None else {}),**self.payload(source,target)}
         clauses=document_clauses(source)
@@ -217,7 +218,8 @@ class LanguageReview:
                 '数字、否定、单位、条件、型号、网址及人名品牌不可改变。原文可能是被格式或引用分隔的句子片段，'
                 '片段不成句以及保持原文连接标点均不构成漏译，不得要求补写相邻文字。仅列可证实的错误。'+self.instructions(source,target)+
                 '只返回 {"ok":true,"issues":[],"unchanged_source_spans":[]} 或'
-                ' {"ok":false,"issues":["确定的问题"]}，不能改写当前译文。',max_tokens=3000)
+                ' {"ok":false,"issues":["确定的问题"]}，不能改写当前译文。'+REVIEW_SEVERITY,max_tokens=3000)
+            answer=keep_minor_review(answer)
             if isinstance(answer,dict) and answer.get('ok') is False and isinstance(answer.get('issues'),list):
                 return '；'.join(issue for issue in answer['issues'] if isinstance(issue,str) and issue.strip()) or '独立复核未确认语义及目标语言。'
             if not isinstance(answer,dict) or answer.get('ok') is not True or answer.get('issues')!=[]:

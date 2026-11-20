@@ -70,6 +70,9 @@ class Model:
     def chat_json(self, prompt, **kwargs):
         self.prompts.append((prompt, kwargs))
         if self.bad:
+            if kwargs.get('system','').startswith('只核对当前段落'):
+                return {'severity':'critical','source_evidence':json.loads(prompt)['原文'],
+                        'target_evidence':'99 pixels','reason':'原稿没有这个像素参数。'}
             return {'translation': 'LED display solution with 99 pixels.'}
         source = prompt.split('【待译原文】\n', 1)[1].split('\n【', 1)[0]
         responses = {
@@ -194,7 +197,7 @@ class DocumentSkillTests(unittest.TestCase):
         self.assertTrue(Path(result['path']).is_file())
         self.assertEqual([s.text for s in extract(str(source))],[s.text for s in extract(result['path'])])
         self.assertGreaterEqual(len(model.prompts), 8)
-        self.assertIn('重新生成要求', model.prompts[1][0])
+        self.assertTrue(any('重新生成要求' in prompt for prompt,_ in model.prompts))
         self.assertEqual(source.read_bytes(), original)
 
     def test_unresolved_style_mapping_still_exports_best_available_source_styles(self):

@@ -1,4 +1,8 @@
 const el = id => document.getElementById(id)
+if (new URLSearchParams(location.search).has('setup')) {
+  document.documentElement.removeAttribute('data-surface')
+  el('studioPickerStyles').disabled = true
+}
 let options, current = '', parent = '', entries = [], selected = new Set(), history = [], request = 0, busy = false, loading = false, overwrite = false, anchor = '', sort = 'name', descending = false
 const collator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' })
 const rows = new Map()
