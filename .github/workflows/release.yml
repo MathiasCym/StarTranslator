@@ -36,6 +36,7 @@ jobs:
         with:
           python-version: '3.11'
       - run: npm ci
+      - run: npm exec --no -- install-electron
       - name: Prepare pinned portable runtime
         run: python tools/bootstrap-runtime.py
       - name: Build native update helper
@@ -75,7 +76,7 @@ jobs:
       - name: Build exact source version
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: node --require ./tools/nsis-timeout.js node_modules/electron-builder/cli.js --win nsis --x64 --publish never
+        run: node --require ./tools/nsis-timeout.js node_modules/electron-builder/cli.js --win nsis --x64 --publish never --config.electronDist=node_modules/electron/dist
       - name: Verify extracted installer images and complete payload
         run: node tools/check-release-payload.cjs
       - name: Verify old-runtime small-update launcher and automatic restart

@@ -233,21 +233,8 @@ def augment(segments,glossary,findings,stats,*,source_language=None,target_langu
                 accepted=decisions(answer,rows,segment.text,whole_paragraph=whole,target_language=dst)
                 for suggestion in accepted:
                     revised=segment.text.replace(suggestion['original'],suggestion['replacement'],1)
-                    if dst=='en-US':
-                        from .translation_policy import validate_for_file
-                        validate_for_file(segment.file_path,segment.text,revised,client=client,
-                                          check_cancel=lambda:check_cancel(cancel))
-                    else:
-                        from .multilingual_documents import content_validate
-                        from .text_languages import _validate_text_quantities
-                        from .translation_policy import review_unmatched_quantities
-                        content_validate(segment.text,revised,dst,dst)
-                        try:
-                            _validate_text_quantities(segment.text,revised,dst,dst)
-                        except ValueError:
-                            check_cancel(cancel)
-                            review_unmatched_quantities(client,segment.text,revised)
-                            check_cancel(cancel)
+                    from .translation_policy import validate_document_text
+                    validate_document_text(segment.text,revised)
                 if checkpoint:
                     if cached:checkpoint.used();reused=True
                     else:checkpoint.put(key,answer)

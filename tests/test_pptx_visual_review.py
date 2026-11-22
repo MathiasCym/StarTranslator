@@ -70,7 +70,10 @@ class VisualTests(unittest.TestCase):
     def test_unchanged_model_action_cannot_hide_explicit_clipping_or_overlap(self):
         obj={'box':[10,10,200,100],'font_sizes':[18],'wrap':True}
         self.assertFalse(visual.action_changes(dict(font_size=18,width=199.9,height=100,wrap=True),obj))
-        for action in [dict(font_size=20),dict(font_size=18,width=250),dict(font_size=18,wrap=False),dict(font_size=18,x=15)]:
+        self.assertFalse(visual.action_changes(dict(font_size=18,x=15,y=20),obj))
+        self.assertFalse(visual.action_changes(dict(font_size=18,width=250,height=150),
+                                               {**obj,'fixed_width':True,'fixed_height':True}))
+        for action in [dict(font_size=20),dict(font_size=18,width=250),dict(font_size=18,wrap=False)]:
             self.assertTrue(visual.action_changes(action,obj))
     def test_a_crowded_frame_does_not_shrink_spacious_peers_or_other_pages(self):
         deck,source=self.deck();original=capture_layout(deck,[])
@@ -188,27 +191,38 @@ class VisualTests(unittest.TestCase):
         self.assertTrue(fixes);self.assertEqual(shape.text_frame.paragraphs[0].runs[0].font.size,Pt(24))
         self.assertEqual(shape.width,Pt(300))
 
-    def test_model_can_expand_left_to_preserve_a_centered_label_and_guards_position(self):
+    def test_model_preserves_visual_alignment_and_package_guards_position(self):
         from backend.replacer.pptx_readability import apply_actions
-        from pptx.enum.text import PP_ALIGN
-        deck,source=self.deck(1);shape=deck.slides[0].shapes[1];shape.text='English information'
-        shape.text_frame.paragraphs[0].alignment=PP_ALIGN.CENTER
-        deck.save(source);original_left=shape.left
-        changed=[]
-        fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=24,x=18,y=144,width=240,height=60,reason='向两侧扩展标签')],changed,[{'shapes':[]}])
-        self.assertTrue(fixes);self.assertLess(shape.left,original_left)
-        output=self.folder/'moved.pptx';save_office(source,deck,output,changed)
-        self.assertEqual(Presentation(output).slides[0].shapes[1].left,Pt(18))
-        shape.left+=Pt(1)
-        with self.assertRaisesRegex(ValueError,'位置无法验证'):
-            save_office(source,deck,self.folder/'bad-move.pptx',changed)
+        from pptx.enum.text import MSO_ANCHOR,PP_ALIGN
+        for horizontal,vertical in ((PP_ALIGN.CENTER,MSO_ANCHOR.TOP),(PP_ALIGN.RIGHT,MSO_ANCHOR.BOTTOM),
+                                    (PP_ALIGN.LEFT,MSO_ANCHOR.MIDDLE)):
+            with self.subTest(horizontal=horizontal,vertical=vertical):
+                deck,source=self.deck(1);shape=deck.slides[0].shapes[1];shape.text='Readable'
+                paragraph=shape.text_frame.paragraphs[0];paragraph.runs[0].font.size=Pt(12)
+                paragraph.alignment=horizontal;shape.text_frame.vertical_anchor=vertical
+                deck.save(source)
+                left,top,width,height=shape.left,shape.top,shape.width,shape.height
+                changed=[]
+                fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',
+                    font_size=18,x=18,y=36,width=240,height=60,reason='利用留白')],changed,[{'shapes':[]}])
+                self.assertTrue(fixes)
+                output=self.folder/'position.pptx';save_office(source,deck,output,changed)
+                saved=Presentation(output).slides[0].shapes[1]
+                self.assertEqual((saved.left,saved.top),(left,top))
+                self.assertEqual(saved.width,Pt(240) if horizontal==PP_ALIGN.LEFT else width)
+                self.assertEqual(saved.height,Pt(60) if vertical==MSO_ANCHOR.TOP else height)
+                self.assertEqual(saved.text_frame.paragraphs[0].runs[0].font.size,Pt(18))
+                shape.left+=Pt(1)
+                with self.assertRaisesRegex(ValueError,'对象结构'):
+                    save_office(source,deck,self.folder/'bad-move.pptx',changed)
 
-    def test_model_move_cannot_cross_page_or_cover_other_text(self):
+    def test_move_only_suggestions_cannot_change_frame_geometry(self):
         from backend.replacer.pptx_readability import apply_actions
         deck,_=self.deck(1);shape=deck.slides[0].shapes[1];shape.text='Information'
+        shape.text_frame.paragraphs[0].runs[0].font.size=Pt(24)
         before=(shape.left,shape.top,shape.width,shape.height)
         for x,y in ((-20,144),(18,36),(10000,144)):
-            fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=24,x=x,y=y,width=240,height=60,reason='model')],[],[{'shapes':[]}])
+            fixes=apply_actions(deck,[dict(kind='readability',slide=1,locator='slide1/shape1',font_size=24,x=x,y=y,reason='model')],[],[{'shapes':[]}])
             self.assertFalse(fixes);self.assertEqual((shape.left,shape.top,shape.width,shape.height),before)
 
     def test_visual_followup_does_not_mechanically_refit_unconstrained_tiny_text(self):

@@ -30,17 +30,13 @@ class Model:
         return []
 
 class PdfResidualTests(unittest.TestCase):
-    def test_reflow_identifier_policy_does_not_leak_into_word_or_powerpoint(self):
-        from backend.translation_policy import validate_for_file
-        validate_for_file('source.PDF','LEDDome和300TBDellPowerScale','LED Dome and Dell PowerScale with 300 TB')
-        source,target='使用VX1000控制器','Uses the VX 1000 controller'
-        validate_for_file('source.PDF',source,target)
-        for filename in ['source.docx','source.pptx','source.xlsx','source.txt',None]:
-            with self.subTest(filename=filename),self.assertRaises(ValueError):
-                validate_for_file(filename,source,target)
-        for filename in ['source.pdf','source.docx','source.pptx']:
-            with self.subTest(filename=filename),self.assertRaises(ValueError):
-                validate_for_file(filename,'型号VX1000','Model VX2000')
+    def test_document_validation_accepts_reflow_but_protects_addresses(self):
+        from backend.translation_policy import validate_document_text
+        validate_document_text('LEDDome和300TBDellPowerScale','LED Dome and Dell PowerScale with 300 TB')
+        validate_document_text('使用VX1000控制器','Uses the VX 1000 controller')
+        with self.assertRaisesRegex(ValueError,'网址'):
+            validate_document_text('请访问 https://example.com/source 了解详情。',
+                                   'See https://example.com/other for details.')
 
     def test_pdf_reflow_does_not_confuse_joined_words_with_changed_identifiers(self):
         from backend.writing_policy import validate_translation

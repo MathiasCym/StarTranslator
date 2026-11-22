@@ -152,7 +152,7 @@ def fit_contents(document, paragraphs):
 def recover_chinese(client, source, groups, glossary, check_cancel):
     """A rejected English rewrite must not roll a Chinese header back with it."""
     from .translation_residual import repair_residual
-    from .translation_policy import validate_for_file
+    from .translation_policy import validate_document_text
     from .text_integrity import contains_chinese
     from .replacer.styled_text import response_runs
     result = repair_residual(client, source, {'translation':source}, glossary,
@@ -177,5 +177,5 @@ def recover_chinese(client, source, groups, glossary, check_cancel):
         target=''.join(parts)+patch_prose(source[offset:],offset)
         result={**result,'translation':target}
     if contains_chinese(target): raise ValueError('PDF 局部补译仍有未译中文。')
-    validate_for_file('source.pdf',source,target,client=client,check_cancel=check_cancel)
+    validate_document_text(source,target)
     return result, response_runs(result, target, groups)

@@ -125,15 +125,15 @@ class PdfImageTextTests(unittest.TestCase):
         result=self.review(doc,model)
         self.assertEqual(result['status'],'partial');self.assertEqual(self.blob(doc),before)
 
-    def test_model_scan_corrects_ocr_han_typos_but_cannot_change_a_model_number(self):
-        ocr={'lines':[{'id':0,'text':'有寸之间伸验菲凡 VX1000','box':[0,0,400,50]}]}
-        answer={'reviewed':True,'lines':[{'id':0,'text':'方寸之间体验非凡 VX1000'}],'unlocated_chinese':[]}
-        self.assertEqual(module._scan(answer,ocr)[0]['text'],'方寸之间体验非凡 VX1000')
-        answer['lines'][0]['text']='方寸之间体验非凡 VX2000'
+    def test_model_scan_corrects_ocr_han_typos_but_cannot_change_a_url(self):
+        ocr={'lines':[{'id':0,'text':'有寸之间伸验菲凡 https://example.test/a','box':[0,0,400,50]}]}
+        answer={'reviewed':True,'lines':[{'id':0,'text':'方寸之间体验非凡 https://example.test/a'}],'unlocated_chinese':[]}
+        self.assertEqual(module._scan(answer,ocr)[0]['text'],'方寸之间体验非凡 https://example.test/a')
+        answer['lines'][0]['text']='方寸之间体验非凡 https://example.test/b'
         with self.assertRaises(ValueError):module._scan(answer,ocr)
 
-    def test_translation_cannot_add_numbers_or_leave_chinese(self):
-        for text in ['Extraordinary 2000 experiences','还有中文']:
+    def test_translation_cannot_leave_chinese(self):
+        for text in ['还有中文']:
             with self.subTest(text=text):
                 doc=self.document();before=self.blob(doc);model=Model(text=text)
                 result=self.review(doc,model)

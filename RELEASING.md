@@ -184,7 +184,7 @@ GitHub 正式发行版：
 
 新功能与修复先进入长期测试分支 preview。测试通过后，用实际测试包进行人工验收，核对该包的 preview-build.json 中分支、提交和未提交改动状态。确认同一批改动后再将验收过的提交合入 main，并按正式流程确定版本与发布。preview 的 GitHub 工作流只运行回归并保存测试产物；正式发布工作流只在 main 执行。
 
-Windows 可在 preview 分支运行 npm run preview:win。构建和文件校验成功后，双击 dist/ui-preview/Start-StarTranslator-Test.cmd 打开最新一批。该目录中的各批次共用 dist/ui-preview/preview-profile，用于保留测试时添加的模型、词库和历史记录。正式安装使用自己的数据目录。逐批次启动器也可用于复现特定测试包，安装更新的入口在测试包里关闭。
+Windows 可在 preview 分支运行 `npm run preview:win`。构建和文件校验通过后，更新固定入口 `dist/ui-preview/win-unpacked/星译官.exe`，可直接运行或使用指向它的桌面快捷方式。构建时可继续使用当前测试版，替换程序文件前请关闭测试版。模型、词库和历史记录保存在同级的 `preview-profile` 目录，正式安装使用自己的数据目录。测试版停用在线安装更新入口。
 
 | 操作 | 命令与注意事项 |
 | --- | --- |

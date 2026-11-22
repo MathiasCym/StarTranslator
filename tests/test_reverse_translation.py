@@ -41,7 +41,7 @@ class Model(LLMClient):
         data=json.loads(prompt)
         if '复核' in system and '"ok"' in system:return {'ok':True,'issues':[]}
         if '审校员' in system:
-            return {'reviewed':True,'suggestions':[{'original':data['中文译文'],'replacement':'像素间距为 2.5 mm。','reason':'统一中文术语'}] if self.suggestions and data['中文译文']==TARGET else []}
+            return {'reviewed':True,'suggestions':[{'kind':'format','original':data['中文译文'],'replacement':'像素间距为 2.5 mm。','reason':'统一中文术语'}] if self.suggestions and data['中文译文']==TARGET else []}
         source=data['待译原文']
         target=TARGET if source==SOURCE else '屏幕支持 60 Hz。' if source=='The display supports 60 Hz.' else source
         result={'translation':target}
@@ -160,25 +160,11 @@ class ReverseTests(unittest.TestCase):
         check_segments([row],self.glossary,client=Model(),checkpoint_origin='origin.docx')
         with closing(sqlite3.connect(self.root/'profile/task-checkpoints.sqlite3')) as db,db:
             db.execute("UPDATE checkpoints SET value=? WHERE stage='review-zh'",(json.dumps({'reviewed':True,
-                'suggestions':[{'original':TARGET,'replacement':'点间距为 3.5 mm。','reason':'错误数字'}]}),))
+                'suggestions':[{'kind':'format','original':TARGET,'replacement':'点间距为 2.5 mm。 https://example.test/extra','reason':'意外添加链接'}]}),))
         client=Model();hits,stats=check_segments([row],self.glossary,client=client,checkpoint_origin='origin.docx')
         self.assertEqual(hits,[]);self.assertEqual(stats['resumed_segments'],0)
         self.assertEqual(len(client.calls),1);self.assertEqual(stats['model_status'],'complete')
 
-    def test_shipped_237_review_cache_migrates_only_when_the_whole_legacy_scope_matches(self):
-        from backend.reverse_translation import check_segments
-        from backend.models import Segment
-        from backend.checkpoints import open_checkpoint
-        row=Segment('item','draft.docx',TARGET,'body/p0',file_path=str(self.root/'draft.docx'))
-        old='f55c372c1060a27d2271890788534e12f99480c914897f8fdfdeeb4cf3881326'
-        with patch('backend.checkpoints.policy',return_value=old):
-            checkpoint=open_checkpoint('review-zh',{'source':'origin.docx','direction':'en-zh',
-                'texts':[('@draft',row.locator,row.text,'')],'person_terms':{}},self.glossary,None,Model())
-            checkpoint.put([row.locator,row.text],{'reviewed':True,'suggestions':[]})
-        client=Model();_,stats=check_segments([row],self.glossary,client=client,checkpoint_origin='origin.docx')
-        self.assertEqual(stats['resumed_segments'],1);self.assertEqual(client.calls,[])
-        client=Model();_,stats=check_segments([row],self.glossary,client=client,checkpoint_origin='different.docx')
-        self.assertEqual(stats['resumed_segments'],0);self.assertEqual(len(client.calls),1)
 
     def test_word_keeps_validated_chinese_when_emphasis_mapping_is_unavailable(self):
         english='Contact path: Alex raised the request; Sam forwarded the information to the team.'
@@ -286,7 +272,7 @@ class ReverseTests(unittest.TestCase):
         class Local(Model):
             def chat_json(self,prompt,system='',**options):
                 self.calls.append((prompt,system))
-                return {'reviewed':True,'suggestions':[{'original':'点间距','replacement':'像素间距','reason':'统一术语'}]}
+                return {'reviewed':True,'suggestions':[{'kind':'format','original':'点间距','replacement':'像素间距','reason':'统一术语'}]}
         source=self.root/'target.docx';doc=Document();doc.add_paragraph(TARGET);doc.save(source)
         findings,stats=check_segments(extract(source),self.glossary,client=Local())
         self.assertEqual(stats['model_status'],'complete');self.assertEqual(len(findings),1)
@@ -300,7 +286,7 @@ class ReverseTests(unittest.TestCase):
         class Repair(Model):
             def chat_json(self,prompt,system='',**options):
                 self.calls.append((prompt,system))
-                return {'reviewed':True,'suggestions':[{'original':'不存在' if len(self.calls)==1 else TARGET,'replacement':'像素间距为 2.5 mm。','reason':'统一术语'}]}
+                return {'reviewed':True,'suggestions':[{'kind':'format','original':'不存在' if len(self.calls)==1 else TARGET,'replacement':'像素间距为 2.5 mm。','reason':'统一术语'}]}
         source=self.root/'target.docx';doc=Document();doc.add_paragraph(TARGET);doc.save(source);model=Repair()
         findings,stats=check_segments(extract(source),self.glossary,client=model)
         self.assertEqual(len(model.calls),2);self.assertEqual(stats['model_status'],'complete');self.assertEqual(len(findings),1)
@@ -394,7 +380,7 @@ class ReverseTests(unittest.TestCase):
                 if '候选及英文原文语境' in data:return {'people':['Chen Yiming']}
                 if '中文译文' in data:
                     self.reviews+=1
-                    return {'reviewed':True,'suggestions':[{'original':'Chen Yiming','replacement':'陈一鸣','reason':'翻译人名'}] if self.reviews==1 else []}
+                    return {'reviewed':True,'suggestions':[{'kind':'format','original':'Chen Yiming','replacement':'陈一鸣','reason':'翻译人名'}] if self.reviews==1 else []}
                 if '待译原文' in data:
                     self.translations+=1
                     text='陈一鸣批准了报告。' if self.translations==1 else 'Chen Yiming批准了报告。'

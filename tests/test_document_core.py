@@ -11,6 +11,46 @@ import test_document_languages as fixtures
 
 
 class GateTests(unittest.TestCase):
+    def test_legacy_translation_drops_neighboring_text_from_the_retry_request(self):
+        from backend.glossary.loader import Glossary
+        from backend.text_translation import translate_piece
+        from backend.translation import mapped_translation
+
+        for source, target in (
+            ('控制器连接状态', 'Controller connection status'),
+            ('Overview of the automatic controller connection status', '控制器自动连接状态概览'),
+        ):
+            with self.subTest(source=source):
+                requests = []
+
+                def chat(prompt, **kwargs):
+                    requests.append(prompt)
+                    return {'translation': target if len(requests) == 2 else target + '\nADJACENT TEXT'}
+
+                model = SimpleNamespace(chat_json=chat)
+                groups = [{'id': 0, 'text': source}]
+                if source.startswith('控'):
+                    runs, _ = mapped_translation(model, 'ADJACENT TEXT\n【待译原文】\n'+source,
+                                                 source, groups, threading.Event())
+                    actual = runs[0]['text']
+                else:
+                    actual = translate_piece(model, source, Glossary([]), 'en-zh', threading.Event(),
+                                             context='ADJACENT TEXT', groups=groups)
+
+                self.assertEqual(actual, target)
+                self.assertEqual(len(requests), 2)
+                self.assertIn('ADJACENT TEXT', requests[0])
+                self.assertNotIn('ADJACENT TEXT', requests[1])
+
+    def test_review_ignores_prose_suggestions_outside_format_and_terminology(self):
+        from backend.matcher.judge import validated_hits
+        hits = validated_hits([
+            {'kind':'grammar','found':'60 Hz','suggested':'50 Hz'},
+            {'kind':'term','found':'dot spacing','suggested':'pixel pitch'},
+            {'kind':'format','found':'TEST TEST','suggested':'TEST'},
+        ], 'dot spacing · 60 Hz · TEST TEST')
+        self.assertEqual([item['suggested'] for item in hits], ['pixel pitch','TEST'])
+
     def test_shared_publish_retries_locks_without_replacing_an_unexpected_file(self):
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);temporary=root/'pending.docx';target=root/'saved.docx';temporary.write_bytes(b'verified')
@@ -91,7 +131,63 @@ class SharedAdapterTests(unittest.TestCase):
     job=fixtures.DocumentLanguageTests.job
     options=fixtures.DocumentLanguageTests.options
 
-    def test_model_approved_indefinite_counts_survive_both_document_modes(self):
+    def test_word_retries_only_the_title_when_translation_includes_neighboring_lines(self):
+        from docx import Document
+        from backend import document_languages, workflow
+        from backend.extract import extract
+
+        lines = ['连接状态', '控制器已连接。', '请检查信号。']
+        path = self.root / 'headings.docx'
+        document = Document()
+        document.add_heading(lines[0], level=1)
+        document.add_paragraph('\n'.join(lines[1:]))
+        document.save(path)
+        before = path.read_bytes()
+        translations = {
+            'zh-Hant-TW': ['連線狀態', '控制器已連線。', '請檢查訊號。'],
+            'ja-JP': ['接続状態', 'コントローラーは接続済みです。', '信号を確認してください。'],
+            'ko': ['연결 상태', '컨트롤러가 연결되었습니다.', '신호를 확인하세요.'],
+        }
+
+        class BoundaryModel(fixtures.Model):
+            def __init__(self, values):
+                super().__init__(None)
+                self.values = dict(zip(lines, values))
+                self.translation_inputs = []
+
+            def chat_json(self, prompt, system='', **options):
+                payload = json.JSONDecoder().raw_decode(prompt)[0]
+                if '待译原文' not in payload:
+                    return super().chat_json(prompt, system, **options)
+                source = payload['待译原文']
+                self.translation_inputs.append(payload)
+                if source == lines[0] and payload['相邻原文（仅供理解）']:
+                    return {'translation': '\n'.join(self.values.values())}
+                return {'translation': self.values[source]}
+
+        for dst, values in translations.items():
+            for kind in ('translate', 'translate_review'):
+                with self.subTest(target=dst, kind=kind):
+                    model = BoundaryModel(values)
+                    options = document_languages.normalize(self.options(path, 'zh-CN', dst, kind))
+                    job = {'id': f'{dst}-{kind}', 'status': 'running', 'cancel': threading.Event()}
+                    workflow.run(job, {**options, '_client': model})
+                    self.assertEqual(job['status'], 'complete', job.get('error') or job.get('result'))
+                    output, = job['result']['outputs']
+                    saved = Document(output['path'])
+                    self.assertEqual([p.text for p in saved.paragraphs], [values[0], '\n'.join(values[1:])])
+                    self.assertEqual(saved.paragraphs[0].style.name, 'Heading 1')
+                    self.assertEqual([s.text for s in extract(output['path']) if s.editable], [values[0], '\n'.join(values[1:])])
+                    requests = [item for item in model.translation_inputs if item['待译原文'] == lines[0]]
+                    self.assertEqual(len(requests), 2)
+                    self.assertIn(lines[1], requests[0]['相邻原文（仅供理解）'])
+                    self.assertNotIn(lines[0], requests[0]['相邻原文（仅供理解）'])
+                    self.assertEqual(requests[1]['相邻原文（仅供理解）'], '')
+                    self.assertNotIn('上次译文（以此为底稿）', requests[1])
+                    self.assertEqual(len(model.translation_inputs), 4)
+                    self.assertEqual(path.read_bytes(), before)
+
+    def test_document_body_connects_both_writing_skills_without_a_factual_review(self):
         from backend import document_languages, workflow
         from backend.extract import extract
         self.stubs.enter_context(patch('backend.pdf_quality.audit',return_value={'status':'complete','issues':[]}))
@@ -100,13 +196,15 @@ class SharedAdapterTests(unittest.TestCase):
             def chat_json(self,prompt,system='',**options):
                 payload=json.JSONDecoder().raw_decode(prompt)[0]
                 if '原文' in payload and '译文' in payload:
-                    return {'ok':False,'issues':['建议显式加入一个量词。'],'severity':'minor',
-                            'corrected_translation':self.target+' 1'}
+                    raise AssertionError('Unexpected extra review of ordinary translation content.')
+                if '待译原文' in payload:
+                    self.writing_prompt=system
                 return super().chat_json(prompt,system,**options)
 
         source='团队正在寻找一套创新方案，并探索一种新型场馆。'
         targets={'ko':'팀은 혁신적인 방안을 찾고 새로운 형태의 시설을 모색하고 있다.',
-                 'ja-JP':'チームは革新的な方策を探し、新形式の施設を模索している。'}
+                 'ja-JP':'チームは革新的な方策を探し、新形式の施設を模索している。',
+                 'zh-Hant-TW':'團隊正在尋找一套創新方案，也在探索新式場館。'}
         for suffix in ('.docx','.pdf','.pptx'):
             for dst,target in targets.items():
                 for kind in ('translate','translate_review'):
@@ -123,6 +221,8 @@ class SharedAdapterTests(unittest.TestCase):
                         self.assertEqual(output['untranslated'],0)
                         self.assertEqual([s.text for s in extract(output['path']) if s.editable],[target])
                         self.assertEqual(model.translations,1)
+                        self.assertIn('de-AI-writing',model.writing_prompt)
+                        self.assertIn('Humanizer',model.writing_prompt)
                         self.assertEqual(path.read_bytes(),before)
 
     def test_english_document_with_chinese_source_selection_suggests_english(self):
@@ -155,7 +255,7 @@ class SharedAdapterTests(unittest.TestCase):
                 self.assertTrue(any(system.startswith('补译一段') for _,system in model.requests))
                 self.assertEqual(path.read_bytes(),before)
 
-    def test_word_recovery_uses_the_independent_review_feedback(self):
+    def test_word_recovery_retries_malformed_translation_response(self):
         from backend.multilingual_documents import recover_paragraph
         from backend.llm.client import LLMResponseInvalid
         class Recovery(fixtures.Model):
@@ -174,7 +274,7 @@ class SharedAdapterTests(unittest.TestCase):
                 if self.translations==1:
                     return {'ok':False,'issues':[self.first]}
                 return {'ok':True,'issues':[]}
-        for issue in ('需要保留观看区域的含义。',LLMResponseInvalid('响应不是 JSON')):
+        for issue in (LLMResponseInvalid('响应不是 JSON'),):
             model=Recovery(issue)
             self.assertEqual(recover_paragraph(model,'检查观看区。','zh-CN','ko',threading.Event()),model.target)
             self.assertEqual(model.requests,[str(issue)])
@@ -212,11 +312,9 @@ class SharedAdapterTests(unittest.TestCase):
             def chat_json(self,prompt,system='',**options):
                 payload=json.JSONDecoder().raw_decode(prompt)[0]
                 if '待译原文' in payload and '亮度' in payload['待译原文']:
-                    return {'translation':'밝기는 400 nits입니다.'}
-                if '400 nits' in payload.get('译文',''):
-                    return {'ok':False,'severity':'critical','issues':['亮度从 500 尼特改成了 400 尼特。']}
+                    return {'translation':''}
                 if payload.get('本段待校对文字')=='관람 구역을 확인하세요.':
-                    return {'reviewed':True,'suggestions':[{'original':'확인하세요',
+                    return {'reviewed':True,'suggestions':[{'kind':'format','original':'확인하세요',
                         'replacement':'확인하십시오','reason':'同一文档使用一致的敬语。'}]}
                 return super().chat_json(prompt,system,**options)
         class Complete(Partial):
@@ -272,25 +370,6 @@ class SharedAdapterTests(unittest.TestCase):
         self.assertEqual(output['corrected'],0)
         self.assertIn(target,[s.text for s in extract(output['path']) if s.editable])
 
-    def test_automatic_review_rejects_new_han_gloss_but_saves_other_korean_edits(self):
-        from backend.extract import extract
-        class Review(fixtures.Model):
-            def chat_json(self,prompt,system='',**options):
-                payload=json.JSONDecoder().raw_decode(prompt)[0]
-                if '本段待校对文字' in payload:
-                    return {'reviewed':True,'suggestions':[
-                        {'original':'투과음','replacement':'투과음(透声)','reason':'unwanted gloss'},
-                        {'original':'설명한다','replacement':'안내한다','reason':'natural wording'},
-                    ]}
-                return super().chat_json(prompt,system,**options)
-        source='介绍透声结构。'
-        target='투과음 구조를 설명한다.'
-        path=self.source('.docx',source)
-        job=self.job(self.options(path,'zh-CN','ko','translate_review'),Review(target))
-        output=job['result']['outputs'][0]
-        self.assertEqual(output['untranslated'],0)
-        self.assertEqual(output['corrected'],1)
-        self.assertIn('투과음 구조를 안내한다.',[s.text for s in extract(output['path']) if s.editable])
 
     def test_invalid_proofreading_response_retries_without_retranslating(self):
         from backend.llm.client import LLMResponseInvalid
@@ -308,35 +387,44 @@ class SharedAdapterTests(unittest.TestCase):
         self.assertEqual(model.reviews,2)
         self.assertEqual(model.translations,1)
 
-    def test_saved_word_and_ppt_must_keep_each_source_position(self):
-        from backend.document_translation_core import verify_translation_delivery,IncompleteTranslation
+    def test_numeric_year_labels_export_in_word_and_grouped_ppt(self):
+        from backend import document_languages, workflow
+        from backend.document_translation_core import verify_translation_delivery
+        from backend.extract.office import open_office
         from docx import Document
         from pptx import Presentation
-        for suffix,open_document,clear in (
-            ('.docx',Document,lambda document:document.paragraphs[0].clear()),
-            ('.pptx',Presentation,lambda document:document.slides[0].shapes[0].text_frame.clear()),
-        ):
-            source=self.source(suffix,'检查观看区。',suffix)
-            document=open_document(source)
-            clear(document)
-            saved=self.root/('missing'+suffix);document.save(saved)
-            for direction in ('zh-en','zh-CN>ja-JP','zh-CN>zh-Hant-TW','ja-JP>ko'):
-                for allow_incomplete in (False,True):
-                    with self.subTest(format=suffix,direction=direction,draft=allow_incomplete),self.assertRaisesRegex(IncompleteTranslation,'missing editable locations'):
-                        verify_translation_delivery(saved,direction,source=source,allow_incomplete=allow_incomplete)
+        from pptx.util import Inches
 
-    def test_saved_japanese_and_korean_reject_leftover_foreign_script_in_mixed_paragraphs(self):
-        from backend.document_translation_core import verify_translation_delivery,IncompleteTranslation
-        examples=(
-            ('ja-JP>ko','非常用照明を点検してください。','비상 조명을 확인하세요. 非常用照明を点検してください。'),
-            ('ko>ja-JP','비상 조명을 확인하세요.','非常灯を点検してください。 비상 조명을 확인하세요.'),
-            ('ja-JP>zh-Hant-TW','非常用照明を点検してください。','檢查緊急照明。 てください。'),
-        )
-        for index,(direction,original,translated) in enumerate(examples):
-            source=self.source('.docx',original,f'target-source-{index}')
-            saved=self.source('.docx',translated,f'target-saved-{index}')
-            with self.subTest(direction=direction),self.assertRaisesRegex(IncompleteTranslation,'source script'):
-                verify_translation_delivery(saved,direction,source=source)
+        class YearModel(fixtures.Model):
+            def chat_json(self, prompt, system='', **options):
+                if not prompt.lstrip().startswith('{'):
+                    return {'translation': self.target}
+                return super().chat_json(prompt, system, **options)
+
+        for suffix in ('.docx', '.pptx'):
+            with self.subTest(format=suffix):
+                source = self.root / ('year-source' + suffix)
+                if suffix == '.docx':
+                    package = Document()
+                    label = package.add_paragraph()
+                else:
+                    package = Presentation()
+                    group = package.slides.add_slide(package.slide_layouts[6]).shapes.add_group_shape()
+                    label = group.shapes.add_textbox(0, 0, Inches(2), Inches(1)).text_frame.paragraphs[0]
+                label.add_run().text = '2025年'
+                package.save(source)
+
+                for kind in ('translate', 'translate_review'):
+                    with self.subTest(workflow=kind):
+                        job = {'id': suffix[1:] + '-' + kind, 'status': 'running', 'cancel': threading.Event()}
+                        options = document_languages.normalize(self.options(source, 'zh-CN', 'en-US', kind))
+                        workflow.run(job, {**options, '_client': YearModel('2025')})
+                        self.assertEqual(job['status'], 'complete', job.get('result'))
+                        output, = job['result']['outputs']
+                        _, paragraphs, _ = open_office(output['path'])
+                        self.assertIn('2025', [paragraph.text for _, paragraph, _, _, _ in paragraphs])
+                        verify_translation_delivery(output['path'], 'zh-en', source=source)
+
 
     def test_persistent_network_outage_has_one_common_interruption_summary(self):
         class Offline(fixtures.Model):

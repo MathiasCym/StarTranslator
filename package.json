@@ -1,6 +1,6 @@
 {
   "name": "startranslator",
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "星译官 —— 中英技术文档翻译与审校工作台",
   "author": {
     "name": "MathiasCym"
@@ -86,7 +86,7 @@
     }
   },
   "devDependencies": {
-    "electron": "31.7.7",
+    "electron": "45.4.1",
     "electron-builder": "25.1.8"
   }
 }

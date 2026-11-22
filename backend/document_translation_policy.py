@@ -5,26 +5,19 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 
 _mode=ContextVar('star_combined_document_policy',default=None)
-REVIEW_SEVERITY=('只有能从原文指出的实质性漏译、事实或条件改变、明确未译正文、技术参数错误才设为 critical。'
-    '正常的措辞、符号、等值数字或单位写法、语言中省略不定量词，以及无法证实的问题均为 minor，不应要求重译。'
-    '编号与数值是两个语义单位，如①、②紧贴电压或尺寸也不能拼成一个数字。'
-    '发现真实的数值、单位或日期错误时，按原文修正该处，保留其余正确译文。'
-    '存在问题时附上 severity:"critical" 或 severity:"minor"；minor 直接保留现有译文。'
-    '已要求核对目标字形或原样专名的，应同时返回原样片段的判断。')
+REVIEW_SCOPE=('只检查适用的术语规范和格式，例如表格、标题、连接标点与明显破损的格式。'
+    '普通正文的译义、数字、日期、单位、语法和表达不另做审校。只改命中的术语或格式，保留其他文字。'
+    '保持链接目标、地址、代码和行内标记完整。')
 
 
-def keep_minor_review(answer):
-    if (isinstance(answer,dict) and type(answer.get('ok')) is bool and isinstance(answer.get('issues'),list)
-            and answer.get('severity')=='minor'):
-        return {**answer,'ok':True,'issues':[]}
-    return answer
-
-
-def preserve_values_without_source(before, after):
-    """A standalone review has no original to justify a new numeric value."""
-    from .writing_policy import numeric_values
-    if numeric_values(before) != numeric_values(after):
-        raise ValueError('缺少原文依据，校对建议不能改变已有数值。')
+def natural_writing(source):
+    from .text_languages import humanizer_rules, natural_expression
+    if not natural_expression(source):
+        return ''
+    return ('\n'+humanizer_rules()+
+        '\n按 de-AI-writing 的保真原则在段内使用目标语言的自然语序和具体措辞。'
+        '删去翻译时新增的空泛程度副词、讲义式过渡和重复收束，保留原稿口吻、时间、范围、推测、否定及确切信息。'
+        '保持标题、段落、列表、表格、引用、刻意换行、代码和链接边界。只输出译文。')
 
 @contextmanager
 def combined_processing(enabled):

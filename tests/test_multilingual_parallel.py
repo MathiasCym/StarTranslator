@@ -63,7 +63,7 @@ class ParallelTests(unittest.TestCase):
         self.assertTrue(result['translation_complete'],result['review_items'])
         self.assertGreaterEqual(model.maximum,2);self.assertLessEqual(model.maximum,3)
         self.assertEqual(model.translations,6)
-        self.assertEqual(sum('译文' in json.loads(p) for p,_ in model.requests),6)
+        self.assertFalse(any('译文' in json.loads(p) for p,_ in model.requests))
         self.assertEqual(len(writes),6);self.assertEqual(path.read_bytes(),before)
         self.assertEqual([s.slide for s in extract(result['path']) if s.editable],[1,1,2,2,3,3])
         self.assertEqual([s.text for s in extract(result['path']) if s.editable],[SAMPLES['ja-JP']]*6)

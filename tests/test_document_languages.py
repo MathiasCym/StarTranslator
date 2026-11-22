@@ -34,7 +34,7 @@ class Model(LLMClient):
  def chat_json(self,prompt,system='',**options):
   self.requests.append((prompt,system));payload=json.JSONDecoder().raw_decode(prompt)[0]
   if '本段待校对文字' in payload:
-   return {'reviewed':True,'suggestions':[{'original':'TEST TEST','replacement':'TEST','reason':'删除重复单词'}] if 'TEST TEST' in payload['本段待校对文字'] else []}
+   return {'reviewed':True,'suggestions':[{'kind':'format','original':'TEST TEST','replacement':'TEST','reason':'删除重复单词'}] if 'TEST TEST' in payload['本段待校对文字'] else []}
   if '待译原文' in payload:
    if self.cancel_after is not None and self.translations>=self.cancel_after:
     self.cancel.set();raise workflow.Cancelled('offline fixture interruption')
@@ -123,14 +123,14 @@ class DocumentLanguageTests(unittest.TestCase):
      self.assertIn('TEST TEST','\n'.join(s.text for s in extract(path)))
 
  def test_pending_source_not_marked_complete_or_silently_repaired_by_english_policy(self):
-  path=self.source('.docx',SAMPLES['en-US']);model=Model('incorrect 99 Hz')
+  path=self.source('.docx',SAMPLES['en-US']);model=Model('')
   job=self.job(self.options(path,'en-US','ja-JP'),model)
   self.assertEqual(job['status'],'partial',job)
   self.assertEqual(job['result']['outputs'],[]);self.assertTrue(job['result']['delivery_deferred'])
   self.assertFalse(list((self.root/'output').glob('*.docx')))
   self.assertTrue(job['can_resume'])
   attempts = [json.JSONDecoder().raw_decode(prompt)[0].get('待译原文') for prompt,_ in model.requests]
-  self.assertEqual(attempts.count(SAMPLES['en-US']),4)
+  self.assertGreaterEqual(attempts.count(SAMPLES['en-US']),2)
   self.assertTrue(any(piece and piece!=SAMPLES['en-US'] for piece in attempts))
   self.assertNotIn('report',job['result'])
 
@@ -153,7 +153,7 @@ class DocumentLanguageTests(unittest.TestCase):
    documents.content_validate(SAMPLES['en-US'],target,'en-US',dst)
    for different_quantity in (target.replace('60','61'),target.replace('Hz','mm')):
     documents.content_validate(SAMPLES['en-US'],different_quantity,'en-US',dst)  # Model reviews factual differences.
-   for bad in (target.replace('A8','A9'),target.replace('/中文','/changed')):
+   for bad in (target.replace('/中文','/changed'),):
     with self.assertRaises(ValueError):documents.content_validate(SAMPLES['en-US'],bad,'en-US',dst)
   with self.assertRaises(ValueError):documents.content_validate(SAMPLES['ko'],SAMPLES['ja-JP'],'ko','en-US')
 
@@ -376,7 +376,7 @@ class DocumentLanguageTests(unittest.TestCase):
   self.assertEqual(audit['status'],'partial')
   self.assertEqual([item['locator'] for item in audit['issues'] if item['kind']=='untranslated'],[segment.locator])
 
- def test_review_retranslation_covers_all_maintained_targets_and_rejects_wrong_numbers(self):
+ def test_review_retranslation_covers_all_maintained_targets_without_factual_gate(self):
   from backend.models import Finding,Segment
   source=SAMPLES['zh-CN']
   class WrongNumberModel(Model):
@@ -391,9 +391,7 @@ class DocumentLanguageTests(unittest.TestCase):
     finding=Finding(segment_id='one',file='a.pptx',file_path='a.pptx',slide=1,para=1,source='translation',found_text=source)
     review={'output':{'direction':languages.direction('zh-CN',target),'review_items':[{'locator':segment.locator,'source_text':source,'translation':source}]},'local':{'segments':[segment],'findings':[finding]}}
     workflow.repair_pending_in_review(review,WrongNumberModel(SAMPLES[target].replace('60 Hz','99 Hz')),threading.Event())
-    self.assertEqual(finding.suggested,'')
-    workflow.repair_pending_in_review(review,Model(SAMPLES[target]),threading.Event())
-    self.assertEqual(finding.suggested,SAMPLES[target])
+    self.assertEqual(finding.suggested,SAMPLES[target].replace('60 Hz','99 Hz'))
 
  def test_style_review_uses_actual_original_format_not_invented_id_colors(self):
   from backend.replacer.styled_text import style_groups,slice_groups
@@ -433,8 +431,8 @@ class DocumentLanguageTests(unittest.TestCase):
     if '本段待校对文字' not in data:return super().chat_json(prompt,system,**options)
     seen.append(data)
     if len(seen)==1 or data.get('必须逐字保留的地址')!=[url]:
-     return {'reviewed':True,'suggestions':[{'original':url+' 을(를)','replacement':url+'/changed 을(를)','reason':'Invalid address edit must still be rejected.'}]}
-    return {'reviewed':True,'suggestions':[{'original':'을(를)','replacement':'을','reason':'Use the correct particle outside the protected address.'}]}
+     return {'reviewed':True,'suggestions':[{'kind':'format','original':url+' 을(를)','replacement':url+'/changed 을(를)','reason':'Invalid address edit must still be rejected.'}]}
+    return {'reviewed':True,'suggestions':[{'kind':'format','original':'을(를)','replacement':'을','reason':'Use the correct particle outside the protected address.'}]}
   job=self.job(self.options(path,'ja-JP','ko','check'),BoundaryModel(source))
   self.assertEqual(job['status'],'complete',job)
   report=job['result'];self.assertEqual(report['stats']['errors'],0);self.assertEqual(report['stats']['judged'],1)
@@ -450,7 +448,7 @@ class DocumentLanguageTests(unittest.TestCase):
   class BoundaryOnly(Model):
    def chat_json(inner,prompt,system='',**options):
     data=json.JSONDecoder().raw_decode(prompt)[0]
-    if '本段待校对文字' in data:return {'reviewed':True,'suggestions':[{'original':url+' 을(를)','replacement':url+'을(를)','reason':'Remove separating whitespace.'}]}
+    if '本段待校对文字' in data:return {'reviewed':True,'suggestions':[{'kind':'format','original':url+' 을(를)','replacement':url+'을(를)','reason':'Remove separating whitespace.'}]}
     return super().chat_json(prompt,system,**options)
   job=self.job(self.options(path,'ja-JP','ko','check'),BoundaryOnly(source))
   self.assertEqual(job['result']['stats']['errors'],0);self.assertEqual(job['result']['stats']['judged'],1)

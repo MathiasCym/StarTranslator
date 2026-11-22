@@ -101,7 +101,7 @@ class PdfReflowTests(unittest.TestCase):
                     phrases=json.loads(prompt.split('【只需补译的中文】\n')[1].split('\n')[0])
                     translations={'客户项目调研报告':'Customer Project Research Report','型号':'Model ', '带宽':'bandwidth '}
                     return {'translations':[{'source':p,'translation':translations[p]} for p in phrases]}
-                return {'translation':'COSM Customer Project Research Report\nNHL and Cosm have a partnership.\nModel VX2000, bandwidth 200 Mbit.'}
+                return {'translation':'COSM Report. Model VX1000. See https://example.test/unrequested'}
         model=Model();result=translate_file(source,Glossary([]),None,client=model,workers=1)
         self.assertTrue(result['translation_complete'],result['review_items'])
         self.assertEqual(result['untranslated'],0);self.assertFalse(saved_residuals(result['path']))
@@ -145,26 +145,13 @@ class PdfReflowTests(unittest.TestCase):
         self.assertTrue(resumed['translation_complete']);self.assertEqual(resumed['resumed_segments'],4)
         self.assertEqual(model.calls,3)
 
-    def test_invalid_local_recovery_cannot_add_numbers_or_hide_a_failure(self):
-        source=self.root/'source.pdf';pdf_fixture(source,'型号VX1000。')
-        class Model:
-            def chat_json(self,prompt,**kw):
-                if '【只需补译的中文】' in prompt:return {'translations':[{'source':'型号','translation':'Model 2000'}]}
-                if prompt.startswith('{'):
-                    return {'severity':'critical','source_evidence':'型号VX1000','target_evidence':'Model 2000',
-                            'reason':'原文的型号前没有另一个数字 2000。'}
-                return {'translation':'Model VX2000.'}
-        result=translate_file(source,Glossary([]),None,client=Model())
-        self.assertFalse(result['translation_complete']);self.assertGreater(result['untranslated'],0)
-        self.assertTrue(saved_residuals(result['path']))
-        self.assertIn('VX1000',''.join(p.text for p in Document(result['path']).paragraphs))
 
     def test_invalid_recovery_json_is_a_local_issue_not_a_connection_outage(self):
         source=self.root/'source.pdf';pdf_fixture(source,'型号VX1000。')
         class Model:
             def chat_json(self,prompt,**kw):
                 if '【只需补译的中文】' in prompt:return {}
-                return {'translation':'Model VX2000.'}
+                return {'translation':''}
         result=translate_file(source,Glossary([]),None,client=Model())
         self.assertFalse(result['translation_complete'])
         self.assertFalse(any(item.get('service_unavailable') for item in result['review_items']))

@@ -100,11 +100,8 @@ class QualityGateTests(unittest.TestCase):
     def test_failed_translation_gets_a_full_paragraph_repair_before_completion(self):
         source=self.root/'source.docx';doc=Document();doc.add_paragraph('亮度500尼特');doc.add_paragraph('刷新率60Hz');doc.save(source)
         class Model:
-            def __init__(self):self.responses=iter(['Brightness 500 nits','still Chinese','still Chinese','60 Hz'])
+            def __init__(self):self.responses=iter(['Brightness 500 nits','','','60 Hz'])
             def chat_json(self,prompt,**kw):
-                if prompt.startswith('{'):
-                    return {'severity':'critical','source_evidence':'60Hz','target_evidence':'still Chinese',
-                            'reason':'译文遗漏了原稿的刷新率。'}
                 return {'translation':next(self.responses)}
         result=translate_file(str(source),Glossary([]),None,client=Model(),workers=1)
         self.assertTrue(result['translation_complete']);self.assertEqual(result['untranslated'],0)
@@ -384,22 +381,6 @@ class QualityGateTests(unittest.TestCase):
         for source,target in invalid:
             with self.subTest(source=source,target=target):
                 with self.assertRaisesRegex(ValueError,'单位'):validate_translation(source,target)
-    def test_wrong_unit_is_repaired_in_translation_before_review(self):
-        source=self.root/'units.docx';doc=Document();doc.add_paragraph('亮度500尼特');doc.save(source)
-        original=source.read_bytes()
-        class Model:
-            def __init__(self):self.prompts=[]
-            def chat_json(self,prompt,system='',**kwargs):
-                self.prompts.append(prompt)
-                if system.startswith('只核对当前段落'):
-                    return {'severity':'critical','source_evidence':'500尼特',
-                            'target_evidence':'500 mm','reason':'亮度的物理单位从尼特变为毫米'}
-                return {'translation':'Brightness 500 mm' if len(self.prompts)==1 else 'Brightness 500 nits'}
-        model=Model();result=translate_file(str(source),Glossary([]),None,client=model,workers=1)
-        self.assertEqual(len(model.prompts),3);self.assertIn('单位',model.prompts[2])
-        self.assertEqual(Document(result['path']).paragraphs[0].text,'Brightness 500 nits')
-        self.assertTrue(result['translation_complete']);self.assertEqual(result['needs_review'],0)
-        self.assertEqual(source.read_bytes(),original)
     def test_misplaced_review_response_is_retried_before_marking_checked(self):
         from backend.matcher import check_segments
         segment=Segment('review-unit','English.docx','pythsical output','body/0',file_path=str(self.root/'English.docx'))
@@ -407,7 +388,7 @@ class QualityGateTests(unittest.TestCase):
             def __init__(self):self.calls=0
             def chat_json(self,*args,**kwargs):
                 self.calls+=1
-                return [{'found':'other paragraph' if self.calls==1 else 'pythsical','suggested':'physical','kind':'typo'}]
+                return [{'found':'other paragraph' if self.calls==1 else 'pythsical','suggested':'physical','kind':'format'}]
         model=Model()
         with patch('backend.matcher.RETRY_BACKOFF',(0,0)):
             findings,stats=check_segments([segment],Glossary([]),client=model,workers=1)
@@ -419,14 +400,14 @@ class QualityGateTests(unittest.TestCase):
         segment=Segment('review-invalid','English.docx','pythsical output','body/0',file_path=str(self.root/'English.docx'))
         class Model:
             def __init__(self):self.calls=0
-            def chat_json(self,*args,**kwargs):self.calls+=1;return [{'found':'pythsical','suggested':None}]
+            def chat_json(self,*args,**kwargs):self.calls+=1;return [{'found':'pythsical','suggested':None,'kind':'format'}]
         model=Model()
         with patch('backend.matcher.RETRY_BACKOFF',(0,0)):
             findings,stats=check_segments([segment],Glossary([]),client=model,workers=1)
         self.assertEqual(model.calls,3);self.assertEqual(findings,[])
         self.assertEqual(stats['model_status'],'unavailable');self.assertEqual(stats['unreviewed'],1)
         self.assertEqual(stats['completed_files'],[])
-    def test_old_checkpoint_reuses_valid_english_but_rechecks_wrong_units(self):
+    def test_old_checkpoint_reuses_valid_text_without_unit_rechecks(self):
         from backend.checkpoints import open_checkpoint,translation_key
         from backend.llm.client import LLMClient
         from backend.replacer.styled_text import style_groups,slice_groups
@@ -451,8 +432,8 @@ class QualityGateTests(unittest.TestCase):
                     'fingerprint':fingerprint(source),'mode':'faithful'},glossary,None,model)
                 checkpoint.put(translation_key(segment,segment.text,groups),{'translation':text,'runs':[{'id':groups[0]['id'],'text':text}],'needs_style':False})
             result=translate_file(str(source),glossary,None,client=model,workers=1)
-            self.assertEqual(Document(result['path']).paragraphs[0].text,'Brightness 500 nits')
-            self.assertEqual(model.calls,2*index);self.assertEqual(result['resumed_segments'],1-index)
+            self.assertEqual(Document(result['path']).paragraphs[0].text,text)
+            self.assertEqual(model.calls,0);self.assertEqual(result['resumed_segments'],1)
     def test_date_before_venue_line_completes_real_translation_review_handoff(self):
         source=self.root/'date-venue.docx';doc=Document();doc.add_paragraph('2025.05.09\n测试场馆');doc.save(source)
         class Model:
@@ -488,7 +469,7 @@ class QualityGateTests(unittest.TestCase):
         self.assertGreater(job['result']['stats']['judged'],0)
         self.assertEqual(source.read_bytes(),original)
 
-    def test_one_unfixable_numeric_paragraph_saves_other_work_as_a_draft(self):
+    def test_empty_model_payload_saves_other_work_as_a_draft(self):
         source=self.root/'partial-source.docx';doc=Document()
         doc.add_paragraph('分辨率为3840×2160。');doc.add_paragraph('亮度500尼特。');doc.save(source)
         original=source.read_bytes()
@@ -498,7 +479,7 @@ class QualityGateTests(unittest.TestCase):
                 if kw.get('system','').startswith('你是 LED 显示行业的中英技术翻译'):
                     self.translations+=1
                     piece=prompt.split('【待译原文】\n',1)[1].split('\n【',1)[0]
-                    return {'translation':'1920 x 1080.' if '3840' in piece else 'Brightness 500 nits.'}
+                    return {'translation':'' if '3840' in piece else 'Brightness 500 nits.'}
                 if kw.get('system','').startswith('只核对当前段落'):
                     return {'severity':'critical','source_evidence':'3840×2160',
                             'target_evidence':'1920 x 1080','reason':'分辨率改变'}

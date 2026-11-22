@@ -250,6 +250,7 @@
 git clone https://github.com/MathiasCym/StarTranslator.git
 cd StarTranslator
 npm ci
+npm exec --no -- install-electron
 python tools/bootstrap-runtime.py
 npm start
 ```

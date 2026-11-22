@@ -424,9 +424,13 @@ def _validate_text_quantities(source, target, src, dst):
 
 def validate(source, target, src, dst, *, allow_identical=False, document=False):
     if not isinstance(target,str) or not target.strip():raise ValueError('模型未返回有效译文。')
-    validate_identifiers(source,target)
-    if Counter(m[0] for m in INLINE_CODE.finditer(source)) != Counter(m[0] for m in INLINE_CODE.finditer(target)):
-        raise ValueError('译文改变了行内代码，代码必须原样保留。')
+    if document:
+        from .translation_policy import validate_document_text
+        validate_document_text(source,target,preserve_paragraph=src!=dst)
+    else:
+        validate_identifiers(source,target)
+        if Counter(m[0] for m in INLINE_CODE.finditer(source)) != Counter(m[0] for m in INLINE_CODE.finditer(target)):
+            raise ValueError('译文改变了行内代码，代码必须原样保留。')
     visible=INLINE_CODE.sub(' ',prose(target))
     residue=foreign_script_fragments(visible,dst)
     if residue:
@@ -442,8 +446,11 @@ def validate(source, target, src, dst, *, allow_identical=False, document=False)
         residue=korean_han_fragments(INLINE_CODE.sub(' ',prose(source)),visible)
         if residue:
             raise SourceScriptResidue(f'韩语译文仍含未译汉字（{"、".join(residue[:8])}）。请替换这些原词，保留已译内容。专名原字可放在韩文译名后的括号中。')
-    if not document:
-        _validate_text_quantities(source, target, src, dst)
+    if document:
+        if src!=dst and not allow_identical and source.strip()==target.strip() and document_clauses(source):
+            raise ValueError('模型返回了原文，未生成目标语言译文。')
+        return
+    _validate_text_quantities(source, target, src, dst)
     code_forms=r'[A-Za-z]+\d[A-Za-z0-9]*(?:[._-][A-Za-z0-9]+)*|4K|8K|16K|3D|2D'
     if not document:code_forms+=r'|LED|LCD|OLED|HDMI|USB|CPU|GPU|API|SDK'
     codes=re.findall(r'(?<![A-Za-z0-9])(?:'+code_forms+r')(?![A-Za-z0-9])',prose(source))
@@ -477,6 +484,7 @@ def validate(source, target, src, dst, *, allow_identical=False, document=False)
 
 def translate_piece(client, source, reference, src, dst, cancel, *, context='', humanize=False, activity=None, mode='faithful',quality=None,source_scripts=None,terminology=True,on_candidate=None,preserve_lines=False):
     from . import document_translation_policy as policy
+    from .translation_policy import PARAGRAPH_INSTRUCTION, ParagraphBoundaryError
     combined_document=policy.automatic()
     document_request=combined_document or not terminology
     if combined_document:reference=policy.reference();terminology=True
@@ -505,7 +513,8 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
     system=f'将{LANGUAGES[src]}完整翻译为{LANGUAGES[dst]}。'+common+'只返回 {"translation":"完整译文"}。'
     if preserve_lines:system+='输入每行是一个完整待译片段，逐行翻译并用一个换行隔开各行，不合并行、不增加空行。'
     if mode=='compact':system+='本次用于演示文稿文案压缩：在完整保留全部事实、限定、否定、数字、型号和专名的前提下，优先简洁自然的表达，删除多余措辞；不得概括掉信息。'
-    if humanize:system+='\n'+humanizer_rules()
+    if document_request:system+=PARAGRAPH_INSTRUCTION+policy.natural_writing(source)
+    elif humanize:system+='\n'+humanizer_rules()
     else:system+='原文为单词或短词组时，只输出对应词语或词组，不扩写成解释、宣传语或完整长句。'
     review_system=(f'对照{LANGUAGES[src]}原文，严格复核{LANGUAGES[dst]}译文是否语义完整、语言正确且没有漏译。'+common+
         '检查单位、专业修饰词、品牌重复和限定范围。日文中的汉字不是未译中文，合理的品牌原拼写允许保留。'
@@ -515,13 +524,6 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
         'ok=false时必须给出解决这些确定错误的完整corrected_translation，不能仅让用户确认术语，也不能一边认为某译法正确一边将同一译法判错。'
         '若复核结论为语义完整且事实与链接不变，必须返回ok=true与空issues。'
         '只返回 {"ok":true,"issues":[]} 或 {"ok":false,"issues":["具体问题"],"corrected_translation":"完整修正稿"}。')
-    if document_request:review_system+=policy.REVIEW_SEVERITY
-    if not terminology:review_system=review_system.replace('完整性、术语','完整性').replace('术语、','')+'这里只核对原文语义、漏译与事实，不评判词库标准及术语规范。'
-    if combined_document:
-        review_system+='完整性复核以语义和事实为准。等值的文字数词与阿拉伯数字、语义合适的近义词及词形活用不得据此拒绝，具体术语规范随后单独检查。'
-    clauses=document_clauses(source) if document_request else []
-    if clauses:
-        review_system+='逐条在译文中找到每句原文的语义对应。合句可以，但列表项、条件、例外、动作和细节必须逐项保留。发现缺项就给出补齐的完整译文。'
     if humanize:review_system+='复核自然表达时，事实完整优先；不要求机械删除原文的修辞。'
     error='';script_repair=None;previous_candidate=None
     def validate_candidate(target):
@@ -551,16 +553,18 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
             value=client.chat_json(json.dumps(request,ensure_ascii=False)+('\n上次检查：'+error if error else ''),system=retry_system,max_tokens=6000)
             target=separate_link_punctuation(source,value.get('translation')) if isinstance(value,dict) else None
             try:validate_candidate(target)
+            except ParagraphBoundaryError:
+                payload={**payload,'相邻原文（仅供理解）':''}
+                script_repair=previous_candidate=target=None
+                raise
             except SourceScriptResidue:
                 if document_request:script_repair=target
                 raise
             check_cancel(cancel)
             if on_candidate:on_candidate(target.strip())
+            if document_request:return target.strip()
             if activity:activity('正在对照原文复核完整性、术语及目标语言' if terminology else '正在对照原文复核完整性与事实')
             review_context=request['相邻原文（仅供理解）']
-            if document_request and len(source.strip())<=64:
-                new_literals=numeric_values(prose(target))-numeric_values(prose(source))
-                if new_literals & numeric_values(prose(review_context)):review_context=''
             def review(candidate, *, original=None, prior=None):
                 compare=original is not None
                 extra=quality.payload(source,candidate) if quality else {}
@@ -572,7 +576,6 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
                     thinking=compare and verification>0 and getattr(client,'supports_thinking_mode',False) is True
                     checked=client.chat_json(json.dumps({'原文':source,'译文':candidate,'相邻原文（仅供理解）':review_context,**({'相关术语':terms} if terminology else {}),**extra,
                         **({'原文上下标':source_scripts} if source_scripts else {}),
-                        **({'需逐句核对的原文':clauses} if clauses else {}),
                         **({'修正前译文':original,'初稿待核对未变原文片段':original_candidates} if compare else {}),
                         **({'待独立裁定的复核意见':prior} if prior else {}),
                         **({'上次完整性检查':previous} if previous else {})},ensure_ascii=False),
@@ -581,7 +584,6 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
                         ('对照当前修正稿和修正前译文。若初稿已经完整准确，修正只是用词偏好或会引入错误，返回ok=true、keep_original=true和空issues。'
                          '否则审查当前修正稿，认可则按通常格式返回。目标语言逐项判断使用你认可的那份译文的对应候选清单。' if compare else ''),
                         max_tokens=6000,**({'thinking':True} if thinking else {}))
-                    if document_request:checked=policy.keep_minor_review(checked)
                     if (not isinstance(checked,dict) or type(checked.get('ok')) is not bool
                             or not isinstance(checked.get('issues'),list)
                             or any(not isinstance(issue,str) for issue in checked['issues'])):
@@ -603,7 +605,7 @@ def translate_piece(client, source, reference, src, dst, cancel, *, context='', 
                 raise ValueError(previous)
             checked,revised,target=review(target)
             if revised is not None:
-                checked,_,target=review(revised,**({'original':target,'prior':checked} if document_request else {}))
+                checked,_,target=review(revised)
             if not checked['ok'] or checked['issues']:raise ValueError('；'.join(map(str,checked['issues'])) or '译文未通过完整性复核。')
             check_cancel(cancel);return target.strip()
         except (ValueError,LLMResponseInvalid,LLMTruncated) as exc:

@@ -10,7 +10,6 @@ from .judge import judge_text, judge_text_ex, judge_segments
 from .retriever import recall_terms
 from .rules import check_rules
 from ..document_context import DocumentContext
-from ..writing_policy import numeric_values
 
 # 单段判决的重试次数与退避（秒）。模型网关偶发超时/被限流是间歇性的，
 # 重试即可恢复；因此不该让一段失败终止整份文档的复核。
@@ -85,7 +84,7 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
         for segment in checked:
             if segment.file_path in checkpoints: continue
             same_file = [s for s in checked if s.file_path==segment.file_path]
-            identity = {'source':checkpoint_origin or segment.file_path or segment.file,
+            identity = {'schema':'format-terminology','source':checkpoint_origin or segment.file_path or segment.file,
                 'segments':[(s.locator,s.text,s.source,s.layout) for s in same_file],
                 'aligned':[(s.locator,references.aligned_text(s)) for s in same_file] if references and hasattr(references,'aligned_text') else []}
             checkpoints[segment.file_path] = open_checkpoint('review',identity,glossary,references,client,reference_path=segment.file_path)
@@ -151,11 +150,7 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
                         original,replacement=normalize_suggestion(seg,hit['found'],hit['suggested'])
                         if original==replacement:continue
                         hit={**hit,'found':original,'suggested':replacement}
-                        added = numeric_values(hit['suggested']) - numeric_values(hit['found'])
-                        aligned = references.aligned_text(seg) if references and hasattr(references,'aligned_text') else ''
-                        verified = bool(added and aligned and not (added - numeric_values(aligned)))
-                        if ((not verified and page_context.duplicates_neighbor_number(seg, hit['found'], hit['suggested']))
-                                or page_context.duplicates_neighbor_label(seg,hit['found'],hit['suggested'])):
+                        if page_context.duplicates_neighbor_label(seg,hit['found'],hit['suggested']):
                             stats['discarded_context_hits'] += 1
                             continue
                         if any(f.segment_id==seg.id and f.found_text.casefold()==hit['found'].casefold() for f in findings):
@@ -165,7 +160,7 @@ def check_segments(segments, glossary, use_llm=True, client=None, progress=None,
                             suggested=hit['suggested'],concept_zh=hit.get('concept_zh',''),
                             confidence=hit.get('confidence','medium'),method='llm',kind=hit.get('kind','term'),
                             reason=hit.get('reason',''),editable=seg.editable,not_editable_reason=seg.not_editable_reason,
-                            context=page_context.report_context(seg), numeric_addition_verified=verified,
+                            context=page_context.report_context(seg),
                             occurrences=len(list(re.finditer(re.escape(hit['found']),seg.text,re.I))))
                         findings.append(finding)
                         new_hits.append(finding)

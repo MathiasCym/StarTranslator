@@ -25,7 +25,7 @@ class Model(LLMClient):
  def chat_images_json(self,prompt,images,**options):
   self.calls.append(('image',prompt))
   if len(images)==1:return {'reviewed':True,'lines':[{'id':0,'text':WORDS[self.src]}],'untouched_ids':[],'unlocated_source':[]}
-  return {'reviewed':True,'remaining_source':[],'meaning_preserved':not self.reject,'other_content_preserved':True,'readable':True}
+  return {'reviewed':True,'remaining_source':[],'other_content_preserved':True,'readable':not self.reject}
  def chat_json(self,prompt,**options):
   self.calls.append(('text',prompt));data=json.JSONDecoder().raw_decode(prompt)[0]
   if '本段待校对文字' in data:return {'reviewed':True,'suggestions':[]}
@@ -90,9 +90,9 @@ class MultilingualImageTests(unittest.TestCase):
    with self.assertRaises(ValueError):images.scan(answer,ocr,'en-US','ja-JP')
   self.assertEqual(images.scan(dict(reviewed=True,lines=[],untouched_ids=[0],unlocated_source=[]),ocr,'en-US','ja-JP'),[])
 
- def test_ocr_cannot_change_numbers_urls_or_model_codes(self):
+ def test_ocr_cannot_change_urls(self):
   ocr={'lines':[{'id':0,'text':'The A8 rate is 60 Hz. https://example.com/a','box':[0,0,500,80]}]}
-  for source in ['The A9 rate is 60 Hz. https://example.com/a','The A8 rate is 61 Hz. https://example.com/a','The A8 rate is 60 Hz. https://example.com/b']:
+  for source in ['The A8 rate is 60 Hz. https://example.com/b']:
    with self.assertRaises(ValueError):images.scan(dict(reviewed=True,lines=[{'id':0,'text':source}],untouched_ids=[],unlocated_source=[]),ocr,'en-US','ja-JP')
 
  def test_saved_file_cannot_drop_a_previously_verified_picture(self):

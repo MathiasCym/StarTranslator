@@ -275,7 +275,7 @@ def _run(job,data):
                     outputs.append(result)
                     if combined:
                         def review_progress(n,t,*message):
-                            progress(n,t,f'校对 {index+1}/{len(paths)}：{Path(path).name}','check',detail=str(message[0]) if message else '正在独立审校表达、术语和事实')
+                            progress(n,t,f'校对 {index+1}/{len(paths)}：{Path(path).name}','check',detail=str(message[0]) if message else '正在检查术语与格式')
                         review_progress.stage=lambda phase,n,t,message:progress(n,t,f'校对 {index+1}/{len(paths)}：{Path(path).name}',phase,detail=message)
                         progress(0,0,f'校对 {index+1}/{len(paths)}：{Path(result["path"]).name}', 'check')
                         review = auto_review(result, glossary, references, job['cancel'],
@@ -657,7 +657,7 @@ def repair_pending_in_review(review,client,cancel,progress=None):
                 else recover_paragraph(client,piece,src,dst,cancel,context=context,quality=quality,previous=previous)
                 for piece in translation_chunks(source_text,1500))
             content_validate(source_text,translated,src,dst,
-                allow_identical=bool(quality.proof(source_text,translated) and quality.review_identical_formula(source_text,translated)))
+                allow_identical=quality.review_identical_formula(source_text,translated))
             finding.suggested=translated
             finding.source='translation'
             finding._translation_source=source_text
@@ -886,11 +886,6 @@ def _apply_report(data, report, progress=None, client=None):
             if finding.source=='translation' and old.strip()==new.strip():
                 failed.append({'segment_id':segment_id,'index':finding_index,'reason':'补译结果仍是原文，未记为完成。'})
                 continue
-            if (not reverse and finding.method == 'llm' and new == finding.suggested and not finding.numeric_addition_verified
-                    and page_context.duplicates_neighbor_number(segment, old, new)):
-                failed.append({'segment_id':segment_id,'index':finding_index,
-                               'reason':'这条建议会重复补入相邻文字已有的数字，已跳过；请结合上下文修改建议。'})
-                continue
             if (not reverse and finding.method=='llm' and new==finding.suggested
                     and page_context.duplicates_neighbor_label(segment,old,new)):
                 failed.append({'segment_id':segment_id,'index':finding_index,
@@ -901,9 +896,10 @@ def _apply_report(data, report, progress=None, client=None):
             matches = list(pattern.finditer(segment.text))
             from difflib import SequenceMatcher
             candidates=[edit for match in matches for edit in styled_edits(match.group(),new,match.start())]
-            from .text_integrity import IDENTIFIERS, validate_identifiers
+            from .text_integrity import IDENTIFIERS
             try:
-                validate_identifiers(old,new)
+                from .translation_policy import validate_document_text
+                validate_document_text(old,new)
                 if reverse:
                     if multilingual:
                         from .multilingual_documents import content_validate

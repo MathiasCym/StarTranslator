@@ -27,11 +27,6 @@ class Model:
         return answer if isinstance(answer, dict) else {'translation': answer}
 
 
-def confirmed_quantity(source, target):
-    return {'severity':'critical','source_evidence':source,'target_evidence':target,
-            'reason':'译文中的数值与原文不同。'}
-
-
 class RecoveryTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -111,34 +106,17 @@ class RecoveryTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             validate_translation('21.4万块', '21,400 screens')
 
-    def test_one_brightness_value_is_corrected_after_model_confirmation(self):
-        source = self.document('亮度为500nits。')
-        model = Model(['The brightness is 1000 nits.', confirmed_quantity('500nits', '1000 nits'),
-                       'The brightness is 500 nits.'])
-        result = self.translate(source, model)
-        self.assertEqual(Document(result['path']).paragraphs[0].text, 'The brightness is 500 nits.')
-        self.assertEqual(len(model.prompts), 3)
-        self.assertIn('仅修正有差异的位置', model.prompts[2])
-        self.assertEqual(result['needs_review'], 0)
 
     def test_ambiguous_units_and_model_digits_are_not_blindly_replaced(self):
         for source, text in [('亮度500nits', '5000 pixels'), ('VX1000输出500nits', 'VX2000 outputs 500 nits'),
                              ('分辨率3840×2160', '1920 x 1080')]:
             self.assertEqual(repair_numeric_translation(source, text), text)
 
-    def test_local_model_repair_preserves_good_content_then_continues(self):
-        source = self.document('支持HDR，分辨率为3840×2160。', '亮度500nits。')
-        model = Model(['Supports HDR at 1920 x 1080.', confirmed_quantity('3840×2160','1920 x 1080'),
-                       'Supports HDR at 3840 x 2160.', '500 nits.'])
-        result = self.translate(source, model)
-        self.assertEqual(result['needs_review'], 0)
-        self.assertEqual(result['translated'], 2)
-        self.assertIn('仅修正有差异的位置', model.prompts[2])
 
     def test_unresolved_first_paragraph_keeps_draft_and_translates_later_paragraph(self):
         source = self.document('分辨率为3840×2160。', '亮度500nits。'); original = source.read_bytes()
-        wrong = ['1920 x 1080.', confirmed_quantity('3840×2160','1920 x 1080')]
-        model = Model(wrong*2 + ['500 nits.'] + wrong*2)
+        wrong = ['', '']
+        model = Model(wrong + ['500 nits.'] + wrong*3)
         result = self.translate(source, model)
         self.assertEqual(result['status'], 'needs_review')
         self.assertEqual(result['needs_review'], 1)

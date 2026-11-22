@@ -40,7 +40,7 @@ async function publishIncremental(publisher,release,{readBody}){
    }
    files.push(['small-updaters.json',bytes])
  }
- files.unshift(['SHA256SUMS.incremental.txt',Buffer.from(index.patches.map(p=>p.sha256+'  '+p.filename+'\n').join(''))]);files.push(['incremental.json',indexBytes])
+ files.unshift(['SHA256SUMS.incremental.txt',Buffer.from(index.patches.map(p=>p.sha256+'  '+p.filename+'\n').join('')||'\n')]);files.push(['incremental.json',indexBytes])
  let existing=await publisher.call('GET','releases/tags/'+tag)
  if(existing&&existing.release_status!=='pre'&&!existing.prerelease){
    for(const [name,bytes] of files){const matches=(existing.assets||[]).filter(a=>a.name===name);if(matches.length!==1||!(await readAsset(s,matches[0],name,bytes.length)).equals(bytes))throw Error('国内已有正式增量版不同，未修改。')}

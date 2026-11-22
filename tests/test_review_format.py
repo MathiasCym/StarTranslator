@@ -65,14 +65,14 @@ class WorkflowTests(unittest.TestCase):
                 if 'Gbps' in current:
                     self.script_requests+=int('当前文字真实上下标' in prompt)
                     text='1 Gbps(109) × usage rate'
-                    return [{'found':text,'suggested':text.replace('109','10⁹'),'reason':'incorrectly assume missing superscript','kind':'grammar'}],False
-                return [{'found':'TEST TEST','suggested':'TEST','reason':'actual repeated word','kind':'grammar'}],False
+                    return [{'found':text,'suggested':text.replace('109','10⁹'),'reason':'incorrectly assume missing superscript','kind':'format'}],False
+                return [{'found':'TEST TEST','suggested':'TEST','reason':'actual repeated word','kind':'format'}],False
             def chat_json(self,prompt,**options):
                 payload=json.JSONDecoder().raw_decode(prompt)[0];text=payload.get('本段待校对文字',payload.get('中文译文',''))
                 if 'Gbps' in text:
                     self.script_requests+=int(bool(payload.get('当前文字真实上下标')))
-                    return {'reviewed':True,'suggestions':[{'original':text,'replacement':text.replace('109','10⁹'),'reason':'incorrectly assume missing superscript'}]}
-                return {'reviewed':True,'suggestions':[{'original':'TEST TEST','replacement':'TEST','reason':'actual repeated word'}]}
+                    return {'reviewed':True,'suggestions':[{'kind':'format','original':text,'replacement':text.replace('109','10⁹'),'reason':'incorrectly assume missing superscript'}]}
+                return {'reviewed':True,'suggestions':[{'kind':'format','original':'TEST TEST','replacement':'TEST','reason':'actual repeated word'}]}
         for language,label in labels.items():
             with self.subTest(language=language):
                 path=self.root/(language+'.pptx');deck(path,label);before=path.read_bytes();model=Model()

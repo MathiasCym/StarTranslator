@@ -134,17 +134,16 @@ class TerminologyTests(unittest.TestCase):
         self.assertEqual(model.term_calls,3)
         self.assertEqual(stats['terminology_status'],'complete')
 
-    def test_numeric_change_in_term_suggestion_is_rejected_and_not_cached(self):
+    def test_term_suggestion_does_not_trigger_a_quantity_review(self):
         answer={'reviewed':True,'decisions':[{'id':'0','status':'replace','original':'レートは 60 Hz',
             'replacement':'リフレッシュレートは 61 Hz','reason':'Use the standard.'}]}
         class ChangedValue(TermModel):
             def chat_json(self,prompt,system='',**options):
                 if system.startswith('只核对当前段落'):
-                    return {'severity':'critical','source_evidence':'60 Hz',
-                            'target_evidence':'61 Hz','reason':'建议改变刷新率。'}
+                    raise AssertionError('Document terminology must not launch a quantity review.')
                 return super().chat_json(prompt,system,**options)
         model=ChangedValue(decisions=answer);findings,stats=self.audit(model)
-        self.assertFalse(findings);self.assertEqual(model.term_calls,2);self.assertEqual(stats['model_status'],'partial')
+        self.assertEqual(len(findings),1);self.assertEqual(model.term_calls,1);self.assertEqual(stats['model_status'],'complete')
 
     def test_missing_catalog_preserves_existing_results_and_reports_incomplete_check(self):
         row=Segment(id='p0',file='qa.docx',file_path=str(self.root/'qa.docx'),text='レートは 60 Hz です。',locator='p0')

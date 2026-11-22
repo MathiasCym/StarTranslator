@@ -8,7 +8,7 @@ from threading import Lock
 from .models import Finding
 from .document_context import DocumentContext
 from .matcher.retriever import _form_pattern
-from .writing_policy import validate_translation
+from .translation_policy import validate_document_text
 
 from .text_integrity import CHINESE
 WORDS = re.compile(r'[A-Za-z0-9]+')
@@ -99,7 +99,7 @@ def _acronym_forms(entry):
 
 def _safe(source, target):
     if CHINESE.search(target) or not WORDS.search(target): return False
-    try: validate_translation(source, target)
+    try: validate_document_text(source, target)
     except ValueError: return False
     return True
 
@@ -125,14 +125,14 @@ def check_consistency(segments, glossary, references=None, aligned_sources=None)
             context=(('对应原稿：'+sources[seg.id]+'\n') if sources.get(seg.id) else '')+seg.text,
             occurrences=len(matches)))
 
-    # Exact, explicitly aligned originals also cover repeated terms absent from the glossary.
+    # Exact paired glossary terms can be made consistent across the file.
     repeated = defaultdict(list)
     for seg in segments:
         source = sources.get(seg.id, '').strip()
         original = replace(seg, text=source)
         noun = original_context.object_name(original)
         if '块' in source and not noun: continue
-        if reusable_source(source, ambiguous) and len(seg.text) <= 900 and _safe(source, seg.text):
+        if source in by_zh and reusable_source(source, ambiguous) and len(seg.text) <= 900 and _safe(source, seg.text):
             repeated[(seg.file_path or seg.file, seg.source, noun, source)].append(seg)
     for (_, _, _, source), group in repeated.items():
         if len({signature(seg.text) for seg in group}) < 2: continue

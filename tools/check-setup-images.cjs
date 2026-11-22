@@ -3,6 +3,7 @@ const fs = require('node:fs'), path = require('node:path'), assert = require('no
 const net = require('node:net'), { spawn } = require('node:child_process')
 const crypto = require('node:crypto')
 const root = path.resolve(__dirname, '..'), stage = path.resolve(process.argv[2] || '')
+const packaged = path.resolve(process.argv[3] || path.join(root, 'dist/win-unpacked'))
 const out = path.join(root, 'dist/qa/repair-190-setup'), run = path.join(out, 'run-' + Date.now())
 const version = JSON.parse(fs.readFileSync(path.join(root, 'package.json'))).version
 const checks = [], errors = [], wait = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -106,7 +107,7 @@ async function verifyMode(uninstall) {
 ;(async () => {
   try {
     const unpacked = path.join(stage, 'resources/app.asar.unpacked/renderer/assets')
-    const originals = path.join(root, 'dist/win-unpacked/resources/app.asar.unpacked/renderer/assets')
+    const originals = path.join(packaged, 'resources/app.asar.unpacked/renderer/assets')
     for (const name of fs.readdirSync(originals)) assert(fs.readFileSync(path.join(unpacked, name)).equals(fs.readFileSync(path.join(originals, name))), name)
     await verifyMode(false); await verifyMode(true); assert.deepEqual(errors, [])
     const archiveSha256=crypto.createHash('sha256').update(fs.readFileSync(path.join(stage,'resources/app.asar'))).digest('hex')

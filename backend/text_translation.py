@@ -95,7 +95,15 @@ def confirmed_translation(source, glossary, reference, src, dst, direction):
     return target
 
 
-def validate(source, target, direction, *, document=False):
+def validate(source, target, direction, *, document=False, preserve_paragraph=False):
+    if document:
+        from .translation_policy import validate_document_text
+        validate_document_text(source,target,preserve_paragraph=preserve_paragraph)
+        if direction=='en-zh' and source.strip()==target.strip():
+            from .reverse_validation import english_clauses
+            if english_clauses(source):
+                raise ValueError('模型返回了原文，未生成中文译文。')
+        return
     if not isinstance(target, str) or not target.strip():
         raise ValueError('模型未返回有效译文。')
     validate_identifiers(source, target)
@@ -144,7 +152,8 @@ def validate(source, target, direction, *, document=False):
 
 
 def translate_piece(client, source, glossary, direction, cancel, context='', activity=None, groups=None, return_result=False, mode='faithful',fixed_order=False,person_terms=None,humanize=False,code_tokens=None,on_candidate=None,preserve_lines=False):
-    from .document_translation_policy import REVIEW_SEVERITY, keep_minor_review
+    from .document_translation_policy import natural_writing
+    from .translation_policy import PARAGRAPH_INSTRUCTION, ParagraphBoundaryError
     document=groups is not None
     src, dst = DIRECTIONS[direction]
     terminology=not getattr(glossary,'document_translation',False)
@@ -179,7 +188,9 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
         if fixed_order:system+='这些片段是同一段中被标签分开的连续正文，必须作为整句翻译，不能分别补足上下文。为保留标记，runs必须按给定ID顺序，每个ID至少一次；语法虚词可对应空字符串。不得移动标签，否定、条件和修饰词只能翻译一次。'
     if mode == 'compressed':
         system += '用户选择文案压缩：仅精简不承载事实的重复表达及宣传套话，保留全部事实、条件及限定。'
-    if humanize:
+    if document:
+        system+=PARAGRAPH_INSTRUCTION+natural_writing(source)
+    elif humanize:
         from .text_languages import humanizer_rules
         system += '\n' + humanizer_rules()
     elif code_tokens is not None:
@@ -188,12 +199,12 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
     candidate = None
     last_error = ''
     def check_text(target):
-        validate(source,target,direction,document=document)
+        validate(source,target,direction,document=document,preserve_paragraph=document)
         if code_tokens is not None:
             from .text_languages import INLINE_CODE
             if Counter(code_tokens) != Counter(m[0] for m in INLINE_CODE.finditer(target)):
                 raise ValueError('译文改变了行内代码，代码必须原样保留。')
-        if direction=='en-zh':
+        if direction=='en-zh' and (not document or person_terms):
             from .reverse_entities import validate_names
             validate_names(source,target,person_terms)
     for attempt in range(2):
@@ -211,6 +222,8 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
             check_text(candidate)
             check_cancel(cancel)
             if on_candidate:on_candidate(candidate.strip())
+            if document:
+                return {**value,'translation':candidate.strip()} if return_result else candidate.strip()
             if activity: activity('正在对照原文复核完整性与译法')
             review_system=(f'复核{src}到{dst}的翻译。核对遗漏、重复、否定条件、术语、数字、型号、链接及未译正文。'
                     '逐项核对专业修饰词与限定条件，表格标题同样需要完整含义；不要将数值、自动、数字等限定词的遗漏误当成文风差异。'
@@ -221,26 +234,18 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
                     '只返回 {"ok":true,"issues":[]} 或 {"ok":false,"issues":["具体问题"],"corrected_translation":"完整修正稿"}。若存在确定问题，请同时给出已完整解决这些问题的整段译文，不增加原文没有的信息。不要输出其他内容。')
             if not terminology:
                 review_system=review_system.replace('术语、','')+'本阶段不使用术语表，不评判词库标准；仍严格核对原文含义、专业限定、事实和漏译。'
-            if document:review_system+=REVIEW_SEVERITY
-            def review_candidate(target, prior=None):
+            def review_candidate(target):
                 answer=client.chat_json(json.dumps({'原文':source,'译文':target,
-                    **({'待独立裁定的复核意见':prior} if prior else {}),
                     **({'相关术语':payload['相关术语（仅作参考）']} if terminology else {}),**({'全文人名统一写法':person_terms} if person_terms else {})},ensure_ascii=False),
-                    system=review_system+('先核实该意见是否有原文依据，当前译文完整时直接通过。' if prior else ''),max_tokens=6000)
-                return keep_minor_review(answer) if document else answer
+                    system=review_system,max_tokens=6000)
+                return answer
             review = review_candidate(candidate)
             if isinstance(review,dict) and review.get('ok') is False and isinstance(review.get('corrected_translation'),str):
                 revised=review['corrected_translation'].strip()
-                try:check_text(revised)
-                except ValueError:
-                    if not document:raise
-                    review=review_candidate(candidate,prior=review)
-                else:
-                    second=review_candidate(revised)
-                    if isinstance(second,dict) and second.get('ok') is True and second.get('issues')==[]:
-                        candidate=revised;value={**value,'translation':candidate};review=second
-                    elif document:
-                        review=review_candidate(candidate,prior=review)
+                check_text(revised)
+                second=review_candidate(revised)
+                if isinstance(second,dict) and second.get('ok') is True and second.get('issues')==[]:
+                    candidate=revised;value={**value,'translation':candidate};review=second
             if not isinstance(review, dict) or type(review.get('ok')) is not bool or not isinstance(review.get('issues'), list):
                 raise ValueError('模型未完成原文与译文的完整性复核。')
             if not review['ok'] or review['issues']:
@@ -248,6 +253,9 @@ def translate_piece(client, source, glossary, direction, cancel, context='', act
             return {**value, 'translation': candidate.strip()} if return_result else candidate.strip()
         except (ValueError, LLMResponseInvalid, LLMTruncated) as error:
             last_error = str(error)
+            if isinstance(error,ParagraphBoundaryError):
+                prompt=json.dumps({**payload,'相邻原文（仅供理解）':''},ensure_ascii=False)
+                candidate=None
     raise ValueError(last_error)
 
 

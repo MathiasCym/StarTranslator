@@ -109,6 +109,15 @@ PREVIEW_BEFORE_QUANTITY_REVIEW={
 }
 
 
+# Preserve matching, explicitly resumed translations from the preceding 2.5.0
+# preview. Each candidate is still validated against the current paragraph.
+PREVIEW_BEFORE_BOUNDARY_REPAIR = {
+    'translation': '97f8fc18ce52e2b7fab7e1e8a0d23e3e78f946446d552e95e87ff202a4e018ac',
+    'translation-zh': 'da2dbd810725df225bcb80bc7a65bfba39a80b3c2ec9857392b7a8669bfb8d56',
+    'translation-multi': 'f43dfa6a81dd72ca7e0cffc17ffdac6b5106707e3bb1148f6678dd32b225fd9b',
+}
+
+
 def digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
         separators=(',', ':')).encode('utf-8')).hexdigest()
@@ -163,7 +172,8 @@ class Checkpoint:
                     db.execute('INSERT OR REPLACE INTO checkpoint_scopes VALUES (?,?)',(self.scope,str(identity.get('source',''))))
                 rows = db.execute('SELECT item_key,value FROM checkpoints WHERE scope=? AND stage=?', (self.scope,stage)).fetchall()
                 if identity.get('task_session') is not None:
-                    for shipped in (PREVIEW_BEFORE_QUANTITY_REVIEW, SHIPPED_249, SHIPPED_248, SHIPPED_247, SHIPPED_246, SHIPPED_245, SHIPPED_244, SHIPPED_241):
+                    for shipped in (PREVIEW_BEFORE_BOUNDARY_REPAIR, PREVIEW_BEFORE_QUANTITY_REVIEW,
+                                    SHIPPED_249, SHIPPED_248, SHIPPED_247, SHIPPED_246, SHIPPED_245, SHIPPED_244, SHIPPED_241):
                         if stage not in shipped:
                             continue
                         legacy=digest({'policy':shipped[stage],'input':identity})

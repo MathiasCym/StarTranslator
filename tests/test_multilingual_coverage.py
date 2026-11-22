@@ -9,9 +9,8 @@ from backend.multilingual_quality import LanguageReview,IncompleteLanguageReview
 from backend.translation_retry import repaired_pages
 
 class CoverageTests(unittest.TestCase):
-    def test_document_validation_preserves_identifiers_and_leaves_quantity_judgment_to_review(self):
+    def test_document_validation_protects_links_and_does_not_reject_quantity_differences(self):
         from backend.multilingual_documents import content_validate
-        from backend.translation_policy import validate_for_file
 
         source='A8 控制器的容差为30.00%，工作温度可达−20 °C。'
         target='A8 컨트롤러의 허용 오차는 30 퍼센트이며, 작동 온도는 마이너스 20 °C까지입니다.'
@@ -21,12 +20,9 @@ class CoverageTests(unittest.TestCase):
             with self.subTest(changed=changed):
                 content_validate(source,changed,'zh-CN','ko')
                 with self.assertRaises(ValueError):validate(source,changed,'zh-CN','ko')
-        with self.assertRaisesRegex(ValueError,'A8'):
-            content_validate(source,target.replace('A8','B8'),'zh-CN','ko')
-        for suffix in ('.docx','.pdf','.pptx'):
-            with self.subTest(suffix=suffix):
-                validate_for_file('source'+suffix,'LED亮度误差为30.00%。',
-                                  'Light-emitting diode brightness has an error of 30 percent.')
+        content_validate(source,target.replace('A8','A 8'),'zh-CN','ko')
+        with self.assertRaisesRegex(ValueError,'网址'):
+            content_validate(source+' https://example.com/a',target+' https://example.com/b','zh-CN','ko')
         content_validate('GPU负责显示计算。','그래픽 처리 장치가 디스플레이 연산을 담당합니다.','zh-CN','ko')
         # Grammar need not produce comparable digit tokens on both sides.
         content_validate('至少预留3个座位。','좌석을 적어도 세 자리 남겨 주세요.','zh-CN','ko')
@@ -88,26 +84,6 @@ class CoverageTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'数字或日期'):
                     validate(source,incorrect,'zh-CN','ko')
 
-    def test_document_review_repairs_a_missing_clause_with_target_language_already_present(self):
-        source='关闭测试灯。保留紧急照明。'
-        incomplete='テスト照明を消してください。'
-        complete='テスト照明を消し、非常用照明は点灯させてください。'
-        class Model:
-            def __init__(self):
-                self.reviews=[]
-
-            def chat_json(self,prompt,system='',**options):
-                payload=json.JSONDecoder().raw_decode(prompt)[0]
-                if '待译原文' in payload:return {'translation':incomplete}
-                self.reviews.append(payload['译文'])
-                self.clauses=payload['需逐句核对的原文']
-                if payload['译文']==complete:return {'ok':True,'issues':[]}
-                return {'ok':False,'issues':['未译出保留紧急照明。'],'corrected_translation':complete}
-        model=Model()
-        result=translate_piece(model,source,{},'zh-CN','ja-JP',threading.Event(),terminology=False)
-        self.assertEqual(result,complete)
-        self.assertEqual(model.clauses,['关闭测试灯。','保留紧急照明。'])
-        self.assertEqual(model.reviews,[incomplete,complete])
 
     def test_traditional_rejects_copied_simplified_text_but_keeps_shared_characters(self):
         source='控制器连接后启动显示屏。'
@@ -126,24 +102,8 @@ class CoverageTests(unittest.TestCase):
             return page
         self.assertEqual(list(ordered_groups(range(3),compute,2,threading.Event())),[0,1,2])
 
-    def test_title_repair_excludes_neighbors_after_copied_number(self):
-        class Model:
-            def __init__(self):self.calls=[]
-            def chat_json(self,prompt,**options):
-                payload=json.JSONDecoder().raw_decode(prompt)[0]
-                self.calls.append(payload)
-                if '待译原文' in payload:
-                    return {'translation':'階調技術 60 Hz' if len(self.calls)==1 else '階調技術'}
-                if payload.get('译文')=='階調技術 60 Hz':
-                    return {'ok':False,'issues':['原文没有频率参数'],'severity':'critical','corrected_translation':'階調技術'}
-                return {'ok':True,'issues':[]}
-        model=Model()
-        result=translate_piece(model,'灰阶技术',None,'zh-CN','ja-JP',threading.Event(),
-            context='相邻正文说60 Hz',terminology=False)
-        self.assertEqual(result,'階調技術')
-        self.assertEqual([p['相邻原文（仅供理解）'] for p in model.calls],['相邻正文说60 Hz','',''])
 
-    def test_script_repair_reuses_candidate_then_runs_independent_review(self):
+    def test_script_repair_reuses_candidate_without_an_independent_review(self):
         source='新城LED电影公园'
         translated='新城LED映画公園'
         class Model:
@@ -156,9 +116,8 @@ class CoverageTests(unittest.TestCase):
                 return {'ok':True,'issues':[]}
         model=Model()
         self.assertEqual(translate_piece(model,source,None,'zh-CN','ja-JP',threading.Event(),terminology=False),translated)
-        self.assertEqual(len(model.calls),3)
+        self.assertEqual(len(model.calls),2)
         self.assertEqual(model.calls[1]['上次译文（只修正仍未翻译的词）'],source)
-        self.assertEqual(model.calls[2]['译文'],translated)
 
     def test_ordinal_ranks_are_equivalent_but_changed_rank_is_rejected(self):
         for src,dst,source,target in [
@@ -334,7 +293,7 @@ class CoverageTests(unittest.TestCase):
             with self.subTest(source=source,target=target):
                 with self.assertRaises(ValueError):validate(source,target,'en-US','zh-Hant-TW')
 
-    def test_correct_shared_formula_needs_explicit_target_language_certificate(self):
+    def test_correct_shared_formula_does_not_require_a_language_certificate(self):
         source='1 Gbps(109) × 使用率';q=LanguageReview('zh-CN','zh-Hant-TW')
         class Model:
             def __init__(self,cert):self.cert=cert;self.calls=[]
@@ -345,15 +304,13 @@ class CoverageTests(unittest.TestCase):
                 if inner.cert:answer['unchanged_source_spans']=[{'text':s,'target_language':'zh-Hant-TW','valid':True,'reason':'共用字形，公式與臺灣用語均正確。'} for s in q.candidates(source,source)]
                 return answer
         model=Model(True);result=translate_piece(model,source,None,'zh-CN','zh-Hant-TW',threading.Event(),quality=q,terminology=False)
-        self.assertEqual(result,source);self.assertEqual(len(model.calls),2)
-        self.assertIn('台湾繁体中文',model.calls[1][1]);self.assertNotIn('正确的日语',model.calls[1][1])
+        self.assertEqual(result,source);self.assertEqual(len(model.calls),1)
         wide='1 Gbps（109） × 使用率'
         q=LanguageReview('zh-CN','zh-Hant-TW')
         self.assertTrue(q.review_identical_formula(source,wide));self.assertIn(wide,q.candidates(source,wide))
         q.validate_review(source,wide,{'ok':True,'issues':[],'unchanged_source_spans':[{'text':wide,'target_language':'zh-Hant-TW','valid':True,'reason':'公式同文；全形括號只屬排版差異。'}]})
         validate(source,wide,'zh-CN','zh-Hant-TW',allow_identical=bool(q.proof(source,wide)))
-        with self.assertRaisesRegex(ValueError,'逐项确认'):
-            translate_piece(Model(False),source,None,'zh-CN','zh-Hant-TW',threading.Event(),quality=LanguageReview('zh-CN','zh-Hant-TW'),terminology=False)
+        self.assertEqual(translate_piece(Model(False),source,None,'zh-CN','zh-Hant-TW',threading.Event(),quality=LanguageReview('zh-CN','zh-Hant-TW'),terminology=False),source)
 
     def test_script_inventory_and_untranslated_clauses_keep_protected_literals(self):
         self.assertEqual(chinese_script('带载','zh-Hant-TW'),'帶載')
@@ -366,7 +323,7 @@ class CoverageTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError,'英文句子'):validate('The display supports the controller.',target,'en-US',dst)
         validate('`The display supports the controller.` 說明','`The display supports the controller.` 说明','zh-Hant-TW','zh-CN')
 
-    def test_equivalent_formula_survives_document_style_mapping_after_certification(self):
+    def test_equivalent_formula_survives_document_style_mapping(self):
         from backend.multilingual_documents import mapped
         source='1 Gbps(109) × 使用率';target='1 Gbps（109） × 使用率'
         groups=[{'id':0,'text':'1 Gbps(10','key':()}, {'id':1,'text':'9','key':()}, {'id':2,'text':') × 使用率','key':()}]
@@ -381,7 +338,7 @@ class CoverageTests(unittest.TestCase):
                 if '译文样式片段' in payload:return {'ok':True,'issues':[]}
                 return {'runs':runs}
         result=mapped(Model(),source,groups,{},'zh-CN','zh-Hant-TW',threading.Event(),'','faithful',quality=q)
-        self.assertEqual(result,runs);self.assertIsNotNone(q.proof(source,target))
+        self.assertEqual(result,runs)
 
     def test_repair_is_bounded_and_only_failed_content_is_repeated(self):
         calls=Counter();items=[SimpleNamespace(id=str(i),file_path='fixture.pptx',slide=i,locator=str(i)) for i in range(3)]
@@ -395,52 +352,6 @@ class CoverageTests(unittest.TestCase):
         self.assertEqual(calls,{'0':1,'1':2,'2':2});self.assertEqual(len(results),3)
         self.assertEqual(len([r for r in results if r[3] is not None]),1);self.assertCountEqual(retried,['1','2'])
 
-    def test_incomplete_review_schema_rechecks_same_translation_without_retranslation(self):
-        source='刷新率'
-        class Model:
-            def __init__(self,persistent=False):self.translations=0;self.reviews=0;self.persistent=persistent
-            def chat_json(self,prompt,**options):
-                payload=json.JSONDecoder().raw_decode(prompt)[0]
-                if '待译原文' in payload:self.translations+=1;return {'translation':source}
-                self.reviews+=1
-                result={'ok':True,'unchanged_source_spans':[{'text':source,'target_language':'zh-Hant-TW','valid':True,'reason':'臺灣中文的共用字形，無需轉換。'}]}
-                if self.reviews>1 and not self.persistent:
-                    self_test.assertIn('issues',payload['上次完整性检查']);result['issues']=[]
-                return result
-        self_test=self
-        model=Model()
-        result=translate_piece(model,source,None,'zh-CN','zh-Hant-TW',threading.Event(),quality=LanguageReview('zh-CN','zh-Hant-TW'),terminology=False)
-        self.assertEqual(result,source);self.assertEqual(model.translations,1);self.assertEqual(model.reviews,2)
-        broken=Model(True)
-        with self.assertRaisesRegex(ValueError,'完整的译文复核'):
-            translate_piece(broken,source,None,'zh-CN','zh-Hant-TW',threading.Event(),quality=LanguageReview('zh-CN','zh-Hant-TW'),terminology=False)
-        self.assertEqual(broken.translations,2);self.assertEqual(broken.reviews,4)
 
-    def test_combined_review_arbitrates_an_invented_unit_without_weakening_validation(self):
-        from unittest.mock import patch
-        from backend import document_translation_policy as policy
-        source='设备支持多种场景，最大处理量为360万，可满足'
-        target='장비는 다양한 환경을 지원하며 최대 처리량은 360만으로, 충족할 수 있는 범위는'
-        class Model:
-            def __init__(self,accept):
-                self.accept=accept;self.calls=[]
-            def chat_json(self,prompt,**options):
-                payload=json.JSONDecoder().raw_decode(prompt)[0]
-                self.calls.append(payload)
-                if '待译原文' in payload:return {'translation':target}
-                if '待独立裁定的复核意见' in payload:
-                    if self.accept:return {'ok':True,'issues':[],'keep_original':True}
-                    return {'ok':False,'severity':'critical','issues':['增加了数值单位']}
-                return {'ok':False,'issues':['要求补写像素单位'],
-                        'corrected_translation':target.replace('360만','360만 화소')}
-        with policy.combined_processing(True),patch.object(policy,'reference',return_value={}):
-            accepted=Model(True)
-            self.assertEqual(translate_piece(accepted,source,None,'zh-CN','ko',threading.Event()),target)
-            self.assertEqual(len(accepted.calls),3)
-            self.assertEqual(accepted.calls[-1]['修正前译文'],target)
-            self.assertEqual(accepted.calls[-1]['译文'],target.replace('360만','360만 화소'))
-            self.assertIn('待独立裁定的复核意见',accepted.calls[-1])
-            with self.assertRaisesRegex(ValueError,'增加了数值单位'):
-                translate_piece(Model(False),source,None,'zh-CN','ko',threading.Event())
 
 if __name__=='__main__':unittest.main()

@@ -44,11 +44,11 @@ class ConsistencyTests(unittest.TestCase):
             self.assertFalse(hits[0].applied)
             self.assertIn('不代表原写法一定错误', hits[0].reason)
 
-    def test_exact_repeated_original_without_glossary_and_confirmed_standard(self):
+    def test_repeated_original_uses_only_confirmed_glossary_terms(self):
         values = [segment(1,'Pixel-level correction'), segment(2,'Pixel calibration')]
         originals = dict.fromkeys(['1','2'], '逐点校正技术')
         hits = check_consistency(values,self.g,aligned_sources=originals)
-        self.assertEqual(hits[0].suggested, values[0].text)
+        self.assertEqual(hits,[])
         g = Glossary([GlossaryEntry('逐点校正技术','pixel-level calibration',priority=1)])
         hits = check_consistency(values,g,aligned_sources=originals)
         self.assertEqual(len(hits),2)

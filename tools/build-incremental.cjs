@@ -34,7 +34,7 @@ async function build(){
  }
  const index={schema:1,version:current,platform:'win32',architecture:'x64',patches}
  await fs.writeFile(path.join(out,'incremental.json'),JSON.stringify(index,null,2)+'\n')
- await fs.writeFile(path.join(out,'SHA256SUMS.incremental.txt'),patches.map(p=>p.sha256+'  '+p.filename+'\n').join(''))
+ await fs.writeFile(path.join(out,'SHA256SUMS.incremental.txt'),patches.map(p=>p.sha256+'  '+p.filename+'\n').join('')||'\n')
  await fs.writeFile(path.join(out,'small-updaters.json'),JSON.stringify({schema:1,version:current,updates:smallUpdaters},null,2)+'\n')
  return index
 }

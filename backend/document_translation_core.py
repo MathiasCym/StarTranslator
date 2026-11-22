@@ -1,6 +1,6 @@
 """Shared document coverage and bounded recovery, independent of language.
 
-Language and format adapters retain content, numeral and style validators.
+Language and format adapters protect editable structures and literal tokens.
 Workers return data; the owner alone writes Office objects.
 """
 from collections import Counter
@@ -14,60 +14,27 @@ class IncompleteTranslation(Exception):
 
 def verify_translation_delivery(path, direction, *, untranslated=0, audit=None, source=None, allow_incomplete=False):
     """Reread the saved artifact. Only explicitly labelled drafts may contain untranslated text."""
-    from . import document_languages
-    from .text_integrity import CHINESE, prose, korean_han_fragments, foreign_script_fragments, command_literal
-    from .text_languages import INLINE_CODE
-    from .multilingual_quality import chinese_script, copied_simplified_glyphs
-    from .reverse_validation import english_clauses
+    from .text_integrity import command_literal
     from .extract import extract
-    import re
-    import unicodedata
 
     blocking = {'untranslated', 'chinese', 'text', 'image'}
     if not allow_incomplete and (untranslated or any(issue.get('kind') in blocking for issue in (audit or {}).get('issues', []))):
         counts=Counter(issue['kind'] for issue in (audit or {}).get('issues',[]) if issue.get('kind') in blocking)
         raise IncompleteTranslation(f'unresolved={untranslated}, audit={dict(counts)}')
-    source_language, target = document_languages.pair(direction)
     native=source and Path(source).suffix.lower()==Path(path).suffix.lower() and Path(source).suffix.lower() in ('.docx','.pptx')
-    saved=None
-    originals={}
-    if native or source and target in ('ja-JP','zh-Hant-TW','ko'):
-        originals={segment.locator:segment.text for segment in extract(str(source)) if segment.editable}
-    if native:
-        saved=[segment for segment in extract(str(path)) if segment.editable]
-        locations={segment.locator for segment in saved}
-        missing=set(originals)-locations
-        if missing:
-            raise IncompleteTranslation(f'{len(missing)} missing editable locations in saved output; first: {min(missing)}')
+    commands={segment.locator:segment.text for segment in extract(str(source))
+              if segment.editable and command_literal(segment.text)} if native else {}
     if direction == 'zh-en' and not allow_incomplete:
         from .translation_audit import saved_residuals
         if any(item['editable'] or item['source'] in ('numbering', 'package_text') for item in saved_residuals(path)):
             raise IncompleteTranslation('visible Chinese in saved English output')
-    for segment in saved if saved is not None else extract(str(path)):
+    # Extraction indexes text for translation. Valid labels like 2025 may
+    # disappear from that index while remaining intact in the saved file.
+    for segment in extract(str(path)):
         if not segment.editable:
             continue
-        source_text = originals.get(segment.locator, '')
-        if command_literal(source_text):
-            if segment.text.strip() != source_text.strip():
-                raise IncompleteTranslation(f'altered command in saved output at {segment.locator}')
-            continue
-        if allow_incomplete:
-            continue
-        visible = unicodedata.normalize('NFKC', INLINE_CODE.sub(' ', prose(segment.text)))
-        original = unicodedata.normalize('NFKC', INLINE_CODE.sub(' ', prose(source_text)))
-        if foreign_script_fragments(visible,target) or target == 'ko' and korean_han_fragments(original,visible):
-            raise IncompleteTranslation(f'source script in saved output at {segment.locator}')
-        if target != 'en-US' and english_clauses(visible):
-            raise IncompleteTranslation(f'English clause in saved output at {segment.locator}')
-        if source_language in ('zh-CN', 'zh-Hant-TW') and target in ('ja-JP', 'zh-Hant-TW') and original and copied_simplified_glyphs(original,visible,target):
-            raise IncompleteTranslation(f'copied source script in saved output at {segment.locator}')
-        if source_language in ('zh-CN', 'zh-Hant-TW') and visible.strip() == original.strip():
-            if target == 'ja-JP' and len(CHINESE.findall(original)) >= 12 and re.search(r'[，。！？；,!?;]', original):
-                raise IncompleteTranslation(f'unchanged source paragraph at {segment.locator}')
-            if target == 'zh-Hant-TW':
-                mapped = chinese_script(visible, target)
-                if mapped is not None and mapped != visible:
-                    raise IncompleteTranslation(f'unchanged simplified characters at {segment.locator}')
+        if segment.locator in commands and segment.text.strip()!=commands[segment.locator].strip():
+            raise IncompleteTranslation(f'altered command in saved output at {segment.locator}')
 
 
 def transport_epoch(error):

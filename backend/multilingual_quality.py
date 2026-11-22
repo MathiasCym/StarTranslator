@@ -1,10 +1,9 @@
 """Chinese/Japanese share Han characters; unchanged phrases need a judgment."""
-import json
 import re
 import unicodedata
 from functools import lru_cache
 from .checkpoints import digest
-from .text_integrity import HAN,prose,bibliographic_product_label,document_clauses
+from .text_integrity import HAN,prose,bibliographic_product_label
 
 
 from .review_format import script_positions
@@ -198,34 +197,3 @@ class LanguageReview:
         return (isinstance(proof,dict) and proof.get('version')==self.VERSION
             and proof.get('binding')==digest([self.src,self.dst,source,target])
             and isinstance(proof.get('approved'),list) and proof['approved']==values)
-
-    def review_existing(self,client,source,target,cancel,terms):
-        return self.existing_review_error(client,source,target,cancel,terms) is None
-
-    def existing_review_error(self,client,source,target,cancel,terms):
-        """Upgrade old ambiguous checkpoints without regenerating good text."""
-        from .document_translation_policy import REVIEW_SEVERITY, keep_minor_review
-        from .translation import check_cancel
-        payload={'原文':source,'译文':target,**({'相关术语':terms} if terms is not None else {}),**self.payload(source,target)}
-        clauses=document_clauses(source)
-        if clauses:payload['需逐句核对的原文']=clauses
-        error=''
-        for _ in range(2):
-            check_cancel(cancel)
-            answer=client.chat_json(json.dumps({**payload,'上次检查':error},ensure_ascii=False),
-                system=f'独立对照原文检查{self.dst}译文是否完整、事实正确且没有保留未译原语。'
-                '逐句核对原稿的条件、例外、动作、列表项及其他事实是否有译文对应。允许语义完整的合句。'
-                '数字、否定、单位、条件、型号、网址及人名品牌不可改变。原文可能是被格式或引用分隔的句子片段，'
-                '片段不成句以及保持原文连接标点均不构成漏译，不得要求补写相邻文字。仅列可证实的错误。'+self.instructions(source,target)+
-                '只返回 {"ok":true,"issues":[],"unchanged_source_spans":[]} 或'
-                ' {"ok":false,"issues":["确定的问题"]}，不能改写当前译文。'+REVIEW_SEVERITY,max_tokens=3000)
-            answer=keep_minor_review(answer)
-            if isinstance(answer,dict) and answer.get('ok') is False and isinstance(answer.get('issues'),list):
-                return '；'.join(issue for issue in answer['issues'] if isinstance(issue,str) and issue.strip()) or '独立复核未确认语义及目标语言。'
-            if not isinstance(answer,dict) or answer.get('ok') is not True or answer.get('issues')!=[]:
-                error='独立复核返回的字段不完整。'
-                continue
-            try:self.validate_review(source,target,answer)
-            except IncompleteLanguageReview as exc:error=str(exc)
-            else:return None
-        return error

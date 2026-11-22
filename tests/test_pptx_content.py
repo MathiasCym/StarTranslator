@@ -28,23 +28,6 @@ class PptxContentTests(unittest.TestCase):
         self.assertEqual(cross_line_repetitions('2024年12月23日\v中国北京','23 December 2024, Beijing China\vBeijing China'),['beijing china'])
         self.assertFalse(cross_line_repetitions('Beijing China\vBeijing China','Beijing China\vBeijing China'))
         self.assertFalse(cross_line_repetitions('技术说明\v技术说明','Technical description\vTechnical description'))
-    def test_suspected_cross_line_prose_is_repaired_semantically_and_cached(self):
-        with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'NOVATERM_DATA_DIR':str(Path(temp)/'profile')}):
-            source=Path(temp)/'date.pptx';deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
-            shape=slide.shapes.add_textbox(Inches(1),Inches(1),Inches(7),Inches(2));shape.text='2024年12月23日\v中国北京';deck.save(source)
-            class Model(LLMClient):
-                def __init__(self):
-                    self.provider='compatible';self.base_url='http://127.0.0.1:1/v1';self.model='date-fixture';self.api_format='openai';self.calls=[]
-                def chat_json(self,prompt,**kwargs):
-                    self.calls.append(prompt)
-                    return {'translation':('23 December 2024\nBeijing, China' if '【疑似跨行重复】' in prompt else
-                        '23 December 2024, Beijing China' if '【待译原文】\n2024年12月23日' in prompt else 'Beijing China')}
-            model=Model();result=translate_file(source,Glossary([]),None,client=model,workers=1,defer_visual=True)
-            text=Presentation(result['path']).slides[0].shapes[0].text
-            self.assertTrue(result['translation_complete']);self.assertEqual(text.count('Beijing'),1)
-            self.assertTrue(any('【疑似跨行重复】' in p for p in model.calls))
-            model.calls.clear();resumed=translate_file(source,Glossary([]),None,client=model,workers=1,defer_visual=True)
-            self.assertTrue(resumed['translation_complete']);self.assertFalse(model.calls)
     def test_translation_retries_locally_preserves_styles_and_resumes_without_duplicate(self):
         with tempfile.TemporaryDirectory() as temp,patch.dict(os.environ,{'NOVATERM_DATA_DIR':str(Path(temp)/'profile')}):
             source=Path(temp)/'source.pptx';deck=Presentation();slide=deck.slides.add_slide(deck.slide_layouts[6])
@@ -84,7 +67,7 @@ class PptxContentTests(unittest.TestCase):
         self.assertTrue(context.duplicates_neighbor_label(seg,'Supports Avatar 3','Avatar 3 on CINITY LED'))
         self.assertFalse(context.duplicates_neighbor_label(seg,'Supports Avatar 3','Supports Avatar 3 worldwide'))
         class Model:
-            def chat_json(self,prompt,**kwargs):return [{'found':'Supports Avatar 3','suggested':'Avatar 3 on CINITY LED','kind':'grammar','reason':'complete heading'}]
+            def chat_json(self,prompt,**kwargs):return [{'found':'Supports Avatar 3','suggested':'Avatar 3 on CINITY LED','kind':'format','reason':'complete heading'}]
         findings,stats=check_segments([seg],Glossary([]),client=Model())
         self.assertFalse(findings);self.assertEqual(stats['model_status'],'complete')
         self.assertEqual(stats['discarded_context_hits'],1)

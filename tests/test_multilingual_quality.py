@@ -68,47 +68,7 @@ class QualityTests(unittest.TestCase):
         self.assertEqual(faithful_traditional_conversion('显示 https://example.com/简体 `显示`'),'顯示 https://example.com/简体 `显示`')
         self.assertIsNone(faithful_traditional_conversion('头发与发展'))
 
-    def test_short_term_review_uses_page_context_and_requires_actionable_errors(self):
-        context='8 bit / 10 bit / 12 bit 表格字段'
-        class ReviewModel:
-            def __init__(self):self.calls=[]
-            def chat_json(inner,prompt,**options):
-                data=json.JSONDecoder().raw_decode(prompt)[0];inner.calls.append(data)
-                if '待译原文' in data:return {'translation':'色深度'}
-                self.assertEqual(data['相邻原文（仅供理解）'],context)
-                if len(inner.calls)==2:return {'ok':False,'issues':['色深度是正确日语，但需要确认原文省略。']}
-                return certificate('色深','色深度')
-        model=ReviewModel()
-        result=text_languages.translate_piece(model,'色深',None,'zh-CN','ja-JP',threading.Event(),
-            context=context,quality=LanguageReview('zh-CN','ja-JP'),terminology=False)
-        self.assertEqual(result,'色深度');self.assertEqual(len(model.calls),3)
-        self.assertEqual(sum('待译原文' in row for row in model.calls),1)
 
-    def test_document_rejected_wording_is_independently_adjudicated_without_weakening_review(self):
-        class ReviewModel:
-            supports_thinking_mode=True
-            def __init__(self,inconclusive=False):self.calls=[];self.inconclusive=inconclusive
-            def chat_json(inner,prompt,**options):
-                data=json.JSONDecoder().raw_decode(prompt)[0];inner.calls.append((data,options))
-                if '待译原文' in data:return {'translation':'送信カードの駆動能力'}
-                if '待独立裁定的复核意见' not in data:
-                    return {'ok':False,'issues':['Meaning correct, but prefer literal wording.'],'corrected_translation':'送信カードの帯載'}
-                if inner.inconclusive and not options.get('thinking'):
-                    return {'ok':False,'issues':['No actionable correction.'],'corrected_translation':data['译文']}
-                self.assertEqual(data['修正前译文'],'送信カードの駆動能力')
-                self.assertEqual(data['译文'],'送信カードの帯載')
-                return {**certificate('发送卡带载','送信カードの駆動能力'),'keep_original':True}
-        model=ReviewModel()
-        result=text_languages.translate_piece(model,'发送卡带载',None,'zh-CN','ja-JP',threading.Event(),
-            context='LED表示のピクセル容量',quality=LanguageReview('zh-CN','ja-JP'),terminology=False)
-        self.assertEqual(result,'送信カードの駆動能力');self.assertEqual(len(model.calls),3)
-        self.assertNotIn('thinking',model.calls[0][1]);self.assertNotIn('thinking',model.calls[1][1])
-        self.assertNotIn('thinking',model.calls[2][1])
-        model=ReviewModel(inconclusive=True)
-        result=text_languages.translate_piece(model,'发送卡带载',None,'zh-CN','ja-JP',threading.Event(),
-            quality=LanguageReview('zh-CN','ja-JP'),terminology=False)
-        self.assertEqual(result,'送信カードの駆動能力');self.assertEqual(len(model.calls),4)
-        self.assertTrue(model.calls[3][1]['thinking'])
 
     def test_mixed_english_notes_keep_exact_counts_without_language_selector_guessing(self):
         for src in ('zh-CN','en-US'):
@@ -123,43 +83,6 @@ class QualityTests(unittest.TestCase):
             text_languages.validate('Use someone else’s output port.','1つの出力ポートを使用します。','zh-CN','ja-JP')
         self.assertEqual(text_languages.written_counts('一两台、两三台、one another、X-one output port'),'一两台、两三台、one another、X-one output port')
 
-    def test_document_repairs_numbered_voltage_only_when_model_confirms_a_change(self):
-        from backend.writing_policy import numeric_values
-
-        source = '优化建议：①检查布线；②使用可调节 1.4V 以下电压的芯片；③复核板卡。'
-        target = '改善案：①配線を点検する。②1.4V以下に調整できるチップを使用する。③基板を確認する。'
-        self.assertEqual(numeric_values(source), numeric_values(target))
-        from backend.text_translation import validate as validate_bilingual
-        validate_bilingual('②Use a chip rated at 1.4V.', '②使用额定电压为1.4伏的芯片。', 'en-zh', document=True)
-
-        class ReviewModel(LanguageModel):
-            targeted_recovery = False
-
-            def chat_json(inner, prompt, system='', **options):
-                data = json.JSONDecoder().raw_decode(prompt)[0]
-                if '待译原文' in data:
-                    if system.startswith('补译一段未写入文档的文字'):
-                        inner.targeted_recovery = True
-                        return {'translation': target}
-                    return {'translation': inner.target}
-                if data.get('译文') == wrong:
-                    return {'ok': False, 'issues': ['21.4V changes the source voltage of 1.4V.'],
-                            'severity': 'critical', 'corrected_translation': target}
-                return super().chat_json(prompt, system, **options)
-
-        wrong = target.replace('1.4V', '21.4V')
-        # Both candidates reach the semantic review. Its confirmed correction,
-        # rather than the parser's numeric evidence, controls the saved output.
-        for index,candidate in enumerate((target, wrong, source)):
-            with self.subTest(candidate=candidate):
-                path = self.source('.docx', source, f'numbered-{index}')
-                model = ReviewModel(candidate)
-                result = self.job(self.options(path, 'zh-CN', 'ja-JP', 'translate'), model)
-                self.assertEqual(result['status'], 'complete')
-                output = result['result']['outputs'][0]
-                self.assertTrue(output['translation_complete'], output['review_items'])
-                self.assertEqual([part.text for part in extract(output['path'])], [target])
-                self.assertEqual(model.targeted_recovery, candidate==source)
 
     def test_one_unresolved_clause_saves_the_other_clauses_in_both_document_modes(self):
         from docx import Document
@@ -257,7 +180,7 @@ class QualityTests(unittest.TestCase):
         path=self.root/'proofing.pptx';deck.save(path);target='ポート設定を確認してください。';model=LanguageModel(target)
         job=self.job(self.options(path,'zh-CN','ja-JP','translate'),model)
         self.assertEqual(job['status'],'complete',job);self.assertEqual(model.translations,1)
-        self.assertEqual(len(model.requests),2)  # Translation plus independent content review, no style call.
+        self.assertEqual(len(model.requests),1)
         self.assertNotIn('请检查',''.join(s.text for s in extract(job['result']['outputs'][0]['path'])))
 
     def test_real_color_bold_and_superscript_remain_distinct_from_proofing(self):
@@ -305,7 +228,7 @@ class QualityTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,'无效字符'):
             workflow.apply_report({'report_id':job['result']['report_id'],'path':str(path),'edits':[{'index':0,'text':'TEST\vTEST'}]},client=model)
 
-    def test_old_shared_kanji_checkpoint_is_reviewed_once_without_retranslation(self):
+    def test_old_shared_kanji_checkpoint_is_reused_without_another_request(self):
         import sqlite3
         path=self.source('.txt','使用率');glossary=Glossary([])
         def translate(model):
@@ -321,7 +244,7 @@ class QualityTests(unittest.TestCase):
         c.close()
         upgrade=LanguageModel('使用率');second=translate(upgrade)
         self.assertEqual(second['resumed_segments'],1);self.assertEqual(upgrade.translations,0)
-        self.assertEqual(len(upgrade.requests),1)
+        self.assertEqual(upgrade.requests,[])
         again=LanguageModel('使用率');third=translate(again)
         self.assertEqual(third['resumed_segments'],1);self.assertEqual(again.requests,[])
 

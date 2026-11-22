@@ -26,7 +26,7 @@ class Model(fixtures.Model):
         if '译文' in data:return {'ok':True,'issues':[]}
         if '本段待校对文字' in data or '中文译文' in data:
             current=data.get('本段待校对文字',data.get('中文译文'))
-            return {'reviewed':True,'suggestions':[{'original':'TEST TEST','replacement':'TEST','reason':'Remove duplicate label.'}] if 'TEST TEST' in current else []}
+            return {'reviewed':True,'suggestions':[{'kind':'format','original':'TEST TEST','replacement':'TEST','reason':'Remove duplicate label.'}] if 'TEST TEST' in current else []}
         raise AssertionError('Unexpected model request: '+prompt[:120])
 
 
@@ -72,7 +72,7 @@ class CrossLanguageTests(unittest.TestCase):
                     self.assertIn(target,'\n'.join(s.text for s in extract(output['path']) if s.editable))
                     self.assertEqual(path.read_bytes(),before)
 
-    def test_semantic_review_context_and_disputed_wording_are_shared(self):
+    def test_document_model_receives_context_without_a_factual_reviewer(self):
         for dst,target in TARGETS.items():
             with self.subTest(target=dst):
                 class Disputed(Model):
@@ -87,7 +87,9 @@ class CrossLanguageTests(unittest.TestCase):
                 model=Disputed(target)
                 value=text.translate_piece(model,SOURCE,None,'en-US',dst,threading.Event(),context='same page context',terminology=False,quality=LanguageReview('en-US',dst))
                 self.assertEqual(value,target);self.assertEqual(model.translations,1)
-                for prompt,_ in model.requests:self.assertNotIn('相关术语',prompt)
+                for prompt,_ in model.requests:
+                    self.assertNotIn('相关术语',prompt)
+                    self.assertNotIn('译文',json.loads(prompt))
 
     def test_ppt_suggestion_soft_break_saves_natively_for_every_target(self):
         for dst,target in TARGETS.items():

@@ -190,15 +190,6 @@ class DocumentSkillTests(unittest.TestCase):
         self.assertTrue(all('Write clear, natural technical English' in kwargs['system'] for _, kwargs in model.prompts))
         self.assertIn('【需保留的原文样式片段】', model.prompts[1][0])
 
-    def test_persistently_invalid_facts_are_retried_but_never_published_as_english(self):
-        source = fixture(self.root / 'bad.pptx'); original = source.read_bytes(); model = Model(bad=True)
-        result=translate_file(str(source), self.glossary, None, client=model)
-        self.assertFalse(result['translation_complete']);self.assertTrue(result['review_items'])
-        self.assertTrue(Path(result['path']).is_file())
-        self.assertEqual([s.text for s in extract(str(source))],[s.text for s in extract(result['path'])])
-        self.assertGreaterEqual(len(model.prompts), 8)
-        self.assertTrue(any('重新生成要求' in prompt for prompt,_ in model.prompts))
-        self.assertEqual(source.read_bytes(), original)
 
     def test_unresolved_style_mapping_still_exports_best_available_source_styles(self):
         source = fixture(self.root / 'bad-style.pptx')
@@ -374,7 +365,7 @@ class DocumentSkillTests(unittest.TestCase):
     def test_embedded_rules_keep_proofreading_schema_and_license_attribution(self):
         self.assertIn('Humanizer', SYSTEM); self.assertIn('OfficeCLI', SYSTEM)
         self.assertIn('只输出 JSON 数组', SYSTEM_PROMPT)
-        self.assertIn('Do not\nreport correct synonyms', SYSTEM_PROMPT)
+        self.assertIn('术语与格式检查', SYSTEM_PROMPT)
         self.assertTrue((ROOT/'backend/skills/humanizer/LICENSE').is_file())
         self.assertTrue((ROOT/'backend/skills/officecli/NOTICE').is_file())
         self.assertIn('Apache', (ROOT/'backend/skills/officecli/LICENSE').read_text())
