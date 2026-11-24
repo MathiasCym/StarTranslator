@@ -10,13 +10,13 @@
     if (!row) { $('catalogDetail').textContent = '没有匹配的术语。'; return }
     if (!coverage(row)) {
       const notice = document.createElement('p'); notice.className = 'catalog-missing'
-      notice.textContent = '官方原表未提供这一条目的小语种译法，仅收录了中文和英文。可选择左侧带有小语种标记的词条，或按语言筛选。'
+      notice.textContent = row.source==='本机导入' ? '这条术语暂无其他语种的译法。' : '官方原表未提供这一条目的小语种译法。'
       $('catalogDetail').append(notice)
     }
     for (const language of data.languages) {
       const section = document.createElement('section'), heading = document.createElement('h4'), text = document.createElement('p')
       heading.textContent = `${language.name} · ${language.code}`
-      text.lang = language.code; text.textContent = row.terms[language.code] || `官方原表未提供${language.name}译法`
+      text.lang = language.code; text.textContent = row.terms[language.code] || `未提供${language.name}译法`
       if (!row.terms[language.code]) text.className = 'catalog-unavailable'
       section.append(heading, text); $('catalogDetail').append(section)
     }
@@ -40,8 +40,8 @@
       const button = document.createElement('button'), primary = document.createElement('strong'), secondary = document.createElement('span'), languages = document.createElement('small')
       button.type = 'button'; button.className = 'catalog-row'; button.dataset.id = row.id
       primary.textContent = row.terms['zh-CN'] || row.terms['en-US'] || Object.values(row.terms)[0]
-      secondary.textContent = row.terms[code || 'en-US'] || '官方原表未提供'
-      languages.textContent = coverage(row) ? `${coverage(row)} 种小语种译法` : '原表仅提供中英文'
+      secondary.textContent = row.terms[code || 'en-US'] || '未提供译法'
+      languages.textContent = coverage(row) ? `${coverage(row)} 种小语种译法` : ''
       button.append(primary, secondary, languages); button.setAttribute('aria-pressed', 'false')
       button.onclick = () => detail(row); $('catalogRows').append(button)
     }
@@ -65,7 +65,7 @@
     finally { busy = false; $('catalogReload').disabled = false; if (data) render() }
   }
   // This script loads before app.js defines helpers; resolve them on interaction.
-  document.getElementById('openMultilingual').onclick = () => { $('multilingualDialog').showModal(); if (!data) load(); else render(); $('catalogSearch').focus() }
+  document.getElementById('openMultilingual').onclick = () => { $('multilingualDialog').showModal(); load(); $('catalogSearch').focus() }
   document.getElementById('closeMultilingual').onclick = () => $('multilingualDialog').close()
   document.getElementById('multilingualDialog').addEventListener('close', () => $('openMultilingual').focus())
   document.getElementById('catalogReload').onclick = load

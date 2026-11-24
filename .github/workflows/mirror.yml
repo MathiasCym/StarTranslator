@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'glossary/team.json'
+      - 'glossary/team-languages/**'
       - 'README.md'
       - 'docs/domestic-distribution.md'
       - 'backend/distribution.json'

@@ -182,10 +182,20 @@ server.listen(0,'127.0.0.1',async()=>{
    await run(`(async()=>{$('lexiconLanguage').value=${JSON.stringify(language)};await $('lexiconLanguage').onchange()})()`)
    assert.equal(await run("$('lexiconLanguage').value"),language)
    assert.equal(await run("$('termZh').readOnly"),true)
-   assert.equal(await run("$('openTeamSync').disabled"),true)
+   assert.equal(await run("['openTeamSync','importTerms','exportTerms'].every(id=>!$(id).disabled)"),true)
+   assert.equal(await run("$('termLanguageReference').textContent.includes('英文参考')"),false)
    assert.equal(await run("$('termEn').value.length>0"),true,'Actual official target should appear immediately')
    const original=await run("$('termEn').value")
-   await run(`$('termAliases').value='QA permitted alias';$('termAliases').dispatchEvent(new Event('input'));$('termWrong').value='QA wrong variant';$('termWrong').dispatchEvent(new Event('input'));$('termPriority').value='1';$('termPriority').dispatchEvent(new Event('input'));$('saveLexicon').click()`)
+   await run(`$('termAliases').value='QA permitted alias';$('termAliases').dispatchEvent(new Event('input'));$('termWrong').value='QA wrong variant';$('termWrong').dispatchEvent(new Event('input'));$('termPriority').value='1';$('termPriority').dispatchEvent(new Event('input'))`)
+   assert.equal(await run("['openTeamSync','importTerms','exportTerms'].every(id=>!$(id).disabled)"),true)
+   await run("$('openTeamSync').onclick()")
+   assert.equal(await run("$('teamDialog').open && lexiconEditor.isDirty() && $('termAliases').value==='QA permitted alias'"),true)
+   const keptDraft=await run(`(async()=>{const pending=$('teamPull').onclick();await Promise.resolve();
+    const prompt=AppDialogs.isOpen && !$('teamDialog').open;$('confirmationCancel').click();await pending;
+    return prompt && $('teamDialog').open && lexiconEditor.isDirty()})()`)
+   assert.equal(keptDraft,true)
+   await run("$('closeTeamSync').onclick()")
+   await run("$('saveLexicon').click()")
    for(let i=0;i<100&&!await run("$('lexiconStatus').textContent.startsWith('已保存 ')");i++)await wait(100)
    assert.equal(await run("$('lexiconStatus').textContent.startsWith('已保存 ')"),true)
    await run("$('reloadLexicon').click()");await wait(400)
@@ -199,6 +209,25 @@ server.listen(0,'127.0.0.1',async()=>{
   await run("(async()=>{$('lexiconLanguage').value='en-US';await $('lexiconLanguage').onchange()})()")
   assert.equal(await run("callApi('GET','/api/lexicon').then(r=>r.fingerprint)"),catalogFingerprint)
   result.checks.push('Main glossary: four supported languages, genuine targets, editable aliases/errors/confirmed state, save/reload/search/grid, English unchanged')
+  assert.equal(await run("$('lexiconExchangeScope').value"),'all')
+  let glossaryExport
+  ipcMain.removeHandler('export-glossary-path')
+  ipcMain.handle('export-glossary-path',(_event,format)=>{
+   glossaryExport=path.join(qaDir,'all-languages-fixture.'+format)
+   const fingerprint=fs.existsSync(glossaryExport)?require('node:crypto').createHash('sha256').update(fs.readFileSync(glossaryExport)).digest('hex'):''
+   return {path:glossaryExport,fingerprint}
+  })
+  ipcMain.removeHandler('pick-glossary');ipcMain.handle('pick-glossary',()=>[glossaryExport])
+  for(const format of ['xlsx','json']){
+   await run(`$('lexiconExportFormat').value='${format}';$('exportTerms').onclick()`)
+   assert((await run("$('lexiconStatus').textContent")).includes('16 种语言'))
+   assert(fs.existsSync(glossaryExport))
+   await run("$('importTerms').onclick()")
+   assert((await run("$('lexiconStatus').textContent")).includes('16 种语言'))
+  }
+  await run("$('lexiconExchangeScope').value='current';$('importTerms').onclick()")
+  assert((await run("$('lexiconStatus').textContent")).includes('已处理 1 种语言'))
+  result.checks.push('Glossary desktop import and export for all languages and current language in Excel/JSON')
   await run("$('openMultilingual').click()")
   for(let i=0;i<80&&!await run("$('catalogStatus').textContent.includes('16 种语言')");i++)await wait(100)
   assert.equal(await run("$('multilingualDialog').open"),true)
@@ -603,9 +632,12 @@ server.listen(0,'127.0.0.1',async()=>{
   for(const w of [900,480]){shared.setContentSize(w,850);await wait(100);const rect=await sr("(()=>{const r=$('translationHelp').getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth}})()");assert(rect.left>=0&&rect.right<=rect.width&&rect.bottom<=850,JSON.stringify(rect))}
   result.checks.push('floating help geometry; Escape focus; source file changes close modal; shared 480/900px')
   await sr("if($('translationHelp').open)$('translationHelp').close();comparison={source_name:'source.pptx',output_name:'output.pptx',rows:[]};comparisonBase='/preview-fixture';openComparison()")
-  await wait(1500)
+  const previewReady="Array.from(document.querySelectorAll('#comparison [data-count]')).filter(e=>e.textContent==='/ 3').length===2"
+  for(let i=0;i<80&&!await sr(previewReady);i++)await wait(100)
+  assert(await sr(previewReady),'Both comparison frames should be ready before paging')
   await sr("document.querySelector('#comparison [data-side=source] [data-next]').click()")
-  await wait(1500)
+  const secondPage="Array.from(document.querySelectorAll('#comparison .pc-nav input')).filter(e=>e.value==='2').length===2"
+  for(let i=0;i<80&&(!await sr(secondPage)||previewRequests.filter(p=>p.page===2).length<2);i++)await wait(100)
   assert.equal(await sr("document.querySelector('#comparison [data-side=source] input').value"),'2')
   assert.equal(await sr("document.querySelector('#comparison [data-side=output] input').value"),'2')
   assert(previewRequests.some(p=>p.page===2&&p.side==='source')&&previewRequests.some(p=>p.page===2&&p.side==='output'))
@@ -754,30 +786,56 @@ server.listen(0,'127.0.0.1',async()=>{
   assert.equal(await run("getComputedStyle($('dropzone'),'::before').animationName"),'none')
   desktop.webContents.debugger.detach()
   result.checks.push('system reduced-motion preference preserved')
-  const teamComment = await run(`(async () => {
-    const originalApi=callApi, originalDirty=lexiconEditor.isDirty
-    let pending=false, action='pull'
-    callApi=async (_method,path) => {
-      if(path==='/api/team/settings') return {has_token:true}
-      if(path==='/api/team/preview') return {action,changes:[],conflicts:[],pending_upload:pending,count:0}
+  const teamScenarios = await run(`(async () => {
+    const originalApi=callApi, originalPrepare=lexiconEditor.prepareTeamSync, originalReload=lexiconEditor.reload
+    const originalLanguage=lexiconEditor.state.language
+    const names={'en-US':'英语','zh-Hant-TW':'繁体中文','ja-JP':'日语',ko:'韩语'}
+    const scenarios=[]
+    let authorized=false, pending=false, posted, allLanguages=false
+    callApi=async (_method,path,body) => {
+      if(path==='/api/team/settings?language=all') return {has_token:authorized}
+      if(path==='/api/team/preview') {
+        allLanguages=body.all_languages===true && !body.language
+        const changes=Object.values(names).map(language_name=>({zh:'测试术语',language_name,kind:'changed'}))
+        return {id:'qa-all',action:body.action,changes:pending?changes:[],conflicts:[],pending_upload:pending}
+      }
+      if(path==='/api/team/history?language=all') return {records:[{message:'统一维护四语种',author:'QA',date:'2026-11-23T00:00:00Z'}]}
+      if(path==='/api/team/apply') {posted=body;return {committed:true,count:1}}
       throw Error('Unexpected team API request')
     }
-    lexiconEditor.isDirty=()=>false
+    lexiconEditor.prepareTeamSync=async()=>true
+    lexiconEditor.reload=async()=>{}
     try {
       await $('openTeamSync').onclick()
-      const idle=$('teamMessageLabel').hidden && !$('teamStatus').textContent
-      await $('teamPull').onclick()
-      const pull=$('teamMessageLabel').hidden
-      action='push'; await $('teamPush').onclick()
-      const clean=$('teamMessageLabel').hidden
-      pending=true; await $('teamPush').onclick()
-      const modified=!$('teamMessageLabel').hidden
+      await $('teamPush').onclick()
+      scenarios.push($('teamAuthorization').open && document.activeElement===$('teamToken') && $('teamStatus').textContent.includes('授权'))
       await $('closeTeamSync').onclick()
-      return {idle,pull,clean,modified,closed:$('teamMessageLabel').hidden}
-    } finally { callApi=originalApi; lexiconEditor.isDirty=originalDirty }
+      $('teamAuthorization').open=false
+      authorized=true
+      for(const language of Object.keys(names)){
+        lexiconEditor.state.language=language;pending=false
+        await $('openTeamSync').onclick()
+        const idle=$('teamMessageLabel').hidden && !$('teamStatus').textContent
+        await $('teamPull').onclick()
+        const pull=allLanguages && $('teamMessageLabel').hidden
+        await $('teamPush').onclick()
+        const clean=allLanguages && $('teamMessageLabel').hidden
+        pending=true;await $('teamPush').onclick()
+        const modified=allLanguages && !$('teamMessageLabel').hidden && $('teamApply').textContent==='确认提交' &&
+          Object.values(names).every(name=>$('teamChanges').textContent.includes(name))
+        $('teamMessage').value='统一维护四语种';await $('teamApply').onclick();await $('teamHistory').onclick()
+        const committed=posted.id==='qa-all' && posted.message==='统一维护四语种' && $('teamHistoryRows').textContent.includes(posted.message)
+        await $('closeTeamSync').onclick()
+        scenarios.push(idle && pull && clean && modified && committed && $('teamMessageLabel').hidden)
+      }
+      return scenarios
+    } finally {
+      callApi=originalApi;lexiconEditor.prepareTeamSync=originalPrepare;lexiconEditor.reload=originalReload
+      lexiconEditor.state.language=originalLanguage
+    }
   })()`)
-  assert.deepEqual(teamComment,{idle:true,pull:true,clean:true,modified:true,closed:true})
-  result.checks.push("Team sync maintenance comment appears only for a pending push")
+  assert.deepEqual(teamScenarios,[true,true,true,true,true])
+  result.checks.push('Team sync always batches all four editors, with one maintenance comment and a shared history')
   {
    await setViewport(1280,820)
    const inventory=await run("[...document.querySelectorAll('body>.modal,body>dialog')].map(e=>e.id)")

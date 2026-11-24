@@ -47,6 +47,10 @@ exports.default = async function afterPack(context) {
 
   execFileSync(rcedit, args, { stdio: 'inherit' })
   console.log(`[afterpack] 已嵌入图标：${path.basename(exe)}`)
+  // Signing is optional. When a trusted certificate is configured, sign the
+  // application before building the install manifest so the recorded hashes
+  // match the signed bytes. Current public releases are unsigned.
+  if (process.env.STAR_RELEASE_SIGNER_SHA1) await context.packager.sign(exe)
   const { createManifest, MANIFEST } = require('../lib/install-integrity')
   const recovery = await require('./build-component-recovery').buildComponentRecovery(context.appOutDir, info.version)
   console.log(`[afterpack] 已生成 ${recovery.files} 项离线组件修复副本（${Math.ceil(recovery.bytes / 1024 / 1024)} MiB）`)

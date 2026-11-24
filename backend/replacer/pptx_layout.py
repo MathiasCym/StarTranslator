@@ -34,6 +34,9 @@ class Metrics(AbstractContextManager):
         self.gdi.DeleteDC.argtypes = [wintypes.HDC]
         self.gdi.GetTextExtentPoint32W.argtypes = [wintypes.HDC, wintypes.LPCWSTR, ctypes.c_int, ctypes.POINTER(wintypes.SIZE)]
         self.gdi.GetTextFaceW.argtypes = [wintypes.HDC, ctypes.c_int, wintypes.LPWSTR]
+        self.gdi.GetGlyphIndicesW.argtypes = [wintypes.HDC, wintypes.LPCWSTR, ctypes.c_int,
+                                             ctypes.POINTER(wintypes.WORD), wintypes.DWORD]
+        self.gdi.GetGlyphIndicesW.restype = wintypes.DWORD
         self.dc = self.gdi.CreateCompatibleDC(None)
         if not self.dc: raise OSError('无法初始化字体测量。')
         self.fonts, self.cache, self.initial, self.available = {}, {}, None, {}
@@ -67,6 +70,14 @@ class Metrics(AbstractContextManager):
         self.gdi.GetTextFaceW(self.dc,128,face)
         self.available[name]=face.value.casefold()==name.casefold()
         return self.available[name]
+
+    def missing_glyphs(self, name, text):
+        if not self.has_font(name):
+            return None
+        self.gdi.SelectObject(self.dc,self.fonts[(name,96,False,False)])
+        glyphs = (wintypes.WORD * len(text))()
+        result = self.gdi.GetGlyphIndicesW(self.dc,text,len(text),glyphs,1)
+        return None if result == 0xffffffff else any(glyph == 0xffff for glyph in glyphs)
 
     def __exit__(self, *args):
         if self.initial: self.gdi.SelectObject(self.dc, self.initial)

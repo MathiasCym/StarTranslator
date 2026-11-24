@@ -28,26 +28,21 @@ function installLexicon({ $, action, callApi, esc, basename, documentBusy, toast
   }
   function availability() {
     const loaded = !!state.path, selected = !!selectedRow()
-    for (const id of ['lexiconExportFormat', 'lexiconListView', 'lexiconGridView']) $(id).disabled = state.busy
+    for (const id of ['lexiconExchangeScope','lexiconExportFormat','lexiconListView','lexiconGridView']) $(id).disabled = state.busy
     $('revealLexicon').disabled = !loaded || state.busy
     const waiting = !!pendingSave
     const blockWrites = state.busy || waiting || documentBusy()
-    for (const id of ['createShared', 'connectShared', 'useLocal', 'syncReviewed']) $(id).disabled = blockWrites
+    for (const id of ['createShared', 'connectShared', 'useLocal']) $(id).disabled = blockWrites
+    $('syncReviewed').disabled = blockWrites || specialized()
     $('importTerms').disabled = !loaded || blockWrites
     $('reloadLexicon').disabled = state.busy || waiting
     $('exportTerms').disabled = !loaded || state.busy
-    $('openTeamSync').disabled = !loaded || blockWrites || state.dirty
+    $('openTeamSync').disabled = !loaded || state.busy
     $('addTerm').disabled = !loaded || state.busy
     $('deleteTerm').disabled = !selected || state.busy
     $('termCategory').disabled = !selected || state.busy
     $('termCategoryFilter').disabled = state.busy
     $('lexiconLanguage').disabled = state.busy || waiting
-    // Existing team/exchange formats describe Chinese/English entries only.
-    // Never send a projected Japanese/Korean cell to those endpoints.
-    for(const id of ['importTerms','exportTerms','lexiconExportFormat','openTeamSync','syncReviewed','suggestVariants']) {
-      if(specialized())$(id).disabled=true
-      $(id).title=specialized()?'此操作用于中英词库；当前语种可在本页维护并保存，用于校对。':$(id).title.replace('此操作用于中英词库；当前语种可在本页维护并保存，用于校对。','')
-    }
     const latestQueued = pendingSave?.revision === editRevision
     $('saveLexicon').disabled = !loaded || !state.dirty || state.busy || latestQueued
     $('termForm').querySelectorAll('textarea,button,select').forEach(element => { element.disabled = !selected || state.busy })
@@ -174,10 +169,9 @@ function installLexicon({ $, action, callApi, esc, basename, documentBusy, toast
     $('termForm').hidden = !row; $('termEmpty').hidden = !!row
     $('termHeading').textContent = row ? cell(row, 'zh') || '新术语' : '选择一个术语'
     for (const [id, key] of Object.entries(fields)) { $(id).value = key==='category'?category(row):cell(row, key); resizeCell($(id)) }
-    $('termLanguageReference').hidden=!specialized()
-    $('termLanguageReference').textContent=specialized() ? [
-      '英文参考：'+(cell(row,'_english') || '未提供'), '官方译法：'+(cell(row,'_official') || '未提供'),
-      cell(row,'_conflict') || '各语种独立保存；已确认译法用于校对。'].join(' · ') : ''
+    const conflict = specialized() ? cell(row,'_conflict') : ''
+    $('termLanguageReference').textContent = conflict
+    $('termLanguageReference').hidden = !conflict
     $('termForm').scrollTop = 0
     availability()
   }
@@ -214,21 +208,24 @@ function installLexicon({ $, action, callApi, esc, basename, documentBusy, toast
     try {localStorage.setItem('startranslator-lexicon-language',language)} catch {}
     setData(result, keepPosition)
     state.bundledUpdate = specialized()?null:(await refreshGlossary()).bundled_update || null
-    if(specialized())status(result.maintenance_note)
   }
   $('lexiconLanguage').onchange=async()=>{
     const language=$('lexiconLanguage').value; $('lexiconLanguage').value=state.language
     if(!languages[language] || pendingSave || !await dirtyGuard('放弃并切换语言'))return
-    try {await operation(async()=>{await load(false,language);showBundledUpdate(specialized()?'当前语种可直接维护，已确认译法用于校对。':'词库已就绪。')},'正在读取所选语种…')}
+    try {await operation(async()=>{await load(false,language);showBundledUpdate('词库已就绪。')},'正在读取所选语种…')}
     catch { $('lexiconLanguage').value=state.language }
   }
   function showConflicts(conflicts,summary) {
     $('lexiconImportReport').hidden=!conflicts.length; $('lexiconImportReport').open=false
     $('lexiconImportSummary').textContent=summary
-    $('lexiconImportConflicts').innerHTML=conflicts.map((item,index)=>'<div class="lexicon-import-conflict"><div><strong>'+esc(item.zh)+'</strong><p>当前：'+esc(item.existing.join(' / '))+'</p><p>参考译法：'+esc(item.incoming)+'</p><p class="hint">'+esc(item.reason)+'</p></div><button class="btn ghost sm" data-import-conflict="'+index+'">查看本机条目</button></div>').join('')
-    $('lexiconImportConflicts').querySelectorAll('[data-import-conflict]').forEach(button=>{button.onclick=()=>{
+    $('lexiconImportConflicts').innerHTML=conflicts.map((item,index)=>'<div class="lexicon-import-conflict"><div><strong>'+esc(item.zh+(item.language_name?' · '+item.language_name:''))+'</strong><p>当前：'+esc(item.existing.join(' / '))+'</p><p>参考译法：'+esc(item.incoming)+'</p><p class="hint">'+esc(item.reason)+'</p></div>'+(!item.language||languages[item.language]?'<button class="btn ghost sm" data-import-conflict="'+index+'">查看本机条目</button>':'')+'</div>').join('')
+    $('lexiconImportConflicts').querySelectorAll('[data-import-conflict]').forEach(button=>{button.onclick=async()=>{
       if(state.busy)return
       const item=conflicts[Number(button.dataset.importConflict)]
+      if(item.language&&item.language!==state.language){
+        if(!await dirtyGuard('放弃并切换语言'))return
+        try{await operation(()=>load(false,item.language),'正在读取所选语种…')}catch{return}
+      }
       $('termSearch').value=item.zh;state.page=0
       state.selected=filteredRows()[0]?.index ?? -1
       $('lexiconImportReport').open=false;setView('list');$('termEn').focus()
@@ -327,13 +324,23 @@ function installLexicon({ $, action, callApi, esc, basename, documentBusy, toast
       if ($('lexiconPage').hidden) toast($('lexiconStatus').textContent, true)
     }
   }
-  action('saveLexicon', () => {
+  function saveChanges() {
     if (!state.dirty || state.busy || pendingSave?.revision === editRevision) return
     pendingSave = { revision: editRevision, endpoint: endpoint(), waited: false,
       body: { language: state.language, path: state.path, rows: state.rows.map(row => [...row]),
         columns: [...state.columns], fingerprint: state.fingerprint, defer_if_busy: true } }
     return flushSave()
-  })
+  }
+  action('saveLexicon', saveChanges)
+  async function prepareTeamSync(confirm) {
+    if (documentBusy()) throw Error('文档处理结束后可同步团队词库。')
+    if (state.busy || pendingSave) throw Error('请等待当前词库操作完成后再同步。')
+    if (!state.dirty) return true
+    if (!await confirm({title:'保存词库修改？',message:'保存当前编辑后获取团队差异。',accept:'保存并获取差异',cancel:'取消'})) return false
+    await saveChanges()
+    if (state.dirty) throw Error('当前修改尚未保存，已保留编辑内容。')
+    return true
+  }
   function documentActivityChanged() {
     availability()
     if (pendingSave && !state.busy) void flushSave()
@@ -363,20 +370,21 @@ function installLexicon({ $, action, callApi, esc, basename, documentBusy, toast
     return operation(async () => {
       const paths = await window.api.pickGlossary()
       if (!paths.length) { status('已取消导入，当前词库保持不变。'); return }
-      const result = await callApi('POST', '/api/lexicon/import', { paths, fingerprint: state.fingerprint,rows:state.rows,columns:state.columns })
+      const result = await callApi('POST', '/api/lexicon/import', { paths, language:state.language, all_languages:$('lexiconExchangeScope').value==='all', fingerprint: state.fingerprint,rows:state.rows,columns:state.columns })
       await load(); $('lexiconManagement').open = false
       const conflicts=result.conflicts || []
       showConflicts(conflicts,'查看 '+conflicts.length+' 项导入差异（已保留当前译法与标记）')
-      status('已导入并保存：新增 '+result.added+' 条，补充 '+result.updated+' 条，'+result.unchanged+' 条保持不变。'+(conflicts.length?'有 '+conflicts.length+' 项差异，可展开查看。':''))
+      status((result.sheets?'已处理 '+result.sheets+' 种语言。':'已导入并保存。')+'新增 '+result.added+' 条，补充 '+result.updated+' 条，'+result.unchanged+' 条保持不变。'+(conflicts.length?'有 '+conflicts.length+' 项差异，可展开查看。':''))
     }, '正在导入术语…')
   })
   action('exportTerms',()=>{
     if(!state.path)return
     return operation(async()=>{
-      const target=await window.api.exportGlossaryPath($('lexiconExportFormat').value)
+      const format=$('lexiconExportFormat').value,allLanguages=$('lexiconExchangeScope').value==='all'
+      const target=await window.api.exportGlossaryPath(format)
       if(!target){status('已取消导出，词库保持不变。');return}
-      const result=await callApi('POST','/api/lexicon/export',{path:target.path,destination_fingerprint:target.fingerprint,rows:state.rows,columns:state.columns})
-      status('已导出 '+result.count+' 条至 '+basename(result.path)+'。'+(state.dirty?'副本已包含当前改动；本机词库尚未保存。':'可将文件交给同事导入。'))
+      const result=await callApi('POST','/api/lexicon/export',{path:target.path,language:state.language,all_languages:allLanguages,destination_fingerprint:target.fingerprint,rows:state.rows,columns:state.columns})
+      status('已导出 '+(result.sheets?result.sheets+' 种语言':result.count+' 条')+'至 '+basename(result.path)+'。'+(state.dirty?'副本已包含当前改动；本机词库尚未保存。':''))
     },'正在导出词库…')
   })
   action('syncReviewed', async () => {
@@ -412,5 +420,5 @@ function installLexicon({ $, action, callApi, esc, basename, documentBusy, toast
     gridWidth = width
     $('tableBody').querySelectorAll('textarea').forEach(resizeCell)
   }).observe($('lexiconGridPane').querySelector('.gridwrap'))
-  return { state, open, refreshGlossary, documentActivityChanged, isDirty: () => state.dirty, reload: () => load(true) }
+  return { state, open, refreshGlossary, documentActivityChanged, prepareTeamSync, isDirty: () => state.dirty, reload: () => load(true) }
 }

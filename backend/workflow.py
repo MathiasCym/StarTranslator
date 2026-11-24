@@ -959,13 +959,11 @@ def _apply_report(data, report, progress=None, client=None):
     if store.fingerprint(input_path) != input_hash:
         raise ValueError('上次输出文件已被修改，请重新校对后继续替换。')
     notify('layout',message='正在调整文字排版并保留原有样式')
-    typography_warnings=[];typography_font=None
     if multilingual:
-        from .multilingual_typography import apply as apply_typography,font_for
-        typography_warnings=apply_typography(document,paragraphs,set(changed_locators),target_language)
-        typography_font=font_for(target_language)
+        from .multilingual_typography import apply as apply_typography
+        apply_typography(document,paragraphs,set(changed_locators),target_language)
     layout_adjustments, fitting_warnings = fit_document(document,changed_locators,original_layout) if is_pptx else ([],[])
-    fitting_warnings+=typography_warnings+option.get('style_warnings',[])
+    fitting_warnings+=option.get('style_warnings',[])
     def visual_progress(message,done=0,total=0): notify('render',done,total,message)
     visual_progress.stage=lambda stage,message,done=0,total=0:notify(stage,done,total,message)
     visual_audit={}
@@ -1008,7 +1006,7 @@ def _apply_report(data, report, progress=None, client=None):
                 layout_adjustments+=box_adjustments;fitting_warnings+=box_warnings
             visual_warnings,visual_adjustments=review_pptx(input_path,temporary,document,changed_locators,original_layout,client or LLMClient(),reference=option.get('source'),**visual_options) if is_pptx else ([],[])
             layout_adjustments+=visual_adjustments
-            if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators,**({'script_font':typography_font} if multilingual else {}))
+            if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators)
             if visual_warnings:logging.getLogger(__name__).warning('Private format follow-up: %s',[(w.get('slide'),w.get('locator')) for w in visual_warnings])
             notify(validate_phase,message='正在检查输出文件完整性')
             structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []
@@ -1074,7 +1072,7 @@ def _apply_report(data, report, progress=None, client=None):
                 layout_adjustments+=box_adjustments;fitting_warnings+=box_warnings
             visual_warnings,visual_adjustments=review_pptx(input_path,temporary,document,changed_locators,original_layout,client or LLMClient(),reference=option.get('source'),**visual_options) if is_pptx else ([],[])
             layout_adjustments+=visual_adjustments
-            if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators,**({'script_font':typography_font} if multilingual else {}))
+            if is_pptx:visual_warnings+=verify_styles(document,paragraphs,original_styles,changed_locators)
             if visual_warnings:logging.getLogger(__name__).warning('Private format follow-up: %s',[(w.get('slide'),w.get('locator')) for w in visual_warnings])
             notify(validate_phase,message='正在检查输出文件完整性')
             structure_warnings=officecli_bridge.compare(baseline,officecli_bridge.inspect(temporary)) if is_pptx else []

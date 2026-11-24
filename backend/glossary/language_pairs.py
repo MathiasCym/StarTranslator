@@ -63,9 +63,17 @@ def base_value(base):
     return {'zh':base['zh'],'english':base['english'],'translation':target,'note':base.get('note',''),'variants':[],
         'machine_variants':[],'wrong_variants':[],'priority':1 if target else 2,'category':base['category'],'source':base['source'],'baseline':choices}
 
-def table(language):
+def context(language):
     supported(language);source=scope();reference=catalog.reference();english=store.read()
-    data=read_data();saved=records(data,source,language);base=bases(reference,english['entries'],language);rows=[]
+    data=read_data()
+    binding={'file':store.fingerprint(path()) if path().exists() else '', 'english':english['fingerprint'],
+        'official':digest(reference),'scope':source,'language':language}
+    return source,reference,english,data,digest(binding)
+
+
+def table(language):
+    source,reference,english,data,fingerprint=context(language)
+    saved=records(data,source,language);base=bases(reference,english['entries'],language);rows=[]
     # An obsolete official anchor with personal work remains a visible local row.
     for key,item in saved.items():
         if key not in base and not item.get('deleted'):base[key]={'zh':item['zh'],'english':item.get('english',''),'official':[],'category':item.get('category','term'),'source':'保留的本机维护条目'}
@@ -74,13 +82,11 @@ def table(language):
         if own and own.get('deleted'):continue
         value=own or default
         conflict=('官方译法已变化，当前保留本机译法；请核对后确认。' if own and own.get('baseline')!=item['official'] else
-            '原表存在多个不同译法，请结合英文参考确认标准。' if len(item['official'])>1 else '')
+            '原表存在多个译法，请确认标准译法。' if len(item['official'])>1 else '')
         row={**value,'en':value.get('translation',''),'_id':key,'_english':item['english'],
              '_official':'' if item.get('curated') else ' / '.join(item['official']),'_conflict':conflict}
         rows.append(['\n'.join(row.get(k,[])) if k in LISTS else str(row.get(k,'')) for k in FIELDS])
-    binding={'file':store.fingerprint(path()) if path().exists() else '', 'english':english['fingerprint'],
-        'official':digest(reference),'scope':source,'language':language}
-    return {'path':str(path()),'language':language,'columns':FIELDS,'header':FIELDS,'rows':rows,'fingerprint':digest(binding),
+    return {'path':str(path()),'language':language,'columns':FIELDS,'header':FIELDS,'rows':rows,'fingerprint':fingerprint,
         'maintenance_note':'当前语种独立维护，不改写英文词库；官方缺译不会自动猜补。标准设为“已确认”后用于术语覆盖校对。'}
 
 def parse_row(row,columns,index):
@@ -102,38 +108,52 @@ def parse_row(row,columns,index):
     if not result['zh']:raise ValueError(f'第 {index} 行需填写中文术语。')
     return result
 
+def prepare_records(language,rows,columns,current,data,source,reference,english):
+    if not isinstance(rows,list) or len(rows)>20000 or columns!=FIELDS:raise ValueError('小语种词库表格格式不正确。')
+    old=records(data,source,language)
+    base=bases(reference,english['entries'],language)
+    known={r[FIELDS.index('_id')]:dict(zip(FIELDS,r)) for r in current['rows']}
+    output={};seen=set()
+    for index,row in enumerate(rows,1):
+        value=parse_row(row,columns,index);key=value.pop('_id')
+        if key:
+            if key not in known:raise ValueError('条目身份已变化，请重新读取。')
+            if value['zh']!=known[key]['zh'] or value['_english']!=known[key]['_english']:raise ValueError('已有条目的中文和英文参考不可在其他语种中改写；请新增独立条目。')
+        else:
+            if not value['en']:raise ValueError('新增条目需填写所选语种的标准译法。')
+            key=identity(value['zh'],value['_english'])
+        if key in seen:raise ValueError('同一中文及英文参考出现重复条目，请合并后保存。')
+        seen.add(key);value['english']=value.pop('_english');value['translation']=value.pop('en')
+        value['baseline']=base.get(key,{}).get('official',old.get(key,{}).get('baseline',[]))
+        comparison={**value,'source':base[key]['source']} if key in base else value
+        if key not in base or comparison!=base_value(base[key]):
+            value['source']='本机维护';output[key]=value
+    for key,value in known.items():
+        if key not in seen:output[key]={'deleted':True,'zh':value['zh'],'english':value['_english']}
+    # Entries previously deleted are hidden from the editor and stay deleted.
+    for key,item in old.items():
+        if item.get('deleted') and key not in seen:
+            output[key]=item
+    return output
+
+
+def write_data(data):
+    if path().exists():shutil.copy2(path(),str(path())+'.bak')
+    store.atomic_json(path(),data)
+
+
 def save(language,rows,columns,fingerprint):
     supported(language)
-    if not isinstance(rows,list) or len(rows)>20000 or columns!=FIELDS:raise ValueError('小语种词库表格格式不正确。')
     with LOCK:
         path().parent.mkdir(parents=True,exist_ok=True)
         with store.edit_lock(path()):
             current=table(language)
             if not fingerprint or current['fingerprint']!=fingerprint:raise store.FileChanged('小语种词库、官方资料或中英词库已变化，请重新读取后保存，现有内容未覆盖。')
-            source=scope();data=read_data();old=records(data,source,language)
-            reference=catalog.reference();english=store.read();base=bases(reference,english['entries'],language)
-            known={r[FIELDS.index('_id')]:dict(zip(FIELDS,r)) for r in current['rows']}
-            output={};seen=set()
-            for index,row in enumerate(rows,1):
-                value=parse_row(row,columns,index);key=value.pop('_id')
-                if key:
-                    if key not in known:raise ValueError('条目身份已变化，请重新读取。')
-                    if value['zh']!=known[key]['zh'] or value['_english']!=known[key]['_english']:raise ValueError('已有条目的中文和英文参考不可在其他语种中改写；请新增独立条目。')
-                else:
-                    if not value['en']:raise ValueError('新增条目需填写所选语种的标准译法。')
-                    key=identity(value['zh'],value['_english'])
-                if key in seen:raise ValueError('同一中文及英文参考出现重复条目，请合并后保存。')
-                seen.add(key);value['english']=value.pop('_english');value['translation']=value.pop('en')
-                value['baseline']=base.get(key,{}).get('official',old.get(key,{}).get('baseline',[]))
-                comparison={**value,'source':base[key]['source']} if key in base else value
-                if key not in base or comparison!=base_value(base[key]):
-                    value['source']='本机维护';output[key]=value
-            for key,value in known.items():
-                if key not in seen:output[key]={'deleted':True,'zh':value['zh'],'english':value['_english']}
+            source=scope();data=read_data()
+            output=prepare_records(language,rows,columns,current,data,source,catalog.reference(),store.read())
             data['sources'].setdefault(source,{})[language]=output
             if table(language)['fingerprint']!=fingerprint:raise store.FileChanged('词库在保存期间发生变化，请重新读取。')
-            if path().exists():shutil.copy2(path(),str(path())+'.bak')
-            store.atomic_json(path(),data)
+            write_data(data)
             fresh=table(language)
             return {'ok':True,'count':len(fresh['rows']),'fingerprint':fresh['fingerprint'],'path':fresh['path']}
 

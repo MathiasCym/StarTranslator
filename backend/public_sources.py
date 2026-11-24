@@ -6,9 +6,8 @@ import re
 from datetime import datetime
 from pathlib import Path
 from urllib import request, error, parse
-from .glossary import store
+from .glossary import team_language
 
-FILE='glossary/team.json'
 MAX_BYTES=4*1024*1024
 PLATFORMS={
     'atomgit':('AtomGit','https://api.atomgit.com/api/v5/repos/'),
@@ -66,7 +65,10 @@ class ScopedRedirect(request.HTTPRedirectHandler):
 
 
 class PublicMirror:
-    def __init__(self,source): self.source=source
+    def __init__(self,source,language=team_language.DEFAULT):
+        self.source=source
+        self.language=team_language.supported(language)
+        self.file=team_language.remote_path(language)
     def call(self,path):
         req=request.Request(self.source['api']+path,headers={'Accept':'application/json','User-Agent':'StarTranslator-Glossary'})
         try:
@@ -74,19 +76,28 @@ class PublicMirror:
                 raw=response.read(MAX_BYTES*2+1)
                 if len(raw)>MAX_BYTES*2: raise ValueError('团队词库过大，本机词库保持不变。')
                 return json.loads(raw.decode('utf-8'))
+        except error.HTTPError as exc:
+            if exc.code==404 and path.startswith('contents/'):return None
+            raise ValueError('未能连接国内团队词库，本机词库保持不变。') from None
         except (error.URLError,TimeoutError,OSError): raise ValueError('未能连接国内团队词库，本机词库保持不变。') from None
         except (ValueError,UnicodeError): raise ValueError('国内团队词库无法读取，本机词库保持不变。') from None
 
-    def read(self):
-        # Pin the content to the same immutable commit as its timestamp.
-        records=self.call('commits?sha=main&path='+FILE+'&per_page=1')
+    def revision(self,path=''):
+        records=self.call('commits?sha=main'+('&path='+path if path else '')+'&per_page=1')
         if not isinstance(records,list) or not records: raise ValueError('国内词库尚未发布。')
         record=records[0]
         if not isinstance(record,dict) or not isinstance(record.get('commit'),dict) or not isinstance(record['commit'].get('committer'),dict): raise ValueError('国内词库版本信息无效。')
         commit=record.get('sha','');published=record['commit']['committer'].get('date')
         if not re.fullmatch('[a-f0-9]{40}',commit): raise ValueError('国内词库版本信息无效。')
         date(published)
-        data=self.call('contents/'+FILE+'?ref='+commit)
+        return commit,published
+
+    def read(self,revision=None):
+        commit,published=revision or self.revision(self.file)
+        data=self.call('contents/'+self.file+'?ref='+commit)
+        source={'source':self.source['id'],'source_date':published,'source_commit':commit}
+        if data is None and revision:
+            return {'entries':[],'sha':'','missing':True,**source}
         try:
             if isinstance(data,dict) and data.get('encoding')=='none' and re.fullmatch('[a-f0-9]{40}',str(data.get('sha',''))):
                 blob=self.call('git/blobs/'+data['sha'])
@@ -95,14 +106,15 @@ class PublicMirror:
             if not isinstance(data,dict) or data.get('type')!='file' or data.get('encoding')!='base64': raise ValueError()
             raw=base64.b64decode(data['content'])
             if len(raw)>MAX_BYTES or type(data.get('size')) is not int or len(raw)!=data['size'] or git_blob(raw)!=data['sha']: raise ValueError()
-            entries=store.validate(json.loads(raw.decode('utf-8-sig')))
+            entries=team_language.decode(self.language,json.loads(raw.decode('utf-8-sig')))
         except (KeyError,TypeError,ValueError,UnicodeError):
             raise ValueError('国内团队词库格式或校验信息不正确，本机词库保持不变。') from None
-        return {'entries':entries,'sha':data['sha'],'missing':False,'source':self.source['id'],'source_date':published,'source_commit':commit}
+        return {'entries':entries,'sha':data['sha'],'missing':False,**source}
 
     def history(self):
-        records=self.call('commits?sha=main&path='+FILE+'&per_page=10')
+        records=self.call('commits?sha=main&path='+self.file+'&per_page=10')
         if not isinstance(records,list): raise ValueError('维护记录无法读取。')
         return [{'message':r.get('commit',{}).get('message','')[:1000],
+                 'sha':r.get('sha',''),
                  'author':(r.get('author') or {}).get('login','') or r.get('commit',{}).get('author',{}).get('name',''),
                  'date':r.get('commit',{}).get('author',{}).get('date','')} for r in records]

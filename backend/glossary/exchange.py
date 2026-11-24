@@ -142,37 +142,49 @@ def merge_entries(current,incoming):
     return store.validate(entries),report
 
 
-def import_files(paths,expected,rows=None,columns=None):
+def import_paths(paths):
     if not isinstance(paths,list) or not paths or len(paths)>20 or any(not isinstance(p,str) or not p for p in paths):
         raise ValueError('请选择 1–20 个术语库文件。')
+    return list(dict.fromkeys(paths))
+
+
+def import_files(paths,expected,rows=None,columns=None):
+    paths=import_paths(paths)
     current=store.read()
     if expected!=current['fingerprint']:raise store.Conflict('术语库已更新，请重新读取再导入；当前编辑内容仍保留。')
     base=entries_from_rows(rows,columns) if rows is not None else current['entries']
     imported=[]
-    for path in dict.fromkeys(paths):
+    for path in paths:
         imported.extend(load_import(path))
         if len(imported)>20000:raise ValueError('本次导入超过 20000 条，请分批导入。')
     if not imported:raise ValueError('文件中没有可导入的术语，请检查中文和英文列。')
     entries,report=merge_entries(base,imported)
     # Nothing is written until every source has loaded and all rows validate.
-    saved=current
-    if entries!=current['entries']:
-        if store.is_table(current['path']):
-            table=writer.load_table(current['path'])
-            target_columns=list(columns or table['columns'])
-            target_columns.extend(f for f in writer.HEADER_FIELDS if f not in target_columns)
-            target_rows=store._entries_to_rows(entries,target_columns)
-            old_columns=columns or table['columns'];old_rows=rows if rows is not None else table['rows']
-            originals={(key(str(r[old_columns.index('zh')])),key(str(r[old_columns.index('en')]))):r for r in old_rows if len(r)>max(old_columns.index('zh'),old_columns.index('en'))}
-            for entry,row in zip(entries,target_rows):
-                old=originals.get((key(entry['zh']),key(entry['en'])),[])
-                for i,field in enumerate(target_columns):
-                    if field in writer.LIST_FIELDS:row[i]=_list_cell(entry[field])
-                    elif field not in store.FIELDS and i<len(old):row[i]=old[i]
-            store.edit_table(current['path'],target_rows,target_columns,expected)
-            saved=store.read()
-        else:saved=store.save(entries,expected)
+    saved=save_merged(current,entries,rows,columns)
     return {**saved,**report,'imported':len(imported),'files':len(set(paths))}
+
+
+def save_merged(current,entries,rows=None,columns=None):
+    if entries==current['entries']:
+        return current
+    path=current['path']
+    expected=current['fingerprint']
+    if not store.is_table(path):
+        return store.save(entries,expected,path=path)
+    table=writer.load_table(path)
+    target_columns=list(columns or table['columns'])
+    target_columns.extend(f for f in writer.HEADER_FIELDS if f not in target_columns)
+    target_rows=store._entries_to_rows(entries,target_columns)
+    old_columns=columns or table['columns'];old_rows=rows if rows is not None else table['rows']
+    zh, en = old_columns.index('zh'), old_columns.index('en')
+    originals={(key(str(r[zh])),key(str(r[en]))):r for r in old_rows if len(r)>max(zh,en)}
+    for entry,row in zip(entries,target_rows):
+        old=originals.get((key(entry['zh']),key(entry['en'])),[])
+        for i,field in enumerate(target_columns):
+            if field in writer.LIST_FIELDS:row[i]=_list_cell(entry[field])
+            elif field not in store.FIELDS and i<len(old):row[i]=old[i]
+    store.edit_table(path,target_rows,target_columns,expected)
+    return store.read(path)
 
 
 def _list_cell(values):
@@ -190,14 +202,14 @@ def _write_excel(path,entries):
     finally:book.close()
 
 
-def export_file(path,expected,rows=None,columns=None):
+def write_export(path,expected,count,write,protected=()):
     if not isinstance(path,str) or not Path(path).is_absolute():raise ValueError('请选择导出文件的完整路径。')
     target=Path(path).resolve();suffix=target.suffix.lower()
     if suffix not in {'.json','.xlsx'}:raise ValueError('导出格式支持 JSON 词库和 Excel 表格。')
     current=store.read()
-    if target==Path(current['path']).resolve() or target.parent==Path(DEFAULT_PATH).resolve().parent:
+    from .language_pairs import path as language_path
+    if target in {Path(p).resolve() for p in (current['path'],language_path(),*protected)} or target.parent==Path(DEFAULT_PATH).resolve().parent:
         raise ValueError('导出请另选文件名，不能覆盖正在编辑的词库或内置词库。')
-    entries=entries_from_rows(rows,columns) if rows is not None else current['entries']
     if expected is None:raise ValueError('缺少目标文件版本，请重新选择导出位置。')
     target.parent.mkdir(parents=True,exist_ok=True)
     with store.edit_lock(target):
@@ -207,9 +219,16 @@ def export_file(path,expected,rows=None,columns=None):
         check()
         fd,temp=tempfile.mkstemp(dir=target.parent,suffix=suffix);os.close(fd)
         try:
-            if suffix=='.xlsx':_write_excel(temp,entries)
-            else:Path(temp).write_text(json.dumps(entries,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+            write(Path(temp),suffix)
             check();os.replace(temp,target)
         finally:
             if os.path.exists(temp):os.unlink(temp)
-    return {'path':str(target),'count':len(entries),'format':suffix[1:],'fingerprint':store.fingerprint(target)}
+    return {'path':str(target),'count':count,'format':suffix[1:],'fingerprint':store.fingerprint(target)}
+
+
+def export_file(path,expected,rows=None,columns=None):
+    entries=entries_from_rows(rows,columns) if rows is not None else store.read()['entries']
+    def write(temp,suffix):
+        if suffix=='.xlsx':_write_excel(temp,entries)
+        else:temp.write_text(json.dumps(entries,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    return write_export(path,expected,len(entries),write)

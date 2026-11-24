@@ -31,6 +31,33 @@ class LanguagePairsTests(unittest.TestCase):
         self.assertEqual(next(r['en'] for r in rows if r['_english']=='missing'),'')
         self.assertEqual({r['en'] for r in rows if r['zh']=='刷新率'},{'リフレッシュレート','別の意味'})
         self.assertFalse(pairs.path().exists());self.assertEqual(Path(self.english['path']).read_bytes(),self.before)
+
+    def test_unsaved_language_edits_export_and_merge_without_writing_other_languages(self):
+        client=app.test_client()
+        baseline=pairs.table('ja-JP')
+        for suffix in ('json','xlsx'):
+            with self.subTest(format=suffix):
+                data=copy.deepcopy(pairs.table('ja-JP'))
+                original=next(row for row in data['rows'] if row[pairs.FIELDS.index('_english')]=='refresh rate')
+                original[pairs.FIELDS.index('variants')]='独自のエイリアス '+suffix
+                new=dict(zh='新增试验词 '+suffix,en='試験用語',priority='1',category='term')
+                data['rows'].append([new.get(field,'') for field in pairs.FIELDS])
+                target=Path(self.tmp.name)/('pair.'+suffix)
+                payload={**data,'path':str(target),'destination_fingerprint':''}
+                previous=pairs.table('ja-JP')
+                exported=client.post('/api/lexicon/export',json=payload)
+                self.assertEqual(exported.status_code,200,exported.json)
+                self.assertEqual(pairs.table('ja-JP')['fingerprint'],previous['fingerprint'])
+                wrong=client.post('/api/lexicon/import',json={**pairs.table('ko'),'paths':[str(target)]})
+                self.assertEqual(wrong.status_code,400,wrong.json)
+                result=client.post('/api/lexicon/import',json={**previous,'paths':[str(target)]})
+                self.assertEqual(result.status_code,200,result.json)
+                rows=[dict(zip(pairs.FIELDS,row)) for row in pairs.table('ja-JP')['rows']]
+                self.assertTrue(any(row['zh']==new['zh'] and row['en']==new['en'] for row in rows))
+                self.assertIn('独自のエイリアス '+suffix,next(row['variants'] for row in rows if row['_english']=='refresh rate'))
+                self.assertFalse(any(row[0]==new['zh'] for row in pairs.table('ko')['rows']))
+        self.assertNotEqual(pairs.table('ja-JP')['fingerprint'],baseline['fingerprint'])
+        self.assertEqual(Path(self.english['path']).read_bytes(),self.before)
     def test_all_supported_targets_edit_reload_without_touching_other_languages(self):
         for code,value in [('ja-JP','新しいレート'),('ko','새 재생률'),('zh-Hant-TW','重新整理率')]:
             row=self.edit(code,en=value,variants='別名',wrong_variants='誤訳',priority='1',note='团队确认')

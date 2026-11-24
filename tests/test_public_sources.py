@@ -27,6 +27,16 @@ class PublicSourceTests(unittest.TestCase):
         for base in [{'sha':'a'*40,'source_date':'2026-10-14T01:00:00Z'},{'sha':'a'*40,'saved_at':'2026-10-14T01:00:00Z'},{'sha':'a'*40}]:
             with self.assertRaisesRegex(ValueError,'尚未同步'):public.guard(remote,base)
         self.assertEqual(public.guard(remote,{'sha':'b'*40,'source_date':'2026-10-14T01:00:00Z'}),remote)
+    def test_language_mirror_matches_language_contents_and_history(self):
+        mirror=public.PublicMirror(SOURCE,'ko')
+        raw=json.dumps({'schema':1,'language':'ko','entries':[{'zh':'色深','english':'color depth','translation':'색 심도'}]},ensure_ascii=False).encode('utf-8')
+        data={'type':'file','encoding':'base64','size':len(raw),'content':base64.b64encode(raw).decode('ascii'),'sha':public.git_blob(raw)}
+        record={'sha':COMMIT,'commit':{'committer':{'date':'2026-10-14T01:00:00Z'},'message':'补充韩语术语','author':{'name':'QA','date':'2026-10-14T01:00:00Z'}}}
+        with patch.object(mirror,'call',side_effect=[[record],data,[record]]) as call:
+            self.assertEqual(mirror.read()['entries'][0]['translation'],'색 심도')
+            self.assertEqual(mirror.history()[0]['message'],'补充韩语术语')
+            self.assertEqual(call.call_args_list[1].args[0],'contents/glossary/team-languages/ko.json?ref='+COMMIT)
+            self.assertIn('path=glossary/team-languages/ko.json',call.call_args_list[2].args[0])
     def test_large_content_uses_the_pinned_blob_and_retains_file_hash_validation(self):
         reader,data,calls=self.reader();blob=copy.deepcopy(data);blob.pop('type');data['encoding']='none';data['content']=''
         original=reader.call

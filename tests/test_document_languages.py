@@ -176,7 +176,6 @@ class DocumentLanguageTests(unittest.TestCase):
   from docx.shared import Pt,RGBColor
   from pptx import Presentation
   from pptx.util import Inches
-  from backend.multilingual_typography import font_for
   negative={'zh-Hant-TW':'請勿','ja-JP':'ないでください','ko':'지 마세요'}
   class StyledModel(Model):
    def chat_json(self,prompt,system='',**options):
@@ -195,6 +194,7 @@ class DocumentLanguageTests(unittest.TestCase):
       mark=OxmlElement('w:bookmarkStart');mark.set(qn('w:id'),'7');mark.set(qn('w:name'),'Safety');paragraph._p.append(mark)
       red=paragraph.add_run('Do not');red.bold=True;red.font.color.rgb=RGBColor(255,0,0);red.font.size=Pt(18)
       rest=paragraph.add_run(SAMPLES['en-US'][6:]);rest.font.name='Arial';rest.font.size=Pt(18)
+      rest._r.get_or_add_rPr().find(qn('w:rFonts')).set(qn('w:eastAsiaTheme'),'minorEastAsia')
       end=OxmlElement('w:bookmarkEnd');end.set(qn('w:id'),'7');paragraph._p.append(end)
       link=doc.add_paragraph();relationship=doc.part.relate_to('https://example.com/中文','http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink',is_external=True)
       hyperlink=OxmlElement('w:hyperlink');hyperlink.set(qn('r:id'),relationship)
@@ -207,6 +207,8 @@ class DocumentLanguageTests(unittest.TestCase):
       from pptx.dml.color import RGBColor as PptColor
       red.font.color.rgb=PptColor(255,0,0);red.font.size=Pt(18)
       rest=paragraph.add_run();rest.text=SAMPLES['en-US'][6:];rest.font.name='Arial';rest.font.size=Pt(18)
+      from pptx.oxml.xmlchemy import OxmlElement as PptElement
+      family=PptElement('a:ea');family.set('typeface','+mn-ea');rest._r.get_or_add_rPr().append(family)
       rest.hyperlink.address='https://example.com/中文'
       slide.shapes.add_picture(str(Path(__file__).resolve().parents[1]/'renderer/assets/normal.png'),Inches(9),Inches(1),height=Inches(.4));doc.save(path)
      model=StyledModel(target);model.negative=negative[dst]
@@ -222,8 +224,7 @@ class DocumentLanguageTests(unittest.TestCase):
       tree=etree.fromstring(after.read(main));runs=tree.xpath('//*[local-name()="r"]')
       emphasized=[r for r in runs if r.xpath('./*[local-name()="rPr"]/*[local-name()="b"]') or r.xpath('./*[local-name()="rPr"][@b="1"]')]
       self.assertEqual(''.join(''.join(r.itertext()) for r in emphasized),negative[dst])
-      font=font_for(dst)
-      if font:self.assertIn(font.encode(),after.read(main))
+      self.assertIn(b'minorEastAsia' if suffix=='.docx' else b'+mn-ea',after.read(main))
       if suffix=='.docx':
        self.assertEqual(len(tree.xpath('//*[local-name()="bookmarkStart"]')),1)
        self.assertEqual(len(tree.xpath('//*[local-name()="bookmarkEnd"]')),1)

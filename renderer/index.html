@@ -162,9 +162,9 @@
   <section class="lexicon-page" id="lexiconPage" aria-labelledby="workAreaTitle" hidden>
     <div class="lexicon-heading">
       <div class="lexicon-title"><span class="lexicon-source-kind" id="lexiconKind">当前词库</span><span id="lexiconFile"></span><span class="badge" id="lexiconTotal">0 条</span></div>
-      <div class="actions lexicon-share-actions"><button class="btn primary sm" id="importTerms" title="支持 JSON、Excel、CSV 和 TSV；不同译法会列出供核对">导入词库</button><label class="sr-only" for="lexiconExportFormat">导出格式</label><select id="lexiconExportFormat" aria-label="导出格式" title="词库文件适合完整分享；Excel 表格可直接编辑"><option value="json">词库文件 (.json)</option><option value="xlsx">Excel 表格 (.xlsx)</option></select><button class="btn ghost sm" id="exportTerms" title="导出全部词条，包含当前尚未保存的完整修改">导出词库</button></div>
+      <div class="actions lexicon-share-actions"><label class="sr-only" for="lexiconExchangeScope">导入导出范围</label><select id="lexiconExchangeScope" aria-label="导入导出范围"><option value="all">全部语种</option><option value="current">当前语种</option></select><button class="btn primary sm" id="importTerms" title="支持 Excel、JSON、CSV 和 TSV">导入词库</button><label class="sr-only" for="lexiconExportFormat">导出格式</label><select id="lexiconExportFormat" aria-label="导出格式"><option value="xlsx">Excel (.xlsx)</option><option value="json">JSON (.json)</option></select><button class="btn ghost sm" id="exportTerms" title="导出包含当前未保存的修改">导出词库</button></div>
     </div>
-    <div class="lexicon-source"><button class="btn lexicon-action sm" id="openMultilingual">多语言词库</button><button class="btn lexicon-action sm" id="openTeamSync" title="先保存当前编辑，再获取团队内容或提交修改">团队同步</button><button class="btn ghost sm" id="revealLexicon">打开位置</button></div>
+    <div class="lexicon-source"><button class="btn lexicon-action sm" id="openMultilingual">多语言词库</button><button class="btn lexicon-action sm" id="openTeamSync" title="同步四个主词库语种的差异">团队同步</button><button class="btn ghost sm" id="revealLexicon">打开位置</button></div>
     <details class="lexicon-management" id="lexiconManagement">
       <summary>管理词库 </summary>
       <div class="lexicon-management-body"><p class="hint" id="lexiconPath"></p><div class="actions"><button class="btn ghost sm" id="createShared">创建共享词库</button><button class="btn ghost sm" id="connectShared">连接共享词库</button><button class="btn ghost sm" id="useLocal">切回本机词库</button><button class="btn ghost sm" id="syncReviewed">合并核对结果</button></div></div>
@@ -314,7 +314,7 @@
     <section class="team-sync-controls" aria-label="同步词库">
       <div class="community-summary"><strong>团队词库</strong><span id="teamLastSync" class="hint">尚未同步</span></div>
       <p id="teamReadSource" class="hint"></p>
-      <div class="actions"><button id="teamPull" class="btn primary">获取团队最新词库</button><button id="teamPush" class="btn ghost" disabled>提交本机修改</button><button id="teamHistory" class="btn ghost sm">最近维护记录</button></div>
+      <div class="actions"><button id="teamPull" class="btn primary">获取团队最新词库</button><button id="teamPush" class="btn ghost">提交本机修改</button><button id="teamHistory" class="btn ghost sm">最近维护记录</button></div>
     </section>
     <div id="teamHistoryRows" class="community-history" hidden></div>
     <details class="community-authorization" id="teamAuthorization"><summary>维护授权设置</summary><p class="hint">维护者需拥有仓库写入权限。仓库所有者可创建仅用于 StarTranslator 的细粒度授权，开启 Contents 读写权限；其他协作者需创建经典授权，勾选 public_repo。授权仅加密保存在本机，不会分享给同事。</p><label>维护授权<input type="password" id="teamToken" autocomplete="off" maxlength="255" placeholder="输入新授权；留空保留原授权"></label><div class="actions"><button id="teamSaveToken" class="btn primary sm">保存授权</button><button id="teamClearToken" class="btn ghost sm">移除授权</button><button id="teamGetToken" class="btn ghost sm">获取维护授权</button></div><p id="teamTokenState" class="hint"></p></details>

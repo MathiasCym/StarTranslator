@@ -196,6 +196,10 @@ Windows 可在 preview 分支运行 `npm run preview:win`。构建和文件校�
 
 本机成功记录只证明本机包已生成，不证明 GitHub 或国内已经发布。需要本机按确切版本验证时，先核对版本及同名产物，参考 CI 的构建步骤单独执行；不要覆盖已留存的正式包或把重建包上传为同版本替换。
 
+### Windows 代码签名
+
+当前正式发布不启用代码签名，构建产物为未签名安装包，Windows 可能显示“未知发布者”。签名与验签工具保留在 `tools/check-release-signatures.ps1`，待配置受信任证书后再启用：在 GitHub Actions 变量 `STAR_RELEASE_SIGNER_SHA1` 登记证书指纹，提供 `WIN_CSC_LINK` 和 `WIN_CSC_KEY_PASSWORD`，并在构建步骤加回 `--config.forceCodeSigning=true` 与验签步骤。本地自签名测试包只用于本地验收，不能替代正式签名。
+
 ## 安装器维护补充：目录
 
 `build/installer.nsh` 将安装文件夹固定为英文 `StarTranslator`，产品显示名称与应用 ID 保持兼容。2.3.3 起正常启动将默认用户数据迁至 `%APPDATA%\StarTranslator`，以旧目录兼容链接保留历史和旧更新程序的绝对引用；不能批量删除这些兼容名称。迁移占用、冲突或回滚时保留可用数据并提示，安装／渲染模式与测试自定义路径不迁移真实资料。`tools/check-user-data.cjs` 验证实际应用及包内迁移。

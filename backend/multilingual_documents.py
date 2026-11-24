@@ -416,8 +416,8 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
     if dst in ('en-US','ko') and hasattr(document,'_star_word_text_parts'):
         from .extract.word_numbering import english_numbering
         english_numbering(document)
-    from .multilingual_typography import apply as apply_typography,font_for
-    issues+=apply_typography(document,paragraphs,set(changed),dst)
+    from .multilingual_typography import apply as apply_typography
+    apply_typography(document,paragraphs,set(changed),dst)
     adjustments,layout=fit_document(document,changed,original) if is_ppt else ([],[])
     visual={'status':'pending' if is_ppt and defer_visual else 'not_requested'}
     with tempfile.TemporaryDirectory(prefix='star-multilingual-') as folder:
@@ -428,7 +428,7 @@ def translate_file(path,glossary,references,output_dir=None,client=None,progress
                 warnings,changes=review_pptx(path,staged,document,changed,original,client,cancel,workers=workers,
                     progress=format_callback(notify),audit=visual,target_language=dst)
                 layout+=warnings;adjustments+=changes
-            issues+=verify_styles(document,paragraphs,styles,changed,script_font=font_for(dst))
+            issues+=verify_styles(document,paragraphs,styles,changed)
             layout+=officecli_bridge.compare(baseline,officecli_bridge.inspect(staged,cancel=cancel))
         notify('consistency','正在重新读取实际输出，核对写入结果和链接')
         audit=audit_saved(staged,by_locator,pending,dst,image_review)

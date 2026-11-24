@@ -36,7 +36,7 @@ def protect_team_api():
 @api.get('/api/team/settings')
 def team_settings():
     from . import team_sync
-    return jsonify(team_sync.settings())
+    return jsonify(team_sync.settings(request.args.get('language',team_sync.DEFAULT)))
 
 
 @api.post('/api/team/settings')
@@ -60,7 +60,7 @@ def team_apply():
 @api.get('/api/team/history')
 def team_history():
     from . import team_sync
-    return jsonify(records=team_sync.history())
+    return jsonify(records=team_sync.history(request.args.get('language',team_sync.DEFAULT)))
 
 
 @api.get('/api/comparisons/<comparison_id>')
@@ -211,7 +211,7 @@ def lexicon_read():
 @api.get('/api/lexicon/catalog')
 def multilingual_catalog():
     from .glossary import catalog
-    return jsonify(catalog.read())
+    return jsonify(catalog.lookup())
 
 
 @api.post('/api/lexicon')
@@ -259,7 +259,18 @@ def merge_reviewed_terms():
 @api.post('/api/lexicon/import')
 def lexicon_import():
     from .glossary.exchange import import_files
+    from .glossary import multilingual_workbook
     data = request.get_json(force=True) or {}
+    language = data.get('language', 'en-US')
+    bulk=multilingual_workbook.import_files(data.get('paths'),language,data.get('fingerprint'),data.get('rows'),data.get('columns'),data.get('all_languages'))
+    if bulk is not None:
+        return jsonify(bulk)
+    if language != 'en-US':
+        from .glossary import language_exchange
+        try:
+            return jsonify(language_exchange.import_files(language,data.get('paths'),data.get('fingerprint'),data.get('rows'),data.get('columns')))
+        except store.FileChanged as error:
+            return jsonify(error=str(error),conflict=True),409
     return jsonify(import_files(data.get('paths'),data.get('fingerprint'),data.get('rows'),data.get('columns')))
 
 
@@ -267,6 +278,13 @@ def lexicon_import():
 def lexicon_export():
     from .glossary.exchange import export_file
     data=request.get_json(force=True) or {}
+    language = data.get('language', 'en-US')
+    if data.get('all_languages') is True:
+        from .glossary import multilingual_workbook
+        return jsonify(multilingual_workbook.export_file(language,data.get('path'),data.get('destination_fingerprint'),data.get('rows'),data.get('columns')))
+    if language != 'en-US':
+        from .glossary import language_exchange
+        return jsonify(language_exchange.export_file(language,data.get('path'),data.get('destination_fingerprint'),data.get('rows'),data.get('columns')))
     return jsonify(export_file(data.get('path'),data.get('destination_fingerprint'),data.get('rows'),data.get('columns')))
 
 
